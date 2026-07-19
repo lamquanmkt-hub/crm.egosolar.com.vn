@@ -1,0 +1,4 @@
+[19-Jul-2026 20:21:00 Asia/Ho_Chi_Minh] PHP Fatal error:  Uncaught Error: Call to undefined function base_path() in Standard input code:3
+Stack trace:
+#0 {main}
+  thrown in Standard input code on line 3

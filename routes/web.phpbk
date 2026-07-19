@@ -1,0 +1,156 @@
+<?php
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\CustomerController;
+//use App\Http\Controllers\LeadController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrderController;
+//use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WarehouseController;
+use Illuminate\Support\Facades\Route;
+//Route::get('/', function () {
+//    return view('welcome');
+//});
+Route::get('/', [DashboardController::class, 'index'])->middleware('auth')->name('dashboard');
+// Auth routes
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login']);
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+Route::post('/register', [RegisterController::class, 'register']);
+// Protected routes
+//Route::middleware(['auth'])->group(function () {  ss)->except(['show']);
+//	Route::get('/media/list', [MediaController::class, 'list'])->name('media.list');
+//	Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
+//	Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy');
+//
+////	Route::resource('leads', LeadController::class);
+////	Route::resource('orders', OrderController::class);
+////	Route::resource('payments', PaymentController::class);
+//});
+// ===========================
+// USER MANAGEMENT (Chỉ admin)
+// ===========================
+//Route::middleware(['role:admin'])->group(function () {
+//
+//});
+// ===========================
+// USER SELF PROFILE (ai cũng dùng)
+// ===========================
+//Route::get('/profile', [UserController::class, 'index'])
+//     ->name('users.profile');
+//
+//Route::put('/profile', [UserController::class, 'edit'])
+//     ->name('users.profile.update');
+Route::middleware(['auth'])->group(function () {
+	Route::resource('users', UserController::class)->except(['show']);
+	Route::get('/customers/popup/form/{id?}', [CustomerController::class, 'ajaxForm'])
+	     ->name('customers.popup-form');
+	Route::resource('categories', ProductCategoryController::class);
+	Route::resource('warehouses', WarehouseController::class)->except(['show']);
+	// Customers
+	Route::resource('customers', CustomerController::class);
+	Route::get('warehouses/{warehouse}/inventory', [WarehouseController::class, 'inventory'])
+	     ->middleware(['can:warehouse.manage','can:warehouse.stock_check'])
+	     ->name('warehouses.inventory');
+	// Leads
+//	Route::resource('leads', LeadController::class)
+//	     ->middleware([
+//		     'index' => 'permission:lead.view',
+//		     'create' => 'permission:lead.create',
+//		     'store' => 'permission:lead.create',
+//		     'edit' => 'permission:lead.update',
+//		     'update' => 'permission:lead.update',
+//		     'destroy' => 'permission:lead.delete'
+//	     ]);
+	// Products
+	Route::resource('products', ProductController::class);
+//	Route::resource('categories', ProductCategoryController::class)
+//	     ->middleware('permission:categories.manage');
+	// Orders
+//	Route::resource('orders', OrderController::class)
+//	     ->middleware('permission:order.view');
+//	Route::post('/orders/{order}/approve/accounting', [OrderController::class, 'approveAccounting'])
+//	     ->middleware('permission:order.approve.accounting');
+//
+//	Route::post('/orders/{order}/approve/director', [OrderController::class, 'approveDirector'])
+//	     ->middleware('permission:order.approve.director');
+//
+//	// Inventory
+//	Route::get('/inventory', [InventoryController::class, 'index'])
+//	     ->middleware('permission:inventory.view');
+//
+//	// Payments
+//	Route::resource('payments', PaymentController::class)
+//	     ->only(['index', 'store'])
+//	     ->middleware(['permission:payment.record']);
+	// Media
+	Route::get('/media/list', [MediaController::class, 'list'])->name('media.list');
+	Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
+	Route::delete('/media/{media}', [MediaController::class, 'destroy'])->name('media.destroy')
+	     ->middleware('permission:products.manage');
+});
+// ==================== ORDER ROUTES ====================
+
+Route::middleware(['auth'])->prefix('orders')->name('orders.')->group(function () {
+    // API endpoints
+    Route::get('/products-by-warehouse', [OrderController::class, 'getProductsByWarehouse'])
+        ->name('products-by-warehouse');
+    Route::get('/customer-info/{customerId}', [OrderController::class, 'getCustomerInfo'])
+        ->name('customer-info');
+    Route::get('/product-price/{productId}', [OrderController::class, 'getProductPrice'])
+        ->name('product-price');
+	// Danh sách và CRUD cơ bản
+	Route::get('/', [OrderController::class, 'index'])->name('index');
+	Route::get('/create', [OrderController::class, 'create'])->name('create');
+	Route::post('/', [OrderController::class, 'store'])->name('store');
+	Route::get('/{id}', [OrderController::class, 'show'])->whereNumber('id')->name('show');
+	Route::get('/{id}/edit', [OrderController::class, 'edit'])->whereNumber('id') ->name('edit');
+	Route::put('/{id}', [OrderController::class, 'update'])->name('update');
+	Route::delete('/{id}', [OrderController::class, 'destroy'])->name('destroy');
+
+	// Quy trình duyệt
+	Route::post('/{id}/submit', [OrderController::class, 'submitForApproval'])->name('submit');
+	Route::get('/{id}/approval', [OrderController::class, 'approvalForm'])->name('approval-form');
+	Route::post('/{id}/approval', [OrderController::class, 'processApproval'])->name('process-approval');
+
+	// Xuất kho
+	Route::post('/{id}/ship', [OrderController::class, 'shipOrder'])->name('ship');
+
+	// Thanh toán
+	Route::post('/{id}/payment', [OrderController::class, 'recordPayment'])->name('record-payment');
+
+
+
+	// Dashboard Sales
+	Route::get('/my/dashboard', [OrderController::class, 'myOrders'])->name('my-orders');
+
+});
+Route::middleware(['auth'])->prefix('payment-methods')->name('payment-methods.')->group(function () {
+    // Danh sách & Tìm kiếm
+    Route::get('/', [PaymentMethodController::class, 'index'])->name('index');
+
+    // Thêm mới
+    Route::get('/create', [PaymentMethodController::class, 'create'])->name('create');
+    Route::post('/', [PaymentMethodController::class, 'store'])->name('store');
+
+    // Chỉnh sửa
+    Route::get('/{id}/edit', [PaymentMethodController::class, 'edit'])->whereNumber('id')->name('edit');
+    Route::put('/{id}', [PaymentMethodController::class, 'update'])->whereNumber('id')->name('update');
+
+    // Xóa
+    Route::delete('/{id}', [PaymentMethodController::class, 'destroy'])->whereNumber('id')->name('destroy');
+});
+// ==================== NOTIFICATION ROUTES ====================
+Route::middleware(['auth'])->prefix('notifications')->name('notifications.')->group(function () {
+	Route::get('/', [NotificationController::class, 'index'])->name('index');
+	Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('mark-read');
+	Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+	Route::get('/unread-count', [NotificationController::class, 'getUnreadCount'])->name('unread-count');
+});

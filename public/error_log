@@ -1,0 +1,26 @@
+[26-Apr-2026 14:57:27 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use Illuminate\Support\Facades\Route as Route because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 895
+[26-Apr-2026 14:57:28 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use Illuminate\Support\Facades\Route as Route because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 895
+[26-Apr-2026 14:57:49 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use Illuminate\Support\Facades\Route as Route because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 884
+[26-Apr-2026 14:57:49 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use Illuminate\Support\Facades\Route as Route because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 884
+[26-Apr-2026 14:58:10 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use Illuminate\Support\Facades\Route as Route because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 884
+[26-Apr-2026 14:59:41 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot use App\Http\Controllers\Auth\LoginController as LoginController because the name is already in use in /home/crmegoso/public_html/routes/web.php on line 892
+[10-May-2026 18:50:08 Asia/Ho_Chi_Minh] PHP Fatal error:  Cannot redeclare App\Http\Controllers\Hr\AnnouncementController::unreadCount() in /home/crmegoso/public_html/app/Http/Controllers/Hr/AnnouncementController.php on line 403
+[02-Jun-2026 15:40:06 Asia/Ho_Chi_Minh] PHP Fatal error:  Constant expression contains invalid operations in /home/crmegoso/public_html/app/Http/Controllers/CompanyDocumentController.php on line 13
+[02-Jun-2026 15:40:10 Asia/Ho_Chi_Minh] PHP Fatal error:  Constant expression contains invalid operations in /home/crmegoso/public_html/app/Http/Controllers/CompanyDocumentController.php on line 13
+[18-Jul-2026 11:26:13 Asia/Ho_Chi_Minh] PHP Fatal error:  Uncaught UnexpectedValueException: Writing to the log file failed: Write of 3449 bytes failed with errno=122 Disk quota exceeded
+The exception occurred while attempting to log: file_put_contents(): Write of 429 bytes failed with errno=122 Disk quota exceeded
+Context: {"exception":{}} in /home/crmegoso/public_html/vendor/monolog/monolog/src/Monolog/Handler/StreamHandler.php:186
+Stack trace:
+#0 /home/crmegoso/public_html/vendor/monolog/monolog/src/Monolog/Handler/AbstractProcessingHandler.php(44): Monolog\Handler\StreamHandler->write()
+#1 /home/crmegoso/public_html/vendor/monolog/monolog/src/Monolog/Logger.php(391): Monolog\Handler\AbstractProcessingHandler->handle()
+#2 /home/crmegoso/public_html/vendor/monolog/monolog/src/Monolog/Logger.php(646): Monolog\Logger->addRecord()
+#3 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Log/Logger.php(183): Monolog\Logger->error()
+#4 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Log/Logger.php(96): Illuminate\Log\Logger->writeLog()
+#5 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Log/LogManager.php(703): Illuminate\Log\Logger->error()
+#6 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(402): Illuminate\Log\LogManager->error()
+#7 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(365): Illuminate\Foundation\Exceptions\Handler->reportThrowable()
+#8 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(933): Illuminate\Foundation\Exceptions\Handler->report()
+#9 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(847): Illuminate\Foundation\Exceptions\Handler->renderHttpException()
+#10 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(738): Illuminate\Foundation\Exceptions\Handler->prepareResponse()
+#11 /home/crmegoso/public_html/vendor/laravel/framework/src/Illuminate/Foundation/Exceptions/Handler.php(626): Illuminate\Foundation\Exceptions\Handler->renderExceptionResponse()
+#12 /home/crmegoso/public_

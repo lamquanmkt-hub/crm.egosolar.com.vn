@@ -1,0 +1,155 @@
+<?php
+namespace App\Http\Controllers;
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
+use App\Models\CRM\Customer;
+use App\Models\CRM\CustomerType;
+use App\Models\Region;
+use App\Models\User;
+use App\Services\CustomerService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
+
+class CustomerController extends Controller
+{
+    public function __construct(
+        protected CustomerService $customerService
+    ) {
+        $this->middleware('auth');
+        $this->authorizeResource(Customer::class, 'customer');
+    }
+	/**
+	 * Display a listing of the resource.
+	 */
+	public function index(): View {
+		// Nếu có filter thì dùng search, không thì dùng getAll
+//		if (request()->hasAny(['search', 'region_id', 'customer_type_id', 'customer_status', 'owner_id', 'is_potential'])) {
+//			$customers = $this->customerService->search(request()->only(['search', 'region_id', 'customer_type_id', 'customer_status', 'owner_id', 'is_potential']));
+//		} else {
+//			$customers = $this->customerService->getAll();
+//		}
+//		$regions = Region::all();
+//		$customerTypes = CustomerType::all();
+//		$users = User::all();
+//        $user = Auth::user();
+//        $filters = request()->only(['search', 'region_id', 'customer_type_id', 'customer_status', 'is_potential']);
+//
+//        // LOGIC MỚI: Phân quyền dữ liệu
+//        // 1. Nếu là Sales: Chỉ lấy khách do mình phụ trách (owner_id = user_id)
+//        if ($user->hasRole('sales')) {
+//            $filters['owner_id'] = $user->id;
+//        }
+//        // 2. Admin, Kế toán, Giám đốc: Xem tất cả (Hoặc lọc theo request nếu có chọn nhân viên)
+//        else {
+//            if (request()->has('owner_id')) {
+//                $filters['owner_id'] = request('owner_id');
+//            }
+//        }
+//
+//        // Gọi Service với bộ lọc đã chuẩn hóa
+//        $customers = $this->customerService->search($filters);
+//		return view('customers.index', compact('customers', 'regions', 'customerTypes', 'users'));
+        $this->authorize('viewAny', Customer::class);
+
+        $filters = request()->only([
+            'search',
+            'region_id',
+            'customer_type_id',
+            'customer_status',
+            'owner_id',
+            'is_potential'
+        ]);
+
+        $customers = $this->customerService->search($filters);
+
+        return view('customers.index', [
+            'customers'      => $customers,
+            'regions'        => Region::all(),
+            'customerTypes'  => CustomerType::all(),
+            'users'          => User::all(),
+        ]);
+	}
+	/**
+	 * Show the form for creating a new resource.
+	 * Note: Using popup form via ajaxForm method
+	 */
+	public function create(): RedirectResponse {
+		return redirect()->route('customers.index');
+	}
+	/**
+	 * Store a newly created resource in storage.
+	 */
+	public function store(StoreCustomerRequest $request): RedirectResponse {
+		$this->customerService->create($request->validated());
+		return redirect()->route('customers.index')->with('success', 'Thêm khách hàng thành công');
+	}
+	/**
+	 * Display the specified resource.
+	 */
+	public function show(string $id): View
+	{
+		$customer = $this->customerService->findWithDetails($id);
+		return view('customers.show', compact('customer'));
+	}
+	/**
+	 * Show the form for editing the specified resource.
+	 * Note: Using popup form via ajaxForm method
+	 */
+	public function edit(string $id): RedirectResponse {
+		return redirect()->route('customers.index');
+	}
+	/**
+	 * Update the specified resource in storage.
+	 */
+	public function update(UpdateCustomerRequest $request, string $id): RedirectResponse {
+		$this->customerService->update($id, $request->validated());
+		return redirect()->route('customers.index')->with('success', 'Cập nhật khách hàng thành công');
+	}
+	/**
+	 * Remove the specified resource from storage.
+	 */
+	public function destroy(string $id): RedirectResponse {
+		$this->customerService->delete($id);
+		return redirect()->route('customers.index')->with('success', 'Đã xóa khách hàng');
+	}
+	public function ajaxForm(string $id = null)
+	{
+		$customer = $id ? $this->customerService->find($id) : null;
+		$regions = Region::all();
+		$customerTypes = CustomerType::all();
+		$users = User::all();
+		return view('customers._form', compact('customer', 'regions', 'customerTypes', 'users'));
+	}
+	/**
+	 * Search customers
+	 */
+	public function search()
+	{
+//		$filters = request()->only(['search', 'region_id', 'customer_type_id', 'customer_status', 'owner_id', 'is_potential']);
+//		$customers = $this->customerService->search($filters);
+//		$regions = Region::all();
+//		$customerTypes = CustomerType::all();
+//		$users = User::all();
+//		return view('customers.index', compact('customers', 'regions', 'customerTypes', 'users'));
+        $query = Customer::query();
+        $user = auth()->user();
+
+        // Sales: ép owner_id = chính mình
+        if ($user->hasRole('sales')) {
+            $query->where('owner_id', $user->id);
+        }
+
+        // Các role khác: cho phép filter theo owner
+        elseif (!empty($filters['owner_id'])) {
+            $query->where('owner_id', $filters['owner_id']);
+        }
+
+        // Các filter khác
+        if (!empty($filters['search'])) {
+            $query->where('name', 'like', '%' . $filters['search'] . '%');
+        }
+
+        return $query->paginate(20);
+	}
+}

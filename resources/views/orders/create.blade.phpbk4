@@ -1,0 +1,77 @@
+@extends('layouts.app')
+@section('title', 'Tạo đơn hàng mới')
+
+@section('content')
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold text-uppercase text-secondary">TẠO ĐƠN HÀNG MỚI</h1>
+            <a href="{{ route('orders.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+
+        {{-- Success Message --}}
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        {{-- Error Message --}}
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show">
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        {{-- Validation Errors --}}
+        @if($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show">
+                <strong>Có lỗi xảy ra:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <form action="{{ route('orders.store') }}" method="POST" id="orderForm">
+            @csrf
+
+            <div class="row">
+                <div class="col-md-8">
+                    {{-- Order Info: bỏ chọn kho ở đây --}}
+                    @include('orders.partials.order-info', [
+                        'customers' => $customers,
+                        'mode' => 'create',
+                    ])
+
+                    {{-- Product Table: mỗi dòng chọn kho + sản phẩm theo kho --}}
+                    @include('orders.partials.product-table', [
+                        'mode' => 'create',
+                        'warehouses' => $warehouses,
+                    ])
+                </div>
+
+                <div class="col-md-4">
+                    @include('orders.partials.order-summary', [
+                        'mode' => 'create',
+                    ])
+                </div>
+            </div>
+        </form>
+    </div>
+@endsection
+
+@section('scripts')
+    <script>
+        // init cho JS
+        window.rowIndex = 1;
+        window.customerTypeId = null;
+    </script>
+    <script src="{{ asset('js/order-form.js') }}?v={{ filemtime(public_path('js/order-form.js')) }}"></script>
+@endsection

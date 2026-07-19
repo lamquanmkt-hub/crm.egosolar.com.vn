@@ -1,0 +1,120 @@
+<?php
+return [
+    // ====================================================
+    // 1. MARKETING (Bộ phận Marketing)
+    // ====================================================
+    'marketing' => [
+        // Lead
+        'lead.view_all'        => 'Xem tất cả Lead',
+        'lead.create'         => 'Thêm mới Lead',
+        'lead.update_all'     => 'Cập nhật / chăm sóc mọi Lead',
+        'lead.rate'           => 'Đánh giá chất lượng Lead',
+    ],
+    // ====================================================
+    // 2. SALES (Nhân viên kinh doanh)
+    // ====================================================
+    'sales' => [
+        // Lead
+        'lead.view_own'       => 'Xem Lead được phân công',
+        'lead.update_own'     => 'Chăm sóc Lead được phân công',
+        'lead.convert'        => 'Chuyển Lead thành Khách hàng',
+        // Customer
+        'customer.view_own'   => 'Xem khách hàng do mình phụ trách',
+        'customer.create'     => 'Tạo khách hàng mới',
+        'customer.update_own' => 'Cập nhật khách hàng do mình phụ trách',
+        // Order
+        'order.create'        => 'Tạo đơn hàng mới',
+        'order.view_own'      => 'Xem đơn hàng của mình',
+        'order.view_status'   => 'Theo dõi trạng thái đơn hàng',
+        // Lookup (read-only)
+        'product.view'        => 'Tra cứu sản phẩm (Giá & Tồn kho)',
+        'warehouse.view'      => 'Xem danh sách kho hàng',
+    ],
+    // ====================================================
+    // 3. SALES MANAGER (Quản lý kinh doanh)
+    // ====================================================
+    'sales_manager' => [
+        // Lead
+        'lead.view_all'           => 'Xem tất cả Lead',
+        'lead.assign'             => 'Phân công Lead cho Sales',
+        'lead.update_all'         => 'Hỗ trợ / cập nhật Lead',
+        // Customer
+        'customer.view_sales_all' => 'Xem toàn bộ khách hàng của Sales',
+        'customer.update_sales'   => 'Cập nhật khách hàng thuộc Sales phụ trách',
+        // Order
+        'order.view_sales_all'    => 'Xem toàn bộ đơn hàng của Sales',
+        'order.approve_level1'    => 'Duyệt đơn – Quản lý kinh doanh',
+        'order.reject'            => 'Từ chối đơn hàng',
+        // Sales Management
+        'user.view_sales'         => 'Xem danh sách nhân viên Sales',
+        'user.manage_sales'      => 'Quản lý nhân viên Sales (phân công, KPI)',
+        // Report
+        'report.view_sales'       => 'Xem báo cáo kinh doanh của Sales',
+    ],
+    // ====================================================
+    // 4. ACCOUNTING (Kế toán – Duyệt bước 2)
+    // ====================================================
+    'accounting' => [
+        // Customer
+        'customer.view_all'       => 'Xem toàn bộ khách hàng',
+        'customer.check_debt'     => 'Kiểm tra hạn mức công nợ',
+        // Order
+        'order.view_all'          => 'Xem tất cả đơn hàng',
+        'order.approve_accounting'=> 'Duyệt đơn – Kế toán',
+        'order.reject'            => 'Từ chối đơn hàng',
+        // Payment
+        'payment.create'          => 'Tạo phiếu thu / ghi nhận thanh toán',
+        'payment.view'            => 'Xem lịch sử thanh toán',
+        // Report
+        'report.revenue'          => 'Xem báo cáo doanh thu',
+        // Master / Lookup
+        'products.manage'         => 'Quản lý sản phẩm',
+        'categories.manage'       => 'Quản lý danh mục',
+        'warehouse.manage'        => 'Quản lý kho',
+        'warehouse.stock_check'   => 'Kiểm kê kho',
+    ],
+    // ====================================================
+    // 5. MANAGEMENT (Giám đốc – Duyệt bước 3)
+    // ====================================================
+    'management' => [
+        // Customer
+        'customer.view_all'       => 'Xem toàn bộ khách hàng',
+        // Order
+        'order.view_all'          => 'Xem toàn bộ đơn hàng',
+        'order.approve_level2'    => 'Duyệt đơn – Giám đốc',
+        'order.force_approve'     => 'Duyệt vượt cấp',
+        // Report
+        'report.view_all'         => 'Xem toàn bộ báo cáo quản trị',
+        // System
+        'system.view_logs'        => 'Xem nhật ký hệ thống',
+    ],
+    // ====================================================
+    // 6. WAREHOUSE (Thủ kho)
+    // ====================================================
+    'warehouse' => [
+        'warehouse.manage'        => 'Quản lý kho',
+        'warehouse.stock_check'   => 'Kiểm kê kho',
+        'warehouse.stock_update'  => 'Điều chỉnh tồn kho',
+        'warehouse.export'        => 'Xuất kho',
+        // Order
+        'order.view_warehouse'    => 'Xem đơn chờ xuất kho',
+        // Product
+        'product.view'            => 'Xem danh mục sản phẩm',
+    ],
+    // ====================================================
+    // 7. ADMIN (Quản trị hệ thống)
+    // ====================================================
+    'admin' => [
+        '*'                        => 'Toàn quyền hệ thống',
+        // Customer
+        'customer.view_all'        => 'Xem tất cả khách hàng',
+        'customer.update_all'      => 'Cập nhật tất cả khách hàng',
+        'customer.delete'          => 'Xóa khách hàng',
+        // User & System
+        'user.manage'              => 'Quản lý tài khoản & phân quyền',
+        'setting.system'           => 'Cấu hình hệ thống',
+        // Master data
+        'products.manage'          => 'Quản lý sản phẩm',
+        'categories.manage'        => 'Quản lý danh mục',
+    ],
+];

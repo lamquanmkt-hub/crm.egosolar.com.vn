@@ -1,0 +1,131 @@
+@php use Illuminate\Support\Facades\Storage; @endphp
+@csrf
+@php
+    $productInstance = $product ?? null;
+    $selectedWarehouse = $formData['selectedWarehouse'] ?? null;
+    $currentQuantity = $formData['currentQuantity'] ?? 0;
+    $defaultQuantity = $formData['defaultQuantity'] ?? null;
+    $existingGallery = $formData['existingGallery'] ?? collect();
+    $defaultGalleryIds = $formData['defaultGalleryIds'] ?? '';
+@endphp
+
+<div class="mb-3">
+    <label class="form-label">Tên sản phẩm</label>
+    <input type="text" name="name" class="form-control"
+           value="{{ old('name', $product->name ?? '') }}" required>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Mã SKU</label>
+    <input type="text" name="sku" class="form-control"
+           value="{{ old('sku', $product->sku ?? '') }}" required>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Giá vốn</label>
+        <input type="number" step="0.01" name="price_agent" class="form-control"
+               value="{{ old('price_agent', $product->price_agent ?? 0) }}" required>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Giá bán</label>
+        <input type="number" step="0.01" name="price_retail" class="form-control"
+               value="{{ old('price_retail', $product->price_retail ?? 0) }}" required>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Danh mục</label>
+    <select name="category_id" class="form-select">
+        @foreach($categories as $cat)
+            <option value="{{ $cat->id }}"
+                    {{ (string)old('category_id', $product->category_id ?? '') === (string)$cat->id ? 'selected' : '' }}>
+                {{ $cat->name }}
+            </option>
+        @endforeach
+    </select>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Điều chỉnh tồn kho</label>
+        <input type="number" name="quantity" min="0" class="form-control"
+               value="{{ $defaultQuantity }}"
+               placeholder="Để trống nếu không thay đổi">
+        <small class="text-muted">Giá trị mới áp dụng cho kho được chọn bên cạnh.</small>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label class="form-label">Kho áp dụng</label>
+        <select name="warehouse_id" class="form-select">
+            <option value="">-- Chọn kho --</option>
+            @foreach($warehouses as $w)
+                <option value="{{ $w->id }}" {{ (string)$selectedWarehouse === (string)$w->id ? 'selected' : '' }}>
+                    {{ $w->name }} - {{ $w->location }}
+                </option>
+            @endforeach
+        </select>
+        <small class="text-muted">Bắt buộc nếu nhập số lượng &gt; 0.</small>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Tồn kho hiện tại</label>
+    <input type="text" class="form-control" value="{{ $currentQuantity }}" disabled>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Ảnh đại diện</label>
+    <button type="button" class="btn btn-outline-secondary" onclick="openMediaModal('main_image', false)">Chọn / Upload</button>
+    <input type="hidden" id="main_image_id" name="main_image_id" value="{{ old('main_image_id', optional(optional($productInstance)->mainImage)->media_id) }}">
+    <div id="preview_main_image" class="mt-2">
+        @php
+            $mainMedia = optional(optional($productInstance)->mainImage)->media;
+            $mainImageUrl = $mainMedia?->metadata->url ?? ($mainMedia?->file_path ? Storage::disk('public')->url($mainMedia->file_path) : null);
+        @endphp
+        @if($mainImageUrl)
+            <img src="{{ $mainImageUrl }}" width="150" class="border rounded">
+        @endif
+    </div>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Ảnh gallery</label>
+    <button type="button" class="btn btn-outline-secondary" onclick="openMediaModal('gallery', true)">Chọn nhiều</button>
+    <input type="hidden" id="gallery_ids" name="gallery_ids" value="{{ $defaultGalleryIds }}">
+    <div id="preview_gallery" class="mt-2 d-flex flex-wrap gap-2">
+        @foreach($existingGallery as $rel)
+            @php
+                $galleryMedia = $rel->media;
+                $galleryUrl = $galleryMedia?->metadata->url ?? ($galleryMedia?->file_path ? Storage::disk('public')->url($galleryMedia->file_path) : null);
+            @endphp
+            @if($galleryUrl)
+                <img src="{{ $galleryUrl }}" width="80" class="border rounded">
+            @endif
+        @endforeach
+    </div>
+</div>
+
+<button class="btn btn-primary">{{ $buttonText }}</button>
+@include('media.modal')  {{-- popup modal --}}
+<script>
+    @if($productInstance)
+    // Dữ liệu tồn kho theo kho
+    const stockByWarehouse = {
+        @foreach($productInstance->stocks as $stock)
+                {{ $stock->warehouse_id }}: {{ $stock->qty }},
+        @endforeach
+    };
+
+    // Cập nhật tồn kho hiện tại khi thay đổi kho
+    document.querySelector('select[name="warehouse_id"]').addEventListener('change', function() {
+        const warehouseId = this.value;
+        const currentQtyInput = document.querySelector('input[value="{{ $currentQuantity }}"]').parentElement.querySelector('input');
+
+        if (warehouseId && stockByWarehouse[warehouseId] !== undefined) {
+            currentQtyInput.value = stockByWarehouse[warehouseId];
+        } else {
+            currentQtyInput.value = 0;
+        }
+    });
+    @endif
+</script>

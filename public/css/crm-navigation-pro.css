@@ -1,0 +1,1453 @@
+/*
+===============================================================================
+CRM EGO SOLAR — UNIFIED NAVIGATION PRO V2
+Top bar + Sidebar visual layer. No route, permission or database changes.
+===============================================================================
+*/
+
+:root {
+    --crm-nav-sidebar-width: 272px;
+    --crm-nav-sidebar-collapsed: 76px;
+    --crm-nav-topbar-height: 64px;
+    --crm-nav-navy-950: #071426;
+    --crm-nav-navy-900: #0a192d;
+    --crm-nav-navy-850: #0d2038;
+    --crm-nav-blue: #0789bd;
+    --crm-nav-cyan: #27c7e8;
+    --crm-nav-teal: #0ca78f;
+    --crm-nav-text: #102a43;
+    --crm-nav-muted: #64748b;
+    --crm-nav-line: #e3eaf0;
+    --crm-nav-soft: #f3f7fa;
+
+    /* Keep current layout variables synchronized. */
+    --ego-sb: var(--crm-nav-sidebar-width);
+    --ego-sb-collapsed: var(--crm-nav-sidebar-collapsed);
+    --ego-w: var(--crm-nav-sidebar-width);
+    --ego-wc: var(--crm-nav-sidebar-collapsed);
+}
+
+html.crm-navigation-ready,
+html.crm-navigation-ready body {
+    scroll-padding-top: var(--crm-nav-topbar-height);
+}
+
+/* ---------------------------------------------------------------------------
+   TOP BAR — ENTERPRISE SHELL
+--------------------------------------------------------------------------- */
+
+html.crm-navigation-ready body .crm-topbar {
+    --crm-topbar-height: var(--crm-nav-topbar-height);
+    position: sticky;
+    isolation: isolate;
+    overflow: visible;
+    height: var(--crm-nav-topbar-height);
+    min-height: var(--crm-nav-topbar-height);
+    border-bottom: 1px solid rgba(203, 214, 224, .78);
+    background: rgba(255, 255, 255, .965);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, .86) inset,
+        0 5px 20px rgba(15, 35, 55, .045);
+    color: var(--crm-nav-text);
+    backdrop-filter: saturate(1.08) blur(10px);
+    -webkit-backdrop-filter: saturate(1.08) blur(10px);
+}
+
+/* Continuous, low-intensity energy rail. */
+html.crm-navigation-ready body .crm-topbar::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    z-index: 4;
+    height: 2px;
+    overflow: hidden;
+    background:
+        linear-gradient(
+            90deg,
+            transparent 0%,
+            transparent 32%,
+            rgba(39, 199, 232, .12) 39%,
+            rgba(39, 199, 232, .92) 49%,
+            rgba(12, 167, 143, .78) 54%,
+            rgba(39, 199, 232, .10) 64%,
+            transparent 72%,
+            transparent 100%
+        );
+    background-size: 260% 100%;
+    box-shadow: 0 2px 10px rgba(39, 199, 232, .14);
+    content: "";
+    pointer-events: none;
+    animation: crmNavEnergyRail 8.6s linear infinite;
+}
+
+html.crm-navigation-ready body .crm-topbar.is-page-scrolled {
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, .90) inset,
+        0 9px 25px rgba(15, 35, 55, .08);
+}
+
+html.crm-navigation-ready body .crm-topbar__inner {
+    grid-template-columns: minmax(210px, 1fr) auto minmax(250px, 1fr);
+    gap: 14px;
+    padding: 0 18px;
+}
+
+html.crm-navigation-ready body .crm-topbar__left {
+    gap: 8px;
+}
+
+html.crm-navigation-ready body .crm-topbar__center {
+    gap: 2px;
+}
+
+html.crm-navigation-ready body .crm-topbar__right {
+    gap: 3px;
+}
+
+html.crm-navigation-ready body .crm-topbar__module-copy {
+    position: relative;
+    padding-left: 10px;
+}
+
+html.crm-navigation-ready body .crm-topbar__module-copy::before {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 0;
+    width: 2px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--crm-nav-cyan), var(--crm-nav-blue));
+    content: "";
+}
+
+html.crm-navigation-ready body .crm-topbar__module-eyebrow {
+    color: #93a2b2;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .075em;
+}
+
+html.crm-navigation-ready body .crm-topbar__module-title {
+    max-width: 220px;
+    margin-top: 3px;
+    color: #0d2a43;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -.018em;
+}
+
+html.crm-navigation-ready body .crm-topbar__icon-button,
+html.crm-navigation-ready body .crm-topbar__panel-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    color: #526679;
+}
+
+html.crm-navigation-ready body .crm-topbar__icon-button:hover,
+html.crm-navigation-ready body .crm-topbar__panel-icon:hover,
+html.crm-navigation-ready body .crm-topbar__icon-button[aria-expanded="true"] {
+    border-color: #dce8ee;
+    background: #eef6f9;
+    color: #087899;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link,
+html.crm-navigation-ready body .crm-topbar__action-button {
+    min-height: 38px;
+    padding: 0 10px;
+    border-radius: 9px;
+    color: #405468;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link:hover,
+html.crm-navigation-ready body .crm-topbar__action-button:hover,
+html.crm-navigation-ready body .crm-topbar__quick-link.is-active,
+html.crm-navigation-ready body .crm-topbar__action-button.is-active,
+html.crm-navigation-ready body .crm-topbar__action-button[aria-expanded="true"] {
+    border-color: #dce9ef;
+    background: #eff7fa;
+    color: #086f90;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link.is-active::after {
+    right: 9px;
+    bottom: -7px;
+    left: 9px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--crm-nav-blue), var(--crm-nav-cyan));
+}
+
+html.crm-navigation-ready body .crm-topbar__status-chip {
+    height: 28px;
+    max-width: 270px;
+    border-color: #deebef;
+    border-radius: 8px;
+    background: #f6fafb;
+    color: #607386;
+    font-size: 10.5px;
+}
+
+html.crm-navigation-ready body .crm-topbar__status-dot {
+    width: 6px;
+    height: 6px;
+    background: #12b98e;
+    box-shadow: 0 0 0 4px rgba(18, 185, 142, .11);
+    animation: crmNavStatusPulse 2.4s ease-out infinite;
+}
+
+html.crm-navigation-ready body .crm-topbar__badge:not([hidden]) {
+    animation: crmNavBadgePulse 2.7s ease-in-out infinite;
+}
+
+html.crm-navigation-ready body .crm-topbar__account-button {
+    position: relative;
+    height: 44px;
+    gap: 9px;
+    margin-left: 4px;
+    padding: 3px 8px 3px 4px;
+    border-radius: 10px;
+}
+
+html.crm-navigation-ready body .crm-topbar__account-button:hover,
+html.crm-navigation-ready body .crm-topbar__account-button[aria-expanded="true"] {
+    border-color: #dce8ee;
+    background: #f1f7f9;
+}
+
+html.crm-navigation-ready body .crm-topbar__avatar {
+    border: 2px solid #d9eaf0;
+    background: #e9f6f8;
+    box-shadow: 0 0 0 0 rgba(39, 199, 232, 0);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+html.crm-navigation-ready body .crm-topbar__account-button:hover .crm-topbar__avatar,
+html.crm-navigation-ready body .crm-topbar__account-button[aria-expanded="true"] .crm-topbar__avatar {
+    border-color: rgba(39, 199, 232, .72);
+    box-shadow: 0 0 0 4px rgba(39, 199, 232, .10);
+    transform: translateY(-1px);
+}
+
+html.crm-navigation-ready body .crm-topbar__account-copy strong {
+    max-width: 132px;
+    color: #173148;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+html.crm-navigation-ready body .crm-topbar__panel {
+    border-color: #d9e4eb;
+    border-radius: 12px;
+    box-shadow: 0 22px 55px rgba(13, 35, 54, .17);
+}
+
+html.crm-navigation-ready body .crm-topbar__panel.is-open {
+    animation: crmNavPanelIn .17s cubic-bezier(.22, .9, .35, 1);
+}
+
+html.crm-navigation-ready body .crm-topbar__panel-header,
+html.crm-navigation-ready body .crm-topbar__account-header {
+    border-bottom-color: #e6edf2;
+    background: #fff;
+}
+
+html.crm-navigation-ready body .crm-topbar__message-item,
+html.crm-navigation-ready body .crm-topbar__notification-item {
+    border: 1px solid transparent;
+    border-radius: 9px;
+}
+
+html.crm-navigation-ready body .crm-topbar__message-item:hover,
+html.crm-navigation-ready body .crm-topbar__notification-item:hover {
+    border-color: #e1ebf0;
+    background: #f4f8fa;
+}
+
+html.crm-navigation-ready body .crm-topbar__message-item.is-unread,
+html.crm-navigation-ready body .crm-topbar__notification-item.is-unread {
+    border-color: #dcecf2;
+    background: #eef8fb;
+}
+
+/* ---------------------------------------------------------------------------
+   SIDEBAR — MODERN ENTERPRISE NAVIGATION
+--------------------------------------------------------------------------- */
+
+html.crm-navigation-ready body #sidebar.ego-sidebar {
+    position: sticky !important;
+    isolation: isolate;
+    overflow: hidden !important;
+    width: var(--crm-nav-sidebar-width) !important;
+    flex: 0 0 var(--crm-nav-sidebar-width) !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    border: 0 !important;
+    border-right: 1px solid rgba(134, 171, 196, .14) !important;
+    border-radius: 0 !important;
+    background: var(--crm-nav-navy-950) !important;
+    box-shadow:
+        9px 0 30px rgba(3, 12, 24, .12),
+        inset -1px 0 0 rgba(255, 255, 255, .025) !important;
+    color: rgba(244, 248, 252, .90) !important;
+}
+
+/* Ambient layer — deliberately subtle and always moving. */
+html.crm-navigation-ready body #sidebar.ego-sidebar::before {
+    position: absolute;
+    top: -32%;
+    right: -58%;
+    z-index: -1;
+    width: 430px;
+    height: 430px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(25, 173, 202, .14) 0, rgba(25, 173, 202, .05) 37%, transparent 69%);
+    content: "";
+    pointer-events: none;
+    animation: crmNavSidebarAura 14s ease-in-out infinite alternate;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar::after {
+    position: absolute;
+    top: -30%;
+    right: 0;
+    z-index: 5;
+    width: 1px;
+    height: 28%;
+    background: linear-gradient(180deg, transparent, rgba(39, 199, 232, .82), rgba(12, 167, 143, .60), transparent);
+    box-shadow: 0 0 12px rgba(39, 199, 232, .34);
+    content: "";
+    pointer-events: none;
+    animation: crmNavSidebarRail 8.8s linear infinite;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__header {
+    position: relative !important;
+    z-index: 3 !important;
+    min-height: 70px !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid rgba(151, 182, 204, .10) !important;
+    background: rgba(7, 20, 38, .88) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .015) inset !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-brand--logoonly {
+    justify-content: flex-start !important;
+    padding-left: 4px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-brand__logo-big {
+    width: auto !important;
+    height: 35px !important;
+    max-width: 145px !important;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .20)) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-toggle {
+    width: 34px !important;
+    height: 34px !important;
+    border: 1px solid rgba(151, 182, 204, .17) !important;
+    border-radius: 9px !important;
+    background: rgba(255, 255, 255, .045) !important;
+    box-shadow: none !important;
+    color: rgba(222, 236, 245, .78) !important;
+    backdrop-filter: none !important;
+    transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-toggle:hover {
+    border-color: rgba(39, 199, 232, .35) !important;
+    background: rgba(39, 199, 232, .10) !important;
+    color: #dffaff !important;
+    transform: translateX(-1px) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__scroll {
+    position: relative !important;
+    z-index: 2 !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 10px 11px 9px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(39, 199, 232, .30) transparent !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__scroll::-webkit-scrollbar {
+    width: 4px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px !important;
+    background: rgba(39, 199, 232, .32) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-nav {
+    gap: 3px !important;
+    padding: 1px 0 8px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-item {
+    position: relative !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link {
+    position: relative !important;
+    min-height: 43px !important;
+    gap: 10px !important;
+    margin: 0 !important;
+    padding: 6px 9px !important;
+    overflow: hidden !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: rgba(224, 234, 243, .80) !important;
+    font-size: 13px !important;
+    font-weight: 650 !important;
+    line-height: 1.15 !important;
+    letter-spacing: -.012em !important;
+    transform: none !important;
+    transition: background .16s ease, color .16s ease, border-color .16s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link::before {
+    position: absolute;
+    top: 9px;
+    bottom: 9px;
+    left: 0;
+    width: 3px;
+    border-radius: 0 4px 4px 0;
+    background: linear-gradient(180deg, var(--crm-nav-cyan), var(--crm-nav-blue));
+    box-shadow: 0 0 12px rgba(39, 199, 232, .34);
+    content: "";
+    opacity: 0;
+    transform: scaleY(.35);
+    transition: opacity .16s ease, transform .16s ease;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link:hover {
+    border-color: rgba(123, 172, 201, .10) !important;
+    background: rgba(255, 255, 255, .045) !important;
+    color: rgba(247, 251, 255, .96) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.active {
+    border-color: rgba(39, 199, 232, .12) !important;
+    background: rgba(39, 199, 232, .095) !important;
+    color: #f3fcff !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.active::before {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-ic {
+    width: 31px !important;
+    height: 31px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: rgba(255, 255, 255, .045) !important;
+    box-shadow: none !important;
+    color: rgba(197, 214, 227, .76) !important;
+    font-size: 14px !important;
+    transition: background .16s ease, color .16s ease, transform .16s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link:hover .ego-ic {
+    background: rgba(39, 199, 232, .09) !important;
+    color: #a9edf8 !important;
+    transform: translateX(1px) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.active .ego-ic {
+    background: rgba(39, 199, 232, .13) !important;
+    color: #73dff2 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-txt {
+    color: inherit !important;
+    font-weight: inherit !important;
+    letter-spacing: -.015em !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-caret,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sub-caret {
+    color: rgba(181, 201, 216, .52) !important;
+    font-size: 10px !important;
+    transition: transform .18s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link[aria-expanded="true"] .ego-caret,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.open .ego-caret,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.is-open .ego-caret {
+    transform: rotate(180deg) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-count-badge,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-badge {
+    min-width: 19px !important;
+    height: 19px !important;
+    margin-left: auto !important;
+    padding: 0 6px !important;
+    border: 1px solid rgba(39, 199, 232, .22) !important;
+    border-radius: 7px !important;
+    background: rgba(39, 199, 232, .10) !important;
+    box-shadow: none !important;
+    color: #bceef7 !important;
+    font-size: 9.5px !important;
+    font-weight: 850 !important;
+    line-height: 17px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-booking-new-badge {
+    min-width: 32px !important;
+    height: 18px !important;
+    padding: 0 7px !important;
+    border: 1px solid rgba(255, 255, 255, .20) !important;
+    border-radius: 7px !important;
+    background: #ef4455 !important;
+    box-shadow: 0 5px 12px rgba(239, 68, 85, .22) !important;
+    color: #fff !important;
+    font-size: 8px !important;
+    font-weight: 900 !important;
+    letter-spacing: .045em !important;
+    animation: crmNavNewBadge 2.6s ease-in-out infinite !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-divider {
+    height: 1px !important;
+    margin: 8px 7px !important;
+    background: rgba(151, 182, 204, .10) !important;
+    opacity: 1 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sub {
+    position: relative !important;
+    gap: 2px !important;
+    margin: 3px 0 5px !important;
+    padding: 0 0 0 42px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sub::before {
+    position: absolute;
+    top: 1px;
+    bottom: 5px;
+    left: 25px;
+    width: 1px;
+    background: rgba(136, 174, 198, .13);
+    content: "";
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sales-child-link {
+    min-height: 32px !important;
+    margin: 0 !important;
+    padding: 7px 9px !important;
+    border: 1px solid transparent !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: rgba(199, 214, 225, .69) !important;
+    font-size: 11.8px !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    transform: none !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink:hover,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sales-child-link:hover {
+    border-color: rgba(39, 199, 232, .08) !important;
+    background: rgba(255, 255, 255, .035) !important;
+    color: rgba(246, 251, 255, .92) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink.active,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sales-child-link.active {
+    border-color: rgba(39, 199, 232, .10) !important;
+    background: rgba(39, 199, 232, .075) !important;
+    color: #dffaff !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sub-ic,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sales-child-dot {
+    width: 6px !important;
+    min-width: 6px !important;
+    height: 6px !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    background: rgba(150, 182, 203, .42) !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink.active .ego-sub-ic,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sales-child-link.active .ego-sales-child-dot {
+    background: var(--crm-nav-cyan) !important;
+    box-shadow: 0 0 9px rgba(39, 199, 232, .36) !important;
+}
+
+/* Footer/status is intentionally compact and visually secondary. */
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
+    position: relative !important;
+    z-index: 3 !important;
+    flex: 0 0 auto !important;
+    padding: 8px 10px 10px !important;
+    border-top: 1px solid rgba(151, 182, 204, .09) !important;
+    background: rgba(7, 20, 38, .94) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card-final-v4,
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card {
+    overflow: hidden !important;
+    padding: 9px !important;
+    border: 1px solid rgba(151, 182, 204, .12) !important;
+    border-radius: 11px !important;
+    background: rgba(255, 255, 255, .035) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card__glow {
+    display: none !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-final-head {
+    min-height: 32px !important;
+    padding: 0 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card__title {
+    gap: 7px !important;
+    color: rgba(240, 247, 252, .86) !important;
+    font-size: 11.5px !important;
+    font-weight: 750 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card__hint {
+    margin-top: 2px !important;
+    color: rgba(178, 199, 214, .54) !important;
+    font-size: 9.5px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-pulse {
+    width: 6px !important;
+    height: 6px !important;
+    box-shadow: 0 0 0 4px rgba(31, 188, 129, .09) !important;
+    animation: crmNavStatusPulse 2.4s ease-out infinite !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-chip {
+    padding: 3px 6px !important;
+    border: 1px solid rgba(31, 188, 129, .15) !important;
+    border-radius: 6px !important;
+    background: rgba(31, 188, 129, .08) !important;
+    color: #93e5c3 !important;
+    font-size: 8.5px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-final-toggle {
+    width: 27px !important;
+    height: 27px !important;
+    border: 1px solid rgba(151, 182, 204, .11) !important;
+    border-radius: 7px !important;
+    background: rgba(255, 255, 255, .03) !important;
+    color: rgba(205, 222, 234, .65) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-company-picker-final {
+    margin-top: 7px !important;
+    padding: 6px !important;
+    border: 1px solid rgba(151, 182, 204, .09) !important;
+    border-radius: 8px !important;
+    background: rgba(255, 255, 255, .022) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-company-picker-final__label {
+    color: rgba(182, 201, 215, .58) !important;
+    font-size: 9.5px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-company-picker-final__btn {
+    min-width: 29px !important;
+    height: 25px !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    font-size: 9px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-grid {
+    gap: 4px !important;
+    margin-top: 6px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-row {
+    min-height: 27px !important;
+    padding: 5px 6px !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    background: rgba(255, 255, 255, .025) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-row__label {
+    color: rgba(186, 204, 218, .60) !important;
+    font-size: 9.8px !important;
+    font-weight: 600 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-row__label i {
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 5px !important;
+    font-size: 9px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-row strong {
+    font-size: 11px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card__bottom {
+    min-height: 27px !important;
+    margin-top: 6px !important;
+    padding: 5px 7px !important;
+    border: 1px solid rgba(39, 199, 232, .10) !important;
+    border-radius: 7px !important;
+    background: rgba(39, 199, 232, .055) !important;
+    box-shadow: none !important;
+    color: rgba(190, 235, 243, .75) !important;
+    font-size: 9.8px !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-side-lang-final {
+    margin-top: 6px !important;
+    padding: 4px !important;
+    border-radius: 7px !important;
+    background: rgba(255, 255, 255, .025) !important;
+}
+
+/* Scroll shadow gives depth without adding another card. */
+html.crm-navigation-ready body #sidebar.ego-sidebar.is-menu-scrolled .ego-sidebar__header {
+    box-shadow: 0 9px 18px rgba(0, 0, 0, .13) !important;
+}
+
+/* Desktop collapsed state. */
+@media (min-width: 992px) {
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed {
+        width: var(--crm-nav-sidebar-collapsed) !important;
+        flex-basis: var(--crm-nav-sidebar-collapsed) !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sidebar__header {
+        min-height: 66px !important;
+        padding: 10px 7px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-brand--logoonly {
+        justify-content: center !important;
+        padding-left: 0 !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-brand__logo-big {
+        width: 44px !important;
+        height: 28px !important;
+        object-fit: contain !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-toggle {
+        position: absolute !important;
+        top: 18px !important;
+        right: -14px !important;
+        z-index: 2510 !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sidebar__scroll {
+        padding-right: 8px !important;
+        padding-left: 8px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-link {
+        min-height: 43px !important;
+        justify-content: center !important;
+        padding: 6px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-link::before {
+        top: 8px;
+        bottom: 8px;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-ic {
+        width: 33px !important;
+        height: 33px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.ego-collapsed .ego-item::after {
+        left: calc(100% + 11px) !important;
+        padding: 7px 10px !important;
+        border: 1px solid rgba(157, 187, 207, .14) !important;
+        border-radius: 8px !important;
+        background: #0b1a2e !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, .24) !important;
+        color: rgba(244, 249, 252, .94) !important;
+        font-size: 11px !important;
+    }
+}
+
+/* Laptop height: keep footer from covering navigation. */
+@media (min-width: 992px) and (max-height: 820px) {
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-company-picker-final,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-grid,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-card__bottom,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-side-lang-final {
+        display: none !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
+        padding-top: 6px !important;
+        padding-bottom: 7px !important;
+    }
+}
+
+/* Tablet and mobile drawer. */
+@media (max-width: 991.98px) {
+    :root {
+        --crm-nav-topbar-height: 56px;
+    }
+
+    html.crm-navigation-ready body .crm-topbar {
+        height: 56px;
+        min-height: 56px;
+    }
+
+    html.crm-navigation-ready body .crm-topbar::after {
+        height: 1.5px;
+        opacity: .72;
+        animation-duration: 10s;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: -110% !important;
+        width: min(88vw, 318px) !important;
+        max-width: 318px !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        flex-basis: auto !important;
+        border-radius: 0 14px 14px 0 !important;
+        box-shadow: 20px 0 55px rgba(2, 10, 20, .28) !important;
+        transition: left .24s cubic-bezier(.22, .9, .35, 1) !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar.show {
+        left: 0 !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar::after {
+        display: none;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__header {
+        min-height: 64px !important;
+        padding: 10px 13px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-brand__logo-big {
+        height: 34px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-toggle {
+        position: static !important;
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sidebar__scroll {
+        padding: 9px 10px 12px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link {
+        min-height: 45px !important;
+        font-size: 13.2px !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-ic {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    html.crm-navigation-ready body .ego-sidebar-overlay {
+        background: rgba(3, 12, 23, .58) !important;
+        backdrop-filter: blur(2px) !important;
+        -webkit-backdrop-filter: blur(2px) !important;
+    }
+
+    html.crm-navigation-ready body .crm-topbar__panel {
+        border-radius: 12px 0 0 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    html.crm-navigation-ready body .crm-topbar__inner {
+        padding: 0 8px;
+    }
+
+    html.crm-navigation-ready body .crm-topbar__mobile-brand img {
+        max-width: 72px;
+        max-height: 28px;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar {
+        width: min(91vw, 310px) !important;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   MOTION AND ACCESSIBILITY
+--------------------------------------------------------------------------- */
+
+@keyframes crmNavEnergyRail {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+}
+
+@keyframes crmNavSidebarRail {
+    0% { transform: translateY(-15vh); opacity: 0; }
+    12% { opacity: .75; }
+    88% { opacity: .75; }
+    100% { transform: translateY(145vh); opacity: 0; }
+}
+
+@keyframes crmNavSidebarAura {
+    0% { transform: translate3d(-8px, -5px, 0) scale(.96); opacity: .65; }
+    100% { transform: translate3d(22px, 20px, 0) scale(1.08); opacity: 1; }
+}
+
+@keyframes crmNavPanelIn {
+    from { opacity: 0; transform: translate3d(0, -7px, 0) scale(.985); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes crmNavStatusPulse {
+    0% { box-shadow: 0 0 0 0 rgba(18, 185, 142, .26); }
+    72% { box-shadow: 0 0 0 7px rgba(18, 185, 142, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(18, 185, 142, 0); }
+}
+
+@keyframes crmNavBadgePulse {
+    0%, 74%, 100% { transform: scale(1); }
+    82% { transform: scale(1.08); }
+    90% { transform: scale(1); }
+}
+
+@keyframes crmNavNewBadge {
+    0%, 78%, 100% { transform: translateZ(0) scale(1); }
+    86% { transform: translateZ(0) scale(1.055); }
+    93% { transform: translateZ(0) scale(1); }
+}
+
+html.crm-navigation-paused body .crm-topbar::after,
+html.crm-navigation-paused body #sidebar.ego-sidebar::before,
+html.crm-navigation-paused body #sidebar.ego-sidebar::after,
+html.crm-navigation-paused body .crm-topbar__status-dot,
+html.crm-navigation-paused body .crm-topbar__badge,
+html.crm-navigation-paused body #sidebar.ego-sidebar .ego-status-pulse,
+html.crm-navigation-paused body #sidebar.ego-sidebar .ego-booking-new-badge {
+    animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.crm-navigation-ready body .crm-topbar::after,
+    html.crm-navigation-ready body #sidebar.ego-sidebar::before,
+    html.crm-navigation-ready body #sidebar.ego-sidebar::after,
+    html.crm-navigation-ready body .crm-topbar__status-dot,
+    html.crm-navigation-ready body .crm-topbar__badge,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-status-pulse,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-booking-new-badge {
+        animation: none !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar,
+    html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link,
+    html.crm-navigation-ready body .crm-topbar__panel {
+        transition: none !important;
+    }
+}
+
+/* CRM_NAVIGATION_EFFECTS_V21_START */
+
+/*
+|--------------------------------------------------------------------------
+| TOP BAR – ENERGY LINE CHẠY LIÊN TỤC
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body .crm-topbar {
+    overflow: visible !important;
+    transition:
+        box-shadow .25s ease,
+        background-color .25s ease !important;
+}
+
+html.crm-navigation-ready body .crm-topbar::after {
+    position: absolute !important;
+    right: 0 !important;
+    bottom: -2px !important;
+    left: 0 !important;
+    z-index: 10 !important;
+
+    width: 100% !important;
+    height: 3px !important;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent 0%,
+            transparent 25%,
+            rgba(0, 174, 239, .08) 33%,
+            rgba(31, 211, 255, .95) 47%,
+            rgba(13, 165, 145, .92) 54%,
+            rgba(0, 174, 239, .14) 66%,
+            transparent 76%,
+            transparent 100%
+        ) !important;
+
+    background-size: 280% 100% !important;
+
+    box-shadow:
+        0 2px 8px rgba(27, 196, 232, .25),
+        0 0 16px rgba(27, 196, 232, .16) !important;
+
+    content: "" !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+
+    animation:
+        crmNavigationEnergyVisible
+        6.5s
+        linear
+        infinite !important;
+}
+
+html.crm-navigation-ready body .crm-topbar.is-page-scrolled {
+    background: rgba(255, 255, 255, .985) !important;
+
+    box-shadow:
+        0 8px 28px rgba(15, 42, 67, .11) !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| TOP BAR – HOVER RÕ
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body .crm-topbar__quick-link,
+html.crm-navigation-ready body .crm-topbar__action-button,
+html.crm-navigation-ready body .crm-topbar__icon-button,
+html.crm-navigation-ready body .crm-topbar__account-button {
+    position: relative !important;
+
+    transition:
+        transform .20s cubic-bezier(.2, .8, .2, 1),
+        color .20s ease,
+        background-color .20s ease,
+        border-color .20s ease,
+        box-shadow .20s ease !important;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link:hover,
+html.crm-navigation-ready body .crm-topbar__action-button:hover,
+html.crm-navigation-ready body .crm-topbar__icon-button:hover {
+    border-color: rgba(8, 137, 189, .22) !important;
+    background: #edf8fc !important;
+
+    box-shadow:
+        0 7px 18px rgba(8, 137, 189, .13),
+        inset 0 0 0 1px rgba(39, 199, 232, .06) !important;
+
+    color: #057b9f !important;
+    transform: translateY(-2px) !important;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link:hover i,
+html.crm-navigation-ready body .crm-topbar__action-button:hover i,
+html.crm-navigation-ready body .crm-topbar__icon-button:hover i {
+    color: #078db9 !important;
+    transform: scale(1.12) rotate(-4deg) !important;
+}
+
+html.crm-navigation-ready body .crm-topbar__quick-link i,
+html.crm-navigation-ready body .crm-topbar__action-button i,
+html.crm-navigation-ready body .crm-topbar__icon-button i {
+    display: inline-block !important;
+
+    transition:
+        transform .22s cubic-bezier(.2, .8, .2, 1),
+        color .20s ease !important;
+}
+
+html.crm-navigation-ready body .crm-topbar__account-button:hover {
+    border-color: rgba(8, 137, 189, .22) !important;
+    background: #f0f8fb !important;
+
+    box-shadow:
+        0 8px 20px rgba(15, 75, 104, .12) !important;
+
+    transform: translateY(-1px) !important;
+}
+
+html.crm-navigation-ready body .crm-topbar__account-button:hover
+.crm-topbar__avatar {
+    box-shadow:
+        0 0 0 3px rgba(39, 199, 232, .18),
+        0 5px 14px rgba(7, 137, 189, .20) !important;
+
+    transform: scale(1.06) !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| SIDEBAR – THANH ÁNH SÁNG CHẠY DỌC
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body #sidebar.ego-sidebar {
+    isolation: isolate !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar > * {
+    position: relative;
+    z-index: 2;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar::before {
+    position: absolute !important;
+    top: -150px !important;
+    right: 1px !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 4 !important;
+
+    width: 3px !important;
+    height: 140px !important;
+
+    border-radius: 999px !important;
+
+    background:
+        linear-gradient(
+            180deg,
+            transparent,
+            rgba(46, 220, 255, .98),
+            rgba(12, 167, 143, .78),
+            transparent
+        ) !important;
+
+    box-shadow:
+        0 0 10px rgba(46, 220, 255, .68),
+        0 0 24px rgba(46, 220, 255, .25) !important;
+
+    content: "" !important;
+    opacity: .92 !important;
+    pointer-events: none !important;
+
+    animation:
+        crmNavigationSidebarRailVisible
+        5.8s
+        linear
+        infinite !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| SIDEBAR – MENU HOVER HIỆN RÕ
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link {
+    position: relative !important;
+    isolation: isolate !important;
+    overflow: hidden !important;
+
+    transition:
+        transform .22s cubic-bezier(.2, .8, .2, 1),
+        background .22s ease,
+        border-color .22s ease,
+        box-shadow .22s ease,
+        color .22s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link > * {
+    position: relative;
+    z-index: 2;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link::after {
+    position: absolute !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: -75% !important;
+    z-index: 1 !important;
+
+    width: 55% !important;
+
+    background:
+        linear-gradient(
+            105deg,
+            transparent 0%,
+            rgba(107, 229, 255, .04) 25%,
+            rgba(107, 229, 255, .25) 50%,
+            rgba(107, 229, 255, .05) 74%,
+            transparent 100%
+        ) !important;
+
+    content: "" !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: skewX(-18deg) !important;
+
+    transition:
+        left .52s ease,
+        opacity .20s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link:hover {
+    border-color: rgba(45, 205, 236, .34) !important;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(39, 199, 232, .19),
+            rgba(15, 138, 185, .075)
+        ) !important;
+
+    box-shadow:
+        0 10px 24px rgba(0, 0, 0, .23),
+        inset 0 0 0 1px rgba(111, 226, 247, .05) !important;
+
+    color: #ffffff !important;
+    transform: translateX(5px) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link:hover::after {
+    left: 125% !important;
+    opacity: 1 !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-link:hover .ego-ic {
+    border-color: rgba(80, 220, 246, .28) !important;
+
+    background:
+        rgba(39, 199, 232, .18) !important;
+
+    box-shadow:
+        0 0 0 3px rgba(39, 199, 232, .07),
+        0 7px 16px rgba(0, 0, 0, .18) !important;
+
+    color: #8cecff !important;
+
+    transform:
+        translateX(2px)
+        scale(1.10)
+        rotate(-3deg) !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-link.active {
+    border-color: rgba(49, 207, 237, .30) !important;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(39, 199, 232, .20),
+            rgba(7, 102, 147, .10)
+        ) !important;
+
+    box-shadow:
+        inset 3px 0 0 #35d3ef,
+        0 8px 22px rgba(0, 0, 0, .20),
+        0 0 20px rgba(39, 199, 232, .05) !important;
+
+    animation:
+        crmNavigationActiveBreath
+        3.8s
+        ease-in-out
+        infinite !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-link.active .ego-ic {
+    background: rgba(39, 199, 232, .20) !important;
+
+    box-shadow:
+        0 0 0 3px rgba(39, 199, 232, .07),
+        0 0 16px rgba(39, 199, 232, .12) !important;
+
+    color: #78e8fa !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| SUBMENU HOVER
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink,
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-sales-child-link {
+    transition:
+        transform .18s ease,
+        color .18s ease,
+        background .18s ease,
+        border-color .18s ease !important;
+}
+
+html.crm-navigation-ready body #sidebar.ego-sidebar .ego-sublink:hover,
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-sales-child-link:hover {
+    border-color: rgba(39, 199, 232, .18) !important;
+    background: rgba(39, 199, 232, .11) !important;
+    color: #f2fcff !important;
+
+    transform: translateX(4px) !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| BADGE VÀ LIVE PULSE
+|--------------------------------------------------------------------------
+*/
+
+html.crm-navigation-ready body .crm-topbar__badge:not([hidden]),
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-booking-new-badge,
+html.crm-navigation-ready body #sidebar.ego-sidebar
+.ego-status-pulse {
+    animation:
+        crmNavigationBadgeVisible
+        2.4s
+        ease-in-out
+        infinite !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| KEYFRAMES
+|--------------------------------------------------------------------------
+*/
+
+@keyframes crmNavigationEnergyVisible {
+    from {
+        background-position: 135% 0;
+    }
+
+    to {
+        background-position: -135% 0;
+    }
+}
+
+@keyframes crmNavigationSidebarRailVisible {
+    0% {
+        top: -150px;
+        opacity: 0;
+    }
+
+    12% {
+        opacity: .95;
+    }
+
+    88% {
+        opacity: .95;
+    }
+
+    100% {
+        top: calc(100% + 30px);
+        opacity: 0;
+    }
+}
+
+@keyframes crmNavigationActiveBreath {
+    0%,
+    100% {
+        filter: brightness(1);
+    }
+
+    50% {
+        filter: brightness(1.12);
+    }
+}
+
+@keyframes crmNavigationBadgeVisible {
+    0%,
+    72%,
+    100% {
+        transform: scale(1);
+    }
+
+    82% {
+        transform: scale(1.10);
+    }
+
+    90% {
+        transform: scale(1);
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| MOBILE
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    html.crm-navigation-ready body .crm-topbar::after {
+        height: 2px !important;
+
+        animation-duration: 8s !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar
+    .ego-link:hover {
+        transform: translateX(3px) !important;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| GIẢM CHUYỂN ĐỘNG THEO CÀI ĐẶT THIẾT BỊ
+|--------------------------------------------------------------------------
+*/
+
+@media (prefers-reduced-motion: reduce) {
+    html.crm-navigation-ready body .crm-topbar::after,
+    html.crm-navigation-ready body #sidebar.ego-sidebar::before,
+    html.crm-navigation-ready body #sidebar.ego-sidebar
+    .ego-link.active,
+    html.crm-navigation-ready body .crm-topbar__badge:not([hidden]),
+    html.crm-navigation-ready body #sidebar.ego-sidebar
+    .ego-booking-new-badge,
+    html.crm-navigation-ready body #sidebar.ego-sidebar
+    .ego-status-pulse {
+        animation: none !important;
+    }
+
+    html.crm-navigation-ready body #sidebar.ego-sidebar
+    .ego-link:hover {
+        transform: translateX(3px) !important;
+    }
+}
+
+/* CRM_NAVIGATION_EFFECTS_V21_END */
+

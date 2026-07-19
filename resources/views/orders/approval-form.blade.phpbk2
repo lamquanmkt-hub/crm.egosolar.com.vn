@@ -1,0 +1,462 @@
+@php use Carbon\Carbon; @endphp
+@extends('layouts.app')
+@section('title', 'Duyệt đơn hàng #' . $order->order_code)
+@section('content')
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold text-uppercase text-secondary">DUYỆT ĐƠN HÀNG #{{ $order->order_code }}</h1>
+            <a href="{{ route('orders.show', $order->id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+
+        {{-- HIỂN THỊ ERRORS --}}
+        @if($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Có lỗi xảy ra!</h5>
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <div class="row">
+            {{-- Form duyệt --}}
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-check-circle"></i> Xử lý duyệt đơn hàng</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ route('orders.process-approval', $order->id) }}" method="POST"
+                              id="approvalForm">
+                            @csrf
+
+                            {{-- Thông tin hiện tại --}}
+                            <div class="alert alert-info">
+                                <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Thông tin duyệt</h6>
+                                <p class="mb-0">
+                                    Bạn đang xử lý duyệt cho cấp: <strong>{{ ucfirst($currentLevel) }}</strong><br>
+                                    Trạng thái hiện tại: <strong>{{ $order->currentStatusType->name }}</strong>
+                                </p>
+                            </div>
+
+                            {{-- Chi tiết đơn hàng --}}
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Chi tiết đơn hàng</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-2">
+                                        <div class="col-md-6">
+                                            <p class="mb-1"><strong>Khách hàng:</strong> {{ $order->lead->customer->name }}</p>
+                                            <p class="mb-1"><strong>Điện thoại:</strong> {{ $order->lead->customer->phone }}</p>
+                                            <p class="mb-1"><strong>Loại khách:</strong> {{ $order->lead->customer->customerType->name ?? 'N/A' }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-1"><strong>Ngày đặt:</strong> {{ $order->order_date ? Carbon::parse($order->order_date)->format('d/m/Y') : '-' }}</p>
+                                            <p class="mb-1"><strong>Kho xuất:</strong> {{ $order->warehouse->name ?? 'N/A' }}</p>
+                                            <p class="mb-1"><strong>Sales:</strong> {{ $order->creator->name ?? 'N/A' }}</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th>Sản phẩm</th>
+                                                <th class="text-center">SL</th>
+                                                <th class="text-end">Đơn giá</th>
+                                                <th class="text-end">Thành tiền</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @foreach($order->items as $item)
+                                                <tr>
+                                                    <td>{{ $item->product->name }}</td>
+                                                    <td class="text-center">{{ $item->quantity }}</td>
+                                                    <td class="text-end">{{ number_format($item->unit_price, 0, ',', '.') }} đ</td>
+                                                    <td class="text-end">{{ number_format($item->line_total, 0, ',', '.') }} đ</td>
+                                                </tr>
+                                            @endforeach
+                                            </tbody>
+                                            <tfoot class="table-secondary">
+                                            <tr>
+                                                <td colspan="3" class="text-end fw-bold">TỔNG CỘNG:</td>
+                                                <td class="text-end fw-bold">{{ number_format($order->total_amount, 0, ',', '.') }} đ</td>
+                                            </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Kiểm tra công nợ (dành cho kế toán) --}}
+                            @if($currentLevel === 'accounting')
+                                <div class="card mb-3 border-warning">
+                                    <div class="card-header bg-warning">
+                                        <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Kiểm tra công nợ</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        @php
+                                            $totalDebt = $order->lead->customer->unpaidDebts()->sum('debt_amount');
+                                        @endphp
+                                        <div class="alert {{ $totalDebt > 0 ? 'alert-danger' : 'alert-success' }}">
+                                            <strong>Tổng công nợ hiện tại:</strong>
+                                            <span class="fs-5">{{ number_format($totalDebt, 0, ',', '.') }} đ</span>
+                                        </div>
+
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input @error('debt_checked') is-invalid @enderror"
+                                                   type="checkbox"
+                                                   name="debt_checked"
+                                                   id="debtChecked"
+                                                   value="1"
+                                                    {{ old('debt_checked') ? 'checked' : '' }}>
+                                            <label class="form-check-label fw-bold" for="debtChecked">
+                                                Tôi đã kiểm tra công nợ của khách hàng <span class="text-danger">*</span>
+                                            </label>
+                                            @error('debt_checked')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Ghi chú về công nợ (nếu có)</label>
+                                            <textarea name="debt_note"
+                                                      class="form-control @error('debt_note') is-invalid @enderror"
+                                                      rows="2"
+                                                      placeholder="VD: Khách có công nợ cũ nhưng đã cam kết thanh toán...">{{ old('debt_note') }}</textarea>
+                                            @error('debt_note')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Lịch sử duyệt --}}
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0"><i class="bi bi-clock-history"></i> Lịch sử duyệt</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                            <tr>
+                                                <th>Cấp duyệt</th>
+                                                <th>Người duyệt</th>
+                                                <th>Thời gian</th>
+                                                <th>Trạng thái</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            @foreach($order->approvals as $approval)
+                                                <tr>
+                                                    <td>{{ ucfirst($approval->level) }}</td>
+                                                    <td>{{ $approval->approver->name ?? '-' }}</td>
+                                                    <td>{{ $approval->approved_at ? $approval->approved_at->format('d/m/Y H:i') : '-' }}</td>
+                                                    <td>
+                                                        @if($approval->status === 'approved')
+                                                            <span class="badge bg-success">Đã duyệt</span>
+                                                        @elseif($approval->status === 'rejected')
+                                                            <span class="badge bg-danger">Từ chối</span>
+                                                        @else
+                                                            <span class="badge bg-warning">Chờ xử lý</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Form quyết định --}}
+                            <div class="card mb-3 border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="bi bi-pencil-square"></i> Quyết định của bạn</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Chọn hành động <span class="text-danger">*</span></label>
+                                        <div class="d-flex gap-3">
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input @error('action') is-invalid @enderror"
+                                                       type="radio"
+                                                       name="action"
+                                                       id="actionApprove"
+                                                       value="approve"
+                                                       {{ old('action') === 'approve' ? 'checked' : '' }}
+                                                       required
+                                                       onchange="toggleRejectionReason()">
+                                                <label class="form-check-label text-success fw-bold" for="actionApprove">
+                                                    <i class="bi bi-check-circle"></i> Duyệt đơn
+                                                </label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input @error('action') is-invalid @enderror"
+                                                       type="radio"
+                                                       name="action"
+                                                       id="actionReject"
+                                                       value="reject"
+                                                       {{ old('action') === 'reject' ? 'checked' : '' }}
+                                                       required
+                                                       onchange="toggleRejectionReason()">
+                                                <label class="form-check-label text-danger fw-bold" for="actionReject">
+                                                    <i class="bi bi-x-circle"></i> Từ chối
+                                                </label>
+                                            </div>
+                                        </div>
+                                        @error('action')
+                                        <div class="text-danger small mt-1">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="mb-3" id="rejectionReasonGroup" style="display: {{ old('action') === 'reject' ? 'block' : 'none' }};">
+                                        <label class="form-label fw-bold">Lý do từ chối <span class="text-danger">*</span></label>
+                                        <textarea name="rejection_reason"
+                                                  id="rejectionReason"
+                                                  class="form-control @error('rejection_reason') is-invalid @enderror"
+                                                  rows="3"
+                                                  placeholder="Nhập lý do từ chối đơn hàng...">{{ old('rejection_reason') }}</textarea>
+                                        @error('rejection_reason')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                        <div class="form-text">Lý do này sẽ được gửi cho Sales</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Ghi chú thêm (không bắt buộc)</label>
+                                        <textarea name="note"
+                                                  class="form-control @error('note') is-invalid @enderror"
+                                                  rows="2"
+                                                  placeholder="Ghi chú thêm về quyết định của bạn...">{{ old('note') }}</textarea>
+                                        @error('note')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <strong>Lưu ý:</strong> Quyết định của bạn sẽ ảnh hưởng trực tiếp đến quy trình xử lý đơn hàng.
+                                        Vui lòng kiểm tra kỹ trước khi xác nhận.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Submit buttons --}}
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{{ route('orders.show', $order->id) }}" class="btn btn-secondary">
+                                    <i class="bi bi-x"></i> Hủy
+                                </a>
+                                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                    <i class="bi bi-send"></i> Xác nhận quyết định
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Sidebar thông tin --}}
+            <div class="col-md-4">
+                {{-- Tóm tắt --}}
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Tóm tắt</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>Tổng sản phẩm:</td>
+                                <td class="text-end fw-bold">{{ $order->items->count() }}</td>
+                            </tr>
+                            <tr>
+                                <td>Tổng số lượng:</td>
+                                <td class="text-end fw-bold">{{ $order->items->sum('quantity') }}</td>
+                            </tr>
+                            <tr class="table-primary">
+                                <td>Tổng tiền:</td>
+                                <td class="text-end fw-bold fs-5">{{ number_format($order->total_amount, 0, ',', '.') }} đ</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Hướng dẫn --}}
+                <div class="card shadow-sm border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Hướng dẫn</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-info">Trách nhiệm của {{ ucfirst($currentLevel) }}:</h6>
+                        <ul class="small">
+                            @if($currentLevel === 'ketoan')
+                                <li>Kiểm tra công nợ khách hàng</li>
+                                <li>Xác minh thông tin thanh toán</li>
+                                <li>Đảm bảo đơn hàng hợp lệ</li>
+                            @elseif($currentLevel === 'duyet1')
+                                <li>Kiểm tra tính hợp lý của đơn hàng</li>
+                                <li>Xác nhận số lượng và giá trị</li>
+                                <li>Đánh giá rủi ro</li>
+                            @elseif($currentLevel === 'duyet2')
+                                <li>Duyệt cuối cùng trước khi xuất kho</li>
+                                <li>Quyết định chiến lược</li>
+                                <li>Phê duyệt đơn hàng lớn</li>
+                            @endif
+                        </ul>
+                        <hr>
+                        <p class="small mb-0 text-muted">
+                            <i class="bi bi-clock"></i> Sau khi duyệt, đơn hàng sẽ chuyển sang bộ phận tiếp theo trong quy trình.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleRejectionReason() {
+            const rejectRadio = document.getElementById('actionReject');
+            const rejectionGroup = document.getElementById('rejectionReasonGroup');
+            const rejectionInput = document.getElementById('rejectionReason');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (rejectRadio.checked) {
+                rejectionGroup.style.display = 'block';
+                rejectionInput.required = true;
+                submitBtn.innerHTML = '<i class="bi bi-x-circle"></i> Xác nhận từ chối';
+                submitBtn.className = 'btn btn-danger btn-lg';
+            } else {
+                rejectionGroup.style.display = 'none';
+                rejectionInput.required = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Xác nhận duyệt';
+                submitBtn.className = 'btn btn-success btn-lg';
+            }
+        }
+
+        // Gọi function khi load trang để hiển thị đúng state nếu có old input
+        document.addEventListener('DOMContentLoaded', function() {
+            const actionReject = document.getElementById('actionReject');
+            if (actionReject && actionReject.checked) {
+                toggleRejectionReason();
+            }
+        });
+
+        // Xác nhận trước khi submit
+        document.getElementById('approvalForm').addEventListener('submit', function (e) {
+            const action = document.querySelector('input[name="action"]:checked');
+
+            if (!action) {
+                e.preventDefault();
+                alert('Vui lòng chọn hành động (Duyệt hoặc Từ chối)');
+                return false;
+            }
+
+            const actionText = action.value === 'approve' ? 'DUYỆT' : 'TỪ CHỐI';
+            const confirmMsg = `Bạn có chắc chắn muốn ${actionText} đơn hàng này?`;
+
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    </script>
+    <script>
+        // Debug form submission
+        document.getElementById('approvalForm').addEventListener('submit', function (e) {
+            console.log('========================================');
+            console.log('🔵 FORM SUBMIT DEBUG');
+            console.log('========================================');
+
+            const action = document.querySelector('input[name="action"]:checked');
+            const debtCheckbox = document.getElementById('debtChecked');
+            const rejectionReason = document.getElementById('rejectionReason');
+            const note = document.querySelector('textarea[name="note"]');
+            const debtNote = document.querySelector('textarea[name="debt_note"]');
+
+            // Log tất cả field values
+            console.log('Form Fields:');
+            console.log('- action:', action ? action.value : 'NOT SELECTED');
+            console.log('- debt_checked (checkbox):', debtCheckbox ? debtCheckbox.checked : 'N/A');
+            console.log('- debt_checked (value):', debtCheckbox ? debtCheckbox.value : 'N/A');
+            console.log('- rejection_reason:', rejectionReason ? rejectionReason.value : 'N/A');
+            console.log('- note:', note ? note.value : '');
+            console.log('- debt_note:', debtNote ? debtNote.value : 'N/A');
+
+            // Kiểm tra validation
+            if (!action) {
+                e.preventDefault();
+                alert('⚠️ DEBUG: Chưa chọn hành động (Duyệt/Từ chối)');
+                console.error('❌ Action not selected');
+                return false;
+            }
+
+            // Nếu là ketoan và approve, check debt_checked
+            @if($currentLevel === 'ketoan')
+            if (action.value === 'approve') {
+                console.log('🔵 Checking debt_checked for ketoan...');
+
+                if (!debtCheckbox.checked) {
+                    e.preventDefault();
+                    alert('⚠️ DEBUG: Bạn chưa tích checkbox xác nhận kiểm tra công nợ!');
+                    console.error('❌ debt_checked not checked');
+
+                    // Highlight checkbox
+                    debtCheckbox.style.border = '2px solid red';
+                    debtCheckbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    return false;
+                } else {
+                    console.log('✅ debt_checked is CHECKED');
+                }
+            }
+            @endif
+
+            // Nếu từ chối, check lý do
+            if (action.value === 'reject' && !rejectionReason.value.trim()) {
+                e.preventDefault();
+                alert('⚠️ DEBUG: Chưa nhập lý do từ chối!');
+                console.error('❌ Rejection reason is empty');
+                return false;
+            }
+
+            // Confirm
+            const actionText = action.value === 'approve' ? 'DUYỆT' : 'TỪ CHỐI';
+            const confirmMsg = `Bạn có chắc chắn muốn ${actionText} đơn hàng này?`;
+
+            console.log('🔵 Showing confirm dialog:', confirmMsg);
+
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                console.log('❌ User cancelled');
+                return false;
+            }
+
+            console.log('✅ All checks passed, submitting form...');
+            console.log('========================================');
+
+            // Let form submit normally
+            return true;
+        });
+
+        // Real-time debug khi thay đổi checkbox
+        @if($currentLevel === 'ketoan')
+        const debtCheckbox = document.getElementById('debtChecked');
+        if (debtCheckbox) {
+            debtCheckbox.addEventListener('change', function() {
+                console.log('🔵 Checkbox changed:', {
+                    'checked': this.checked,
+                    'value': this.value
+                });
+            });
+        }
+        @endif
+    </script>
+@endsection

@@ -1,0 +1,2833 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\SalesDailyKpi;
+use App\Models\User;
+use App\Models\SalesDailyKpiPostLink;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class SalesCommissionController extends Controller
+{
+    private const EXCLUDED_SALES_NAME = 'Ngọc Trân';
+    private const CACHE_VERSION = 'v20_index_no_cache_no_engine';
+
+    private const KPI_POSTS_TARGET = 100;
+    private const KPI_CALLS_TARGET = 60;
+    private const KPI_COMPANY_DATA_TARGET = 20;
+    private const KPI_PENALTY_PER_MISSING = 100000;
+
+
+    private function defaultSalesKpiSettings(): array
+    {
+        return [
+            'posts_target' => self::KPI_POSTS_TARGET,
+            'calls_target' => self::KPI_CALLS_TARGET,
+            'company_data_target' => self::KPI_COMPANY_DATA_TARGET,
+            'penalty_per_missing' => self::KPI_PENALTY_PER_MISSING,
+
+            'enable_posts' => 1,
+            'enable_calls' => 1,
+            'enable_company_data' => 1,
+            'enable_follow_up' => 1,
+
+            'enable_new_leads' => 0,
+            'new_leads_target' => 10,
+            'enable_quotes' => 0,
+            'quotes_target' => 5,
+            'enable_customer_care' => 0,
+            'customer_care_target' => 20,
+            'enable_meetings' => 0,
+            'meetings_target' => 2,
+            'enable_zalo_messages' => 0,
+            'zalo_messages_target' => 40,
+            'enable_debt_follow' => 0,
+            'debt_follow_target' => 10,
+            'enable_order_follow' => 0,
+            'order_follow_target' => 8,
+            'enable_technical_coordination' => 0,
+            'technical_coordination_target' => 5,
+            'enable_overdue_tasks' => 0,
+            'overdue_tasks_target' => 0,
+            'enable_training' => 0,
+            'training_target' => 1,
+            'enable_quality_score' => 0,
+            'quality_score_target' => 90,
+            'enable_revenue_pipeline' => 0,
+            'revenue_pipeline_target' => 100000000,
+
+            'enable_warnings' => 1,
+            'enable_penalty' => 1,
+            'enable_manager_approval' => 0,
+            'enable_callio_sync' => 0,
+            'enable_lock_after_days' => 0,
+            'lock_after_days' => 2,
+            'settings_note' => '',
+        ];
+    }
+
+    private function salesKpiSettingsPath(): string
+    {
+        return storage_path('app/sales_kpi_settings.json');
+    }
+
+    private function salesKpiSettings(): array
+    {
+        $settings = $this->defaultSalesKpiSettings();
+        $path = $this->salesKpiSettingsPath();
+
+        if (is_file($path)) {
+            $json = json_decode((string) file_get_contents($path), true);
+            if (is_array($json)) {
+                $settings = array_merge($settings, array_intersect_key($json, $settings));
+            }
+        }
+
+        return $settings;
+    }
+
+    private function kpiSettingEnabled(array $settings, string $key): bool
+    {
+        return (int) ($settings[$key] ?? 0) === 1;
+    }
+
+    private function salesKpiExtraMetricDefinitions(): array
+    {
+        return [
+            ['metric_key' => 'new_leads', 'enabled_key' => 'enable_new_leads', 'target_key' => 'new_leads_target', 'title' => 'Lead mới', 'unit' => 'lead/ngày', 'icon' => 'bi-person-plus', 'description' => 'Lead mới tự khai thác hoặc được phân bổ.'],
+            ['metric_key' => 'quotes', 'enabled_key' => 'enable_quotes', 'target_key' => 'quotes_target', 'title' => 'Báo giá', 'unit' => 'báo giá/ngày', 'icon' => 'bi-file-earmark-text', 'description' => 'Báo giá đã gửi khách trong ngày.'],
+            ['metric_key' => 'customer_care', 'enabled_key' => 'enable_customer_care', 'target_key' => 'customer_care_target', 'title' => 'Chăm sóc khách', 'unit' => 'khách/ngày', 'icon' => 'bi-heart', 'description' => 'Khách được chăm sóc, nhắc lại, hỏi nhu cầu.'],
+            ['metric_key' => 'meetings', 'enabled_key' => 'enable_meetings', 'target_key' => 'meetings_target', 'title' => 'Meeting / lịch hẹn', 'unit' => 'lịch/ngày', 'icon' => 'bi-calendar2-check', 'description' => 'Lịch tư vấn, khảo sát, demo hoặc gặp khách.'],
+            ['metric_key' => 'zalo_messages', 'enabled_key' => 'enable_zalo_messages', 'target_key' => 'zalo_messages_target', 'title' => 'Tin nhắn Zalo', 'unit' => 'tin/ngày', 'icon' => 'bi-send', 'description' => 'Tin nhắn chăm sóc, tư vấn, follow qua Zalo.'],
+            ['metric_key' => 'debt_follow', 'enabled_key' => 'enable_debt_follow', 'target_key' => 'debt_follow_target', 'title' => 'Follow công nợ', 'unit' => 'case/ngày', 'icon' => 'bi-wallet2', 'description' => 'Case công nợ hoặc nhắc thanh toán đã xử lý.'],
+            ['metric_key' => 'order_follow', 'enabled_key' => 'enable_order_follow', 'target_key' => 'order_follow_target', 'title' => 'Bám đơn hàng', 'unit' => 'đơn/ngày', 'icon' => 'bi-box-seam', 'description' => 'Đơn hàng đang theo dõi xử lý, giao hàng, xuất kho.'],
+            ['metric_key' => 'technical_coordination', 'enabled_key' => 'enable_technical_coordination', 'target_key' => 'technical_coordination_target', 'title' => 'Phối hợp kỹ thuật', 'unit' => 'việc/ngày', 'icon' => 'bi-tools', 'description' => 'Việc phối hợp kỹ thuật, khảo sát, cấu hình.'],
+            ['metric_key' => 'overdue_tasks', 'enabled_key' => 'enable_overdue_tasks', 'target_key' => 'overdue_tasks_target', 'title' => 'Task quá hạn tối đa', 'unit' => 'task', 'icon' => 'bi-alarm', 'description' => 'Số task quá hạn tối đa cho phép.'],
+            ['metric_key' => 'training', 'enabled_key' => 'enable_training', 'target_key' => 'training_target', 'title' => 'Học sản phẩm', 'unit' => 'mục/ngày', 'icon' => 'bi-mortarboard', 'description' => 'Mục học sản phẩm, chính sách, kịch bản tư vấn.'],
+            ['metric_key' => 'quality_score', 'enabled_key' => 'enable_quality_score', 'target_key' => 'quality_score_target', 'title' => 'Điểm chất lượng', 'unit' => 'điểm', 'icon' => 'bi-stars', 'description' => 'Điểm chất lượng tư vấn, ghi chú CRM, chăm sóc.'],
+            ['metric_key' => 'revenue_pipeline', 'enabled_key' => 'enable_revenue_pipeline', 'target_key' => 'revenue_pipeline_target', 'title' => 'Pipeline doanh số', 'unit' => 'VNĐ', 'icon' => 'bi-graph-up-arrow', 'description' => 'Giá trị cơ hội/báo giá đang theo đuổi.'],
+        ];
+    }
+
+    private function normalizeExtraMetrics(array $input): array
+    {
+        $extra = [];
+
+        foreach ($this->salesKpiExtraMetricDefinitions() as $module) {
+            $key = $module['metric_key'];
+            $extra[$key] = max(0, (int) ($input[$key] ?? 0));
+        }
+
+        return $extra;
+    }
+
+    private function decodeExtraMetrics($entry): array
+    {
+        $raw = $entry->extra_metrics ?? null;
+
+        if (!$raw) {
+            return $this->normalizeExtraMetrics([]);
+        }
+
+        if (is_array($raw)) {
+            return $this->normalizeExtraMetrics($raw);
+        }
+
+        $decoded = json_decode((string) $raw, true);
+
+        return $this->normalizeExtraMetrics(is_array($decoded) ? $decoded : []);
+    }
+
+    private function salesKpiTargets(): array
+    {
+        $settings = $this->salesKpiSettings();
+
+        return [
+            'posts' => (int) $settings['posts_target'],
+            'calls' => (int) $settings['calls_target'],
+            'company_data' => (int) $settings['company_data_target'],
+            'penalty_per_missing' => (int) $settings['penalty_per_missing'],
+            'enabled' => [
+                'posts' => $this->kpiSettingEnabled($settings, 'enable_posts'),
+                'calls' => $this->kpiSettingEnabled($settings, 'enable_calls'),
+                'company_data' => $this->kpiSettingEnabled($settings, 'enable_company_data'),
+                'follow_up' => $this->kpiSettingEnabled($settings, 'enable_follow_up'),
+            ],
+            'settings' => $settings,
+        ];
+    }
+
+    private function periodRange(string $period, string $month): array
+    {
+        $base = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+        return match ($period) {
+            'year'    => [$base->copy()->startOfYear(), $base->copy()->endOfYear()],
+            'quarter' => [$base->copy()->firstOfQuarter(), $base->copy()->lastOfQuarter()],
+            default   => [$base->copy()->startOfMonth(), $base->copy()->endOfMonth()],
+        };
+    }
+
+    private function scopeKey($user): string
+    {
+        if (method_exists($user, 'hasRole')) {
+            if ($user->hasRole('sales')) {
+                return 'sales_' . $user->id;
+            }
+            if ($user->hasRole('sales_manager')) {
+                return 'manager_' . $user->id;
+            }
+        }
+
+        return 'all';
+    }
+
+    private function getTeamIdsForManager(int $managerId)
+    {
+        try {
+            if (!Schema::hasColumn('users', 'manager_id')) {
+                return null;
+            }
+
+            return DB::table('users')
+                ->where('manager_id', $managerId)
+                ->pluck('id');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function onlySalesRolesFilter($query, string $salesColumn = 'sc.sales_user_id')
+    {
+        return $query->whereExists(function ($sub) use ($salesColumn) {
+            $sub->select(DB::raw(1))
+                ->from('model_has_roles as mhr')
+                ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                ->whereColumn('mhr.model_id', $salesColumn)
+                ->where('mhr.model_type', \App\Models\User::class)
+                ->whereIn('r.name', ['sales', 'sales_manager']);
+        });
+    }
+
+    private function resolveDateRange(Request $request): array
+    {
+        $allTime  = (int) $request->get('all_time', 0) === 1;
+        $dateFrom = $request->get('date_from');
+        $dateTo   = $request->get('date_to');
+
+        if ($allTime) {
+            return [null, null];
+        }
+
+        if ($dateFrom || $dateTo) {
+            $from = $dateFrom ? Carbon::parse($dateFrom)->startOfDay() : Carbon::minValue();
+            $to   = $dateTo ? Carbon::parse($dateTo)->endOfDay() : Carbon::maxValue();
+
+            return [$from, $to];
+        }
+
+        $month  = $request->get('month', now()->format('Y-m'));
+        $period = $request->get('period', 'month');
+
+        if (!in_array($period, ['month', 'quarter', 'year'], true)) {
+            $period = 'month';
+        }
+
+        [$from, $to] = $this->periodRange($period, $month);
+
+        return [$from->copy()->startOfDay(), $to->copy()->endOfDay()];
+    }
+
+    private function orderTotalBeforeVatSubquery()
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | ULTRA SAFE - Base hoa hồng trước VAT
+        |--------------------------------------------------------------------------
+        | Không dùng GREATEST().
+        | Không gọi cột không tồn tại.
+        | Không join crm_product_prices để tránh query nặng/sai OR.
+        |
+        | Ưu tiên:
+        | 1. Cột trước VAT trên crm_order_items nếu có
+        | 2. Giá trước VAT trên crm_product_catalog: price_agent / price_retail / price
+        | 3. Chia theo VAT % nếu có
+        | 4. total_amount - tax_amount nếu order có tax_amount
+        | 5. fallback total_amount
+        */
+        $orderCols = Schema::hasTable('crm_orders') ? Schema::getColumnListing('crm_orders') : [];
+        $itemCols = Schema::hasTable('crm_order_items') ? Schema::getColumnListing('crm_order_items') : [];
+        $productCols = Schema::hasTable('crm_product_catalog') ? Schema::getColumnListing('crm_product_catalog') : [];
+
+        $hasOrder = fn ($col) => in_array($col, $orderCols, true);
+        $hasItem = fn ($col) => in_array($col, $itemCols, true);
+        $hasProduct = fn ($col) => in_array($col, $productCols, true);
+
+        $orderTotalCol = null;
+        foreach (['total_amount', 'final_amount', 'grand_total', 'total', 'amount'] as $col) {
+            if ($hasOrder($col)) {
+                $orderTotalCol = $col;
+                break;
+            }
+        }
+
+        $orderTotalExpr = $orderTotalCol ? "COALESCE(o.`{$orderTotalCol}`, 0)" : "0";
+
+        $taxCol = null;
+        foreach (['tax_amount', 'vat_amount', 'total_vat', 'total_tax'] as $col) {
+            if ($hasOrder($col)) {
+                $taxCol = $col;
+                break;
+            }
+        }
+
+        $taxExpr = $taxCol ? "COALESCE(o.`{$taxCol}`, 0)" : "0";
+
+        if (!Schema::hasTable('crm_order_items')) {
+            return DB::table('crm_orders as o')
+                ->select([
+                    DB::raw('o.id as order_id'),
+                    DB::raw("
+                        CASE
+                            WHEN {$taxExpr} > 0 AND {$orderTotalExpr} >= {$taxExpr}
+                                THEN {$orderTotalExpr} - {$taxExpr}
+                            ELSE {$orderTotalExpr}
+                        END as total_before_vat
+                    "),
+                ]);
+        }
+
+        $qtyExpr = $hasItem('quantity')
+            ? "COALESCE(oi.`quantity`, 1)"
+            : ($hasItem('qty') ? "COALESCE(oi.`qty`, 1)" : "1");
+
+        $lineAfterExpr = "0";
+
+        foreach (['line_total', 'total_amount', 'total', 'amount'] as $col) {
+            if ($hasItem($col)) {
+                $lineAfterExpr = "COALESCE(oi.`{$col}`, 0)";
+                break;
+            }
+        }
+
+        if ($lineAfterExpr === "0") {
+            $unitCol = null;
+            foreach (['unit_price', 'price', 'sale_price'] as $col) {
+                if ($hasItem($col)) {
+                    $unitCol = $col;
+                    break;
+                }
+            }
+
+            if ($unitCol) {
+                $discountExpr = $hasItem('discount_amount') ? "COALESCE(oi.`discount_amount`, 0)" : "0";
+                $lineAfterExpr = "CASE WHEN ((COALESCE(oi.`{$unitCol}`, 0) * {$qtyExpr}) - {$discountExpr}) > 0 THEN ((COALESCE(oi.`{$unitCol}`, 0) * {$qtyExpr}) - {$discountExpr}) ELSE 0 END";
+            }
+        }
+
+        $cases = [];
+
+        foreach ([
+            'line_total_before_vat',
+            'total_before_vat',
+            'subtotal_before_vat',
+            'before_vat_total',
+            'amount_before_vat',
+            'net_total',
+            'total_ex_vat',
+            'total_excluding_vat',
+            'total_without_vat',
+        ] as $col) {
+            if ($hasItem($col)) {
+                $cases[] = "WHEN COALESCE(oi.`{$col}`, 0) > 0 THEN COALESCE(oi.`{$col}`, 0)";
+            }
+        }
+
+        foreach ([
+            'unit_price_before_vat',
+            'price_before_vat',
+            'price_ex_vat',
+            'unit_price_ex_vat',
+            'price_without_vat',
+            'net_unit_price',
+            'base_price',
+        ] as $col) {
+            if ($hasItem($col)) {
+                $cases[] = "WHEN COALESCE(oi.`{$col}`, 0) > 0 THEN COALESCE(oi.`{$col}`, 0) * {$qtyExpr}";
+            }
+        }
+
+        $canJoinProduct = Schema::hasTable('crm_product_catalog') && $hasItem('product_id');
+
+        if ($canJoinProduct) {
+            foreach ([
+                'price_before_vat',
+                'unit_price_before_vat',
+                'price_ex_vat',
+                'price_without_vat',
+                'price_agent',
+                'price_retail',
+                'price',
+            ] as $col) {
+                if ($hasProduct($col)) {
+                    $cases[] = "WHEN COALESCE(pc.`{$col}`, 0) > 0 THEN COALESCE(pc.`{$col}`, 0) * {$qtyExpr}";
+                }
+            }
+        }
+
+        $itemVatExpr = "0";
+        foreach (['vat_percent', 'vat_rate', 'tax_percent', 'tax_rate', 'vat'] as $col) {
+            if ($hasItem($col)) {
+                $itemVatExpr = "COALESCE(oi.`{$col}`, 0)";
+                break;
+            }
+        }
+
+        $productVatExpr = "0";
+        if ($canJoinProduct) {
+            foreach (['vat_percent', 'vat_rate', 'tax_percent', 'tax_rate', 'vat'] as $col) {
+                if ($hasProduct($col)) {
+                    $productVatExpr = "COALESCE(pc.`{$col}`, 0)";
+                    break;
+                }
+            }
+        }
+
+        $cases[] = "WHEN {$itemVatExpr} > 0 THEN {$lineAfterExpr} / (1 + ({$itemVatExpr} / 100))";
+        $cases[] = "WHEN {$productVatExpr} > 0 THEN {$lineAfterExpr} / (1 + ({$productVatExpr} / 100))";
+
+        $caseSql = "CASE " . implode("\n", $cases) . " ELSE {$lineAfterExpr} END";
+
+        $itemSub = DB::table('crm_order_items as oi');
+
+        if ($canJoinProduct) {
+            $itemSub->leftJoin('crm_product_catalog as pc', 'pc.id', '=', 'oi.product_id');
+        }
+
+        $itemSub = $itemSub
+            ->select([
+                'oi.order_id',
+                DB::raw("SUM({$caseSql}) as item_before_vat"),
+                DB::raw("SUM({$lineAfterExpr}) as item_after_vat"),
+            ])
+            ->groupBy('oi.order_id');
+
+        return DB::table('crm_orders as o')
+            ->leftJoinSub($itemSub, 'x', function ($join) {
+                $join->on('x.order_id', '=', 'o.id');
+            })
+            ->select([
+                DB::raw('o.id as order_id'),
+                DB::raw("
+                    CASE
+                        WHEN COALESCE(x.item_before_vat, 0) > 0
+                            THEN COALESCE(x.item_before_vat, 0)
+
+                        WHEN {$taxExpr} > 0 AND {$orderTotalExpr} >= {$taxExpr}
+                            THEN {$orderTotalExpr} - {$taxExpr}
+
+                        ELSE {$orderTotalExpr}
+                    END as total_before_vat
+                "),
+            ]);
+    }
+
+    private function paymentSummarySubquery()
+    {
+        return DB::table('crm_payments as p')
+            ->select([
+                'p.order_id',
+                DB::raw('SUM(COALESCE(p.amount, 0)) as paid_total'),
+                DB::raw('MAX(COALESCE(p.payment_date, p.created_at)) as final_payment_date'),
+            ])
+            ->groupBy('p.order_id');
+    }
+
+    private function buildQuery(Request $request, $user, ?Carbon $from, ?Carbon $to)
+    {
+        $paymentSub = $this->paymentSummarySubquery();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Base hoa hồng = trước VAT
+        |--------------------------------------------------------------------------
+        | Ưu tiên:
+        | 1. crm_product_prices.price theo product_id + price_tier_id
+        | 2. Nếu có VAT % trên dòng đơn thì line_total / (1 + VAT%)
+        | 3. Nếu có VAT % trên sản phẩm thì line_total / (1 + VAT%)
+        | 4. Nếu order có tax_amount thì phân bổ theo tỷ lệ trước/sau VAT
+        | 5. Fallback line_total
+        */
+        $hasProductPrices = Schema::hasTable('crm_product_prices')
+            && Schema::hasColumn('crm_product_prices', 'product_id')
+            && Schema::hasColumn('crm_product_prices', 'price_tier_id')
+            && Schema::hasColumn('crm_product_prices', 'price');
+
+        $priceSub = null;
+
+        if ($hasProductPrices) {
+            $priceSub = DB::table('crm_product_prices')
+                ->select([
+                    'product_id',
+                    'price_tier_id',
+                    DB::raw('MAX(COALESCE(price, 0)) as price'),
+                ])
+                ->groupBy('product_id', 'price_tier_id');
+        }
+
+        $qtyExpr = "COALESCE(oi.quantity, 1)";
+        $lineAfterExpr = "COALESCE(oi.line_total, (COALESCE(oi.unit_price,0) * {$qtyExpr}) - COALESCE(oi.discount_amount,0))";
+
+        $ppPriceExpr = $hasProductPrices ? "COALESCE(pp.price,0)" : "0";
+        $itemVatExpr = Schema::hasColumn('crm_order_items', 'vat_percent') ? "COALESCE(oi.vat_percent,0)" : "0";
+        $productVatExpr = Schema::hasColumn('crm_product_catalog', 'vat_percent') ? "COALESCE(pc.vat_percent,0)" : "0";
+
+        $orderBeforeRateExpr = "
+            CASE
+                WHEN COALESCE(o.tax_amount,0) > 0 AND COALESCE(o.total_amount,0) > 0
+                    THEN (COALESCE(o.total_amount,0) - COALESCE(o.tax_amount,0)) / COALESCE(o.total_amount,1)
+                ELSE 0
+            END
+        ";
+
+        $lineBeforeSql = "
+            CASE
+                WHEN {$ppPriceExpr} > 0
+                    THEN {$ppPriceExpr} * {$qtyExpr}
+
+                WHEN {$itemVatExpr} > 0
+                    THEN {$lineAfterExpr} / (1 + ({$itemVatExpr} / 100))
+
+                WHEN {$productVatExpr} > 0
+                    THEN {$lineAfterExpr} / (1 + ({$productVatExpr} / 100))
+
+                WHEN ({$orderBeforeRateExpr}) > 0
+                    THEN {$lineAfterExpr} * ({$orderBeforeRateExpr})
+
+                ELSE {$lineAfterExpr}
+            END
+        ";
+
+        $baseAmountSql = "COALESCE(SUM({$lineBeforeSql}), 0)";
+
+        $q = DB::table('crm_orders as o')
+            ->joinSub($paymentSub, 'pay', function ($join) {
+                $join->on('pay.order_id', '=', 'o.id');
+            })
+            ->leftJoin('crm_leads as l', 'l.id', '=', 'o.lead_id')
+            ->leftJoin('crm_customers as c', 'c.id', '=', 'l.customer_id')
+            ->join('users as u', 'u.id', '=', 'o.created_by')
+            ->leftJoin('companies as co', 'co.id', '=', 'o.company_id')
+            ->leftJoin('crm_order_items as oi', 'oi.order_id', '=', 'o.id')
+            ->leftJoin('crm_product_catalog as pc', 'pc.id', '=', 'oi.product_id')
+            ->where('u.name', '!=', self::EXCLUDED_SALES_NAME)
+            ->whereNotNull('pay.final_payment_date')
+            ->whereRaw('COALESCE(pay.paid_total, 0) >= COALESCE(o.total_amount, 0)');
+
+        if ($hasProductPrices && $priceSub) {
+            $q->leftJoinSub($priceSub, 'pp', function ($join) {
+                $join->on('pp.product_id', '=', 'oi.product_id')
+                    ->on('pp.price_tier_id', '=', 'oi.price_tier_id');
+            });
+        }
+
+        $q = $this->onlySalesRolesFilter($q, 'o.created_by');
+
+        if ($from && $to) {
+            $q->whereBetween('pay.final_payment_date', [
+                $from->format('Y-m-d H:i:s'),
+                $to->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        if ($request->filled('customer_status')) {
+            $q->where('c.customer_status', $request->get('customer_status'));
+        }
+
+        if ($request->filled('sales_id')) {
+            $q->where('o.created_by', (int) $request->get('sales_id'));
+        }
+
+        if ($request->filled('q')) {
+            $kw = trim((string) $request->get('q'));
+            $q->where(function ($qq) use ($kw) {
+                $qq->where('o.order_code', 'like', "%{$kw}%")
+                    ->orWhere('c.name', 'like', "%{$kw}%")
+                    ->orWhere('u.name', 'like', "%{$kw}%");
+            });
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('sales')) {
+            $q->where('o.created_by', $user->id);
+        } elseif (method_exists($user, 'hasRole') && $user->hasRole('sales_manager')) {
+            $teamIds = $this->getTeamIdsForManager($user->id);
+            if ($teamIds && $teamIds->count() > 0) {
+                $q->whereIn('o.created_by', $teamIds);
+            }
+        }
+
+        $rateCase = "
+            CASE
+                WHEN c.customer_status = 'lead'   THEN 0.5
+                WHEN c.customer_status = 'member' THEN 1
+                WHEN c.customer_status = 'retail' THEN 2
+                ELSE 0
+            END
+        ";
+
+        $q->select([
+                DB::raw('o.id as id'),
+                DB::raw('o.id as order_id'),
+                DB::raw('l.customer_id as customer_id'),
+                DB::raw('o.created_by as sales_user_id'),
+                DB::raw("'auto' as status"),
+                'o.order_code',
+                DB::raw('pay.final_payment_date as completed_date'),
+                DB::raw('pay.paid_total as paid_total'),
+                DB::raw("COALESCE(c.name, '-') as customer_name"),
+                DB::raw("COALESCE(c.customer_status, '') as customer_status"),
+                'u.name as sales_name',
+                DB::raw("COALESCE(co.name, '-') as company_name"),
+            ])
+            ->selectRaw("{$baseAmountSql} as total_amount")
+            ->selectRaw("GROUP_CONCAT(DISTINCT pc.barcode ORDER BY pc.barcode SEPARATOR ', ') as product_codes")
+            ->selectRaw("GROUP_CONCAT(DISTINCT pc.name ORDER BY pc.name SEPARATOR ', ') as product_names")
+            ->selectRaw("{$rateCase} as rate_percent")
+            ->selectRaw("(({$baseAmountSql}) * ({$rateCase}) / 100) as commission_calc")
+            ->groupBy(
+                'o.id',
+                'l.customer_id',
+                'o.created_by',
+                'o.order_code',
+                'c.name',
+                'c.customer_status',
+                'u.name',
+                'co.name',
+                'pay.final_payment_date',
+                'pay.paid_total'
+            );
+
+        if ($request->filled('min_commission')) {
+            $min = (float) $request->get('min_commission');
+            $q->havingRaw("(({$baseAmountSql}) * ({$rateCase}) / 100) >= ?", [$min]);
+        }
+
+        return $q;
+    }
+
+    public function index(Request $request)
+    {
+        $user = auth()->user();
+
+        $period = $request->get('period', 'month');
+        if (!in_array($period, ['month', 'quarter', 'year'], true)) {
+            $period = 'month';
+        }
+
+        $month = $request->get('month', now()->format('Y-m'));
+        [$from, $to] = $this->resolveDateRange($request);
+
+        /*
+        |--------------------------------------------------------------------------
+        | FAST SAFE INDEX
+        |--------------------------------------------------------------------------
+        | debug=1 đã load được vì chỉ chạy buildQuery().
+        | Trang thường trước đó bị kẹt vì Cache::store('redis') + applyDashboard()
+        | + recalculateRows từng đơn. Bản này bỏ hẳn đoạn đó để trang load ổn định.
+        */
+        $rows = $this->buildQuery($request, $user, $from, $to)
+            ->orderByDesc('completed_date')
+            ->get()
+            ->map(function ($row) {
+                $row->total_amount = (float) ($row->total_amount ?? 0);
+                $row->paid_total = (float) ($row->paid_total ?? 0);
+                $row->commission_calc = (float) ($row->commission_calc ?? 0);
+                $row->rate_percent = (float) ($row->rate_percent ?? 0);
+
+                // Các field view có thể đang gọi sau khi engine recalculate
+                $row->revenue_before_vat = $row->total_amount;
+                $row->revenue_after_vat = $row->paid_total;
+                $row->fifo_cost = (float) ($row->fifo_cost ?? 0);
+                $row->gross_profit = (float) ($row->gross_profit ?? 0);
+                $row->commission_source = $row->commission_source ?? 'Base trước VAT';
+                $row->commission_breakdown = $row->commission_breakdown ?? 'Tính nhanh theo doanh thu trước VAT';
+
+                return $row;
+            });
+
+        if ($request->filled('min_commission')) {
+            $min = (float) $request->get('min_commission');
+            $rows = $rows->filter(fn ($row) => (float) ($row->commission_calc ?? 0) >= $min)->values();
+        }
+
+        if ((int) $request->get('debug', 0) === 1) {
+            return response()->json([
+                'from' => $from?->format('Y-m-d H:i:s'),
+                'to' => $to?->format('Y-m-d H:i:s'),
+                'count' => $rows->count(),
+                'totalRevenue' => (float) $rows->sum('total_amount'),
+                'totalCommission' => (float) $rows->sum('commission_calc'),
+                'rows' => $rows,
+            ]);
+        }
+
+        $totalRevenue    = (float) $rows->sum('total_amount');
+        $totalCommission = (float) $rows->sum('commission_calc');
+        $totalOrders     = (int) $rows->count();
+        $uniqueSales     = (int) $rows->pluck('sales_user_id')->unique()->count();
+
+        $ranking = $rows->groupBy('sales_user_id')->map(function ($g) {
+            return [
+                'sales_user_id' => $g->first()->sales_user_id,
+                'sales_name'    => $g->first()->sales_name,
+                'orders'        => $g->count(),
+                'revenue'       => (float) $g->sum('total_amount'),
+                'commission'    => (float) $g->sum('commission_calc'),
+            ];
+        })->sortByDesc('commission')->values()->take(10);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Policy/rules nhẹ cho sidebar cấu hình
+        |--------------------------------------------------------------------------
+        | Không gọi CommissionEngineService để tránh ensureSchema/recalculate nặng.
+        */
+        $defaultPolicy = (object) [
+            'period_month' => $month,
+            'project_rate_percent' => 4,
+            'trade_rate_percent' => 1,
+            'panel_fixed_amount' => 15000,
+            'only_paid' => 1,
+            'only_shipped' => 0,
+            'only_completed' => 0,
+            'hold_if_debt' => 1,
+            'note' => null,
+        ];
+
+        $policy = $defaultPolicy;
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('crm_commission_policies')) {
+            $policyRow = DB::table('crm_commission_policies')
+                ->where('period_month', $month)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($policyRow) {
+                $policy = (object) array_merge((array) $defaultPolicy, (array) $policyRow);
+            }
+        }
+
+        $rules = collect();
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('crm_commission_rules') && isset($policy->id)) {
+            $rules = DB::table('crm_commission_rules')
+                ->where('policy_id', (int) $policy->id)
+                ->where('is_active', 1)
+                ->orderBy('priority')
+                ->orderBy('id')
+                ->get();
+        }
+
+        $commissionRuleStats = [
+            'project' => (int) $rules->where('commission_type', 'project')->count(),
+            'trade_product' => (int) $rules->where('commission_type', 'trade_product')->count(),
+            'solar_panel' => (int) $rules->where('commission_type', 'solar_panel')->count(),
+            'total' => (int) $rules->count(),
+        ];
+
+        $salesOptions = DB::table('users')
+            ->select('users.id', 'users.name')
+            ->where('users.name', '!=', self::EXCLUDED_SALES_NAME)
+            ->whereExists(function ($sub) {
+                $sub->select(DB::raw(1))
+                    ->from('model_has_roles as mhr')
+                    ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                    ->whereColumn('mhr.model_id', 'users.id')
+                    ->where('mhr.model_type', \App\Models\User::class)
+                    ->whereIn('r.name', ['sales', 'sales_manager']);
+            })
+            ->orderBy('users.name')
+            ->get();
+
+        return view('sales.commissions.index', [
+            'period'          => $period,
+            'month'           => $month,
+            'from'            => $from,
+            'to'              => $to,
+            'rows'            => $rows,
+            'totalRevenue'    => $totalRevenue,
+            'totalCommission' => $totalCommission,
+            'totalOrders'     => $totalOrders,
+            'uniqueSales'     => $uniqueSales,
+            'ranking'         => $ranking,
+            'salesOptions'    => $salesOptions,
+            'salesId'         => $request->get('sales_id'),
+            'policy'          => $policy,
+            'rules'           => $rules,
+            'commissionRuleStats' => $commissionRuleStats,
+        ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        if (!class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+            return response(
+                'Server chưa có PhpSpreadsheet. Chạy: composer require phpoffice/phpspreadsheet',
+                500
+            );
+        }
+
+        $user = auth()->user();
+        $month = $request->get('month', now()->format('Y-m'));
+
+        try {
+            $periodStart = \Carbon\Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
+        } catch (\Throwable $e) {
+            $month = now()->format('Y-m');
+            $periodStart = now()->startOfMonth();
+        }
+
+        $periodEnd = $periodStart->copy()->endOfMonth();
+        $periodFrom = $periodStart->format('Y-m-d 00:00:00');
+        $periodTo = $periodEnd->format('Y-m-d 23:59:59');
+        $filterSalesId = (int) $request->get('sales_id', 0);
+
+        $hasTable = fn($t) => \Illuminate\Support\Facades\Schema::hasTable($t);
+        $hasCol = fn($t, $c) => $hasTable($t) && \Illuminate\Support\Facades\Schema::hasColumn($t, $c);
+
+        $firstCol = function ($table, array $cols) use ($hasCol) {
+            foreach ($cols as $c) {
+                if ($hasCol($table, $c)) {
+                    return $c;
+                }
+            }
+
+            return null;
+        };
+
+        $normalize = function ($value) {
+            $value = trim((string)($value ?? ''));
+
+            if (class_exists(\Illuminate\Support\Str::class)) {
+                $value = \Illuminate\Support\Str::ascii($value);
+            }
+
+            $value = strtolower($value);
+            $value = preg_replace('/[^a-z0-9]+/u', '', $value);
+
+            return $value ?: '';
+        };
+
+        $normType = function ($value) use ($normalize) {
+            return $normalize(str_replace(['_', '-'], '', (string)$value));
+        };
+
+        $findTable = function (array $candidates) {
+            try {
+                $tables = collect(\Illuminate\Support\Facades\DB::select('SHOW TABLES'))
+                    ->map(fn($r) => array_values((array)$r)[0] ?? null)
+                    ->filter()
+                    ->values();
+
+                foreach ($candidates as $name) {
+                    if ($tables->contains($name)) {
+                        return $name;
+                    }
+                }
+
+                foreach ($candidates as $name) {
+                    $found = $tables->first(fn($t) => str_contains(strtolower($t), strtolower($name)));
+                    if ($found) {
+                        return $found;
+                    }
+                }
+            } catch (\Throwable $e) {
+                //
+            }
+
+            return null;
+        };
+
+        $orderTable = $hasTable('crm_orders') ? 'crm_orders' : ($hasTable('orders') ? 'orders' : null);
+
+        if (!$orderTable) {
+            return response('Không tìm thấy bảng đơn hàng.', 500);
+        }
+
+        $orderDateCol = $firstCol($orderTable, ['order_date', 'ordered_at', 'date', 'created_at']);
+        $orderTotalCol = $firstCol($orderTable, ['total_amount', 'final_amount', 'grand_total', 'total', 'amount']);
+        $orderCodeCol = $firstCol($orderTable, ['order_code', 'code', 'order_no']);
+        $orderSalesCol = $firstCol($orderTable, ['created_by', 'sales_id', 'sale_id', 'user_id']);
+        $orderCustomerNameCol = $firstCol($orderTable, ['customer_name', 'lead_name', 'name']);
+        $orderCustomerIdCol = $firstCol($orderTable, ['customer_id', 'client_id', 'buyer_id']);
+        $orderLeadIdCol = $firstCol($orderTable, ['lead_id', 'crm_lead_id']);
+        $orderStatusCol = $firstCol($orderTable, ['status', 'order_status', 'current_department']);
+        $orderNoteCol = $firstCol($orderTable, ['note', 'notes', 'description']);
+
+        if (!$orderDateCol || !$orderTotalCol || !$orderSalesCol) {
+            return response('Thiếu cột ngày / tổng tiền / sales trong bảng đơn hàng.', 500);
+        }
+
+        $salesUsers = collect();
+
+        try {
+            $salesUsers = \Illuminate\Support\Facades\DB::table('users')
+                ->select('users.id', 'users.name', 'users.email')
+                ->where('users.name', '!=', self::EXCLUDED_SALES_NAME)
+                ->whereExists(function ($sub) {
+                    $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('model_has_roles as mhr')
+                        ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                        ->whereColumn('mhr.model_id', 'users.id')
+                        ->where('mhr.model_type', \App\Models\User::class)
+                        ->whereIn('r.name', ['sales', 'sales_manager']);
+                })
+                ->orderBy('users.name')
+                ->get();
+        } catch (\Throwable $e) {
+            $salesUsers = \Illuminate\Support\Facades\DB::table('users')
+                ->select('id', 'name', 'email')
+                ->where('name', '!=', self::EXCLUDED_SALES_NAME)
+                ->orderBy('name')
+                ->get();
+        }
+
+        $validSalesIds = $salesUsers->pluck('id')->map(fn($id) => (int)$id)->filter()->values()->all();
+        $salesMap = $salesUsers->keyBy('id');
+
+        $ordersQ = \Illuminate\Support\Facades\DB::table($orderTable)
+            ->whereBetween($orderDateCol, [$periodFrom, $periodTo]);
+
+        if ($filterSalesId > 0) {
+            $ordersQ->where($orderSalesCol, $filterSalesId);
+        } elseif (!empty($validSalesIds)) {
+            $ordersQ->whereIn($orderSalesCol, $validSalesIds);
+        }
+
+        if ($user && method_exists($user, 'hasRole') && $user->hasRole('sales')) {
+            $ordersQ->where($orderSalesCol, $user->id);
+        }
+
+        $orders = $ordersQ
+            ->orderByDesc($orderDateCol)
+            ->orderByDesc('id')
+            ->get();
+
+        $orderIds = $orders->pluck('id')->map(fn($id) => (int)$id)->filter()->values()->all();
+
+        $paymentTable = $findTable([
+            'crm_order_payments',
+            'order_payments',
+            'crm_payments',
+            'payments',
+            'payment_histories',
+            'crm_payment_histories',
+            'crm_order_payment_histories',
+        ]);
+
+        $paymentOrderCol = $paymentTable ? $firstCol($paymentTable, ['order_id', 'crm_order_id']) : null;
+        $paymentAmountCol = $paymentTable ? $firstCol($paymentTable, ['amount', 'paid_amount', 'payment_amount', 'money', 'value', 'total']) : null;
+        $paymentDateCol = $paymentTable ? $firstCol($paymentTable, ['payment_date', 'paid_at', 'date', 'created_at']) : null;
+        $paymentNoteCol = $paymentTable ? $firstCol($paymentTable, ['note', 'notes', 'description']) : null;
+
+        $paymentsByOrder = collect();
+
+        if ($paymentTable && $paymentOrderCol && $paymentAmountCol && !empty($orderIds)) {
+            try {
+                $paymentsByOrder = \Illuminate\Support\Facades\DB::table($paymentTable)
+                    ->whereIn($paymentOrderCol, $orderIds)
+                    ->get()
+                    ->groupBy($paymentOrderCol);
+            } catch (\Throwable $e) {
+                $paymentsByOrder = collect();
+            }
+        }
+
+        $itemTable = $hasTable('crm_order_items') ? 'crm_order_items' : ($hasTable('order_items') ? 'order_items' : null);
+        $itemOrderCol = $itemTable ? $firstCol($itemTable, ['order_id', 'crm_order_id']) : null;
+
+        $itemsByOrder = collect();
+
+        if ($itemTable && $itemOrderCol && !empty($orderIds)) {
+            try {
+                $iq = \Illuminate\Support\Facades\DB::table($itemTable . ' as oi')
+                    ->whereIn('oi.' . $itemOrderCol, $orderIds);
+
+                $selects = ['oi.*'];
+
+                if ($hasCol($itemTable, 'product_id') && $hasTable('crm_product_catalog')) {
+                    $iq->leftJoin('crm_product_catalog as pc', 'pc.id', '=', 'oi.product_id');
+
+                    foreach ([
+                        'name' => 'ego_product_name',
+                        'barcode' => 'ego_product_code',
+                        'model' => 'ego_product_model',
+                        'sku' => 'ego_product_sku',
+                        'vat_percent' => 'ego_product_vat_percent',
+                    ] as $col => $alias) {
+                        if ($hasCol('crm_product_catalog', $col)) {
+                            $selects[] = \Illuminate\Support\Facades\DB::raw('pc.`' . $col . '` as ' . $alias);
+                        }
+                    }
+                }
+
+                $itemsByOrder = $iq->get($selects)->groupBy($itemOrderCol);
+            } catch (\Throwable $e) {
+                $itemsByOrder = collect();
+            }
+        }
+
+        $getOrderCode = fn($o) => $orderCodeCol ? (string)($o->{$orderCodeCol} ?? ('ORD' . $o->id)) : ('ORD' . $o->id);
+
+        $customerCache = [];
+        $leadCache = [];
+
+        $customerInfoForOrder = function ($order) use (
+            &$customerCache,
+            &$leadCache,
+            $orderCustomerNameCol,
+            $orderCustomerIdCol,
+            $orderLeadIdCol,
+            $hasTable,
+            $firstCol
+        ) {
+            $info = (object)[
+                'name' => '-',
+                'phone' => '',
+                'status' => '',
+                'email' => '',
+                'tax_code' => '',
+                'address' => '',
+            ];
+
+            if ($orderCustomerNameCol && !empty($order->{$orderCustomerNameCol})) {
+                $info->name = trim((string)$order->{$orderCustomerNameCol});
+            }
+
+            $readCustomer = function ($id) use (&$customerCache, $hasTable, $firstCol) {
+                $id = (int)$id;
+                if ($id <= 0) {
+                    return null;
+                }
+
+                if (array_key_exists($id, $customerCache)) {
+                    return $customerCache[$id];
+                }
+
+                foreach (['crm_customers', 'customers', 'clients'] as $table) {
+                    if (!$hasTable($table)) {
+                        continue;
+                    }
+
+                    try {
+                        $row = \Illuminate\Support\Facades\DB::table($table)->where('id', $id)->first();
+                        if ($row) {
+                            $customerCache[$id] = (object)[
+                                'name' => $row->{$firstCol($table, ['name', 'company_name', 'full_name', 'customer_name'])} ?? '-',
+                                'phone' => $row->{$firstCol($table, ['phone', 'mobile', 'tel'])} ?? '',
+                                'status' => $row->{$firstCol($table, ['customer_status', 'status', 'type', 'customer_type'])} ?? '',
+                                'email' => $row->{$firstCol($table, ['email', 'mail'])} ?? '',
+                                'tax_code' => $row->{$firstCol($table, ['tax_code', 'mst', 'vat_code'])} ?? '',
+                                'address' => $row->{$firstCol($table, ['address', 'billing_address'])} ?? '',
+                            ];
+
+                            return $customerCache[$id];
+                        }
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
+
+                $customerCache[$id] = null;
+                return null;
+            };
+
+            if ($orderCustomerIdCol && !empty($order->{$orderCustomerIdCol})) {
+                $c = $readCustomer($order->{$orderCustomerIdCol});
+                if ($c) {
+                    return $c;
+                }
+            }
+
+            if ($orderLeadIdCol && !empty($order->{$orderLeadIdCol})) {
+                $leadId = (int)$order->{$orderLeadIdCol};
+
+                if (!array_key_exists($leadId, $leadCache)) {
+                    $leadCache[$leadId] = null;
+
+                    foreach (['crm_leads', 'leads'] as $leadTable) {
+                        if (!$hasTable($leadTable)) {
+                            continue;
+                        }
+
+                        try {
+                            $lead = \Illuminate\Support\Facades\DB::table($leadTable)->where('id', $leadId)->first();
+
+                            if ($lead) {
+                                $leadCache[$leadId] = $lead;
+                                break;
+                            }
+                        } catch (\Throwable $e) {
+                            //
+                        }
+                    }
+                }
+
+                $lead = $leadCache[$leadId] ?? null;
+
+                if ($lead) {
+                    foreach (['customer_id', 'client_id'] as $col) {
+                        if (isset($lead->{$col}) && !empty($lead->{$col})) {
+                            $c = $readCustomer($lead->{$col});
+                            if ($c) {
+                                return $c;
+                            }
+                        }
+                    }
+
+                    foreach (['customer_name', 'company_name', 'name', 'full_name', 'contact_name'] as $col) {
+                        if (isset($lead->{$col}) && trim((string)$lead->{$col}) !== '') {
+                            $info->name = trim((string)$lead->{$col});
+                            break;
+                        }
+                    }
+
+                    foreach (['phone', 'mobile', 'tel'] as $col) {
+                        if (isset($lead->{$col}) && trim((string)$lead->{$col}) !== '') {
+                            $info->phone = trim((string)$lead->{$col});
+                            break;
+                        }
+                    }
+
+                    foreach (['customer_status', 'status', 'type', 'source'] as $col) {
+                        if (isset($lead->{$col}) && trim((string)$lead->{$col}) !== '') {
+                            $info->status = trim((string)$lead->{$col});
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return $info;
+        };
+
+        $lineTotalsForItem = function ($item) {
+            $qty = (float)($item->quantity ?? ($item->qty ?? 0));
+            if ($qty <= 0) {
+                $qty = 1;
+            }
+
+            $unitPrice = (float)($item->unit_price ?? ($item->price ?? ($item->sale_price ?? 0)));
+            $discountAmount = (float)($item->discount_amount ?? 0);
+            $discountPercent = (float)($item->discount_percent ?? 0);
+
+            $lineAfter = (float)($item->line_total ?? ($item->total_amount ?? ($item->total ?? ($item->amount ?? 0))));
+
+            if ($lineAfter <= 0) {
+                $subtotal = $unitPrice * $qty;
+                $discount = $discountAmount > 0 ? $discountAmount : ($subtotal * $discountPercent / 100);
+                $lineAfter = max(0, $subtotal - $discount);
+            }
+
+            $vatPercent = (float)($item->vat_percent ?? ($item->vat ?? 0));
+
+            if ($vatPercent <= 0 && isset($item->ego_product_vat_percent)) {
+                $vatPercent = (float)$item->ego_product_vat_percent;
+            }
+
+            $lineBefore = $vatPercent > 0
+                ? $lineAfter / (1 + ($vatPercent / 100))
+                : $lineAfter;
+
+            $tax = max(0, $lineAfter - $lineBefore);
+
+            return (object)[
+                'qty' => $qty,
+                'unit_price' => $unitPrice,
+                'vat_percent' => $vatPercent,
+                'before_vat' => round($lineBefore, 2),
+                'tax' => round($tax, 2),
+                'after_vat' => round($lineAfter, 2),
+            ];
+        };
+
+        $beforeVatForOrder = function ($order, $items) use ($orderTotalCol, $lineTotalsForItem) {
+            $sumBefore = 0;
+            $sumAfter = 0;
+
+            foreach ($items as $item) {
+                $t = $lineTotalsForItem($item);
+                $sumBefore += $t->before_vat;
+                $sumAfter += $t->after_vat;
+            }
+
+            if ($sumBefore > 0) {
+                return round($sumBefore, 2);
+            }
+
+            $after = (float)($order->{$orderTotalCol} ?? 0);
+
+            foreach (['tax_amount', 'vat_amount', 'total_vat', 'total_tax'] as $col) {
+                if (isset($order->{$col}) && (float)$order->{$col} > 0 && $after >= (float)$order->{$col}) {
+                    return round($after - (float)$order->{$col}, 2);
+                }
+            }
+
+            return round($after, 2);
+        };
+
+        $policy = (object)[
+            'period_month' => $month,
+            'project_rate_percent' => 4,
+            'trade_rate_percent' => 1,
+            'panel_fixed_amount' => 15000,
+            'only_paid' => 1,
+            'only_shipped' => 0,
+            'only_completed' => 0,
+            'hold_if_debt' => 1,
+        ];
+
+        if ($hasTable('crm_commission_policies')) {
+            try {
+                $policyRow = \Illuminate\Support\Facades\DB::table('crm_commission_policies')
+                    ->where('period_month', $month)
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($policyRow) {
+                    $policy = (object)array_merge((array)$policy, (array)$policyRow);
+                }
+            } catch (\Throwable $e) {
+                //
+            }
+        }
+
+        $rules = collect();
+
+        if ($hasTable('crm_commission_rules') && isset($policy->id)) {
+            try {
+                $rules = \Illuminate\Support\Facades\DB::table('crm_commission_rules')
+                    ->where('policy_id', (int)$policy->id)
+                    ->where('is_active', 1)
+                    ->orderByDesc('priority')
+                    ->orderBy('id')
+                    ->get();
+            } catch (\Throwable $e) {
+                $rules = collect();
+            }
+        }
+
+        $splitTargetText = function ($text) use ($normalize) {
+            $parts = preg_split('/[,;|\/]+/', (string)$text) ?: [];
+
+            return collect($parts)
+                ->map(fn($v) => $normalize($v))
+                ->filter()
+                ->values()
+                ->all();
+        };
+
+        $calcRuleAmount = function ($rule, float $beforeVat, float $afterVat, float $monthlyBeforeVat, float $quantity) use ($normType) {
+            $fromAmount = ($rule->from_amount ?? '') !== '' && $rule->from_amount !== null ? (float)$rule->from_amount : null;
+            $toAmount = ($rule->to_amount ?? '') !== '' && $rule->to_amount !== null ? (float)$rule->to_amount : null;
+
+            if ($fromAmount !== null && $monthlyBeforeVat + 0.01 < $fromAmount) {
+                return null;
+            }
+
+            if ($toAmount !== null && $monthlyBeforeVat - 0.01 > $toAmount) {
+                return null;
+            }
+
+            $fromQty = ($rule->from_qty ?? '') !== '' && $rule->from_qty !== null ? (float)$rule->from_qty : null;
+            $toQty = ($rule->to_qty ?? '') !== '' && $rule->to_qty !== null ? (float)$rule->to_qty : null;
+
+            if ($fromQty !== null && $quantity + 0.01 < $fromQty) {
+                return null;
+            }
+
+            if ($toQty !== null && $quantity - 0.01 > $toQty) {
+                return null;
+            }
+
+            $baseType = $normType($rule->base_type ?? 'revenue_before_vat');
+            $calcType = $normType($rule->calculation_type ?? 'percent');
+
+            $base = in_array($baseType, ['revenueaftervat', 'aftervat', 'sauvat'], true)
+                ? $afterVat
+                : (in_array($baseType, ['quantity', 'qty', 'soluong'], true) ? $quantity : $beforeVat);
+
+            if (in_array($calcType, ['fixedperitem', 'peritem', 'theosanpham'], true)) {
+                return $quantity * (float)($rule->amount_per_unit ?? ($rule->fixed_amount ?? 0));
+            }
+
+            if (in_array($calcType, ['fixedperkwp', 'perkwp'], true)) {
+                return $quantity * (float)($rule->amount_per_kwp ?? 0);
+            }
+
+            if (in_array($calcType, ['fixedperorder', 'perorder', 'fixed'], true)) {
+                return (float)($rule->fixed_amount ?? 0);
+            }
+
+            return $base * (float)($rule->rate_percent ?? 0) / 100;
+        };
+
+        $matchesRuleTarget = function ($rule, string $customerStatus, string $productText) use ($normType, $normalize, $splitTargetText) {
+            $targetType = $normType($rule->target_type ?? 'all');
+            $needles = $splitTargetText($rule->target_text ?? '');
+            $status = $normalize($customerStatus);
+            $productTextNorm = $normalize($productText);
+
+            if ($targetType === '' || $targetType === 'all' || empty($needles)) {
+                return true;
+            }
+
+            if (in_array($targetType, ['customerstatus', 'khachhang', 'trangthaikhach'], true)) {
+                if ($status === '') {
+                    return false;
+                }
+
+                foreach ($needles as $needle) {
+                    if ($needle === $status) {
+                        return true;
+                    }
+
+                    $isLeadNeedle = strpos($needle, 'lead') !== false || strpos($needle, 'ads') !== false;
+                    $isLeadStatus = strpos($status, 'lead') !== false || strpos($status, 'ads') !== false;
+
+                    if ($isLeadNeedle && $isLeadStatus) {
+                        return true;
+                    }
+
+                    // Không tự map retail = Khách lẻ.
+                    // Rule Khách lẻ chỉ khớp khi target/status khớp thật.
+                }
+
+                return false;
+            }
+
+            if (in_array($targetType, ['keyword', 'product', 'productname', 'model', 'sku', 'barcode', 'brand', 'category', 'sanpham'], true)) {
+                foreach ($needles as $needle) {
+                    if ($needle !== '' && strpos($productTextNorm, $needle) !== false) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return true;
+        };
+
+        $isTradeRule = function ($rule) use ($normType) {
+            $type = $normType($rule->commission_type ?? 'trade_product');
+
+            return in_array($type, ['tradeproduct', 'thuongmai', 'commercial', 'sales', 'order'], true);
+        };
+
+        $isSolarPanelRule = function ($rule) use ($normType) {
+            $type = $normType($rule->commission_type ?? '');
+
+            return in_array($type, ['solarpanel', 'tampin', 'panel'], true);
+        };
+
+        $orderRows = collect();
+
+        foreach ($orders as $order) {
+            $orderId = (int)($order->id ?? 0);
+            $items = collect($itemsByOrder->get($orderId, collect()));
+            $payments = collect($paymentsByOrder->get($orderId, collect()));
+            $customer = $customerInfoForOrder($order);
+
+            $afterVat = (float)($order->{$orderTotalCol} ?? 0);
+            $beforeVat = (float)$beforeVatForOrder($order, $items);
+            $paid = (float)$payments->sum(fn($p) => (float)($p->{$paymentAmountCol} ?? 0));
+            $debt = max(0, $afterVat - $paid);
+            $sid = (int)($order->{$orderSalesCol} ?? 0);
+            $sales = $salesMap->get($sid);
+
+            $quantity = 0;
+            $productTexts = [];
+
+            foreach ($items as $item) {
+                $t = $lineTotalsForItem($item);
+                $quantity += $t->qty;
+
+                foreach (['ego_product_name', 'ego_product_code', 'ego_product_model', 'ego_product_sku', 'product_name', 'name', 'model', 'sku', 'barcode'] as $col) {
+                    if (isset($item->{$col}) && trim((string)$item->{$col}) !== '') {
+                        $productTexts[] = trim((string)$item->{$col});
+                    }
+                }
+            }
+
+            $isPaid = $afterVat <= 0 || $paid + 0.01 >= $afterVat;
+            $isShipped = isset($order->inventory_issued) ? ((int)$order->inventory_issued === 1) : true;
+            $statusRaw = $orderStatusCol ? strtolower((string)($order->{$orderStatusCol} ?? '')) : '';
+            $isCompleted = in_array($statusRaw, ['completed', 'hoan_tat', 'done', 'da_hoan_thanh'], true)
+                || strpos($statusRaw, 'completed') !== false
+                || strpos($statusRaw, 'hoan') !== false;
+
+            $eligible = true;
+
+            if ((int)($policy->only_paid ?? 1) === 1 && !$isPaid) {
+                $eligible = false;
+            }
+
+            if ((int)($policy->hold_if_debt ?? 1) === 1 && $debt > 1) {
+                $eligible = false;
+            }
+
+            if ((int)($policy->only_shipped ?? 0) === 1 && !$isShipped) {
+                $eligible = false;
+            }
+
+            if ((int)($policy->only_completed ?? 0) === 1 && !$isCompleted) {
+                $eligible = false;
+            }
+
+            $orderRows->push((object)[
+                'order' => $order,
+                'order_id' => $orderId,
+                'order_code' => $getOrderCode($order),
+                'order_date' => $order->{$orderDateCol} ?? null,
+                'sales_id' => $sid,
+                'sales_name' => $sales->name ?? ('Sales #' . $sid),
+                'sales_email' => $sales->email ?? '',
+                'customer_name' => $customer->name ?? '-',
+                'customer_phone' => $customer->phone ?? '',
+                'customer_email' => $customer->email ?? '',
+                'customer_status' => $customer->status ?? '',
+                'customer_tax_code' => $customer->tax_code ?? '',
+                'customer_address' => $customer->address ?? '',
+                'after_vat' => $afterVat,
+                'before_vat' => $beforeVat,
+                'paid' => $paid,
+                'debt' => $debt,
+                'quantity' => $quantity,
+                'product_text' => implode(' ', array_unique($productTexts)),
+                'eligible' => $eligible,
+                'status' => $statusRaw ?: '-',
+                'note' => $orderNoteCol ? (string)($order->{$orderNoteCol} ?? '') : '',
+                'commission' => 0,
+                'commission_rate' => 0,
+                'commission_note' => $eligible ? 'Đủ điều kiện' : 'Chưa đủ điều kiện',
+            ]);
+        }
+
+        $monthlyRevenueBySales = $orderRows
+            ->filter(fn($r) => $r->eligible)
+            ->groupBy('sales_id')
+            ->map(fn($g) => (float)$g->sum('before_vat'));
+
+        $calcCommissionForOrder = function ($r) use (
+            $rules,
+            $policy,
+            $monthlyRevenueBySales,
+            $isTradeRule,
+            $isSolarPanelRule,
+            $matchesRuleTarget,
+            $calcRuleAmount
+        ) {
+            if (!$r->eligible) {
+                return [0, 0, 'Chưa đủ điều kiện'];
+            }
+
+            $monthlyBefore = (float)($monthlyRevenueBySales->get($r->sales_id, 0));
+            $tradeCommission = null;
+            $fallbackCandidates = [];
+            $extraCommission = 0;
+
+            $hasRevenueFloorTradeRule = $rules->contains(function ($rule) use ($isTradeRule) {
+                return $isTradeRule($rule)
+                    && ($rule->from_amount ?? null) !== null
+                    && (float)($rule->from_amount ?? 0) > 0;
+            });
+
+            foreach ($rules as $rule) {
+                if (!$isTradeRule($rule) && !$isSolarPanelRule($rule)) {
+                    continue;
+                }
+
+                $amount = $calcRuleAmount(
+                    $rule,
+                    (float)$r->before_vat,
+                    (float)$r->after_vat,
+                    $monthlyBefore,
+                    (float)$r->quantity
+                );
+
+                if ($amount === null) {
+                    continue;
+                }
+
+                $amount = max(0, (float)$amount);
+                $matches = $matchesRuleTarget($rule, (string)$r->customer_status, (string)$r->product_text);
+
+                if ($isSolarPanelRule($rule)) {
+                    if ($matches) {
+                        $extraCommission += $amount;
+                    }
+
+                    continue;
+                }
+
+                if ($isTradeRule($rule) && $matches && $tradeCommission === null) {
+                    $tradeCommission = $amount;
+                    continue;
+                }
+
+                if ($isTradeRule($rule) && !$matches) {
+                    if ($hasRevenueFloorTradeRule) {
+                        if (($rule->from_amount ?? null) !== null && (float)($rule->from_amount ?? 0) > 0) {
+                            $fallbackCandidates[] = [
+                                'amount' => $amount,
+                                'rate' => (float)($rule->rate_percent ?? 0),
+                                'name' => $rule->rule_name ?? ($rule->name ?? 'Fallback rule'),
+                            ];
+                        }
+                    } else {
+                        $fallbackCandidates[] = [
+                            'amount' => $amount,
+                            'rate' => (float)($rule->rate_percent ?? 0),
+                            'name' => $rule->rule_name ?? ($rule->name ?? 'Fallback rule'),
+                        ];
+                    }
+                }
+            }
+
+            $note = 'Theo rule';
+
+            if ($tradeCommission === null && !empty($fallbackCandidates)) {
+                usort($fallbackCandidates, fn($a, $b) => ($a['rate'] <=> $b['rate']));
+                $tradeCommission = (float)($fallbackCandidates[0]['amount'] ?? 0);
+                $note = 'Fallback: ' . ($fallbackCandidates[0]['name'] ?? 'rule doanh thu');
+            }
+
+            if ($tradeCommission === null && $rules->isEmpty()) {
+                $tradeCommission = (float)$r->before_vat * (float)($policy->trade_rate_percent ?? 0) / 100;
+                $note = 'Theo % mặc định';
+            }
+
+            $commission = (float)($tradeCommission ?? 0) + (float)$extraCommission;
+            $rate = $r->before_vat > 0 ? ($commission / $r->before_vat) * 100 : 0;
+
+            return [round($commission), $rate, $note];
+        };
+
+        $orderRows = $orderRows->map(function ($r) use ($calcCommissionForOrder) {
+            [$commission, $rate, $note] = $calcCommissionForOrder($r);
+
+            $r->commission = $commission;
+            $r->commission_rate = $rate;
+            $r->commission_note = $r->eligible ? $note : $r->commission_note;
+
+            return $r;
+        });
+
+        $summaryRows = $orderRows
+            ->groupBy('sales_id')
+            ->map(function ($g) {
+                $before = (float)$g->sum('before_vat');
+                $commission = (float)$g->sum('commission');
+
+                return (object)[
+                    'sales_id' => $g->first()->sales_id,
+                    'sales_name' => $g->first()->sales_name,
+                    'sales_email' => $g->first()->sales_email,
+                    'orders' => $g->count(),
+                    'after_vat' => (float)$g->sum('after_vat'),
+                    'before_vat' => $before,
+                    'paid' => (float)$g->sum('paid'),
+                    'debt' => (float)$g->sum('debt'),
+                    'commission' => $commission,
+                    'commission_rate' => $before > 0 ? ($commission / $before) * 100 : 0,
+                ];
+            })
+            ->sortByDesc('commission')
+            ->values();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet->getProperties()
+            ->setCreator(config('app.name', 'CRM'))
+            ->setTitle('Hoa hồng Sales ' . $month)
+            ->setSubject('Xuất hoa hồng Sales');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'EAF6FF'],
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['rgb' => 'CBD5E1'],
+                ],
+            ],
+            'alignment' => [
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+        ];
+
+        $cellStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['rgb' => 'E2E8F0'],
+                ],
+            ],
+            'alignment' => [
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+        ];
+
+        $titleStyle = [
+            'font' => ['bold' => true, 'size' => 15, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '0891B2'],
+            ],
+        ];
+
+        $colLetter = fn($index) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index);
+
+        $autoSize = function ($sheet, int $count) use ($colLetter) {
+            for ($i = 1; $i <= $count; $i++) {
+                $sheet->getColumnDimension($colLetter($i))->setAutoSize(true);
+            }
+        };
+
+        $writeTitle = function ($sheet, string $title, int $columns) use ($colLetter, $titleStyle, $month) {
+            $last = $colLetter($columns);
+            $sheet->mergeCells('A1:' . $last . '1');
+            $sheet->setCellValue('A1', $title);
+            $sheet->getStyle('A1:' . $last . '1')->applyFromArray($titleStyle);
+            $sheet->mergeCells('A2:' . $last . '2');
+            $sheet->setCellValue('A2', 'Tháng: ' . $month . ' | Xuất lúc: ' . now()->format('d/m/Y H:i'));
+        };
+
+        $writeHeader = function ($sheet, array $headers, int $row) use ($headerStyle, $colLetter) {
+            $sheet->fromArray($headers, null, 'A' . $row);
+            $last = $colLetter(count($headers));
+            $sheet->getStyle('A' . $row . ':' . $last . $row)->applyFromArray($headerStyle);
+            $sheet->freezePane('A' . ($row + 1));
+            $sheet->setAutoFilter('A' . $row . ':' . $last . $row);
+        };
+
+        $applyTableStyle = function ($sheet, int $columns, int $startRow, int $endRow) use ($cellStyle, $colLetter) {
+            if ($endRow < $startRow) {
+                return;
+            }
+
+            $sheet->getStyle('A' . $startRow . ':' . $colLetter($columns) . $endRow)->applyFromArray($cellStyle);
+        };
+
+        $moneyFormat = function ($sheet, array $columns, int $startRow, int $endRow) {
+            if ($endRow < $startRow) {
+                return;
+            }
+
+            foreach ($columns as $col) {
+                $sheet->getStyle($col . $startRow . ':' . $col . $endRow)
+                    ->getNumberFormat()
+                    ->setFormatCode('#,##0');
+            }
+        };
+
+        $rateFormat = function ($sheet, array $columns, int $startRow, int $endRow) {
+            if ($endRow < $startRow) {
+                return;
+            }
+
+            foreach ($columns as $col) {
+                $sheet->getStyle($col . $startRow . ':' . $col . $endRow)
+                    ->getNumberFormat()
+                    ->setFormatCode('0.00');
+            }
+        };
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 1: Tổng hợp Sales
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Tong hop Sales');
+
+        $headers = [
+            'STT',
+            'Sales',
+            'Email',
+            'Số đơn',
+            'Doanh thu sau VAT',
+            'Doanh thu trước VAT',
+            'Đã thu',
+            'Công nợ',
+            'Hoa hồng',
+            '% HH TB',
+        ];
+
+        $writeTitle($sheet, 'TỔNG HỢP HOA HỒNG SALES', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+
+        foreach ($summaryRows as $i => $row) {
+            $sheet->fromArray([
+                $i + 1,
+                $row->sales_name,
+                $row->sales_email,
+                $row->orders,
+                round($row->after_vat),
+                round($row->before_vat),
+                round($row->paid),
+                round($row->debt),
+                round($row->commission),
+                null,
+            ], null, 'A' . $r);
+
+            $sheet->setCellValue('J' . $r, '=IF(F' . $r . '>0,I' . $r . '/F' . $r . '*100,0)');
+
+            $r++;
+        }
+
+        $totalRow = $r;
+
+        if ($totalRow > 5) {
+            $sheet->setCellValue('D' . $totalRow, 'TỔNG');
+            $sheet->setCellValue('E' . $totalRow, '=SUM(E5:E' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('F' . $totalRow, '=SUM(F5:F' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('G' . $totalRow, '=SUM(G5:G' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('H' . $totalRow, '=SUM(H5:H' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('I' . $totalRow, '=SUM(I5:I' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('J' . $totalRow, '=IF(F' . $totalRow . '>0,I' . $totalRow . '/F' . $totalRow . '*100,0)');
+
+            $sheet->getStyle('A' . $totalRow . ':J' . $totalRow)->getFont()->setBold(true);
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $totalRow);
+        $moneyFormat($sheet, ['E', 'F', 'G', 'H', 'I'], 5, $totalRow);
+        $rateFormat($sheet, ['J'], 5, $totalRow);
+        $autoSize($sheet, count($headers));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 2: Hoa hồng đơn
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Hoa hong don');
+
+        $headers = [
+            'STT',
+            'Mã đơn',
+            'Ngày',
+            'Sales',
+            'Khách hàng',
+            'Trạng thái khách',
+            'Tổng sau VAT',
+            'Trước VAT tính HH',
+            'Đã thu',
+            'Còn nợ',
+            '% HH',
+            'Hoa hồng',
+            'Điều kiện',
+            'Ghi chú tính',
+        ];
+
+        $writeTitle($sheet, 'CHI TIẾT HOA HỒNG THEO ĐƠN', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+
+        foreach ($orderRows as $i => $row) {
+            $sheet->fromArray([
+                $i + 1,
+                $row->order_code,
+                $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                $row->sales_name,
+                $row->customer_name,
+                $row->customer_status,
+                round($row->after_vat),
+                round($row->before_vat),
+                round($row->paid),
+                round($row->debt),
+                $row->eligible ? round($row->commission_rate, 4) : null,
+                null,
+                $row->eligible ? 'Đủ điều kiện' : 'Chưa tính',
+                $row->commission_note,
+            ], null, 'A' . $r);
+
+            if ($row->eligible && (float)($row->commission_rate ?? 0) > 0) {
+                $sheet->setCellValue('L' . $r, '=H' . $r . '*K' . $r . '%');
+            } else {
+                $sheet->setCellValue('L' . $r, 0);
+            }
+
+            $r++;
+        }
+
+        $totalRow = $r;
+
+        if ($totalRow > 5) {
+            $sheet->setCellValue('F' . $totalRow, 'TỔNG');
+            $sheet->setCellValue('G' . $totalRow, '=SUM(G5:G' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('H' . $totalRow, '=SUM(H5:H' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('I' . $totalRow, '=SUM(I5:I' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('J' . $totalRow, '=SUM(J5:J' . ($totalRow - 1) . ')');
+            $sheet->setCellValue('L' . $totalRow, '=SUM(L5:L' . ($totalRow - 1) . ')');
+
+            $sheet->getStyle('A' . $totalRow . ':N' . $totalRow)->getFont()->setBold(true);
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $totalRow);
+        $moneyFormat($sheet, ['G', 'H', 'I', 'J', 'L'], 5, $totalRow);
+        $rateFormat($sheet, ['K'], 5, $totalRow);
+        $autoSize($sheet, count($headers));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 3: Thông tin đơn hàng
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Thong tin don hang');
+
+        $headers = [
+            'STT',
+            'Mã đơn',
+            'Ngày',
+            'Sales',
+            'Khách hàng',
+            'SĐT',
+            'Email',
+            'MST',
+            'Địa chỉ',
+            'Tổng sau VAT',
+            'Trước VAT',
+            'Đã thu',
+            'Còn nợ',
+            'Trạng thái đơn',
+            'Ghi chú đơn',
+        ];
+
+        $writeTitle($sheet, 'THÔNG TIN ĐƠN HÀNG', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+
+        foreach ($orderRows as $i => $row) {
+            $sheet->fromArray([
+                $i + 1,
+                $row->order_code,
+                $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                $row->sales_name,
+                $row->customer_name,
+                $row->customer_phone,
+                $row->customer_email,
+                $row->customer_tax_code,
+                $row->customer_address,
+                round($row->after_vat),
+                round($row->before_vat),
+                round($row->paid),
+                round($row->debt),
+                $row->status,
+                $row->note,
+            ], null, 'A' . $r);
+
+            $r++;
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $r - 1);
+        $moneyFormat($sheet, ['J', 'K', 'L', 'M'], 5, $r - 1);
+        $autoSize($sheet, count($headers));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 4: Sản phẩm trong đơn
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('San pham trong don');
+
+        $headers = [
+            'STT',
+            'Mã đơn',
+            'Ngày',
+            'Sales',
+            'Khách hàng',
+            'Mã SP',
+            'Tên sản phẩm',
+            'Model/SKU',
+            'Số lượng',
+            'Đơn giá',
+            'VAT %',
+            'Trước VAT',
+            'VAT',
+            'Sau VAT',
+        ];
+
+        $writeTitle($sheet, 'SẢN PHẨM TRONG ĐƠN', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+        $stt = 1;
+
+        foreach ($orderRows as $row) {
+            $items = collect($itemsByOrder->get($row->order_id, collect()));
+
+            if ($items->isEmpty()) {
+                $sheet->fromArray([
+                    $stt++,
+                    $row->order_code,
+                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->sales_name,
+                    $row->customer_name,
+                    '',
+                    'Không có sản phẩm',
+                    '',
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ], null, 'A' . $r);
+
+                $r++;
+                continue;
+            }
+
+            foreach ($items as $item) {
+                $t = $lineTotalsForItem($item);
+
+                $sheet->fromArray([
+                    $stt++,
+                    $row->order_code,
+                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->sales_name,
+                    $row->customer_name,
+                    $item->ego_product_code ?? ($item->sku ?? ($item->barcode ?? '')),
+                    $item->ego_product_name ?? ($item->product_name ?? ($item->name ?? '')),
+                    $item->ego_product_model ?? ($item->ego_product_sku ?? ($item->model ?? ($item->sku ?? ''))),
+                    $t->qty,
+                    round($t->unit_price),
+                    round($t->vat_percent, 2),
+                    round($t->before_vat),
+                    round($t->tax),
+                    round($t->after_vat),
+                ], null, 'A' . $r);
+
+                $r++;
+            }
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $r - 1);
+        $moneyFormat($sheet, ['J', 'L', 'M', 'N'], 5, $r - 1);
+        $rateFormat($sheet, ['K'], 5, $r - 1);
+        $autoSize($sheet, count($headers));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 5: Thanh toán
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Thanh toan');
+
+        $headers = [
+            'STT',
+            'Mã đơn',
+            'Ngày đơn',
+            'Sales',
+            'Khách hàng',
+            'Ngày thanh toán',
+            'Số tiền',
+            'Ghi chú',
+        ];
+
+        $writeTitle($sheet, 'LỊCH SỬ THANH TOÁN', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+        $stt = 1;
+
+        foreach ($orderRows as $row) {
+            $payments = collect($paymentsByOrder->get($row->order_id, collect()));
+
+            if ($payments->isEmpty()) {
+                $sheet->fromArray([
+                    $stt++,
+                    $row->order_code,
+                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->sales_name,
+                    $row->customer_name,
+                    '',
+                    0,
+                    'Chưa có thanh toán',
+                ], null, 'A' . $r);
+
+                $r++;
+                continue;
+            }
+
+            foreach ($payments as $p) {
+                $sheet->fromArray([
+                    $stt++,
+                    $row->order_code,
+                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->sales_name,
+                    $row->customer_name,
+                    $paymentDateCol && !empty($p->{$paymentDateCol}) ? \Carbon\Carbon::parse($p->{$paymentDateCol})->format('d/m/Y') : '',
+                    round((float)($p->{$paymentAmountCol} ?? 0)),
+                    $paymentNoteCol ? (string)($p->{$paymentNoteCol} ?? '') : '',
+                ], null, 'A' . $r);
+
+                $r++;
+            }
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $r - 1);
+        $moneyFormat($sheet, ['G'], 5, $r - 1);
+        $autoSize($sheet, count($headers));
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sheet 6: Chính sách
+        |--------------------------------------------------------------------------
+        */
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Chinh sach');
+
+        $headers = [
+            'STT',
+            'Nhóm HH',
+            'Tên rule',
+            'Áp dụng',
+            'Target text',
+            'Mốc từ',
+            'Mốc đến',
+            'Cách tính',
+            'Base',
+            'Tỉ lệ %',
+            'Cố định',
+            'Ưu tiên',
+            'Trạng thái',
+        ];
+
+        $writeTitle($sheet, 'CHÍNH SÁCH HOA HỒNG ÁP DỤNG', count($headers));
+        $writeHeader($sheet, $headers, 4);
+
+        $r = 5;
+
+        if ($rules->isEmpty()) {
+            $sheet->fromArray([
+                1,
+                'Mặc định',
+                'Thương mại mặc định',
+                'Tất cả',
+                '',
+                '',
+                '',
+                'percent',
+                'revenue_before_vat',
+                (float)($policy->trade_rate_percent ?? 0),
+                '',
+                '',
+                'Đang dùng',
+            ], null, 'A' . $r);
+            $r++;
+        } else {
+            foreach ($rules as $i => $rule) {
+                $sheet->fromArray([
+                    $i + 1,
+                    $rule->commission_type ?? '',
+                    $rule->rule_name ?? ($rule->name ?? ''),
+                    $rule->target_type ?? '',
+                    $rule->target_text ?? '',
+                    $rule->from_amount ?? '',
+                    $rule->to_amount ?? '',
+                    $rule->calculation_type ?? '',
+                    $rule->base_type ?? '',
+                    $rule->rate_percent ?? '',
+                    $rule->fixed_amount ?? ($rule->amount_per_unit ?? ''),
+                    $rule->priority ?? '',
+                    ((int)($rule->is_active ?? 0) === 1) ? 'Bật' : 'Tắt',
+                ], null, 'A' . $r);
+
+                $r++;
+            }
+        }
+
+        $applyTableStyle($sheet, count($headers), 4, $r - 1);
+        $moneyFormat($sheet, ['F', 'G', 'K'], 5, $r - 1);
+        $rateFormat($sheet, ['J'], 5, $r - 1);
+        $autoSize($sheet, count($headers));
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        /* EGO_EXPORT_EMPLOYEE_FILENAME_START */
+        $exportSalesPart = 'tat-ca';
+
+        if ($filterSalesId > 0 && isset($salesMap) && $salesMap->has($filterSalesId)) {
+            $exportSalesPart = \Illuminate\Support\Str::slug((string)($salesMap->get($filterSalesId)->name ?? ('sales-' . $filterSalesId)));
+        }
+
+        $fileName = 'hoa-hong-sales-' . $exportSalesPart . '-' . $month . '-' . now()->format('Ymd-His') . '.xlsx';
+        /* EGO_EXPORT_EMPLOYEE_FILENAME_END */
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+
+    public function exportPdf(Request $request)
+    {
+        $user = auth()->user();
+        [$from, $to] = $this->resolveDateRange($request);
+
+        $rows = $this->buildQuery($request, $user, $from, $to)
+            ->orderByDesc('completed_date')
+            ->get();
+
+        $engine = app(\App\Services\CommissionEngineService::class);
+        $engine->ensureSchema();
+        $month = $request->get('month', now()->format('Y-m'));
+        $policy = $engine->currentPolicy($month);
+        $rules = $engine->rulesForPolicy((int) $policy->id);
+        $rows = $engine->recalculateRows($rows, $policy, $rules);
+
+        $totalCommission = (float) $rows->sum('commission_calc');
+        $totalOrders     = (int) $rows->count();
+        $period          = $request->get('period', 'month');
+        $generatedAt     = now();
+
+        $pdf = Pdf::loadView('sales.commissions.pdf', [
+                'rows' => $rows,
+                'totalCommission' => $totalCommission,
+                'totalOrders' => $totalOrders,
+                'from' => $from,
+                'to' => $to,
+                'period' => $period,
+                'generatedAt' => $generatedAt,
+            ])
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download('hoa_hong_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+
+    public function commissionSettings(Request $request)
+    {
+        $month = $request->get('month', now()->format('Y-m'));
+        $engine = app(\App\Services\CommissionEngineService::class);
+
+        if ((int) $request->get('copy_previous', 0) === 1) {
+            $engine->copyPreviousMonth($month);
+            return redirect()
+                ->route('sales.commissions.settings', ['month' => $month])
+                ->with('success', 'Đã sao chép chính sách từ tháng trước.');
+        }
+
+        return view('sales.commissions.settings', $engine->settingsViewData($month));
+    }
+
+    public function commissionSettingsSave(Request $request)
+    {
+        $engine = app(\App\Services\CommissionEngineService::class);
+        $month = $engine->saveSettings($request);
+
+        \Illuminate\Support\Facades\Cache::flush();
+
+        return redirect()
+            ->route('sales.commissions.settings', ['month' => $month])
+            ->with('success', 'Đã lưu chính sách hoa hồng tháng ' . $month . '.');
+    }
+
+    private function calculateDailyKpi(array $payload): array
+    {
+        $settings = $this->salesKpiSettings();
+
+        $postsCount            = max(0, (int) ($payload['posts_count'] ?? 0));
+        $callsAnswered         = max(0, (int) ($payload['calls_answered'] ?? 0));
+        $companyDataCalled     = max(0, (int) ($payload['company_data_called'] ?? 0));
+        $followedUpAllPrevious = (bool) ($payload['followed_up_all_previous'] ?? false);
+
+        $checks = [];
+
+        if ($this->kpiSettingEnabled($settings, 'enable_posts')) {
+            $checks['posts'] = $postsCount >= (int) $settings['posts_target'];
+        }
+
+        if ($this->kpiSettingEnabled($settings, 'enable_calls')) {
+            $checks['calls'] = $callsAnswered >= (int) $settings['calls_target'];
+        }
+
+        if ($this->kpiSettingEnabled($settings, 'enable_company_data')) {
+            $checks['company_data'] = $companyDataCalled >= (int) $settings['company_data_target'];
+        }
+
+        if ($this->kpiSettingEnabled($settings, 'enable_follow_up')) {
+            $checks['follow_up'] = $followedUpAllPrevious;
+        }
+
+        $extraMetrics = $this->normalizeExtraMetrics(is_array($payload['extra_metrics'] ?? null) ? $payload['extra_metrics'] : []);
+
+        foreach ($this->salesKpiExtraMetricDefinitions() as $module) {
+            if (!$this->kpiSettingEnabled($settings, $module['enabled_key'])) {
+                continue;
+            }
+
+            $metricKey = $module['metric_key'];
+            $targetKey = $module['target_key'];
+
+            $value = (int) ($extraMetrics[$metricKey] ?? 0);
+            $target = (int) ($settings[$targetKey] ?? 0);
+
+            $checks[$metricKey] = $value >= $target;
+        }
+
+        $passed = collect($checks)->filter()->count();
+        $totalChecks = max(1, count($checks));
+        $missing = count($checks) === 0 ? 0 : ($totalChecks - $passed);
+
+        $completionPercent = count($checks) === 0 ? 100 : round(($passed / $totalChecks) * 100, 2);
+        $penaltyAmount = $this->kpiSettingEnabled($settings, 'enable_penalty')
+            ? $missing * (int) $settings['penalty_per_missing']
+            : 0;
+
+        $status = match (true) {
+            $missing === 0 => 'completed',
+            $completionPercent >= 75 => 'warning',
+            default => 'incomplete',
+        };
+
+        return [
+            'posts_count' => $postsCount,
+            'calls_answered' => $callsAnswered,
+            'company_data_called' => $companyDataCalled,
+            'followed_up_all_previous' => $followedUpAllPrevious,
+            'missing_kpi_count' => $missing,
+            'penalty_amount' => $penaltyAmount,
+            'completion_percent' => $completionPercent,
+            'status' => $status,
+            'active_checks_count' => count($checks),
+        ];
+    }
+
+    private function salesUserOptions()
+    {
+        $excludedKeywords = [
+            'hợp tác',
+            'hop tac',
+            'hop_tac',
+            'cộng tác',
+            'cong tac',
+            'cong_tac',
+            'collaborator',
+            'partner',
+        ];
+
+        $roleSub = DB::table('model_has_roles as mhr')
+            ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+            ->select(
+                DB::raw('mhr.model_id as user_id'),
+                DB::raw("GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') as role_names"),
+                DB::raw("MIN(CASE WHEN r.name = 'sales_manager' THEN 0 ELSE 1 END) as role_sort")
+            )
+            ->where('mhr.model_type', \App\Models\User::class)
+            ->whereIn('r.name', ['sales_manager', 'sales'])
+            ->groupBy('mhr.model_id');
+
+        $rows = DB::table('users')
+            ->joinSub($roleSub, 'rr', function ($join) {
+                $join->on('rr.user_id', '=', 'users.id');
+            })
+            ->select('users.*', 'rr.role_names', 'rr.role_sort')
+            ->orderBy('rr.role_sort')
+            ->orderBy('users.name')
+            ->get();
+
+        return $rows
+            ->reject(function ($user) use ($excludedKeywords) {
+                $text = implode(' ', array_map(function ($value) {
+                    if (is_null($value)) {
+                        return '';
+                    }
+
+                    if (is_scalar($value)) {
+                        return (string) $value;
+                    }
+
+                    return '';
+                }, (array) $user));
+
+                $haystack = function_exists('mb_strtolower')
+                    ? mb_strtolower($text)
+                    : strtolower($text);
+
+                foreach ($excludedKeywords as $keyword) {
+                    $needle = function_exists('mb_strtolower')
+                        ? mb_strtolower($keyword)
+                        : strtolower($keyword);
+
+                    if ($needle !== '' && strpos($haystack, $needle) !== false) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->map(function ($user) {
+                return (object) [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'role_names' => $user->role_names ?? '',
+                    'role_sort' => $user->role_sort ?? 1,
+                ];
+            })
+            ->values();
+    }
+
+    public function kpiDashboard(Request $request)
+{
+
+        /* EGO_FIX_IS_SALES_ONLY_START */
+        $egoKpiUser = auth()->user();
+        $egoKpiRoles = [];
+
+        if ($egoKpiUser) {
+            foreach (['role', 'type', 'position', 'department'] as $egoField) {
+                if (!empty($egoKpiUser->{$egoField})) {
+                    $egoKpiRoles[] = mb_strtolower((string) $egoKpiUser->{$egoField});
+                }
+            }
+
+            if (method_exists($egoKpiUser, 'getRoleNames')) {
+                foreach ($egoKpiUser->getRoleNames() as $egoRoleName) {
+                    $egoKpiRoles[] = mb_strtolower((string) $egoRoleName);
+                }
+            }
+        }
+
+        $egoKpiRoleText = implode('|', array_unique(array_filter($egoKpiRoles)));
+
+        $egoKpiHasRole = function (array $roles) use ($egoKpiUser, $egoKpiRoleText): bool {
+            foreach ($roles as $role) {
+                $roleLower = mb_strtolower((string) $role);
+
+                if (str_contains($egoKpiRoleText, $roleLower)) {
+                    return true;
+                }
+
+                if ($egoKpiUser && method_exists($egoKpiUser, 'hasRole') && $egoKpiUser->hasRole($role)) {
+                    return true;
+                }
+
+                if ($egoKpiUser && method_exists($egoKpiUser, 'hasAnyRole') && $egoKpiUser->hasAnyRole([$role])) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $isAdmin = $isAdmin ?? (
+            ((int)($egoKpiUser->is_admin ?? 0) === 1)
+            || $egoKpiHasRole(['admin', 'administrator', 'super_admin'])
+        );
+
+        $isSalesManager = $isSalesManager ?? $egoKpiHasRole(['sales_manager', 'sales manager', 'truong_phong_sales', 'trưởng phòng sales']);
+
+        $isAccounting = $isAccounting ?? $egoKpiHasRole(['accounting', 'ketoan', 'ke_toan', 'kế toán']);
+
+        $isSalesOnly = $isSalesOnly ?? (
+            $egoKpiHasRole(['sales', 'sale', 'kinh_doanh', 'kinh doanh', 'nhan_vien_kinh_doanh'])
+            && !$isAdmin
+            && !$isSalesManager
+            && !$isAccounting
+        );
+        /* EGO_FIX_IS_SALES_ONLY_END */
+
+    $authUser = auth()->user();
+    $isPrivileged = $authUser->hasAnyRole(['admin', 'sales_manager', 'accounting']);
+    $isSalesOnly = !$isPrivileged && $isSalesOnly;
+
+    $workDate = $request->get('work_date', now()->toDateString());
+    $month = $request->get('month', now()->format('Y-m'));
+    $selectedUserId = $request->filled('user_id') ? (int) $request->get('user_id') : null;
+
+    $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->toDateString();
+    $monthEnd = Carbon::createFromFormat('Y-m', $month)->endOfMonth()->toDateString();
+
+    $salesOptions = $this->salesUserOptions();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Base scope theo role
+    |--------------------------------------------------------------------------
+    */
+    $baseQuery = SalesDailyKpi::query()->with('user:id,name');
+
+    if ($isSalesOnly) {
+        $baseQuery->where('user_id', $authUser->id);
+        $selectedUserId = $authUser->id;
+    } elseif ($authUser->hasRole('sales_manager')) {
+        $teamIds = $this->getTeamIdsForManager($authUser->id);
+        if ($teamIds && $teamIds->count() > 0) {
+            $baseQuery->whereIn('user_id', $teamIds);
+
+            if ($selectedUserId && !$teamIds->contains((int) $selectedUserId)) {
+                $selectedUserId = null;
+            }
+        } else {
+            // Sales manager không có manager_id/team thì xem toàn bộ nhân sự, không ép về chính mình.
+            $selectedUserId = $request->filled('user_id') ? $selectedUserId : null;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1. Tổng quan tháng
+    |--------------------------------------------------------------------------
+    */
+    $monthlyOverview = (clone $baseQuery)
+        ->whereBetween('work_date', [$monthStart, $monthEnd])
+        ->selectRaw("
+            COUNT(DISTINCT user_id) as total_staff,
+            COALESCE(SUM(posts_count), 0) as total_posts,
+            COALESCE(SUM(calls_answered), 0) as total_calls,
+            COALESCE(SUM(company_data_called), 0) as total_company_data,
+            COALESCE(SUM(missing_kpi_count), 0) as total_missing_kpi,
+            COALESCE(SUM(penalty_amount), 0) as total_penalty,
+            COALESCE(AVG(completion_percent), 0) as avg_completion
+        ")
+        ->first();
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2. Tổng hợp từng nhân sự theo tháng
+    |--------------------------------------------------------------------------
+    */
+    $staffMonthlyRows = (clone $baseQuery)
+        ->whereBetween('work_date', [$monthStart, $monthEnd])
+        ->select(
+            'user_id',
+            DB::raw('SUM(posts_count) as total_posts'),
+            DB::raw('SUM(calls_answered) as total_calls'),
+            DB::raw('SUM(company_data_called) as total_company_data'),
+            DB::raw('SUM(missing_kpi_count) as total_missing_kpi'),
+            DB::raw('SUM(penalty_amount) as total_penalty'),
+            DB::raw('AVG(completion_percent) as avg_completion'),
+            DB::raw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_days"),
+            DB::raw("SUM(CASE WHEN status = 'warning' THEN 1 ELSE 0 END) as warning_days"),
+            DB::raw("SUM(CASE WHEN status = 'incomplete' THEN 1 ELSE 0 END) as incomplete_days"),
+            DB::raw('COUNT(*) as working_days')
+        )
+        ->groupBy('user_id')
+        ->get()
+        ->sortByDesc('avg_completion')
+        ->values();
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. Tổng quan theo ngày đang lọc
+    |--------------------------------------------------------------------------
+    */
+    $dailySummary = (clone $baseQuery)
+        ->whereDate('work_date', $workDate)
+        ->selectRaw("
+            COUNT(*) as total_rows,
+            COALESCE(SUM(posts_count), 0) as total_posts,
+            COALESCE(SUM(calls_answered), 0) as total_calls,
+            COALESCE(SUM(company_data_called), 0) as total_company_data,
+            COALESCE(SUM(missing_kpi_count), 0) as total_missing_kpi,
+            COALESCE(SUM(penalty_amount), 0) as total_penalty,
+            COALESCE(AVG(completion_percent), 0) as avg_completion
+        ")
+        ->first();
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4. Danh sách team theo ngày
+    |--------------------------------------------------------------------------
+    */
+    $dailyRowsQuery = (clone $baseQuery)
+        ->whereDate('work_date', $workDate);
+
+    if ($selectedUserId) {
+        $dailyRowsQuery->where('user_id', $selectedUserId);
+    }
+
+    $dailyRows = $dailyRowsQuery
+        ->orderByDesc('completion_percent')
+        ->orderBy('user_id')
+        ->paginate(20)
+        ->withQueryString();
+
+    if ($isPrivileged && !$request->filled('user_id')) {
+        // Privileged mặc định xem tất cả nhân sự.
+        $selectedUserId = null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 5. User được chọn / snapshot hiện tại
+    |--------------------------------------------------------------------------
+    */
+    if ($isSalesOnly) {
+        // Sales thường chỉ được xem / nhập KPI của chính mình
+        $selectedUserId = (int) $authUser->id;
+    } elseif ($selectedUserId) {
+        // Admin / sales_manager chỉ focus user khi thật sự chọn user_id
+        $allowedIds = $salesOptions->pluck('id')->map(fn ($id) => (int) $id);
+
+        if (!$allowedIds->contains((int) $selectedUserId)) {
+            $selectedUserId = null;
+        }
+    } else {
+        // Admin / sales_manager mặc định xem toàn bộ nhân sự
+        $selectedUserId = null;
+    }
+
+    $selectedUser = $selectedUserId ? User::find($selectedUserId) : null;
+
+    if ($selectedUserId) {
+        $currentEntry = SalesDailyKpi::firstOrNew([
+            'user_id' => $selectedUserId,
+            'work_date' => $workDate,
+        ]);
+
+        $preview = $this->calculateDailyKpi([
+            'posts_count' => $currentEntry->posts_count ?? 0,
+            'calls_answered' => $currentEntry->calls_answered ?? 0,
+            'company_data_called' => $currentEntry->company_data_called ?? 0,
+            'followed_up_all_previous' => $currentEntry->followed_up_all_previous ?? false,
+            'extra_metrics' => method_exists($this, 'decodeExtraMetrics') ? $this->decodeExtraMetrics($currentEntry) : [],
+        ]);
+    } else {
+        $currentEntry = new SalesDailyKpi();
+
+        $preview = [
+            'posts_count' => 0,
+            'calls_answered' => 0,
+            'company_data_called' => 0,
+            'followed_up_all_previous' => false,
+            'missing_kpi_count' => (int) ($dailySummary->total_missing_kpi ?? 0),
+            'penalty_amount' => (int) ($dailySummary->total_penalty ?? 0),
+            'completion_percent' => round((float) ($dailySummary->avg_completion ?? 0), 2),
+            'status' => 'team',
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 6. Lịch sử gần đây
+    |--------------------------------------------------------------------------
+    */
+    $history = (clone $baseQuery)
+        ->when($selectedUserId, function ($q) use ($selectedUserId) {
+            $q->where('user_id', $selectedUserId);
+        })
+        ->orderByDesc('work_date')
+        ->orderByDesc('id')
+        ->paginate(12, ['*'], 'history_page')
+        ->withQueryString();
+
+    /*
+    |--------------------------------------------------------------------------
+    | 7. Trend 7 ngày của user đang chọn
+    |--------------------------------------------------------------------------
+    */
+    $latestRows = $selectedUserId
+        ? SalesDailyKpi::query()
+            ->with('user:id,name')
+            ->where('user_id', $selectedUserId)
+            ->latest('work_date')
+            ->limit(7)
+            ->get()
+            ->sortBy('work_date')
+            ->values()
+        : collect();
+
+    $extraMetrics = [];
+
+    return view('sales.kpi.index', [
+        'authUser' => $authUser,
+        'selectedUser' => $selectedUser,
+        'selectedUserId' => $selectedUserId,
+        'workDate' => $workDate,
+        'month' => $month,
+        'monthStart' => $monthStart,
+        'monthEnd' => $monthEnd,
+        'currentEntry' => $currentEntry,
+        'preview' => $preview,
+        'history' => $history,
+        'latestRows' => $latestRows,
+        'salesOptions' => $salesOptions,
+        'isPrivileged' => $isPrivileged,
+        'monthlyOverview' => $monthlyOverview,
+        'staffMonthlyRows' => $staffMonthlyRows,
+        'dailySummary' => $dailySummary,
+        'dailyRows' => $dailyRows,
+        'targets' => $this->salesKpiTargets(),
+        'kpiExtraModules' => $this->salesKpiExtraMetricDefinitions(),
+        'extraMetrics' => $extraMetrics,
+    ]);
+}
+
+    public function kpiMyForm(Request $request)
+{
+    $authUser = auth()->user();
+    $canSelectSalesUser = method_exists($authUser, 'hasAnyRole')
+        && $authUser->hasAnyRole(['admin', 'sales_manager']);
+
+    $workDate = $request->get('work_date', now()->toDateString());
+
+    $salesOptions = $canSelectSalesUser
+        ? $this->salesUserOptions()
+        : collect([(object) ['id' => $authUser->id, 'name' => $authUser->name]]);
+
+    $selectedUserId = $canSelectSalesUser
+        ? (int) $request->get('user_id', $authUser->id)
+        : (int) $authUser->id;
+
+    $selectedOption = $salesOptions->firstWhere('id', $selectedUserId);
+
+    if (!$selectedOption) {
+        $selectedOption = $salesOptions->first();
+        $selectedUserId = (int) ($selectedOption->id ?? $authUser->id);
+    }
+
+    $selectedUser = User::find($selectedUserId) ?: $authUser;
+
+    $currentEntry = SalesDailyKpi::with('postLinks')
+        ->firstOrNew([
+            'user_id' => $selectedUserId,
+            'work_date' => $workDate,
+        ]);
+
+    $extraMetrics = $this->decodeExtraMetrics($currentEntry);
+
+    $preview = $this->calculateDailyKpi([
+        'posts_count' => $currentEntry->posts_count ?? 0,
+        'calls_answered' => $currentEntry->calls_answered ?? 0,
+        'company_data_called' => $currentEntry->company_data_called ?? 0,
+        'followed_up_all_previous' => $currentEntry->followed_up_all_previous ?? false,
+        'extra_metrics' => $extraMetrics,
+    ]);
+
+    $history = SalesDailyKpi::query()
+        ->where('user_id', $selectedUserId)
+        ->withCount('postLinks')
+        ->orderByDesc('work_date')
+        ->orderByDesc('id')
+        ->paginate(10)
+        ->withQueryString();
+
+    return view('sales.kpi.my', [
+        'authUser' => $authUser,
+        'selectedUser' => $selectedUser,
+        'selectedUserId' => $selectedUserId,
+        'canSelectSalesUser' => $canSelectSalesUser,
+        'salesOptions' => $salesOptions,
+        'workDate' => $workDate,
+        'currentEntry' => $currentEntry,
+        'preview' => $preview,
+        'history' => $history,
+        'targets' => $this->salesKpiTargets(),
+        'kpiExtraModules' => $this->salesKpiExtraMetricDefinitions(),
+        'extraMetrics' => $extraMetrics,
+    ]);
+}
+
+   public function kpiMyStore(Request $request)
+{
+    $authUser = auth()->user();
+    $canSelectSalesUser = method_exists($authUser, 'hasAnyRole')
+        && $authUser->hasAnyRole(['admin', 'sales_manager']);
+
+    $salesOptions = $canSelectSalesUser
+        ? $this->salesUserOptions()
+        : collect([(object) ['id' => $authUser->id, 'name' => $authUser->name]]);
+
+    $targetUserId = $canSelectSalesUser
+        ? (int) $request->input('user_id', $authUser->id)
+        : (int) $authUser->id;
+
+    if (!$salesOptions->firstWhere('id', $targetUserId)) {
+        $targetUserId = (int) ($salesOptions->first()->id ?? $authUser->id);
+    }
+
+    $validated = $request->validate([
+        'user_id' => ['nullable', 'integer'],
+        'work_date' => ['required', 'date'],
+        'posts_count' => ['nullable', 'integer', 'min:0'],
+        'calls_answered' => ['nullable', 'integer', 'min:0'],
+        'company_data_called' => ['nullable', 'integer', 'min:0'],
+        'followed_up_all_previous' => ['nullable', 'in:0,1'],
+        'notes' => ['nullable', 'string'],
+        'facebook_links_text' => ['nullable', 'string', 'max:20000'],
+        'extra_metrics' => ['nullable', 'array'],
+        'extra_metrics.*' => ['nullable', 'integer', 'min:0'],
+        'post_links' => ['nullable', 'array'],
+        'post_links.*' => ['nullable', 'url'],
+    ]);
+
+    $validated['posts_count'] = (int) ($validated['posts_count'] ?? 0);
+    $validated['calls_answered'] = (int) ($validated['calls_answered'] ?? 0);
+    $validated['company_data_called'] = (int) ($validated['company_data_called'] ?? 0);
+    $validated['followed_up_all_previous'] = (int) ($validated['followed_up_all_previous'] ?? 0);
+
+    $validated['extra_metrics'] = $this->normalizeExtraMetrics($validated['extra_metrics'] ?? []);
+
+    $calc = $this->calculateDailyKpi($validated);
+
+    $kpi = SalesDailyKpi::updateOrCreate(
+        [
+            'user_id' => $targetUserId,
+            'work_date' => $validated['work_date'],
+        ],
+        [
+            'posts_count' => $validated['posts_count'],
+            'calls_answered' => $validated['calls_answered'],
+            'company_data_called' => $validated['company_data_called'],
+            'followed_up_all_previous' => (bool) $validated['followed_up_all_previous'],
+            'notes' => $validated['notes'] ?? null,
+            'missing_kpi_count' => $calc['missing_kpi_count'],
+            'penalty_amount' => $calc['penalty_amount'],
+            'completion_percent' => $calc['completion_percent'],
+            'status' => $calc['status'],
+        ]
+    );
+
+    if (Schema::hasColumn('sales_daily_kpis', 'extra_metrics')) {
+        DB::table('sales_daily_kpis')
+            ->where('id', $kpi->id)
+            ->update([
+                'extra_metrics' => json_encode($validated['extra_metrics'], JSON_UNESCAPED_UNICODE),
+            ]);
+    }
+
+    $links = collect(preg_split('/\R+/', (string) ($validated['facebook_links_text'] ?? '')))
+        ->map(fn ($url) => trim((string) $url))
+        ->filter()
+        ->unique()
+        ->values();
+
+    $kpi->postLinks()->delete();
+
+    foreach ($links as $url) {
+        $kpi->postLinks()->create([
+            'post_url' => $url,
+        ]);
+    }
+
+    return redirect()
+        ->route('sales.kpi.my', ['work_date' => $validated['work_date'], 'user_id' => $targetUserId])
+        ->with('success', 'Đã lưu KPI của bạn thành công.');
+}
+
+    public function kpiSettings()
+    {
+        $settings = $this->salesKpiSettings();
+
+        $coreModules = [
+            ['key' => 'posts', 'enabled_key' => 'enable_posts', 'target_key' => 'posts_target', 'title' => 'Bài đăng group', 'unit' => 'bài/ngày', 'icon' => 'bi-megaphone', 'tone' => 'blue', 'description' => 'Số bài đăng group điện mặt trời mỗi ngày.'],
+            ['key' => 'calls', 'enabled_key' => 'enable_calls', 'target_key' => 'calls_target', 'title' => 'Cuộc gọi nghe máy', 'unit' => 'call/ngày', 'icon' => 'bi-telephone-outbound', 'tone' => 'cyan', 'description' => 'Số cuộc gọi khách hàng nghe máy được tính KPI.'],
+            ['key' => 'company_data', 'enabled_key' => 'enable_company_data', 'target_key' => 'company_data_target', 'title' => 'Data công ty đã gọi', 'unit' => 'data/ngày', 'icon' => 'bi-database-check', 'tone' => 'violet', 'description' => 'Số data công ty cấp mà sales đã xử lý trong ngày.'],
+            ['key' => 'follow_up', 'enabled_key' => 'enable_follow_up', 'target_key' => null, 'title' => 'Follow up khách cũ', 'unit' => 'bắt buộc', 'icon' => 'bi-chat-dots', 'tone' => 'green', 'description' => 'Checklist follow up toàn bộ khách hôm trước.'],
+        ];
+
+        $suggestedModules = [
+            ['enabled_key' => 'enable_new_leads', 'target_key' => 'new_leads_target', 'title' => 'Lead mới', 'unit' => 'lead/ngày', 'icon' => 'bi-person-plus', 'description' => 'Khách hàng/lead mới tự khai thác hoặc được phân bổ.'],
+            ['enabled_key' => 'enable_quotes', 'target_key' => 'quotes_target', 'title' => 'Báo giá gửi khách', 'unit' => 'báo giá/ngày', 'icon' => 'bi-file-earmark-text', 'description' => 'Số báo giá gửi khách trong ngày.'],
+            ['enabled_key' => 'enable_customer_care', 'target_key' => 'customer_care_target', 'title' => 'Chăm sóc khách hàng', 'unit' => 'khách/ngày', 'icon' => 'bi-heart', 'description' => 'Số khách được chăm sóc, nhắc lại, hỏi nhu cầu.'],
+            ['enabled_key' => 'enable_meetings', 'target_key' => 'meetings_target', 'title' => 'Lịch hẹn / meeting', 'unit' => 'lịch/ngày', 'icon' => 'bi-calendar2-check', 'description' => 'Lịch tư vấn, khảo sát, demo hoặc gặp khách.'],
+            ['enabled_key' => 'enable_zalo_messages', 'target_key' => 'zalo_messages_target', 'title' => 'Tin nhắn Zalo', 'unit' => 'tin/ngày', 'icon' => 'bi-send', 'description' => 'Tin nhắn chăm sóc, tư vấn, follow qua Zalo.'],
+            ['enabled_key' => 'enable_debt_follow', 'target_key' => 'debt_follow_target', 'title' => 'Follow công nợ', 'unit' => 'case/ngày', 'icon' => 'bi-wallet2', 'description' => 'Theo dõi khách còn công nợ hoặc cần nhắc thanh toán.'],
+            ['enabled_key' => 'enable_order_follow', 'target_key' => 'order_follow_target', 'title' => 'Bám đơn hàng', 'unit' => 'đơn/ngày', 'icon' => 'bi-box-seam', 'description' => 'Theo dõi đơn đang xử lý, giao hàng, thanh toán, xuất kho.'],
+            ['enabled_key' => 'enable_technical_coordination', 'target_key' => 'technical_coordination_target', 'title' => 'Phối hợp kỹ thuật', 'unit' => 'việc/ngày', 'icon' => 'bi-tools', 'description' => 'Phối hợp khảo sát, kỹ thuật, cấu hình hệ thống.'],
+            ['enabled_key' => 'enable_overdue_tasks', 'target_key' => 'overdue_tasks_target', 'title' => 'Task quá hạn tối đa', 'unit' => 'task', 'icon' => 'bi-alarm', 'description' => 'Giới hạn số công việc quá hạn được phép tồn.'],
+            ['enabled_key' => 'enable_training', 'target_key' => 'training_target', 'title' => 'Học sản phẩm', 'unit' => 'mục/ngày', 'icon' => 'bi-mortarboard', 'description' => 'Học sản phẩm, chính sách, kịch bản tư vấn.'],
+            ['enabled_key' => 'enable_quality_score', 'target_key' => 'quality_score_target', 'title' => 'Điểm chất lượng', 'unit' => 'điểm', 'icon' => 'bi-stars', 'description' => 'Chất lượng tư vấn, ghi chú CRM, thái độ chăm sóc.'],
+            ['enabled_key' => 'enable_revenue_pipeline', 'target_key' => 'revenue_pipeline_target', 'title' => 'Pipeline doanh số', 'unit' => 'VNĐ', 'icon' => 'bi-graph-up-arrow', 'description' => 'Giá trị cơ hội/báo giá đang theo đuổi.'],
+        ];
+
+        return view('sales.kpi.settings', compact('settings', 'coreModules', 'suggestedModules'));
+    }
+
+    public function kpiSettingsSave(Request $request)
+    {
+        $rules = [
+            'posts_target' => ['required', 'integer', 'min:0'],
+            'calls_target' => ['required', 'integer', 'min:0'],
+            'company_data_target' => ['required', 'integer', 'min:0'],
+            'penalty_per_missing' => ['required', 'integer', 'min:0'],
+            'new_leads_target' => ['nullable', 'integer', 'min:0'],
+            'quotes_target' => ['nullable', 'integer', 'min:0'],
+            'customer_care_target' => ['nullable', 'integer', 'min:0'],
+            'meetings_target' => ['nullable', 'integer', 'min:0'],
+            'zalo_messages_target' => ['nullable', 'integer', 'min:0'],
+            'debt_follow_target' => ['nullable', 'integer', 'min:0'],
+            'order_follow_target' => ['nullable', 'integer', 'min:0'],
+            'technical_coordination_target' => ['nullable', 'integer', 'min:0'],
+            'overdue_tasks_target' => ['nullable', 'integer', 'min:0'],
+            'training_target' => ['nullable', 'integer', 'min:0'],
+            'quality_score_target' => ['nullable', 'integer', 'min:0'],
+            'revenue_pipeline_target' => ['nullable', 'integer', 'min:0'],
+            'lock_after_days' => ['nullable', 'integer', 'min:0'],
+            'settings_note' => ['nullable', 'string', 'max:1000'],
+        ];
+
+        foreach ($this->defaultSalesKpiSettings() as $key => $default) {
+            if (strpos($key, 'enable_') === 0) {
+                $rules[$key] = ['nullable', 'in:0,1'];
+            }
+        }
+
+        $request->validate($rules);
+
+        $settings = $this->defaultSalesKpiSettings();
+        foreach ($settings as $key => $default) {
+            if (strpos($key, 'enable_') === 0) {
+                $settings[$key] = $request->boolean($key) ? 1 : 0;
+                continue;
+            }
+
+            if ($request->has($key)) {
+                $settings[$key] = is_numeric($default)
+                    ? (int) $request->input($key, $default)
+                    : (string) $request->input($key, $default);
+            }
+        }
+
+        $path = $this->salesKpiSettingsPath();
+        if (!is_dir(dirname($path))) {
+            mkdir(dirname($path), 0755, true);
+        }
+
+        file_put_contents($path, json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        Cache::flush();
+
+        return redirect()
+            ->route('sales.kpi.settings')
+            ->with('success', 'Đã lưu cấu hình KPI Sales. Các hạng mục core được bật/tắt sẽ ảnh hưởng cách tính KPI hiện tại.');
+    }
+
+}

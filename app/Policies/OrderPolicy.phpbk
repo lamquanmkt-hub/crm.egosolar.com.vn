@@ -1,0 +1,155 @@
+<?php
+namespace App\Policies;
+use App\Models\CRM\Order;
+use App\Models\User;
+class OrderPolicy
+{
+	/**
+	 * Xem danh sách đơn hàng
+	 */
+	public function viewAny(User $user): bool
+	{
+		// Tất cả các role đều có thể xem danh sách
+		return true;
+	}
+	/**
+	 * Xem chi tiết đơn hàng
+	 */
+	public function view(User $user, Order $order): bool
+	{
+		// Admin/Giám đốc xem tất cả
+		if ($user->hasRole(['admin', 'giamdoc'])) {
+			return true;
+		}
+		// Sales chỉ xem đơn của mình
+		if ($user->hasRole('sales')) {
+			return $order->created_by === $user->id;
+		}
+		// Các bộ phận khác xem đơn đang ở phần mình
+		if ($user->hasRole('ketoan') && $order->current_department === 'ketoan') {
+			return true;
+		}
+		if ($user->hasRole('duyet1') && $order->current_department === 'duyet1') {
+			return true;
+		}
+		if ($user->hasRole('duyet2') && $order->current_department === 'duyet2') {
+			return true;
+		}
+		if ($user->hasRole('kho') && $order->current_department === 'kho') {
+			return true;
+		}
+		return false;
+	}
+	/**
+	 * Tạo đơn hàng mới
+	 */
+	public function create(User $user): bool
+	{
+		// Chỉ Sales và Admin mới tạo được đơn
+		return $user->hasRole(['sales', 'admin']);
+	}
+	/**
+	 * Cập nhật đơn hàng
+	 */
+	public function update(User $user, Order $order): bool
+	{
+		// Chỉ cho phép sửa nếu:
+		// 1. Là người tạo đơn (Sales)
+		// 2. Đơn chưa được gửi duyệt (còn ở sales)
+		// 3. Hoặc là Admin
+		if ($user->hasRole('admin')) {
+			return true;
+		}
+		return $user->hasRole('sales')
+		       && $order->created_by === $user->id
+		       && $order->current_department === 'sales';
+	}
+	/**
+	 * Xóa/Hủy đơn hàng
+	 */
+	public function delete(User $user, Order $order): bool
+	{
+		// Chỉ cho phép hủy nếu:
+		// 1. Là người tạo hoặc Admin
+		// 2. Đơn chưa xuất kho
+		if ($order->current_department === 'completed') {
+			return false;
+		}
+		return $user->hasRole('admin')
+		       || ($user->hasRole('sales') && $order->created_by === $user->id);
+	}
+	/**
+	 * Gửi đơn lên duyệt
+	 */
+	public function submit(User $user, Order $order): bool
+	{
+		// Chỉ Sales tạo đơn mới gửi được
+		// Và đơn phải còn ở sales
+		return $user->hasRole('sales')
+		       && $order->created_by === $user->id
+		       && $order->current_department === 'sales';
+	}
+	/**
+	 * Duyệt đơn hàng
+	 */
+	public function approve(User $user, Order $order): bool
+	{
+		$dept = $order->current_department;
+		// Admin có thể duyệt mọi cấp
+		if ($user->hasRole('admin')) {
+			return true;
+		}
+		// Kiểm tra quyền duyệt theo bộ phận
+        // Kế toán
+		if ($dept === 'ketoan' && $user->hasRole('ketoan')) {
+			return true;
+		}
+        // Nếu đơn đang ở duyet1 -> Cần role 'giamsat' (hoặc admin)
+        if ($dept === 'duyet1' && $user->hasRole('giamsat')) {
+            return true;
+        }
+        // Nếu đơn đang ở duyet2 -> Cần role 'management'
+        if ($dept === 'duyet2' && $user->hasRole('management')) {
+            return true;
+        }
+        // Kho
+        if ($dept === 'kho' && $user->hasRole('kho')) {
+            return true;
+        }
+		return false;
+	}
+	/**
+	 * Xuất kho
+	 */
+	public function ship(User $user, Order $order): bool
+	{
+		// Chỉ thủ kho và Admin mới xuất được
+		// Và đơn phải đã được duyệt hết
+		return ($user->hasRole(['kho', 'admin']))
+		       && $order->current_department === 'kho';
+	}
+	/**
+	 * Ghi nhận thanh toán
+	 */
+	public function recordPayment(User $user, Order $order): bool
+	{
+		// Kế toán và Admin có thể ghi nhận thanh toán
+		return $user->hasRole(['ketoan', 'admin']);
+	}
+	/**
+	 * Xem báo cáo
+	 */
+	public function viewReports(User $user): bool
+	{
+		// Giám đốc, Admin, Kế toán xem được báo cáo
+		return $user->hasRole(['admin', 'giamdoc', 'ketoan']);
+	}
+	/**
+	 * Xuất Excel
+	 */
+	public function export(User $user): bool
+	{
+		// Tất cả role trừ Sales thông thường
+		return $user->hasRole(['admin', 'giamdoc', 'ketoan', 'duyet1', 'duyet2']);
+	}
+}

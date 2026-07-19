@@ -1,0 +1,93 @@
+#ego-chat-fab{
+  position:fixed; right:24px; bottom:24px;
+  width:56px; height:56px; border-radius:50%;
+  border:none; cursor:pointer;
+  background:#0d6efd; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+  z-index:2147483647;
+  box-shadow:0 10px 25px rgba(0,0,0,.18);
+}
+
+#ego-chat-widget{
+  position:fixed; right:24px; bottom:90px;
+  width:420px; height:560px;
+  background:#fff; border:1px solid #e5e7eb;
+  border-radius:14px;
+  z-index:2147483647;
+  box-shadow:0 20px 45px rgba(0,0,0,.20);
+  display:none; overflow:hidden;
+}
+
+#ego-chat-widget.open{ display:block; }
+
+#ego-chat-header{
+  height:48px; display:flex; align-items:center; justify-content:space-between;
+  padding:0 12px; border-bottom:1px solid #eee;
+  font-weight:700;
+}
+#ego-chat-close{
+  width:32px; height:32px; border-radius:8px;
+  border:1px solid #ddd; background:#fff; cursor:pointer;
+}
+
+#ego-chat-body{ display:flex; height:calc(560px - 48px); }
+
+#ego-chat-left{
+  width:150px; border-right:1px solid #eee;
+  display:flex; flex-direction:column;
+}
+#ego-chat-left .title{ padding:10px 10px; font-weight:600; }
+#ego-chat-list{ overflow:auto; flex:1; padding:6px; }
+
+.ego-item{
+  display:flex; gap:8px; align-items:center;
+  padding:8px; border-radius:10px; cursor:pointer;
+}
+.ego-item:hover{ background:#f6f7f9; }
+.ego-item.active{ background:#eef5ff; }
+
+.ego-avt{
+  width:36px; height:36px; border-radius:50%;
+  background:#e9ecef; display:flex; align-items:center; justify-content:center;
+  font-weight:700;
+  position:relative;
+}
+.ego-badge{
+  position:absolute; top:-6px; right:-6px;
+  min-width:18px; height:18px; padding:0 5px;
+  border-radius:999px;
+  background:#dc3545; color:#fff;
+  font-size:11px; display:flex; align-items:center; justify-content:center;
+  border:2px solid #fff;
+}
+
+#ego-chat-right{ flex:1; display:flex; flex-direction:column; }
+#ego-chat-title{ padding:10px 12px; border-bottom:1px solid #eee; font-weight:600; }
+#ego-chat-messages{ flex:1; overflow:auto; padding:10px; background:#fafafa; }
+
+.msg-row{ display:flex; margin:8px 0; }
+.msg-row.me{ justify-content:flex-end; }
+.msg{
+  max-width:72%;
+  padding:8px 10px; border-radius:12px;
+  background:#fff; border:1px solid #eee;
+}
+.msg.me{ background:#0d6efd; color:#fff; border-color:#0d6efd; }
+.msg .time{ font-size:11px; opacity:.7; margin-top:4px; }
+
+#ego-chat-compose{
+  border-top:1px solid #eee;
+  padding:8px;
+  display:flex; gap:8px;
+  background:#fff;
+}
+#ego-chat-input{
+  flex:1; border:1px solid #ddd; border-radius:10px; padding:10px;
+  outline:none;
+}
+#ego-chat-send{
+  width:68px; border:none; border-radius:10px;
+  background:#0d6efd; color:#fff; font-weight:600;
+}
+#ego-chat-send:disabled{ opacity:.6; cursor:not-allowed; }

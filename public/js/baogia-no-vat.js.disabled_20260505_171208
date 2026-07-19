@@ -1,0 +1,295 @@
+(function () {
+    function n(value) {
+        let s = String(value ?? '').trim();
+        s = s.replace(/\u00a0/g, '').replace(/\s+/g, '').replace(/[đĐ₫]/g, '');
+        s = s.replace(/[^\d,.\-]/g, '');
+
+        if (!s || s === '-' || s === ',' || s === '.') return 0;
+
+        if (s.includes('.') && s.includes(',')) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) {
+            s = s.replace(/\./g, '');
+        } else if (s.includes(',')) {
+            s = s.replace(/,+$/g, '').replace(',', '.');
+        }
+
+        const x = Number(s);
+        return Number.isFinite(x) ? x : 0;
+    }
+
+    function i(value) {
+        return Math.max(0, Math.round(n(value)));
+    }
+
+    function money(value) {
+        const x = Math.round(Number(value || 0));
+        return x > 0 ? x.toLocaleString('vi-VN') : '';
+    }
+
+    function findQuoteTables() {
+        return Array.from(document.querySelectorAll('table')).filter(function (table) {
+            const txt = (table.innerText || '').toUpperCase();
+            return txt.includes('TÊN GỬI KHÁCH') && txt.includes('THÀNH TIỀN') && txt.includes('SKU');
+        });
+    }
+
+    function patchHeader(row) {
+        const cells = Array.from(row.children);
+        if (cells.length < 9) return;
+
+        const vatIndex = cells.findIndex(function (cell) {
+            return (cell.innerText || '').trim().toUpperCase() === 'VAT';
+        });
+
+        if (vatIndex !== -1) {
+            cells[vatIndex].remove();
+        }
+
+        const newCells = Array.from(row.children);
+
+        // Sau khi xóa VAT, nếu vẫn đang là: SL | ĐƠN GIÁ | THÀNH TIỀN
+        // đổi lại thành: ĐƠN GIÁ | SỐ LƯỢNG | THÀNH TIỀN
+        const labelMap = Array.from(row.children).map(c => (c.innerText || '').trim().toUpperCase());
+        const slPos = labelMap.indexOf('SL');
+        const pricePos = labelMap.indexOf('ĐƠN GIÁ');
+
+        if (slPos !== -1 && pricePos !== -1 && slPos < pricePos) {
+            row.insertBefore(newCells[pricePos], newCells[slPos]);
+        }
+
+        Array.from(row.children).forEach(function (cell) {
+            const t = (cell.innerText || '').trim().toUpperCase();
+            if (t === 'SL') cell.innerText = 'SỐ LƯỢNG';
+        });
+    }
+
+    function patchBodyRow(row) {
+        if (row.classList.contains('empty-row')) return;
+
+        const qty = row.querySelector('.js-qty');
+        const price = row.querySelector('.js-price');
+        const vat = row.querySelector('.js-vat');
+        const total = row.querySelector('.js-total');
+
+        if (!qty || !price || !total) return;
+
+        const qtyCell = qty.closest('td');
+        const priceCell = price.closest('td');
+        const vatCell = vat ? vat.closest('td') : null;
+
+        if (vat) {
+            vat.value = '0';
+            if (vat.tagName === 'INPUT') vat.type = 'hidden';
+
+            let holder = row.querySelector('.hidden-vat-holder');
+            if (!holder) {
+                holder = document.createElement('div');
+                holder.className = 'hidden-vat-holder';
+                holder.style.display = 'none';
+                row.appendChild(holder);
+            }
+            holder.appendChild(vat);
+        }
+
+        if (vatCell) {
+            vatCell.remove();
+        }
+
+        // Đưa Đơn giá đứng trước Số lượng
+        if (qtyCell && priceCell) {
+            row.insertBefore(priceCell, qtyCell);
+        }
+
+        qty.type = 'text';
+        qty.inputMode = 'numeric';
+        qty.value = i(qty.value) || '';
+        qty.style.textAlign = 'center';
+        qty.style.fontWeight = '900';
+
+        price.type = 'text';
+        price.inputMode = 'numeric';
+        price.readOnly = true;
+        price.value = n(price.value) ? money(n(price.value)) : '';
+        price.style.background = '#f8fafc';
+        price.style.color = '#334155';
+        price.style.fontWeight = '900';
+
+        total.type = 'text';
+        total.inputMode = 'numeric';
+        total.readOnly = false;
+        total.value = n(total.value) ? money(n(total.value)) : '';
+        total.placeholder = 'Nhập thành tiền';
+        total.style.borderColor = '#38bdf8';
+        total.style.color = '#075985';
+        total.style.fontWeight = '950';
+        total.style.background = '#fff';
+    }
+
+    function calcPrice(row) {
+        const qty = row.querySelector('.js-qty');
+        const price = row.querySelector('.js-price');
+        const total = row.querySelector('.js-total');
+        const vat = row.querySelector('.js-vat');
+
+        if (!qty || !price || !total) return;
+
+        if (vat) vat.value = '0';
+
+        const q = i(qty.value);
+        const t = n(total.value);
+
+        qty.value = q || '';
+
+        price.value = q > 0 && t > 0 ? money(t / q) : '';
+    }
+
+    function calcTotal(row) {
+        const qty = row.querySelector('.js-qty');
+        const price = row.querySelector('.js-price');
+        const total = row.querySelector('.js-total');
+        const vat = row.querySelector('.js-vat');
+
+        if (!qty || !price || !total) return;
+
+        if (vat) vat.value = '0';
+
+        const q = i(qty.value);
+        const p = n(price.value);
+
+        qty.value = q || '';
+        total.value = q > 0 && p > 0 ? money(p * q) : '';
+    }
+
+    function bindRow(row) {
+        const qty = row.querySelector('.js-qty');
+        const total = row.querySelector('.js-total');
+
+        if (qty && qty.dataset.noVatBound !== '1') {
+            qty.dataset.noVatBound = '1';
+
+            qty.addEventListener('input', function () {
+                this.value = i(this.value) || '';
+                calcTotal(row);
+                recalcQuote();
+            });
+
+            qty.addEventListener('change', function () {
+                this.value = i(this.value) || '';
+                calcTotal(row);
+                recalcQuote();
+            });
+        }
+
+        if (total && total.dataset.noVatBound !== '1') {
+            total.dataset.noVatBound = '1';
+
+            total.addEventListener('focus', function () {
+                this.value = n(this.value) ? String(Math.round(n(this.value))) : '';
+                this.select();
+            });
+
+            total.addEventListener('input', function () {
+                calcPrice(row);
+                recalcQuote();
+            });
+
+            total.addEventListener('blur', function () {
+                this.value = n(this.value) ? money(n(this.value)) : '';
+                calcPrice(row);
+                recalcQuote();
+            });
+        }
+    }
+
+    function patchTables() {
+        findQuoteTables().forEach(function (table) {
+            Array.from(table.rows).forEach(function (row) {
+                if (row.querySelector('th')) {
+                    patchHeader(row);
+                } else {
+                    patchBodyRow(row);
+                    bindRow(row);
+                }
+            });
+        });
+    }
+
+    function recalcQuote() {
+        let subtotal = 0;
+        let grand = 0;
+        let count = 0;
+
+        document.querySelectorAll('[data-section-body]').forEach(function (body) {
+            let no = 1;
+
+            body.querySelectorAll('tr:not(.empty-row)').forEach(function (row) {
+                const rowNo = row.querySelector('.row-number');
+                if (rowNo) rowNo.innerHTML = '<b>' + no + '</b>';
+                no++;
+
+                const name = row.querySelector('.js-name')?.value || '';
+                const q = i(row.querySelector('.js-qty')?.value || 0);
+                const p = n(row.querySelector('.js-price')?.value || 0);
+                const t = n(row.querySelector('.js-total')?.value || 0);
+
+                subtotal += Math.round(q * p);
+                grand += Math.round(t);
+
+                if (name.trim() !== '') count++;
+            });
+        });
+
+        const rowCount = document.getElementById('rowCount');
+        const subtotalView = document.getElementById('subtotalView');
+        const vatLineView = document.getElementById('vatLineView');
+        const grandView = document.getElementById('grandView');
+
+        if (rowCount) rowCount.innerText = count;
+        if (subtotalView) subtotalView.innerText = Math.round(subtotal).toLocaleString('vi-VN') + ' đ';
+        if (vatLineView) vatLineView.innerText = '0 đ';
+        if (grandView) grandView.innerText = Math.round(grand).toLocaleString('vi-VN') + ' đ';
+    }
+
+    function run() {
+        patchTables();
+        recalcQuote();
+    }
+
+    window.recalc = run;
+    window.bindEvents = run;
+
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (!form || !form.querySelector('[data-section-body]')) return;
+
+        document.querySelectorAll('[data-section-body] tr:not(.empty-row)').forEach(function (row) {
+            calcPrice(row);
+
+            const qty = row.querySelector('.js-qty');
+            const price = row.querySelector('.js-price');
+            const total = row.querySelector('.js-total');
+            const vat = row.querySelector('.js-vat');
+
+            if (qty) qty.value = String(i(qty.value) || 0);
+            if (price) price.value = String(Math.round(n(price.value)) || 0);
+            if (total) total.value = String(Math.round(n(total.value)) || 0);
+            if (vat) vat.value = '0';
+        });
+    }, true);
+
+    window.addEventListener('load', function () {
+        setTimeout(run, 100);
+        setTimeout(run, 700);
+        setTimeout(run, 1500);
+    });
+
+    new MutationObserver(function () {
+        run();
+    }).observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    run();
+})();

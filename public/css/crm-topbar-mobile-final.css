@@ -1,0 +1,602 @@
+/* =========================================================
+   EGO CRM - TOPBAR MOBILE FINAL
+   - Dấu ba chấm mở bảng tiện ích
+   - Chat / thông báo / tài khoản mở thành drawer
+   - Không ảnh hưởng desktop
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden !important;
+    }
+
+    html.crm-navigation-ready body .crm-topbar {
+        position: sticky !important;
+        top: 0 !important;
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        overflow: visible !important;
+        isolation: isolate !important;
+
+        z-index: 5000 !important;
+    }
+
+    html.crm-navigation-ready body .crm-topbar__inner,
+    html.crm-navigation-ready body .crm-topbar__left,
+    html.crm-navigation-ready body .crm-topbar__right,
+    html.crm-navigation-ready body .crm-topbar__panel-wrap {
+        overflow: visible !important;
+    }
+
+    html.crm-navigation-ready body .crm-topbar__panel-wrap {
+        position: static !important;
+        transform: none !important;
+        filter: none !important;
+        contain: none !important;
+    }
+
+    /*
+     * Ẩn panel khi chưa mở.
+     */
+    html.crm-navigation-ready body .crm-topbar__panel {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    /*
+     * Hiển thị panel khi mở.
+     */
+    html.crm-navigation-ready body .crm-topbar__panel.is-open,
+    html.crm-navigation-ready body
+    .crm-topbar__panel[aria-hidden="false"] {
+        display: flex !important;
+        flex-direction: column !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+
+        transform: translate3d(0, 0, 0) !important;
+
+        z-index: 5020 !important;
+    }
+
+    /*
+     * Lớp nền tối.
+     */
+    html.crm-navigation-ready body #crmTopbarBackdrop {
+        position: fixed !important;
+        inset: 56px 0 0 !important;
+
+        display: none !important;
+
+        background: rgba(10, 24, 38, .48) !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+
+        z-index: 4990 !important;
+    }
+
+    html.crm-navigation-ready body #crmTopbarBackdrop.is-open,
+    html.crm-navigation-ready body
+    #crmTopbarBackdrop[aria-hidden="false"] {
+        display: block !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+
+    /* =====================================================
+       BẢNG TIỆN ÍCH — NÚT BA CHẤM
+       ===================================================== */
+
+    html.crm-navigation-ready body #crmMorePanel {
+        position: fixed !important;
+
+        top: auto !important;
+        right: 8px !important;
+        bottom: max(8px, env(safe-area-inset-bottom)) !important;
+        left: 8px !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+        max-height: calc(100dvh - 76px) !important;
+
+        margin: 0 !important;
+
+        overflow: hidden !important;
+
+        border: 1px solid rgba(148, 163, 184, .25) !important;
+        border-radius: 22px !important;
+
+        background: #ffffff !important;
+
+        box-shadow:
+            0 28px 80px rgba(15, 35, 55, .30),
+            0 8px 24px rgba(15, 35, 55, .14) !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__panel-header {
+        flex: 0 0 auto !important;
+
+        min-height: 66px !important;
+        padding: 13px 15px !important;
+
+        border-bottom: 1px solid #edf2f6 !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(7, 134, 184, .09),
+                rgba(255, 255, 255, .98)
+            ) !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__panel-kicker {
+        color: #0786b8 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        letter-spacing: .07em !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__panel-header h2 {
+        margin: 2px 0 0 !important;
+
+        color: #102d46 !important;
+        font-size: 17px !important;
+        font-weight: 850 !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__panel-close {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        width: 36px !important;
+        height: 36px !important;
+
+        border: 1px solid #dce7ed !important;
+        border-radius: 11px !important;
+
+        background: #ffffff !important;
+    }
+
+    /*
+     * Grid tiện ích.
+     */
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+
+        gap: 10px !important;
+
+        min-height: 0 !important;
+        padding: 14px !important;
+
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+
+        background: #f7fafc !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > a,
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > button {
+        position: relative !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 96px !important;
+
+        gap: 8px !important;
+
+        margin: 0 !important;
+        padding: 13px !important;
+
+        border: 1px solid #e1eaf0 !important;
+        border-radius: 16px !important;
+
+        background: #ffffff !important;
+        color: #17324a !important;
+
+        text-align: left !important;
+        text-decoration: none !important;
+
+        box-shadow: 0 5px 15px rgba(15, 42, 67, .045) !important;
+
+        cursor: pointer !important;
+        box-sizing: border-box !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > a:active,
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > button:active {
+        transform: scale(.98) !important;
+        background: #eff8fb !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-icon {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+
+        width: 38px !important;
+        height: 38px !important;
+
+        border-radius: 12px !important;
+
+        background: #eaf7fb !important;
+        color: #087fa9 !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-icon i {
+        width: auto !important;
+        font-size: 19px !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-copy {
+        display: block !important;
+        min-width: 0 !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-copy strong {
+        display: block !important;
+
+        color: #17324a !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.25 !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-copy small {
+        display: block !important;
+
+        margin-top: 3px !important;
+
+        color: #7b8d9e !important;
+        font-size: 10px !important;
+        font-weight: 550 !important;
+        line-height: 1.35 !important;
+    }
+
+    /*
+     * Mục Thông báo chiếm toàn bộ hàng cuối.
+     */
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list
+    > .crm-topbar__utility-item--wide {
+        grid-column: 1 / -1 !important;
+
+        min-height: 78px !important;
+
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+    }
+
+    /* =====================================================
+       CHAT / THÔNG BÁO / TÀI KHOẢN
+       ===================================================== */
+
+    html.crm-navigation-ready body #crmChatPanel,
+    html.crm-navigation-ready body #crmNotificationPanel,
+    html.crm-navigation-ready body #crmAccountPanel {
+        position: fixed !important;
+
+        top: 62px !important;
+        right: 7px !important;
+        bottom: 7px !important;
+        left: 7px !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+        max-height: calc(100dvh - 69px) !important;
+
+        margin: 0 !important;
+
+        overflow: hidden !important;
+
+        border-radius: 18px !important;
+
+        background: #ffffff !important;
+
+        box-shadow:
+            0 26px 75px rgba(15, 35, 55, .28),
+            0 5px 18px rgba(15, 35, 55, .14) !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmChatPanel .crm-topbar__panel-list,
+
+    html.crm-navigation-ready body
+    #crmNotificationPanel .crm-topbar__panel-list,
+
+    html.crm-navigation-ready body
+    #crmAccountPanel .crm-topbar__account-menu {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+}
+
+@media (max-width: 380px) {
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list {
+        gap: 8px !important;
+        padding: 10px !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > a,
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list > button {
+        min-height: 90px !important;
+        padding: 11px !important;
+    }
+
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-copy strong {
+        font-size: 12px !important;
+    }
+}
+
+/* EGO_IOS_SAFARI_FIXED_PANEL_START */
+/*
+|--------------------------------------------------------------------------
+| FIX PANEL TOPBAR TRÊN SAFARI IOS
+|--------------------------------------------------------------------------
+|
+| backdrop-filter trên phần tử cha làm position:fixed của panel
+| bị tính theo chiều cao topbar thay vì visual viewport.
+|
+*/
+
+@media (max-width: 991.98px) {
+    /*
+     * Bắt buộc gỡ backdrop-filter khỏi tổ tiên của panel fixed.
+     */
+    html.crm-navigation-ready body .crm-topbar {
+        position: sticky !important;
+        top: 0 !important;
+
+        filter: none !important;
+        transform: none !important;
+        perspective: none !important;
+        contain: none !important;
+        will-change: auto !important;
+
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+
+        background: #ffffff !important;
+
+        overflow: visible !important;
+        isolation: isolate !important;
+
+        z-index: 2147483400 !important;
+    }
+
+    html.crm-navigation-ready body .crm-topbar__inner,
+    html.crm-navigation-ready body .crm-topbar__left,
+    html.crm-navigation-ready body .crm-topbar__right,
+    html.crm-navigation-ready body .crm-topbar__panel-wrap {
+        filter: none !important;
+        transform: none !important;
+        perspective: none !important;
+        contain: none !important;
+        will-change: auto !important;
+
+        overflow: visible !important;
+    }
+
+    /*
+     * Đảm bảo panel chưa mở không chiếm màn hình.
+     */
+    html.crm-navigation-ready body .crm-topbar__panel {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    /*
+     * Panel đã mở phải được tính theo toàn viewport.
+     */
+    html.crm-navigation-ready body .crm-topbar__panel.is-open,
+    html.crm-navigation-ready body
+    .crm-topbar__panel[aria-hidden="false"] {
+        display: flex !important;
+        flex-direction: column !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+
+        z-index: 2147483600 !important;
+    }
+
+    /*
+     * Menu dấu ba chấm: bottom sheet.
+     */
+    html.crm-navigation-ready body #crmMorePanel {
+        position: fixed !important;
+
+        top: auto !important;
+        right: 8px !important;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+        left: 8px !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+        max-height: calc(100dvh - 76px) !important;
+
+        margin: 0 !important;
+
+        transform: translate3d(0, 0, 0) !important;
+
+        overflow: hidden !important;
+        overscroll-behavior: contain !important;
+
+        border-radius: 22px !important;
+
+        background: #ffffff !important;
+
+        box-shadow:
+            0 28px 80px rgba(15, 35, 55, .30),
+            0 8px 24px rgba(15, 35, 55, .14) !important;
+    }
+
+    /*
+     * Tin nhắn, thông báo và tài khoản.
+     */
+    html.crm-navigation-ready body #crmChatPanel,
+    html.crm-navigation-ready body #crmNotificationPanel,
+    html.crm-navigation-ready body #crmAccountPanel {
+        position: fixed !important;
+
+        top: 62px !important;
+        right: 7px !important;
+        bottom: calc(7px + env(safe-area-inset-bottom, 0px)) !important;
+        left: 7px !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+        max-height: calc(100dvh - 69px) !important;
+
+        margin: 0 !important;
+
+        transform: translate3d(0, 0, 0) !important;
+
+        overflow: hidden !important;
+        overscroll-behavior: contain !important;
+
+        border-radius: 18px !important;
+
+        background: #ffffff !important;
+
+        box-shadow:
+            0 26px 75px rgba(15, 35, 55, .28),
+            0 5px 18px rgba(15, 35, 55, .14) !important;
+    }
+
+    /*
+     * Nội dung trong panel được cuộn riêng.
+     */
+    html.crm-navigation-ready body
+    #crmMorePanel .crm-topbar__utility-list,
+
+    html.crm-navigation-ready body
+    #crmChatPanel .crm-topbar__panel-list,
+
+    html.crm-navigation-ready body
+    #crmNotificationPanel .crm-topbar__panel-list,
+
+    html.crm-navigation-ready body
+    #crmAccountPanel .crm-topbar__account-menu {
+        min-height: 0 !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /*
+     * Backdrop nằm dưới panel nhưng trên dashboard.
+     */
+    html.crm-navigation-ready body #crmTopbarBackdrop {
+        position: fixed !important;
+
+        top: 56px !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+
+        z-index: 2147483000 !important;
+    }
+
+    html.crm-navigation-ready body #crmTopbarBackdrop.is-open,
+    html.crm-navigation-ready body
+    #crmTopbarBackdrop[aria-hidden="false"] {
+        display: block !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+}
+
+@media (max-width: 430px) {
+    html.crm-navigation-ready body #crmMorePanel {
+        right: 5px !important;
+        bottom: calc(5px + env(safe-area-inset-bottom, 0px)) !important;
+        left: 5px !important;
+
+        max-height: calc(100dvh - 68px) !important;
+
+        border-radius: 18px !important;
+    }
+
+    html.crm-navigation-ready body #crmChatPanel,
+    html.crm-navigation-ready body #crmNotificationPanel,
+    html.crm-navigation-ready body #crmAccountPanel {
+        top: 59px !important;
+        right: 5px !important;
+        bottom: calc(5px + env(safe-area-inset-bottom, 0px)) !important;
+        left: 5px !important;
+
+        max-height: calc(100dvh - 64px) !important;
+
+        border-radius: 16px !important;
+    }
+}
+
+/* EGO_IOS_SAFARI_FIXED_PANEL_END */

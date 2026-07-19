@@ -1,0 +1,29 @@
+<?php
+namespace App\Repositories;
+use Illuminate\Database\Eloquent\Model;
+abstract class BaseRepository
+{
+	protected Model $model;
+	public function all()
+	{
+		return $this->model->all();
+	}
+	public function find($id)
+	{
+		return $this->model->find($id);
+	}
+	public function create(array $data)
+	{
+		return $this->model->create($data);
+	}
+	public function update($id, array $data)
+	{
+		$model = $this->find($id);
+		$model->update($data);
+		return $model;
+	}
+	public function delete($id)
+	{
+		return $this->find($id)->delete();
+	}
+}

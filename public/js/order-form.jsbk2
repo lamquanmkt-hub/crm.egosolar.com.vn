@@ -1,0 +1,599 @@
+/**
+ * Order Form Handler
+ * Company -> Warehouses -> Products by warehouse
+ * discount % + discount amount
+ * Render invoice items in sidebar
+ */
+
+class OrderFormManager {
+  constructor() {
+    this.rowIndex = (window.rowIndex ?? 1);
+    this.customerTypeId = (window.customerTypeId ?? null);
+    this.productsByWarehouse = {};
+
+    this.initializeElements();
+    this.attachEventListeners();
+
+    this.bootstrap().catch(console.error);
+  }
+
+  initializeElements() {
+    this.elements = {
+      customerSelect: document.getElementById('customerSelect'),
+      leadIdInput: document.getElementById('leadIdInput'),
+      customerInfo: document.getElementById('customerInfo'),
+
+      priceTierSelect: document.getElementById('price_tier_id'), // có thì dùng, không có thì null
+
+      orderCompanyId: document.getElementById('orderCompanyId'), // hidden
+
+      productTableBody: document.getElementById('productTableBody'),
+      addProductBtn: document.getElementById('addProductBtn'),
+
+      totalItems: document.getElementById('totalItems'),
+      totalQuantity: document.getElementById('totalQuantity'),
+      totalAmount: document.getElementById('totalAmount'),
+      grandTotal: document.getElementById('grandTotal'),
+      invoiceItems: document.getElementById('invoiceItems'),
+    };
+  }
+
+  attachEventListeners() {
+    if (this.elements.customerSelect) {
+      this.elements.customerSelect.addEventListener('change', () => this.handleCustomerChange());
+    }
+
+    if (this.elements.addProductBtn) {
+      this.elements.addProductBtn.addEventListener('click', () => this.addProductRow());
+    }
+
+    if (this.elements.priceTierSelect) {
+      this.elements.priceTierSelect.addEventListener('change', async () => {
+        await this.updateAllProductPrices();
+      });
+    }
+
+    this.elements.productTableBody?.querySelectorAll('.product-row').forEach(row => {
+      this.attachRowEvents(row);
+    });
+  }
+
+  // ===== Bootstrap =====
+  async bootstrap() {
+    if (this.elements.customerSelect?.value) {
+      await this.handleCustomerChange().catch(console.error);
+    }
+
+    const rows = this.elements.productTableBody?.querySelectorAll('.product-row') || [];
+    for (const row of rows) {
+      const companySelect = row.querySelector('.company-select');
+      const whSelect = row.querySelector('.warehouse-select');
+      const prodSelect = row.querySelector('.product-select');
+
+      const companyId = companySelect?.value || null;
+      const whId = whSelect?.value || null;
+      const prodId = prodSelect?.value || null;
+
+      // Nếu đã có company => load warehouses rồi set selected warehouse (nếu có)
+      if (companyId) {
+        this.ensureSingleCompany(companyId, companySelect);
+        const warehouses = await this.getWarehousesByCompany(companyId);
+        this.populateWarehouseSelect(whSelect, warehouses, whId);
+      }
+
+      // Nếu đã có warehouse => load products rồi set selected product (nếu có)
+      if (whId) {
+        const products = await this.getProductsByWarehouseCached(whId);
+        this.populateProductSelect(prodSelect, products, prodId);
+        if (prodSelect?.value) await this.updateProductPrice(row);
+      }
+
+      this.calculateLineTotal(row);
+    }
+
+    this.updateTotals();
+  }
+
+  // ===== Helpers =====
+  ensureSingleCompany(companyId, companySelectEl = null) {
+    if (!this.elements.orderCompanyId) return true;
+
+    const current = this.elements.orderCompanyId.value || '';
+    if (current && current !== companyId) {
+      alert('1 đơn hàng chỉ thuộc 1 công ty. Vui lòng chọn cùng 1 công ty cho tất cả dòng.');
+      if (companySelectEl) companySelectEl.value = current;
+      return false;
+    }
+
+    this.elements.orderCompanyId.value = companyId;
+    return true;
+  }
+
+  async getWarehousesByCompany(companyId) {
+    const res = await fetch(`/orders/warehouses-by-company?company_id=${companyId}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    if (!res.ok) throw new Error('Failed to load warehouses');
+    const data = await res.json();
+    return data.warehouses || [];
+  }
+
+  populateWarehouseSelect(select, warehouses, selectedValue = null) {
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Chọn kho --</option>';
+    (warehouses || []).forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w.id;
+      opt.textContent = w.name;
+      select.appendChild(opt);
+    });
+
+    if (selectedValue) select.value = String(selectedValue);
+  }
+
+  async getProductsByWarehouseCached(warehouseId) {
+    if (this.productsByWarehouse[warehouseId]) return this.productsByWarehouse[warehouseId];
+
+    const res = await fetch(`/orders/products-by-warehouse?warehouse_id=${warehouseId}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    if (!res.ok) throw new Error('Failed to load products');
+    const data = await res.json();
+
+    this.productsByWarehouse[warehouseId] = data.products || [];
+    return this.productsByWarehouse[warehouseId];
+  }
+
+  populateProductSelect(select, products, selectedValue) {
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+
+    (products || []).forEach(product => {
+      const opt = document.createElement('option');
+      opt.value = product.id;
+      opt.textContent = product.display;
+
+      opt.dataset.price = product.price;
+      opt.dataset.priceAgent = product.price_agent;
+      opt.dataset.priceRetail = product.price_retail;
+
+      select.appendChild(opt);
+    });
+
+    if (selectedValue) select.value = String(selectedValue);
+  }
+
+  attachRowEvents(row) {
+    const companySelect = row.querySelector('.company-select');
+    const whSelect = row.querySelector('.warehouse-select');
+    const productSelect = row.querySelector('.product-select');
+
+    const quantityInput = row.querySelector('.quantity');
+    const discountPercentInput = row.querySelector('.discount-percent');
+    const discountAmountInput = row.querySelector('.discount-amount');
+    const removeBtn = row.querySelector('.remove-product-btn');
+
+    // Company change => load warehouses, reset product/price
+    if (companySelect) {
+      companySelect.addEventListener('change', async () => {
+        const companyId = companySelect.value || '';
+
+        if (companyId) {
+          const ok = this.ensureSingleCompany(companyId, companySelect);
+          if (!ok) return;
+        }
+
+        // reset warehouse + product + price
+        if (whSelect) {
+          whSelect.innerHTML = '<option value="">-- Chọn kho --</option>';
+          whSelect.value = '';
+        }
+        if (productSelect) {
+          productSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+          productSelect.value = '';
+        }
+        row.querySelector('.unit-price').value = '';
+        row.querySelector('.line-total')?.value && (row.querySelector('.line-total').value = '');
+
+        if (discountPercentInput) discountPercentInput.value = '0';
+        if (discountAmountInput) discountAmountInput.value = '0';
+
+        if (!companyId) {
+          this.updateTotals();
+          return;
+        }
+
+        try {
+          const warehouses = await this.getWarehousesByCompany(companyId);
+          this.populateWarehouseSelect(whSelect, warehouses, null);
+        } catch (e) {
+          console.error(e);
+          alert('Không tải được danh sách kho theo công ty');
+        }
+
+        this.updateTotals();
+      });
+    }
+
+    // Warehouse change => load products
+    if (whSelect) {
+      whSelect.addEventListener('change', async () => {
+        if (productSelect) {
+          productSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+          productSelect.value = '';
+        }
+
+        row.querySelector('.unit-price').value = '';
+        row.querySelector('.line-total')?.value && (row.querySelector('.line-total').value = '');
+
+        if (discountPercentInput) discountPercentInput.value = '0';
+        if (discountAmountInput) discountAmountInput.value = '0';
+
+        const whId = whSelect.value;
+        if (!whId) {
+          this.updateTotals();
+          return;
+        }
+
+        try {
+          const products = await this.getProductsByWarehouseCached(whId);
+          this.populateProductSelect(productSelect, products, null);
+        } catch (e) {
+          console.error(e);
+          alert('Không tải được danh sách sản phẩm theo kho');
+        }
+
+        this.updateTotals();
+      });
+    }
+
+    // Product change => price + totals
+    if (productSelect) {
+      productSelect.addEventListener('change', async () => {
+        await this.updateProductPrice(row);
+        this.calculateLineTotal(row);
+      });
+    }
+
+    const tierSelect = row.querySelector('.price-tier-select');
+    if (tierSelect) {
+      tierSelect.addEventListener('change', async () => {
+        await this.updateProductPrice(row);
+        this.calculateLineTotal(row);
+      });
+    }
+
+    if (quantityInput) quantityInput.addEventListener('input', () => this.calculateLineTotal(row));
+
+    if (discountPercentInput) {
+      discountPercentInput.addEventListener('input', () => {
+        if (discountAmountInput) discountAmountInput.value = '0';
+        this.calculateLineTotal(row);
+      });
+    }
+
+    if (discountAmountInput) {
+      discountAmountInput.addEventListener('input', () => {
+        if (discountPercentInput) discountPercentInput.value = '0';
+        this.calculateLineTotal(row);
+      });
+      discountAmountInput.addEventListener('change', () => {
+        if (discountPercentInput) discountPercentInput.value = '0';
+        this.calculateLineTotal(row);
+      });
+    }
+
+    if (removeBtn) removeBtn.addEventListener('click', () => this.removeProductRow(row));
+  }
+
+  async fetchTierPrice(productId, priceTierId) {
+    const qs = priceTierId ? `?price_tier_id=${priceTierId}` : '';
+    const res = await fetch(`/orders/product-price/${productId}${qs}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    if (!res.ok) throw new Error('Failed to fetch product price');
+    const data = await res.json();
+    return parseFloat(data.price || 0);
+  }
+
+  getEffectivePriceTierId(row) {
+    const itemTier = row.querySelector('.price-tier-select')?.value;
+    const orderTier = this.elements.priceTierSelect?.value;
+    const v = itemTier || orderTier;
+    const id = parseInt(v || '0', 10);
+    return id > 0 ? id : null;
+  }
+
+  async updateProductPrice(row) {
+    const select = row.querySelector('.product-select');
+    const priceInput = row.querySelector('.unit-price');
+    const opt = select?.selectedOptions?.[0];
+
+    if (!opt || !opt.value) {
+      priceInput.value = '';
+      return;
+    }
+
+    const productId = parseInt(opt.value, 10);
+    const tierId = this.getEffectivePriceTierId(row);
+
+    if (tierId) {
+      try {
+        const price = await this.fetchTierPrice(productId, tierId);
+        priceInput.value = String(price);
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const price = this.getPriceForCustomerType(opt);
+    priceInput.value = String(price);
+  }
+
+  getPriceForCustomerType(option) {
+    const base = parseFloat(option.dataset.price) || 0;
+    const agent = parseFloat(option.dataset.priceAgent) || base;
+    const retail = parseFloat(option.dataset.priceRetail) || base;
+
+    if (!this.customerTypeId) return base;
+
+    switch (Number(this.customerTypeId)) {
+      case 1: return agent;
+      case 2: return retail;
+      default: return base;
+    }
+  }
+
+  parseNumber(value) {
+    if (value === null || value === undefined) return 0;
+    let s = String(value).trim();
+    if (!s) return 0;
+
+    s = s.replace(/\s/g, '').replace(/đ/gi, '');
+
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      s = s.replace(/\./g, '');
+      return parseFloat(s) || 0;
+    }
+
+    if (/^\d{1,3}(,\d{3})+$/.test(s)) {
+      s = s.replace(/,/g, '');
+      return parseFloat(s) || 0;
+    }
+
+    if (s.includes('.') && s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+      return parseFloat(s) || 0;
+    }
+
+    if (s.includes(',') && !s.includes('.')) {
+      s = s.replace(',', '.');
+      return parseFloat(s) || 0;
+    }
+
+    return parseFloat(s) || 0;
+  }
+
+  clampMoney(value) {
+    const n = this.parseNumber(value);
+    if (isNaN(n) || n < 0) return 0;
+    return n;
+  }
+
+  clampPercent(value) {
+    const n = parseFloat(value);
+    if (isNaN(n)) return 0;
+    return Math.max(0, Math.min(100, n));
+  }
+
+  calculateLineTotal(row) {
+    const price = this.parseNumber(row.querySelector('.unit-price')?.value) || 0;
+    const quantity = parseInt(row.querySelector('.quantity')?.value) || 0;
+
+    const subtotal = price * quantity;
+
+    const discountPercentEl = row.querySelector('.discount-percent');
+    const discountPercent = discountPercentEl ? this.clampPercent(discountPercentEl.value) : 0;
+    if (discountPercentEl) discountPercentEl.value = discountPercent;
+
+    const discountAmountEl = row.querySelector('.discount-amount');
+    const discountAmount = discountAmountEl ? this.clampMoney(discountAmountEl.value) : 0;
+    if (discountAmountEl) discountAmountEl.value = String(discountAmount);
+
+    let discount = discountAmount > 0 ? discountAmount : (subtotal * discountPercent / 100);
+    if (discount > subtotal) discount = subtotal;
+
+    const lineTotal = subtotal - discount;
+
+    const lineTotalEl = row.querySelector('.line-total');
+    if (lineTotalEl) lineTotalEl.value = this.formatCurrency(lineTotal);
+
+    this.updateTotals();
+  }
+
+  async updateAllProductPrices() {
+    const rows = this.elements.productTableBody.querySelectorAll('.product-row');
+    for (const row of rows) {
+      const select = row.querySelector('.product-select');
+      if (select && select.value) {
+        await this.updateProductPrice(row);
+        this.calculateLineTotal(row);
+      }
+    }
+  }
+
+  updateTotals() {
+    const rows = this.elements.productTableBody.querySelectorAll('.product-row');
+
+    let totalItems = 0;
+    let totalQuantity = 0;
+    let grandTotal = 0;
+
+    const invoiceLines = [];
+
+    rows.forEach(row => {
+      const wh = row.querySelector('.warehouse-select')?.value;
+      const spSelect = row.querySelector('.product-select');
+      const sp = spSelect?.value;
+
+      if (wh && sp) {
+        totalItems++;
+
+        const qty = parseInt(row.querySelector('.quantity')?.value) || 0;
+        const price = this.parseNumber(row.querySelector('.unit-price')?.value) || 0;
+        const subtotal = price * qty;
+
+        const discountPercentEl = row.querySelector('.discount-percent');
+        const discountPercent = discountPercentEl ? this.clampPercent(discountPercentEl.value) : 0;
+
+        const discountAmountEl = row.querySelector('.discount-amount');
+        const discountAmount = discountAmountEl ? this.clampMoney(discountAmountEl.value) : 0;
+
+        let discount = discountAmount > 0 ? discountAmount : (subtotal * discountPercent / 100);
+        if (discount > subtotal) discount = subtotal;
+
+        const lineTotal = subtotal - discount;
+
+        totalQuantity += qty;
+        grandTotal += lineTotal;
+
+        const name = spSelect.selectedOptions?.[0]?.textContent?.trim() || 'Sản phẩm';
+        invoiceLines.push(`
+          <div class="ego-invoice__item">
+            <div>
+              <div class="ego-invoice__item-name">${name}</div>
+              <div class="ego-invoice__item-meta">SL: ${qty}</div>
+            </div>
+            <div class="ego-invoice__item-right">${this.formatCurrency(lineTotal)}</div>
+          </div>
+        `);
+      }
+    });
+
+    if (this.elements.totalItems) this.elements.totalItems.textContent = totalItems;
+    if (this.elements.totalQuantity) this.elements.totalQuantity.textContent = totalQuantity;
+    if (this.elements.totalAmount) this.elements.totalAmount.textContent = this.formatCurrency(grandTotal);
+    if (this.elements.grandTotal) this.elements.grandTotal.textContent = this.formatCurrency(grandTotal);
+
+    if (this.elements.invoiceItems) {
+      this.elements.invoiceItems.innerHTML = invoiceLines.length
+        ? invoiceLines.join('')
+        : `<div class="ego-invoice__empty">Chưa có sản phẩm.</div>`;
+    }
+  }
+
+  addProductRow() {
+    const tbody = this.elements.productTableBody;
+    const template = tbody.querySelector('.product-row');
+    const newRow = template.cloneNode(true);
+
+    newRow.dataset.index = this.rowIndex;
+
+    newRow.querySelectorAll('[name]').forEach(input => {
+      input.name = input.name.replace(/\[\d+\]/, `[${this.rowIndex}]`);
+    });
+
+    // set company theo hidden (nếu có)
+    const companySelect = newRow.querySelector('.company-select');
+    const currentCompany = this.elements.orderCompanyId?.value || '';
+    if (companySelect) companySelect.value = currentCompany;
+
+    // reset kho + sp
+    const whSelect = newRow.querySelector('.warehouse-select');
+    if (whSelect) {
+      whSelect.innerHTML = '<option value="">-- Chọn kho --</option>';
+      whSelect.value = '';
+    }
+
+    const prodSelect = newRow.querySelector('.product-select');
+    if (prodSelect) {
+      prodSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+      prodSelect.value = '';
+    }
+
+    const tierSelect = newRow.querySelector('.price-tier-select');
+    if (tierSelect) tierSelect.value = '';
+
+    newRow.querySelector('.unit-price').value = '';
+    newRow.querySelector('.quantity').value = '1';
+
+    const discPercent = newRow.querySelector('.discount-percent');
+    if (discPercent) discPercent.value = '0';
+
+    const discAmount = newRow.querySelector('.discount-amount');
+    if (discAmount) discAmount.value = '0';
+
+    const lineTotalEl = newRow.querySelector('.line-total');
+    if (lineTotalEl) lineTotalEl.value = '';
+
+    tbody.appendChild(newRow);
+    this.attachRowEvents(newRow);
+
+    // nếu đã có company thì tự load kho cho row mới
+    if (currentCompany) {
+      this.getWarehousesByCompany(currentCompany)
+        .then(ws => this.populateWarehouseSelect(whSelect, ws, null))
+        .catch(console.error);
+    }
+
+    this.rowIndex++;
+    this.updateTotals();
+  }
+
+  removeProductRow(row) {
+    const rows = this.elements.productTableBody.querySelectorAll('.product-row');
+    if (rows.length <= 1) {
+      alert('Phải có ít nhất một sản phẩm');
+      return;
+    }
+    row.remove();
+    this.updateTotals();
+  }
+
+  async handleCustomerChange() {
+    const selectedOption = this.elements.customerSelect?.selectedOptions?.[0];
+    const customerId = this.elements.customerSelect?.value;
+    const leadId = selectedOption?.dataset?.leadId;
+
+    if (this.elements.leadIdInput) this.elements.leadIdInput.value = leadId || '';
+
+    if (customerId) {
+      const res = await fetch(`/orders/customer-info/${customerId}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!res.ok) throw new Error('Failed to fetch customer info');
+      const data = await res.json();
+
+      this.customerTypeId = data.customer.customer_type_id;
+      this.displayCustomerInfo(data);
+
+      await this.updateAllProductPrices();
+    } else {
+      this.hideCustomerInfo();
+    }
+  }
+
+  displayCustomerInfo(data) {
+    const el = (id) => document.getElementById(id);
+    if (el('customerType')) el('customerType').textContent = data.customer.customer_type?.name || 'N/A';
+    if (el('customerRegion')) el('customerRegion').textContent = data.customer.region?.name || 'N/A';
+    if (el('customerOrders')) el('customerOrders').textContent = data.latest_orders.length;
+    if (el('customerDebt')) el('customerDebt').textContent = this.formatCurrency(data.total_debt);
+    if (this.elements.customerInfo) this.elements.customerInfo.style.display = 'block';
+  }
+
+  hideCustomerInfo() {
+    if (this.elements.customerInfo) this.elements.customerInfo.style.display = 'none';
+  }
+
+  formatCurrency(amount) {
+    return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  new OrderFormManager();
+});

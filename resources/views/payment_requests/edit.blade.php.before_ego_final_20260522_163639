@@ -1,0 +1,1120 @@
+@extends('layouts.app')
+
+@section('title', 'Sửa đề nghị thanh toán')
+
+@section('content')
+@php
+    $statusMap = [
+        'draft' => 'Nháp',
+        'submitted' => 'Đã gửi duyệt',
+        'admin_approved' => 'Quản lý tài chính đã duyệt',
+        'admin_rejected' => 'Quản lý tài chính từ chối',
+        'accounting_approved' => 'Kế toán đã chi',
+        'accounting_rejected' => 'Kế toán từ chối',
+    ];
+
+    $statusToneMap = [
+        'draft' => 'neutral',
+        'submitted' => 'info',
+        'admin_approved' => 'primary',
+        'admin_rejected' => 'danger',
+        'accounting_approved' => 'success',
+        'accounting_rejected' => 'warning',
+    ];
+
+    $statusLabel = $statusMap[$item->status] ?? ($item->status ?? '-');
+    $statusTone = $statusToneMap[$item->status] ?? 'neutral';
+
+    $dueValue = old('payment_due_date');
+    if ($dueValue === null && !empty($item->payment_due_date)) {
+        try {
+            $dueValue = \Illuminate\Support\Carbon::parse($item->payment_due_date)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            $dueValue = '';
+        }
+    }
+
+    $createdAt = !empty($item->created_at)
+        ? \Illuminate\Support\Carbon::parse($item->created_at)->format('d/m/Y H:i')
+        : '-';
+
+    $attachments = $item->attachments ?? collect();
+@endphp
+
+<style>
+    .pay-edit {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 18px 12px 36px;
+        color: #071b33;
+        font-size: 13px;
+    }
+
+    .pay-edit * {
+        box-sizing: border-box;
+    }
+
+    .pay-edit a {
+        text-decoration: none;
+    }
+
+    .pay-edit-animate {
+        animation: payEditFade .28s ease both;
+    }
+
+    @keyframes payEditFade {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .pay-edit-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        padding: 18px 20px;
+        margin-bottom: 14px;
+        background:
+            radial-gradient(circle at top left, rgba(6,182,212,.20), transparent 32%),
+            radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 32%),
+            linear-gradient(135deg, #ffffff 0%, #f6fbff 100%);
+        border: 1px solid #d8eef8;
+        box-shadow: 0 18px 45px rgba(15,23,42,.075);
+    }
+
+    .pay-edit-hero::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #06b6d4, #0ea5e9, #22c55e);
+    }
+
+    .pay-edit-hero-inner {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .pay-edit-title-wrap {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .pay-edit-icon {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #ecfeff, #dbeafe);
+        border: 1px solid #c7eef8;
+        color: #0284c7;
+        font-size: 18px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    }
+
+    .pay-edit-title {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 900;
+        line-height: 1.2;
+        color: #071b33;
+        letter-spacing: -.02em;
+    }
+
+    .pay-edit-sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 7px;
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 700;
+    }
+
+    .pay-edit-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 27px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 850;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .pay-edit-chip.neutral { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+    .pay-edit-chip.info { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .pay-edit-chip.primary { background: #cffafe; color: #0e7490; border-color: #a5f3fc; }
+    .pay-edit-chip.success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+    .pay-edit-chip.danger { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .pay-edit-chip.warning { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+
+    .pay-edit-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .pay-edit-btn {
+        border: 0;
+        min-height: 36px;
+        padding: 0 13px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 850;
+        cursor: pointer;
+        transition: .16s ease;
+        white-space: nowrap;
+    }
+
+    .pay-edit-btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+    }
+
+    .pay-edit-btn.light {
+        color: #0f172a;
+        background: #fff;
+        border: 1px solid #d8e4ef;
+    }
+
+    .pay-edit-btn.blue {
+        color: #fff;
+        background: linear-gradient(135deg, #06b6d4, #0284c7);
+        box-shadow: 0 10px 22px rgba(14,165,233,.23);
+    }
+
+    .pay-edit-btn.dark {
+        color: #fff;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+    }
+
+    .pay-edit-card {
+        border-radius: 20px;
+        background: rgba(255,255,255,.96);
+        border: 1px solid #e2eaf3;
+        box-shadow: 0 14px 38px rgba(15,23,42,.06);
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+
+    .pay-edit-card-head {
+        padding: 15px 17px 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .pay-edit-card-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 900;
+        color: #071b33;
+    }
+
+    .pay-edit-card-desc {
+        margin-top: 4px;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .pay-edit-card-body {
+        padding: 15px 17px 17px;
+    }
+
+    .pay-edit-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .pay-edit-grid-3 {
+        display: grid;
+        grid-template-columns: 1.3fr .7fr 1fr;
+        gap: 12px;
+    }
+
+    .pay-edit-field {
+        position: relative;
+    }
+
+    .pay-edit-field.full {
+        grid-column: 1 / -1;
+    }
+
+    .pay-edit-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 6px;
+        color: #475569;
+        font-size: 11.5px;
+        font-weight: 850;
+        letter-spacing: .015em;
+    }
+
+    .pay-edit-required {
+        color: #e11d48;
+    }
+
+    .pay-edit-control {
+        width: 100%;
+        min-height: 38px;
+        border-radius: 12px !important;
+        border: 1px solid #d8e4ef !important;
+        background: #fff !important;
+        padding: 8px 11px !important;
+        color: #0f172a !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        outline: none !important;
+        transition: .16s ease !important;
+        box-shadow: none !important;
+    }
+
+    .pay-edit-control:focus {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 0 4px rgba(14,165,233,.12) !important;
+    }
+
+    textarea.pay-edit-control {
+        min-height: 115px;
+        resize: vertical;
+        line-height: 1.65;
+    }
+
+    .pay-edit-help {
+        margin-top: 6px;
+        color: #64748b;
+        font-size: 11.5px;
+        line-height: 1.45;
+        font-weight: 600;
+    }
+
+    .pay-edit-file-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .pay-edit-file {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border-radius: 14px;
+        border: 1px solid #e2eaf3;
+        background: #f8fbff;
+        color: #0f172a;
+        transition: .16s ease;
+    }
+
+    .pay-edit-file:hover {
+        transform: translateY(-1px);
+        border-color: #93c5fd;
+        color: #0f172a;
+    }
+
+    .pay-edit-file-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        display: grid;
+        place-items: center;
+        background: #e0f2fe;
+        color: #0284c7;
+        font-size: 11px;
+        font-weight: 900;
+    }
+
+    .pay-edit-file-name {
+        font-size: 12.5px;
+        font-weight: 850;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+
+    .pay-edit-file-meta {
+        font-size: 11.5px;
+        color: #64748b;
+        font-weight: 700;
+    }
+
+    .pay-edit-empty {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        color: #64748b;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .pay-edit-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 18px;
+        background: rgba(255,255,255,.86);
+        border: 1px solid #dbe7f3;
+        box-shadow: 0 -8px 28px rgba(15,23,42,.06);
+        backdrop-filter: blur(12px);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .pay-edit-footer-note {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .pay-edit-alert {
+        padding: 12px 14px;
+        border-radius: 14px;
+        margin-bottom: 12px;
+        font-size: 12.5px;
+        font-weight: 750;
+        border: 1px solid transparent;
+    }
+
+    .pay-edit-alert.danger {
+        color: #991b1b;
+        background: #fef2f2;
+        border-color: #fecaca;
+    }
+
+    .pay-edit-alert.success {
+        color: #166534;
+        background: #ecfdf5;
+        border-color: #bbf7d0;
+    }
+
+    @media (max-width: 900px) {
+        .pay-edit-grid,
+        .pay-edit-grid-3 {
+            grid-template-columns: 1fr;
+        }
+
+        .pay-edit-hero-inner {
+            align-items: flex-start;
+        }
+
+        .pay-edit-actions {
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .pay-edit {
+            padding-left: 6px;
+            padding-right: 6px;
+        }
+
+        .pay-edit-title {
+            font-size: 20px;
+        }
+
+        .pay-edit-title-wrap {
+            align-items: flex-start;
+        }
+
+        .pay-edit-footer {
+            position: static;
+        }
+    }
+</style>
+
+<div class="pay-edit">
+    @if(session('success'))
+        <div class="pay-edit-alert success pay-edit-animate">{{ session('success') }}</div>
+    @endif
+
+    @if(session('error'))
+        <div class="pay-edit-alert danger pay-edit-animate">{{ session('error') }}</div>
+    @endif
+
+    @if($errors->any())
+        <div class="pay-edit-alert danger pay-edit-animate">
+            <strong>Cần kiểm tra lại:</strong> {{ $errors->first() }}
+        </div>
+    @endif
+
+    <section class="pay-edit-hero pay-edit-animate">
+        <div class="pay-edit-hero-inner">
+            <div class="pay-edit-title-wrap">
+                <div class="pay-edit-icon">✎</div>
+                <div>
+                    <h1 class="pay-edit-title">Sửa đề nghị thanh toán: {{ $item->code }}</h1>
+                    <div class="pay-edit-sub">
+                        <span>ID #{{ $item->id }}</span>
+                        <span>Ngày tạo: {{ $createdAt }}</span>
+                        <span>Trạng thái: {{ $statusLabel }}</span>
+                    </div>
+                    <div style="margin-top:9px;">
+                        <span class="pay-edit-chip {{ $statusTone }}">{{ $statusLabel }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pay-edit-actions">
+                <a href="{{ route('payment_requests.show', $item->id) }}" class="pay-edit-btn light">← Quay lại</a>
+                <a href="{{ route('payment_requests.index') }}" class="pay-edit-btn light">Danh sách</a>
+            </div>
+        </div>
+    </section>
+
+    <form method="POST" action="{{ route('payment_requests.update', $item- enctype="multipart/form-data">id) }}">
+        @csrf
+        @method('PUT')
+
+        <section class="pay-edit-card pay-edit-animate" style="animation-delay:.03s;">
+            <div class="pay-edit-card-head">
+                <div>
+                    <h2 class="pay-edit-card-title">Thông tin cơ bản</h2>
+                    <div class="pay-edit-card-desc">Các trường chính của phiếu, đồng bộ với form tạo phiếu.</div>
+                </div>
+            </div>
+
+            <div class="pay-edit-card-body">
+                <div class="pay-edit-grid">
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Người nhận <span class="pay-edit-required">*</span></label>
+                        <input type="text"
+                               name="receiver_name"
+                               class="pay-edit-control"
+                               value="{{ old('receiver_name', $item->receiver_name) }}"
+                               placeholder="VD: Nguyễn Văn A"
+                               required>
+                    </div>
+
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Công ty <span class="pay-edit-required">*</span></label>
+                        <select name="company" class="pay-edit-control" required>
+                            <option value="">-- Chọn công ty --</option>
+                            @foreach($companyOptions as $company)
+                                <option value="{{ $company }}" @selected(old('company', $item->company) === $company)>
+                                    {{ $company }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Bộ phận / Đơn vị</label>
+                        <input type="text"
+                               name="department"
+                               class="pay-edit-control"
+                               value="{{ old('department', $item->department) }}"
+                               placeholder="VD: Marketing & Sales">
+                    </div>
+
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Số tiền (VNĐ) <span class="pay-edit-required">*</span></label>
+                        <input type="number"
+                               name="amount"
+                               class="pay-edit-control"
+                               value="{{ old('amount', $item->amount) }}"
+                               min="1"
+                               step="1"
+                               placeholder="VD: 2500000"
+                               required>
+                    </div>
+
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Ngày phải thanh toán</label>
+                        <input type="date"
+                               name="payment_due_date"
+                               class="pay-edit-control"
+                               value="{{ $dueValue }}">
+                    </div>
+
+                    <div class="pay-edit-field">
+                        <label class="pay-edit-label">Thông tin chuyển khoản</label>
+                        <input type="text"
+                               name="bank_info"
+                               class="pay-edit-control"
+                               value="{{ old('bank_info', $item->bank_info) }}"
+                               placeholder="VD: MB BANK - 0123... - Nguyễn Văn A">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pay-edit-card pay-edit-animate" style="animation-delay:.06s;">
+            <div class="pay-edit-card-head">
+                <div>
+                    <h2 class="pay-edit-card-title">Nội dung thanh toán</h2>
+                    <div class="pay-edit-card-desc">Phần lý do hỗ trợ xuống dòng, gạch đầu dòng và nội dung dài.</div>
+                </div>
+            </div>
+
+            <div class="pay-edit-card-body">
+                <div class="pay-edit-grid">
+                    <div class="pay-edit-field full">
+                        <label class="pay-edit-label">Nội dung thanh toán</label>
+                        <input type="text"
+                               name="payment_content"
+                               class="pay-edit-control"
+                               value="{{ old('payment_content', $item->payment_content) }}"
+                               placeholder="VD: Thanh toán đợt 1 / Tạm ứng vật tư...">
+                    </div>
+
+                    <div class="pay-edit-field full">
+                        <label class="pay-edit-label">Lý do <span class="pay-edit-required">*</span></label>
+                        <textarea name="reason"
+                                  class="pay-edit-control"
+                                  required
+                                  placeholder="Nhập lý do thanh toán...">{{ old('reason', $item->reason) }}</textarea>
+                        <div class="pay-edit-help">
+                            Có thể xuống dòng, căn chỉnh, bullet/numbered list như Word.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pay-edit-card pay-edit-animate" style="animation-delay:.09s;">
+            <div class="pay-edit-card-head">
+                <div>
+                    <h2 class="pay-edit-card-title">Chứng từ hiện có</h2>
+                    <div class="pay-edit-card-desc">Form sửa hiện chỉ cập nhật thông tin phiếu, chứng từ cũ được giữ nguyên.</div>
+                </div>
+            </div>
+
+            <div class="pay-edit-card-body">
+                @if(count($attachments))
+                    <div class="pay-edit-file-list">
+                        @foreach($attachments as $att)
+                            @php
+                                $fileName = $att->original_name ?? basename($att->path ?? '');
+                                $fileSize = !empty($att->size) ? number_format($att->size / 1024, 1) . ' KB' : '';
+                                $fileUrl = \Illuminate\Support\Facades\Storage::url($att->path);
+                            @endphp
+
+                            <a href="{{ $fileUrl }}" target="_blank" class="pay-edit-file">
+                                <div class="pay-edit-file-icon">FILE</div>
+                                <div>
+                                    <div class="pay-edit-file-name">{{ $fileName }}</div>
+                                    <div class="pay-edit-file-meta">{{ $att->mime_type ?? 'Tệp đính kèm' }}</div>
+                                </div>
+                                <div class="pay-edit-file-meta">{{ $fileSize ?: 'Mở file' }}</div>
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    
+{{-- EGO_PR_EDIT_ATTACHMENTS_PATCH_START --}}
+@php
+    $egoPr = $paymentRequest ?? $payment_request ?? $pr ?? $requestPayment ?? null;
+    $egoPrId = $egoPr->id ?? request()->route('id') ?? request()->route('paymentRequest') ?? request()->segment(2);
+    $egoPrAttachments = collect();
+
+    if ($egoPrId && \Illuminate\Support\Facades\Schema::hasTable('payment_attachments')) {
+        $egoPrAttachments = \Illuminate\Support\Facades\DB::table('payment_attachments')
+            ->where('payment_request_id', (int) $egoPrId)
+            ->orderBy('id')
+            ->get();
+    }
+
+    $egoFileSize = function ($size) {
+        $size = (float) $size;
+        if ($size >= 1048576) return number_format($size / 1048576, 2) . ' MB';
+        if ($size >= 1024) return number_format($size / 1024, 1) . ' KB';
+        return number_format($size, 0) . ' B';
+    };
+@endphp
+
+@if(!empty($egoPrId))
+<div class="card shadow-sm border-0 mb-4" style="border-radius:18px;overflow:hidden;">
+    <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
+            <div>
+                <h5 class="mb-1 fw-bold">Chứng từ liên có</h5>
+                <div class="text-muted small">Có thể thêm chứng từ mới, thay file chứng từ cũ hoặc xóa chứng từ ngay tại màn hình sửa phiếu.</div>
+            </div>
+            <span class="badge bg-info-subtle text-info border border-info-subtle">
+                {{ $egoPrAttachments->count() }} chứng từ
+            </span>
+        </div>
+
+        @if($egoPrAttachments->count())
+            <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:48px;">#</th>
+                            <th>Tên chứng từ</th>
+                            <th style="width:110px;">Dung lượng</th>
+                            <th style="width:130px;">Ngày tải</th>
+                            <th style="width:310px;" class="text-end">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($egoPrAttachments as $i => $att)
+                            <tr>
+                                <td>{{ $i + 1 }}</td>
+                                <td>
+                                    <a class="fw-semibold text-decoration-none"
+                                       href="{{ url('/payment-requests/' . $egoPrId . '/attachments-thao/' . $att->id . '/download') }}"
+                                       target="_blank">
+                                        {{ $att->original_name ?: basename($att->path) }}
+                                    </a>
+                                    <div class="text-muted small">{{ $att->mime_type ?: 'file' }}</div>
+                                </td>
+                                <td>{{ $egoFileSize($att->size ?? 0) }}</td>
+                                <td class="text-muted small">
+                                    {{ !empty($att->created_at) ? \Carbon\Carbon::parse($att->created_at)->format('d/m/Y H:i') : '-' }}
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                                        <a class="btn btn-sm btn-outline-primary"
+                                           href="{{ url('/payment-requests/' . $egoPrId . '/attachments-thao/' . $att->id . '/download') }}"
+                                           target="_blank">
+                                            Xem/Tải
+                                        </a>
+
+                                        <form method="POST"
+                                              action="{{ url('/payment-requests/' . $egoPrId . '/attachments-thao/' . $att->id . '/cap-nhat') }}"
+                                              enctype="multipart/form-data"
+                                              class="d-inline-flex align-items-center gap-1 m-0">
+                                            @csrf
+                                            <input type="file" name="attachment" class="form-control form-control-sm" style="width:155px;" required>
+                                            <button type="submit" class="btn btn-sm btn-warning">Sửa</button>
+                                        </form>
+
+                                        <form method="POST"
+                                              action="{{ url('/payment-requests/' . $egoPrId . '/attachments-thao/' . $att->id . '/xoa') }}"
+                                              class="d-inline m-0"
+                                              onsubmit="return confirm('Xóa chứng từ này?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger">Xóa</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="alert alert-light border text-center text-muted mb-3">
+                Phiếu này chưa có chứng từ đính kèm.
+            </div>
+        @endif
+
+        <form method="POST"
+              action="{{ url('/payment-requests/' . $egoPrId . '/attachments-thao') }}"
+              enctype="multipart/form-data"
+              class="border rounded-3 p-3 bg-light">
+            @csrf
+            <label class="form-label fw-semibold">Thêm chứng từ mới</label>
+            <div class="d-flex gap-2 flex-wrap">
+                <input type="file" name="attachments[]" class="form-control" multiple required style="max-width:520px;">
+                <button type="submit" class="btn btn-success">+ Thêm chứng từ</button>
+            </div>
+            <div class="form-text">Hỗ trợ PDF, ảnh, Excel, Word... Mỗi file tối đa 20MB.</div>
+        </form>
+    </div>
+</div>
+@endif
+{{-- EGO_PR_EDIT_ATTACHMENTS_PATCH_END --}}
+
+                @endif
+            </div>
+        </section>
+
+        <div class="pay-edit-footer pay-edit-animate" style="animation-delay:.12s;">
+            <div class="pay-edit-footer-note">
+                Kiểm tra kỹ công ty, số tiền và ngày phải thanh toán trước khi lưu.
+            </div>
+
+            <div class="pay-edit-actions">
+                <a href="{{ route('payment_requests.show', $item->id) }}" class="pay-edit-btn light">Hủy</a>
+                <button type="submit" class="pay-edit-btn blue">Lưu thay đổi</button>
+            </div>
+        </div>
+    </form>
+</div>
+@endsection
+@includeIf('payment-requests._buibichthao_actions')
+
+
+
+{{-- EGO_THAO_PR_ATTACHMENTS_VIEW_START --}}
+@php
+    $egoThaoPrId = (int) (
+        data_get($paymentRequest ?? null, 'id')
+        ?: request()->route('id')
+        ?: request()->segment(2)
+    );
+
+    $egoThaoCanEditPrAttachments = strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+
+    $egoThaoPrAttachments = collect();
+
+    if ($egoThaoCanEditPrAttachments && $egoThaoPrId > 0 && \Illuminate\Support\Facades\Schema::hasTable('payment_attachments')) {
+        $egoThaoPrAttachments = \Illuminate\Support\Facades\DB::table('payment_attachments')
+            ->where('payment_request_id', $egoThaoPrId)
+            ->orderBy('id')
+            ->get()
+            ->map(function ($a) use ($egoThaoPrId) {
+                return [
+                    'id' => (int) $a->id,
+                    'name' => $a->original_name ?: basename((string) $a->path),
+                    'size' => (int) ($a->size ?? 0),
+                    'mime' => $a->mime_type ?: '',
+                    'download_url' => url('/payment-requests/' . $egoThaoPrId . '/attachments-thao/' . $a->id . '/download'),
+                ];
+            })
+            ->values();
+    }
+@endphp
+
+@if($egoThaoCanEditPrAttachments && $egoThaoPrId > 0)
+<style>
+    .ego-thao-pr-attachments {
+        margin-top: 10px;
+        border: 1px solid #dbeafe;
+        background: #f8fbff;
+        border-radius: 16px;
+        padding: 14px;
+    }
+    .ego-thao-pr-attachments h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+        font-weight: 900;
+        color: #0f172a;
+    }
+    .ego-thao-pr-attachments p {
+        margin: 0 0 12px;
+        color: #64748b;
+        font-size: 13px;
+    }
+    .ego-thao-pr-upload {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 12px;
+        border: 1px dashed #93c5fd;
+        border-radius: 14px;
+        background: #ffffff;
+        margin-bottom: 12px;
+    }
+    .ego-thao-pr-file-list {
+        display: grid;
+        gap: 10px;
+    }
+    .ego-thao-pr-file-row {
+        display: grid;
+        grid-template-columns: minmax(200px, 1fr) minmax(210px, 320px) auto auto;
+        gap: 8px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+    .ego-thao-pr-file-name {
+        font-weight: 800;
+        color: #075985;
+        text-decoration: none;
+        word-break: break-word;
+    }
+    .ego-thao-pr-file-meta {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 3px;
+    }
+    .ego-thao-pr-btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 900;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .ego-thao-pr-btn-add {
+        background: #0ea5e9;
+        color: #fff;
+    }
+    .ego-thao-pr-btn-update {
+        background: #e0f2fe;
+        color: #075985;
+    }
+    .ego-thao-pr-btn-delete {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .ego-thao-pr-empty {
+        padding: 14px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        text-align: center;
+        color: #64748b;
+        background: #fff;
+    }
+    @media (max-width: 900px) {
+        .ego-thao-pr-file-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+(function () {
+    var paymentRequestId = @json($egoThaoPrId);
+    var csrf = @json(csrf_token());
+    var attachments = @json($egoThaoPrAttachments);
+
+    var uploadUrl = '/payment-requests/' + paymentRequestId + '/attachments-thao';
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function sizeText(size) {
+        size = Number(size || 0);
+
+        if (!size) {
+            return '';
+        }
+
+        if (size < 1024) {
+            return size + ' B';
+        }
+
+        if (size < 1024 * 1024) {
+            return (size / 1024).toFixed(1) + ' KB';
+        }
+
+        return (size / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function apiPost(url, formData) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrf,
+                'Accept': 'application/json'
+            },
+            body: formData,
+            credentials: 'same-origin'
+        }).then(function (res) {
+            return res.json().catch(function () {
+                return {};
+            }).then(function (data) {
+                if (!res.ok || data.ok === false) {
+                    throw new Error(data.message || 'Không xử lý được chứng từ.');
+                }
+
+                return data;
+            });
+        });
+    }
+
+    function buildList() {
+        if (!attachments.length) {
+            return '<div class="ego-thao-pr-empty">Phiếu này chưa có chứng từ đính kèm.</div>';
+        }
+
+        return '<div class="ego-thao-pr-file-list">' + attachments.map(function (a) {
+            var meta = [sizeText(a.size), a.mime].filter(Boolean).join(' · ');
+
+            return '' +
+                '<div class="ego-thao-pr-file-row" data-attachment-id="' + a.id + '">' +
+                    '<div>' +
+                        '<a class="ego-thao-pr-file-name" href="' + escapeHtml(a.download_url) + '" target="_blank">' + escapeHtml(a.name) + '</a>' +
+                        '<div class="ego-thao-pr-file-meta">' + escapeHtml(meta || 'Chứng từ') + '</div>' +
+                    '</div>' +
+                    '<input type="file" data-ego-replace-file="' + a.id + '">' +
+                    '<button type="button" class="ego-thao-pr-btn ego-thao-pr-btn-update" data-ego-replace="' + a.id + '">Cập nhật</button>' +
+                    '<button type="button" class="ego-thao-pr-btn ego-thao-pr-btn-delete" data-ego-delete="' + a.id + '">Xóa</button>' +
+                '</div>';
+        }).join('') + '</div>';
+    }
+
+    function buildUi() {
+        return '' +
+            '<div class="ego-thao-pr-attachments" id="egoThaoPrAttachmentsBox">' +
+                '<h3>Chứng từ hiện có</h3>' +
+                '<p>buibichthao@egosolar.vn được thêm, xóa và cập nhật chứng từ ĐNTT ở mọi trạng thái.</p>' +
+                '<div class="ego-thao-pr-upload">' +
+                    '<input type="file" id="egoThaoPrNewAttachments" multiple>' +
+                    '<button type="button" class="ego-thao-pr-btn ego-thao-pr-btn-add" id="egoThaoPrUploadBtn">Thêm chứng từ</button>' +
+                '</div>' +
+                buildList() +
+            '</div>';
+    }
+
+    function findAttachmentSection() {
+        var candidates = Array.prototype.slice.call(document.querySelectorAll('div, section, fieldset'))
+            .filter(function (el) {
+                var text = (el.innerText || '').toLowerCase();
+
+                return text.indexOf('chứng từ hiện có') !== -1
+                    && (
+                        text.indexOf('phiếu này') !== -1 ||
+                        text.indexOf('chứng từ cũ') !== -1 ||
+                        text.indexOf('form sửa') !== -1
+                    );
+            })
+            .filter(function (el) {
+                var rect = el.getBoundingClientRect();
+                return rect.width > 260 && rect.height < 520;
+            })
+            .sort(function (a, b) {
+                return a.getBoundingClientRect().height - b.getBoundingClientRect().height;
+            });
+
+        if (candidates.length) {
+            return candidates[0];
+        }
+
+        return null;
+    }
+
+    function mount() {
+        if (document.getElementById('egoThaoPrAttachmentsBox')) {
+            return;
+        }
+
+        var target = findAttachmentSection();
+
+        if (target) {
+            target.innerHTML = buildUi();
+            return;
+        }
+
+        var form = document.querySelector('form');
+
+        if (form) {
+            var wrapper = document.createElement('div');
+            wrapper.innerHTML = buildUi();
+            form.appendChild(wrapper);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        mount();
+        setTimeout(mount, 150);
+        setTimeout(mount, 500);
+    });
+
+    document.addEventListener('click', function (event) {
+        var uploadBtn = event.target.closest('#egoThaoPrUploadBtn');
+
+        if (uploadBtn) {
+            var input = document.getElementById('egoThaoPrNewAttachments');
+
+            if (!input || !input.files || !input.files.length) {
+                alert('Vui lòng chọn chứng từ cần thêm.');
+                return;
+            }
+
+            var fd = new FormData();
+
+            Array.prototype.slice.call(input.files).forEach(function (file) {
+                fd.append('attachments[]', file);
+            });
+
+            apiPost(uploadUrl, fd)
+                .then(function () {
+                    location.reload();
+                })
+                .catch(function (err) {
+                    alert(err.message);
+                });
+
+            return;
+        }
+
+        var replaceBtn = event.target.closest('[data-ego-replace]');
+
+        if (replaceBtn) {
+            var id = replaceBtn.getAttribute('data-ego-replace');
+            var inputReplace = document.querySelector('[data-ego-replace-file="' + id + '"]');
+
+            if (!inputReplace || !inputReplace.files || !inputReplace.files.length) {
+                alert('Vui lòng chọn file mới để cập nhật chứng từ.');
+                return;
+            }
+
+            var fdReplace = new FormData();
+            fdReplace.append('_method', 'PUT');
+            fdReplace.append('attachment', inputReplace.files[0]);
+
+            apiPost('/payment-requests/' + paymentRequestId + '/attachments-thao/' + id + '/cap-nhat', fdReplace)
+                .then(function () {
+                    location.reload();
+                })
+                .catch(function (err) {
+                    alert(err.message);
+                });
+
+            return;
+        }
+
+        var deleteBtn = event.target.closest('[data-ego-delete]');
+
+        if (deleteBtn) {
+            var deleteId = deleteBtn.getAttribute('data-ego-delete');
+
+            if (!confirm('Xóa chứng từ này?')) {
+                return;
+            }
+
+            var fdDelete = new FormData();
+            fdDelete.append('_method', 'DELETE');
+
+            apiPost('/payment-requests/' + paymentRequestId + '/attachments-thao/' + deleteId + '/xoa', fdDelete)
+                .then(function () {
+                    location.reload();
+                })
+                .catch(function (err) {
+                    alert(err.message);
+                });
+        }
+    });
+})();
+</script>
+@endif
+{{-- EGO_THAO_PR_ATTACHMENTS_VIEW_END --}}

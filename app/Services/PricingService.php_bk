@@ -1,0 +1,47 @@
+<?php
+namespace App\Services;
+use Illuminate\Support\Facades\DB;
+class PricingService
+{
+    public function getUnitPrice(int $productId, ?int $priceTierId, ?string $at = null): float
+    {
+        if (!$priceTierId) {
+            return $this->fallbackProductPrice($productId);
+        }
+        $at = $at ?: now()->toDateTimeString();
+        // Lấy giá đang hiệu lực:
+        // - effective_from null OR <= at
+        // - effective_to null OR >= at
+        // - ưu tiên bản ghi mới nhất theo effective_from
+        $row = DB::table('crm_product_prices')
+            ->select('price')
+            ->where('product_id', $productId)
+            ->where('price_tier_id', $priceTierId)
+            ->where(function ($q) use ($at) {
+                $q->whereNull('effective_from')->orWhere('effective_from', '<=', $at);
+            })
+            ->where(function ($q) use ($at) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $at);
+            })
+            ->orderByRaw('effective_from IS NULL') // non-null trước
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->first();
+        if ($row && isset($row->price)) {
+            return (float) $row->price;
+        }
+        // fallback nếu chưa set bảng giá theo tier
+        return $this->fallbackProductPrice($productId);
+    }
+    private function fallbackProductPrice(int $productId): float
+    {
+        // fallback theo cột cũ (nếu còn), hoặc cột price
+        $p = DB::table('crm_product_catalog')
+            ->select('price', 'price_retail', 'price_agent')
+            ->where('id', $productId)
+            ->first();
+        if (!$p) return 0.0;
+        // ưu tiên price (hoặc retail tuỳ bạn quy ước)
+        return (float) ($p->price_retail ?? $p->price_agent ?? $p->price ?? 0);
+    }
+}

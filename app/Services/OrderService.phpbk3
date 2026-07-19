@@ -1,0 +1,517 @@
+<?php
+namespace App\Services;
+use App\Models\CRM\CustomerDebt;
+use App\Models\CRM\Lead;
+use App\Models\CRM\Order;
+use App\Models\CRM\OrderApproval;
+use App\Models\CRM\OrderStatusHistory;
+use App\Models\CRM\OrderStatusType;
+use App\Models\CRM\Payment;
+use App\Models\LeadStatus;
+use App\Models\OrderNotification;
+use App\Repositories\Interfaces\OrderRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+class OrderService
+{
+    // === CẤU HÌNH LUỒNG DUYỆT ĐƠN GIẢN (3 BƯỚC) ===
+    private const DEPARTMENT_FLOW = [
+        'sales'      => 'accounting', // Sales tạo -> Gửi Kế toán (Chờ duyệt)
+        'accounting' => 'warehouse',  // Kế toán duyệt -> Gửi Kho (Vận chuyển)
+        'warehouse'  => 'completed',  // Kho xuất -> Hoàn thành
+    ];
+    private const STATUS_CODES = [
+        'sales'      => 'PENDING_APPROVAL',   // Trạng thái chờ duyệt
+        'accounting' => 'APPROVED_SHIPPING',  // Đã duyệt -> Chờ vận chuyển
+        'warehouse'  => 'COMPLETED',          // Hoàn thành
+    ];
+    private const DEPARTMENT_NAMES = [
+        'sales'      => 'Sales',
+        'accounting' => 'Kế toán (Chờ duyệt)',
+        'warehouse'  => 'Kho (Vận chuyển)',
+        'completed'  => 'Hoàn thành',
+    ];
+    public function __construct(
+        protected OrderRepositoryInterface $orderRepo,
+        protected ProductStockService $stockService,
+        protected NotificationService $notificationService
+    ) {}
+    public function count(): int
+    {
+        return $this->orderRepo->count();
+    }
+    public function getRecentOrders($limit = 5): Collection {
+        return $this->orderRepo->getRecent($limit);
+    }
+    /**
+     * Lấy danh sách đơn hàng theo quyền
+     */
+    public function getOrdersByUserRole($user, array $filters = []): LengthAwarePaginator
+    {
+        // 1. Sales xem đơn mình tạo
+        if ($user->hasRole('sales')) {
+            return $this->orderRepo->getOrdersBySales($user->id, $filters);
+        }
+        // 2. Kế toán xem đơn chờ duyệt
+        if ($user->hasRole('accounting')) {
+            return $this->orderRepo->getOrdersByDepartment('accounting', $filters);
+        }
+        // 3. Kho xem đơn chờ xuất/vận chuyển
+        if ($user->hasRole('warehouse')) {
+            return $this->orderRepo->getOrdersByDepartment('warehouse', $filters);
+        }
+        // 4. Admin/Management xem tất cả
+        return $this->orderRepo->search($filters);
+    }
+    /**
+     * Tạo đơn hàng mới
+     */
+    public function createOrder(array $data): Order
+    {
+        return DB::transaction(function () use ($data) {
+            // Tự động tạo Lead nếu chưa có
+            if (empty($data['lead_id'])) {
+                // 1. Tìm ID của trạng thái 'Mới' (hoặc để null nếu chưa có)
+                $newStatus = LeadStatus::where('name', 'Mới')->first(); // Hoặc dùng code cố định nếu có
+                $lead = Lead::create([
+                    'customer_id' => $data['customer_id'],
+                    // SỬA: Dùng status_id thay vì status
+                    'status_id'   => $newStatus ? $newStatus->id : null,
+                    'created_by'  => Auth::id(),
+                    // 'source_id' => 1, // Ví dụ: Nguồn "Trực tiếp"
+                    // 'note'      => 'Lead được tạo tự động khi lên đơn hàng',
+                ]);
+                $data['lead_id'] = $lead->id;
+            }
+            $order = $this->createOrderRecord($data);
+            $this->createOrderItems($order, $data['items']);
+            // Tạo log duyệt ban đầu cho Sales
+            $this->createInitialApproval($order);
+            $this->recordStatusHistory($order, null, 'sales', 'Đơn hàng được tạo bởi Sales');
+            return $order->fresh(['items.product', 'lead.customer']);
+        });
+    }
+    /**
+     * Cập nhật đơn hàng (khi chưa gửi duyệt)
+     */
+    public function updateOrder($id, array $data): Order
+    {
+        return DB::transaction(function () use ($id, $data) {
+            $order = $this->orderRepo->find($id);
+            if ($order->current_department !== 'sales') {
+                throw new \Exception('Không thể sửa đơn đã gửi duyệt');
+            }
+            $this->updateOrderRecord($order, $data);
+            if (isset($data['items'])) {
+                $this->updateOrderItems($order, $data['items']);
+            }
+            return $order->fresh(['items.product']);
+        });
+    }
+    /**
+     * Gửi đơn lên duyệt (Sales -> Kế toán)
+     */
+    public function submitForApproval($id): void
+    {
+        DB::transaction(function () use ($id) {
+            $order = $this->orderRepo->find($id);
+            if ($order->current_department !== 'sales') {
+                throw new \Exception('Đơn hàng đã được gửi duyệt');
+            }
+            // Chuyển sang bước Kế toán
+            $this->transitionOrderToDepartment($order, 'accounting', 'PENDING_APPROVAL');
+            $this->createApprovalRecord($order, 'accounting');
+            $this->recordStatusHistory($order, 'sales', 'accounting', 'Sales gửi yêu cầu duyệt');
+            $this->notificationService->notifyDepartment('accounting', $order, 'Đơn hàng mới cần duyệt');
+        });
+    }
+    /**
+     * Xử lý duyệt hoặc từ chối
+     */
+    public function processApproval(string $id, array $data): void
+    {
+        Log::info('🔵 START processApproval', ['order_id' => $id, 'action' => $data['action']]);
+        if ($data['action'] === 'approve') {
+            $this->approveOrder($id, $data);
+        } else {
+            $this->rejectOrder($id, $data);
+        }
+    }
+    /**
+     * DUYỆT ĐƠN HÀNG (Logic mới: Kế toán duyệt xong -> Sang Kho luôn)
+     */
+    public function approveOrder($id, array $data): void
+    {
+        DB::transaction(function () use ($id, $data) {
+            $order = $this->orderRepo->find($id);
+            $user = Auth::user();
+            $currentDept = $order->current_department; // Ví dụ: accounting
+            // Lấy bước tiếp theo (accounting -> warehouse)
+            $nextDept = $this->getNextDepartment($currentDept);
+            // 1. Cập nhật log duyệt của bộ phận hiện tại (accounting)
+            $this->updateCurrentApproval($order, $currentDept, $user, $data);
+            // 2. Chuyển trạng thái đơn hàng
+            $this->transitionOrderToDepartment($order, $nextDept, $this->getNextStatusCode($currentDept));
+            // 3. NẾU LÀ KẾ TOÁN DUYỆT => CHỐT ĐƠN LUÔN (Finalize)
+            if ($currentDept === 'accounting') {
+                $this->finalizeApproval($order, $user);
+            }
+            // 4. Tạo phiếu yêu cầu cho bước tiếp theo (nếu chưa hoàn thành)
+            if ($nextDept !== 'completed') {
+                $this->createApprovalRecord($order, $nextDept);
+            }
+            // 5. Ghi lịch sử & Thông báo
+            $this->recordApprovalHistory($order, $currentDept, $nextDept, $user, $data);
+            $this->sendApprovalNotifications($order, $currentDept, $nextDept);
+        });
+    }
+    /**
+     * Từ chối đơn hàng (Quay về Sales)
+     */
+    public function rejectOrder($id, array $data): void
+    {
+        DB::transaction(function () use ($id, $data) {
+            $order = $this->orderRepo->find($id);
+            $user = Auth::user();
+            $currentDept = $order->current_department;
+            $this->updateRejectedApproval($order, $currentDept, $user, $data);
+            // Quay về Sales
+            $this->transitionOrderToDepartment($order, 'sales', 'REJECTED'); // Đảm bảo DB có status code REJECTED
+            $this->recordRejectionHistory($order, $currentDept, $user, $data);
+            $this->notifyRejection($order, $currentDept, $data['rejection_reason']);
+        });
+    }
+    /**
+     * Xuất kho (Warehouse -> Completed)
+     */
+    public function shipOrder($id, array $data): void
+    {
+        DB::transaction(function () use ($id, $data) {
+            $order = $this->orderRepo->find($id);
+            if ($order->current_department !== 'warehouse') {
+                throw new \Exception('Đơn hàng chưa đến bước xuất kho');
+            }
+            // Trừ tồn kho
+            $this->adjustInventory($order);
+            // Hoàn tất đơn hàng
+            $this->transitionOrderToDepartment($order, 'completed', 'COMPLETED');
+            $this->updateWarehouseApproval($order);
+            // Logic công nợ & Lịch sử
+            $this->recordShippingHistory($order, $data);
+            $this->createDebtIfNeeded($order);
+            $this->notifyShipping($order);
+        });
+    }
+    /**
+     * Ghi nhận thanh toán
+     */
+    public function recordPayment($id, array $data): void
+    {
+        DB::transaction(function () use ($id, $data) {
+            $order = $this->orderRepo->find($id);
+            $this->createPaymentRecord($order, $data);
+            $this->updateDebtRecord($order, $data['amount']);
+            $this->checkPaymentCompletion($order);
+            $this->notifyPayment($order, $data['amount']);
+        });
+    }
+    // ==================== HELPER METHODS ====================
+    private function createOrderRecord(array $data): Order
+    {
+        // Status mặc định khi mới tạo là PENDING_APPROVAL (Chờ duyệt)
+        $initialStatus = OrderStatusType::where('code', 'PENDING_APPROVAL')->first();
+        return $this->orderRepo->create([
+            'order_code' => $this->generateOrderCode(),
+            'lead_id' => $data['lead_id'],
+            'order_date' => $data['order_date'],
+            'warehouse_id' => $data['warehouse_id'],
+            'total_amount' => $this->calculateTotalAmount($data['items']),
+            'created_by' => Auth::id(),
+            'current_department' => 'sales',
+            'current_status_type_id' => $initialStatus ? $initialStatus->id : null,
+        ]);
+    }
+    private function createOrderItems(Order $order, array $items): void
+    {
+        foreach ($items as $item) {
+            $order->items()->create($item);
+        }
+    }
+    private function updateOrderRecord(Order $order, array $data): void
+    {
+        $order->update([
+            'lead_id' => $data['lead_id'] ?? $order->lead_id,
+            'order_date' => $data['order_date'] ?? $order->order_date,
+            'warehouse_id' => $data['warehouse_id'] ?? $order->warehouse_id,
+        ]);
+    }
+    private function updateOrderItems(Order $order, array $items): void
+    {
+//        $submittedProductIds = collect($items)->pluck('product_id')->filter()->toArray();
+        $submittedProductIds = collect($items)
+            ->pluck('product_id')
+            ->filter()
+            ->toArray();
+        // Xóa item cũ không còn trong list
+        $order->items()->whereNotIn('product_id', $submittedProductIds)->delete();
+        $totalAmount = 0;
+        foreach ($items as $item) {
+            $lineTotal = (int)$item['quantity'] * (float)$item['unit_price'];
+            $order->items()->updateOrCreate(
+                [
+                    'order_id'   => $order->id,
+                    'product_id' => $item['product_id']
+                ],
+                [
+                    'quantity'   => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'line_total' => $lineTotal
+                ]
+            );
+            $totalAmount += $lineTotal;
+        }
+        $order->update(['total_amount' => $totalAmount]);
+    }
+    private function createInitialApproval(Order $order): void
+    {
+        OrderApproval::create([
+            'order_id' => $order->id,
+            'level' => 'sales',
+            'status' => 'approved',
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+        ]);
+    }
+    private function createApprovalRecord(Order $order, string $level): void
+    {
+        OrderApproval::firstOrCreate(
+            ['order_id' => $order->id, 'level' => $level, 'status' => 'pending']
+        );
+    }
+    private function transitionOrderToDepartment(Order $order, string $dept, string $statusCode): void
+    {
+        $status = OrderStatusType::where('code', $statusCode)->first();
+        $order->update([
+            'current_department' => $dept,
+            'current_status_type_id' => $status ? $status->id : $order->current_status_type_id,
+        ]);
+    }
+    private function updateCurrentApproval(Order $order, string $dept, $user, array $data): void
+    {
+        $approval = OrderApproval::where('order_id', $order->id)
+            ->where('level', $dept)
+            ->where('status', 'pending')
+            ->first();
+        if (!$approval) {
+            $approval = new OrderApproval(['order_id' => $order->id, 'level' => $dept, 'status' => 'pending']);
+        }
+        $updateData = [
+            'status'      => 'approved',
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+            'note'        => $data['note'] ?? null,
+        ];
+        // Nếu là kế toán, lưu thông tin check công nợ
+        if ($dept === 'accounting') {
+            $updateData['debt_checked'] = isset($data['debt_checked']);
+            $updateData['debt_note']    = $data['debt_note'] ?? null;
+        }
+        $approval->fill($updateData)->save();
+    }
+    private function updateRejectedApproval(Order $order, string $dept, $user, array $data): void
+    {
+        OrderApproval::updateOrCreate(
+            ['order_id' => $order->id, 'level' => $dept, 'status' => 'pending'],
+            [
+                'status' => 'rejected',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'rejection_reason' => $data['rejection_reason'],
+                'note' => $data['note'] ?? null
+            ]
+        );
+    }
+    private function finalizeApproval(Order $order, $user): void
+    {
+        $order->update([
+            'approved_by' => $user->id,
+            'approved_at' => now(),
+            'estimated_delivery' => Carbon::now()->addDays(3),
+        ]);
+    }
+    private function adjustInventory(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            $this->stockService->adjustStock(
+                $item->product_id,
+                $order->warehouse_id,
+                -$item->quantity,
+                "Xuất đơn hàng #{$order->order_code}",
+                $order->id
+            );
+        }
+    }
+    private function updateWarehouseApproval(Order $order): void
+    {
+        OrderApproval::where('order_id', $order->id)
+            ->where('level', 'warehouse')
+            ->update([
+                'status' => 'approved',
+                'approved_by' => Auth::id(),
+                'approved_at' => now(),
+            ]);
+    }
+    private function createDebtIfNeeded(Order $order): void
+    {
+        $totalPaid = $order->payments()->sum('amount');
+        if ($totalPaid < $order->total_amount) {
+            CustomerDebt::create([
+                'customer_id' => $order->lead->customer_id,
+                'order_id' => $order->id,
+                'total_amount' => $order->total_amount,
+                'paid_amount' => $totalPaid,
+                'debt_amount' => $order->total_amount - $totalPaid,
+                'due_date' => Carbon::now()->addDays(30),
+                'status' => $totalPaid > 0 ? 'partial' : 'unpaid',
+            ]);
+        }
+    }
+    private function createPaymentRecord(Order $order, array $data): void
+    {
+        Payment::create([
+            'order_id' => $order->id,
+            'payment_date' => $data['payment_date'],
+            'amount' => $data['amount'],
+            'method_id' => $data['method_id'],
+            'recorded_by' => Auth::id(),
+        ]);
+    }
+    private function updateDebtRecord(Order $order, float $amount): void
+    {
+        $debt = CustomerDebt::where('order_id', $order->id)->first();
+        if ($debt) {
+            $debt->paid_amount += $amount;
+            $debt->debt_amount = $debt->total_amount - $debt->paid_amount;
+            $debt->status = ($debt->paid_amount >= $debt->total_amount) ? 'paid' : 'partial';
+            $debt->save();
+        }
+    }
+    private function checkPaymentCompletion(Order $order): void
+    {
+        if ($order->payments()->sum('amount') >= $order->total_amount) {
+            $order->update(['payment_recorded' => true]);
+        }
+    }
+    private function calculateTotalAmount(array $items): float
+    {
+        return array_reduce($items, fn($total, $item) => $total + ($item['quantity'] * $item['unit_price']), 0);
+    }
+    protected function generateOrderCode(): string
+    {
+        $count = Order::whereDate('created_at', today())->count() + 1;
+        return sprintf('ORD%s%04d', date('Ymd'), $count);
+    }
+    private function getNextDepartment(string $current): string
+    {
+        return self::DEPARTMENT_FLOW[$current] ?? 'completed';
+    }
+    private function getNextStatusCode(string $dept): string
+    {
+        return self::STATUS_CODES[$dept] ?? 'COMPLETED';
+    }
+    private function getDepartmentName(string $dept): string
+    {
+        return self::DEPARTMENT_NAMES[$dept] ?? $dept;
+    }
+    protected function recordStatusHistory(Order $order, ?string $from, string $to, string $note): void
+    {
+        $statusCode = self::STATUS_CODES[$to] ?? ($to === 'sales' ? 'REJECTED' : null);
+        $statusType = $statusCode ? OrderStatusType::where('code', $statusCode)->first() : null;
+        OrderStatusHistory::create([
+            'order_id' => $order->id,
+            'from_department' => $from,
+            'to_department' => $to,
+            'note' => $note,
+            'changed_by' => Auth::id(),
+            'changed_at' => now(),
+            'status_type_id' => $statusType?->id ?? $order->current_status_type_id,
+        ]);
+    }
+    private function recordApprovalHistory(Order $order, string $from, string $to, $user, array $data): void
+    {
+        $note = "Đã duyệt bởi {$user->name}" . (isset($data['note']) ? " - GC: {$data['note']}" : "");
+        $this->recordStatusHistory($order, $from, $to, $note);
+    }
+    private function recordRejectionHistory(Order $order, string $dept, $user, array $data): void
+    {
+        $note = "Từ chối bởi {$user->name}: " . ($data['rejection_reason'] ?? '');
+        $this->recordStatusHistory($order, $dept, 'sales', $note);
+    }
+    private function recordShippingHistory(Order $order, array $data): void
+    {
+        $note = 'Xuất kho' . (isset($data['shipping_note']) ? " - {$data['shipping_note']}" : "");
+        $this->recordStatusHistory($order, 'warehouse', 'completed', $note);
+    }
+    private function sendApprovalNotifications(Order $order, string $from, string $to): void
+    {
+        $this->notificationService->notifySales(
+            $order->created_by,
+            $order,
+            'status_change',
+            "Đơn hàng #{$order->order_code} đã được {$this->getDepartmentName($from)} duyệt"
+        );
+        if ($to !== 'completed') {
+            $this->notificationService->notifyDepartment(
+                $to,
+                $order,
+                "Đơn #{$order->order_code} chuyển sang bộ phận {$this->getDepartmentName($to)}"
+            );
+        }
+    }
+    private function notifyRejection(Order $order, string $dept, string $reason): void
+    {
+        $this->notificationService->notifySales(
+            $order->created_by,
+            $order,
+            'rejected',
+            "Đơn #{$order->order_code} bị từ chối bởi {$this->getDepartmentName($dept)}: {$reason}"
+        );
+    }
+    private function notifyShipping(Order $order): void
+    {
+        $this->notificationService->notifySales(
+            $order->created_by,
+            $order,
+            'shipped',
+            "Đơn hàng #{$order->order_code} đang được vận chuyển"
+        );
+    }
+    private function notifyPayment(Order $order, float $amount): void
+    {
+        $this->notificationService->notifySales(
+            $order->created_by,
+            $order,
+            'payment_received',
+            "Đã thu " . number_format($amount) . "đ cho đơn #{$order->order_code}"
+        );
+    }
+    // ==================== QUERY HELPER ====================
+    public function getCurrentApprovalLevel(Order $order): ?string
+    {
+        return $order->current_department;
+    }
+    // Các hàm thống kê (giữ nguyên logic)
+    public function getSalesStatistics($salesId): array
+    {
+        return [
+            'total_orders' => Order::where('created_by', $salesId)->count(),
+            'pending' => Order::where('created_by', $salesId)->where('current_department', '!=', 'completed')->count(),
+            'completed' => Order::where('created_by', $salesId)->where('current_department', 'completed')->count(),
+            'total_revenue' => Order::where('created_by', $salesId)->where('payment_recorded', true)->sum('total_amount'),
+        ];
+    }
+}

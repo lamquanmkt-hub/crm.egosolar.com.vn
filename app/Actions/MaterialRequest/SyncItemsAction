@@ -1,0 +1,24 @@
+<?php
+declare(strict_types=1);
+namespace App\Actions\MaterialRequest;
+use App\Models\MaterialRequest;
+use Illuminate\Support\Facades\DB;
+class SyncItemsAction
+{
+    public function execute(MaterialRequest $mr, array $items): void
+    {
+        if (empty($items)) {
+            return;
+        }
+        $now = now();
+        $payload = array_map(fn ($item) => [
+            'material_request_id' => $mr->id,
+            'product_id' => $item['product_id'],
+            'qty' => $item['qty'],
+            'note' => $item['note'] ?? null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $items);
+        DB::table('material_request_items')->insert($payload);
+    }
+}

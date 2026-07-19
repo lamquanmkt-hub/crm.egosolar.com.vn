@@ -1,0 +1,353 @@
+@extends('layouts.app')
+@section('title', 'Tạo đơn hàng mới')
+@section('content')
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold text-uppercase text-secondary">TẠO ĐƠN HÀNG MỚI</h1>
+            <a href="{{ route('orders.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+
+        @if($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <form action="{{ route('orders.store') }}" method="POST" id="orderForm">
+            @csrf
+
+            <div class="row">
+                {{-- Thông tin đơn hàng --}}
+                <div class="col-md-8">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-bag"></i> Thông tin đơn hàng</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Chọn khách hàng <span class="text-danger">*</span></label>
+                                    <select name="customer_id" id="customerSelect" class="form-select" required>
+                                        <option value="">-- Chọn khách hàng --</option>
+                                        @foreach($customers as $customer)
+                                            <option value="{{ $customer['id'] }}" data-lead-id="{{ $customer['lead_id'] }}">
+                                                {{ $customer['display'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <input type="hidden" name="lead_id" id="leadIdInput">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Ngày đặt hàng <span class="text-danger">*</span></label>
+                                    <input type="date" name="order_date" class="form-control"
+                                           value="{{ date('Y-m-d') }}" required>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Kho xuất <span class="text-danger">*</span></label>
+                                    <select name="warehouse_id" class="form-select" required>
+                                        <option value="">-- Chọn kho --</option>
+                                        @foreach($warehouses as $wh)
+                                            <option value="{{ $wh['id'] }}">
+                                                {{ $wh['name'] }} - {{ $wh['location'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            {{-- Thông tin khách hàng --}}
+                            <div id="customerInfo" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                                <h6 class="text-primary mb-2"><i class="bi bi-person"></i> Thông tin khách hàng</h6>
+                                <div class="row small">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Loại khách:</strong> <span id="customerType"></span></p>
+                                        <p class="mb-1"><strong>Khu vực:</strong> <span id="customerRegion"></span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Tổng đơn đã mua:</strong> <span id="customerOrders"></span></p>
+                                        <p class="mb-1"><strong>Công nợ:</strong> <span id="customerDebt" class="text-danger"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Sản phẩm --}}
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success text-white d-flex justify-content-between">
+                            <h5 class="mb-0"><i class="bi bi-cart"></i> Sản phẩm</h5>
+                            <button type="button" class="btn btn-sm btn-light" onclick="addProductRow()">
+                                <i class="bi bi-plus"></i> Thêm sản phẩm
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="productTable">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40%">Sản phẩm</th>
+                                        <th style="width: 15%">Đơn giá</th>
+                                        <th style="width: 15%">Số lượng</th>
+                                        <th style="width: 20%">Thành tiền</th>
+                                        <th style="width: 10%"></th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="productTableBody">
+                                    <tr class="product-row">
+                                        <td>
+                                            <select name="items[0][product_id]" class="form-select form-select-sm product-select" required>
+                                                <option value="">-- Chọn sản phẩm --</option>
+                                                @foreach($products as $product)
+                                                    <option value="{{ $product->id }}"
+                                                            data-price="{{ $product->price }}"
+                                                            data-price-agent="{{ $product->price_agent }}"
+                                                            data-price-retail="{{ $product->price_retail }}">
+                                                        {{ $product->name }} ({{ $product->sku }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="items[0][unit_price]"
+                                                   class="form-control form-control-sm text-end unit-price"
+                                                   step="0.01" required readonly>
+                                        </td>
+                                        <td>
+                                            <input type="number" name="items[0][quantity]"
+                                                   class="form-control form-control-sm text-center quantity"
+                                                   min="1" value="1" required>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm text-end line-total"
+                                                   readonly>
+                                        </td>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="removeProductRow(this)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                    <tfoot>
+                                    <tr class="table-secondary fw-bold">
+                                        <td colspan="3" class="text-end">TỔNG CỘNG:</td>
+                                        <td class="text-end" id="grandTotal">0 đ</td>
+                                        <td></td>
+                                    </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Sidebar --}}
+                <div class="col-md-4">
+                    <div class="card shadow-sm sticky-top" style="top: 20px;">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Tóm tắt</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Tổng sản phẩm:</td>
+                                    <td class="text-end fw-bold" id="totalItems">0</td>
+                                </tr>
+                                <tr>
+                                    <td>Tổng số lượng:</td>
+                                    <td class="text-end fw-bold" id="totalQuantity">0</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td>Tổng tiền:</td>
+                                    <td class="text-end fw-bold fs-5" id="totalAmount">0 đ</td>
+                                </tr>
+                            </table>
+
+                            <hr>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" name="action" value="save_draft" class="btn btn-outline-secondary">
+                                    <i class="bi bi-save"></i> Lưu nháp
+                                </button>
+                                <button type="submit" name="action" value="submit" class="btn btn-primary">
+                                    <i class="bi bi-send"></i> Tạo đơn hàng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let rowIndex = 1;
+        let customerTypeId = null;
+
+        // Khi chọn khách hàng
+        document.getElementById('customerSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const customerId = this.value;
+            const leadId = selectedOption.dataset.leadId;
+
+            document.getElementById('leadIdInput').value = leadId;
+
+            if (customerId) {
+                fetchCustomerInfo(customerId);
+            } else {
+                document.getElementById('customerInfo').style.display = 'none';
+            }
+        });
+
+        // Lấy thông tin khách hàng
+        async function fetchCustomerInfo(customerId) {
+            try {
+                const response = await fetch(`/orders/customer-info/${customerId}`);
+                const data = await response.json();
+
+                customerTypeId = data.customer.customer_type_id;
+
+                document.getElementById('customerType').textContent = data.customer.customer_type?.name || 'N/A';
+                document.getElementById('customerRegion').textContent = data.customer.region?.name || 'N/A';
+                document.getElementById('customerOrders').textContent = data.latest_orders.length;
+                document.getElementById('customerDebt').textContent = new Intl.NumberFormat('vi-VN').format(data.total_debt) + ' đ';
+
+                document.getElementById('customerInfo').style.display = 'block';
+
+                // Cập nhật giá sản phẩm theo loại khách
+                updateAllProductPrices();
+            } catch (error) {
+                console.error('Error fetching customer info:', error);
+            }
+        }
+
+        // Thêm dòng sản phẩm
+        function addProductRow() {
+            const tbody = document.getElementById('productTableBody');
+            const newRow = tbody.querySelector('.product-row').cloneNode(true);
+
+            // Reset values
+            newRow.querySelectorAll('input, select').forEach(input => {
+                if (input.classList.contains('quantity')) {
+                    input.value = 1;
+                } else {
+                    input.value = '';
+                }
+            });
+
+            // Update names
+            newRow.querySelectorAll('[name]').forEach(input => {
+                input.name = input.name.replace(/\[\d+\]/, `[${rowIndex}]`);
+            });
+
+            tbody.appendChild(newRow);
+            attachProductEvents(newRow);
+            rowIndex++;
+        }
+
+        // Xóa dòng sản phẩm
+        function removeProductRow(btn) {
+            const tbody = document.getElementById('productTableBody');
+            if (tbody.querySelectorAll('.product-row').length > 1) {
+                btn.closest('.product-row').remove();
+                calculateTotal();
+            }
+        }
+
+        // Gắn sự kiện cho sản phẩm
+        function attachProductEvents(row) {
+            const productSelect = row.querySelector('.product-select');
+            const quantityInput = row.querySelector('.quantity');
+
+            productSelect.addEventListener('change', function() {
+                updateProductPrice(row);
+            });
+
+            quantityInput.addEventListener('input', function() {
+                calculateLineTotal(row);
+            });
+        }
+
+        // Cập nhật giá sản phẩm
+        function updateProductPrice(row) {
+            const productSelect = row.querySelector('.product-select');
+            const priceInput = row.querySelector('.unit-price');
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+
+            let price = 0;
+
+            if (selectedOption.value) {
+                // Chọn giá theo loại khách
+                if (customerTypeId == 1) { // Giả sử 1 = Đại lý
+                    price = parseFloat(selectedOption.dataset.priceAgent) || 0;
+                } else if (customerTypeId == 2) { // 2 = Lẻ
+                    price = parseFloat(selectedOption.dataset.priceRetail) || 0;
+                } else {
+                    price = parseFloat(selectedOption.dataset.price) || 0;
+                }
+            }
+
+            priceInput.value = price;
+            calculateLineTotal(row);
+        }
+
+        // Tính thành tiền
+        function calculateLineTotal(row) {
+            const price = parseFloat(row.querySelector('.unit-price').value) || 0;
+            const quantity = parseInt(row.querySelector('.quantity').value) || 0;
+            const lineTotal = price * quantity;
+
+            row.querySelector('.line-total').value = new Intl.NumberFormat('vi-VN').format(lineTotal) + ' đ';
+
+            calculateTotal();
+        }
+
+        // Tính tổng
+        function calculateTotal() {
+            const rows = document.querySelectorAll('.product-row');
+            let totalItems = 0;
+            let totalQuantity = 0;
+            let grandTotal = 0;
+
+            rows.forEach(row => {
+                const productSelect = row.querySelector('.product-select');
+                if (productSelect.value) {
+                    totalItems++;
+                    const quantity = parseInt(row.querySelector('.quantity').value) || 0;
+                    const price = parseFloat(row.querySelector('.unit-price').value) || 0;
+
+                    totalQuantity += quantity;
+                    grandTotal += price * quantity;
+                }
+            });
+
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('totalQuantity').textContent = totalQuantity;
+            document.getElementById('totalAmount').textContent = new Intl.NumberFormat('vi-VN').format(grandTotal) + ' đ';
+            document.getElementById('grandTotal').textContent = new Intl.NumberFormat('vi-VN').format(grandTotal) + ' đ';
+        }
+
+        // Cập nhật giá tất cả sản phẩm khi đổi khách
+        function updateAllProductPrices() {
+            document.querySelectorAll('.product-row').forEach(row => {
+                const select = row.querySelector('.product-select');
+                if (select.value) {
+                    updateProductPrice(row);
+                }
+            });
+        }
+
+        // Khởi tạo
+        document.querySelectorAll('.product-row').forEach(row => {
+            attachProductEvents(row);
+        });
+    </script>
+@endsection

@@ -1,0 +1,132 @@
+@extends('layouts.app')
+@section('title', 'Tạo đơn hàng mới')
+
+@section('content')
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold text-uppercase text-secondary">TẠO ĐƠN HÀNG MỚI</h1>
+            <a href="{{ route('orders.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Quay lại
+            </a>
+        </div>
+
+        {{-- Debug Info --}}
+{{--        @if(config('app.debug'))--}}
+{{--            <div class="alert alert-info">--}}
+{{--                <strong>Debug Info:</strong><br>--}}
+{{--                User: {{ auth()->user()->name }} (ID: {{ auth()->user()->id }})<br>--}}
+{{--                Roles: {{ auth()->user()->roles->pluck('name')->implode(', ') }}<br>--}}
+{{--                Can Create: {{ auth()->user()->can('create', App\Models\Product::class) ? 'YES' : 'NO' }}<br>--}}
+{{--                Form Action: {{ route('orders.store') }}--}}
+{{--            </div>--}}
+{{--        @endif--}}
+
+        {{-- Success Message --}}
+        @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        {{-- Error Message --}}
+        @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show">
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        {{-- Validation Errors --}}
+        @if($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show">
+                <strong>Có lỗi xảy ra:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
+        <form action="{{ route('orders.store') }}"
+              method="POST"
+              id="orderForm"
+              onsubmit="console.log('Form submitting...'); return true;">
+            @csrf
+
+            {{-- Debug: Show that CSRF is present --}}
+            @if(config('app.debug'))
+                <input type="hidden" name="_debug" value="1">
+            @endif
+
+            <div class="row">
+                <div class="col-md-8">
+                    @include('orders.partials.order-info', ['customers' => $customers, 'warehouses' => $warehouses])
+                    @include('orders.partials.product-table')
+                </div>
+
+                <div class="col-md-4">
+                    @include('orders.partials.order-summary')
+                </div>
+            </div>
+        </form>
+    </div>
+
+    @section('scripts')
+        <script>
+            // Debug logging
+            // console.log('Order create page loaded');
+            // console.log('Form action:', document.getElementById('orderForm').action);
+            // console.log('CSRF token present:', document.querySelector('input[name="_token"]') !== null);
+
+            // Intercept form submission for debugging
+            document.getElementById('orderForm').addEventListener('submit', function(e) {
+                console.log('=== FORM SUBMIT DEBUG ===');
+
+                const formData = new FormData(this);
+                const data = {};
+                formData.forEach((value, key) => {
+                    data[key] = value;
+                });
+
+                console.log('Form data:', data);
+                console.log('Action URL:', this.action);
+                console.log('Method:', this.method);
+
+                // Check required fields
+                const requiredFields = ['customer_id', 'lead_id', 'order_date', 'warehouse_id'];
+                const missing = requiredFields.filter(field => !formData.get(field));
+
+                if (missing.length > 0) {
+                    console.error('Missing required fields:', missing);
+                    alert('Thiếu các trường bắt buộc: ' + missing.join(', '));
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Check items
+                const hasItems = formData.has('items[0][product_id]');
+                if (!hasItems) {
+                    console.error('No items found');
+                    alert('Vui lòng thêm ít nhất một sản phẩm');
+                    e.preventDefault();
+                    return false;
+                }
+
+                console.log('Validation passed, submitting...');
+
+                // Allow form to submit
+                return true;
+            });
+
+            // Listen for page unload to detect redirect
+            window.addEventListener('beforeunload', function() {
+                console.log('Page unloading (redirect or refresh)');
+            });
+        </script>
+
+        <script src="{{ asset('js/order-form.js') }}"></script>
+    @endsection
+@endsection

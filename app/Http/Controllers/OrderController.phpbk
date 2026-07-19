@@ -1,0 +1,470 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\OrderRequest;
+use App\Models\CRM\Order;
+use App\Models\PaymentMethod;
+use App\Services\CustomerService;
+use App\Services\OrderService;
+use App\Services\ProductService;
+use App\Services\WarehouseService;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class OrderController extends Controller
+{
+	public function __construct(
+		protected OrderService $orderService,
+		protected CustomerService $customerService,
+		protected ProductService $productService,
+		protected WarehouseService $warehouseService
+	) {}
+    /**
+     * Danh sách đơn hàng (theo role)
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
+    {
+	    $user = Auth::user();
+	    // Lấy danh sách theo quyền
+        $orders = $this->orderService->getOrdersByUserRole($user, $request->all());
+        return view('orders.index', compact('orders'));
+    }
+
+    /**
+     * Form tạo đơn hàng mới (Sales)
+     * Show the form for creating a new resource.
+     */
+    public function create()
+    {
+	    $this->authorize('create', Order::class);
+//	    $customers = $this->customerService->getCustomersForSelect();
+//	    $products = $this->productService->getProductsForSelect();
+//	    $warehouses = $this->warehouseService->getActiveWarehouses();
+//	    return view('orders.create', compact('customers','warehouses'));
+        $viewData = [
+            'customers' => $this->customerService->getCustomersForSelect(),
+            'warehouses' => $this->warehouseService->getActiveWarehouses(),
+        ];
+        return view('orders.create', $viewData);
+    }
+
+    /**
+     * Lưu đơn hàng mới
+     * Store a newly created resource in storage.
+     */
+    public function store(OrderRequest $request)
+    {
+	    $this->authorize('create', Order::class);
+	    try {
+		    $order = $this->orderService->createOrder($request->validated());
+
+		    return redirect()
+			    ->route('orders.show', $order->id)
+			    ->with('success', 'Đơn hàng đã được tạo thành công. Mã đơn: ' . $order->order_code);
+	    } catch (\Exception $e) {
+		    return back()
+			    ->withInput()
+			    ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+	    }
+    }
+
+    /**
+     * Chi tiết đơn hàng
+     * Display the specified resource.
+     */
+    public function show(string $id)
+    {
+	    $order = $this->orderService->findWithDetails($id);
+	    $this->authorize('view', $order);
+        $paymentMethods = PaymentMethod::where('is_active', true)->get();
+	    // Lấy timeline và thông báo
+//	    $timeline = $this->orderService->getOrderTimeline($id);
+//	    $notifications = $this->orderService->getOrderNotifications($id);
+//	    return view('orders.show', compact('order', 'timeline', 'notifications'));
+        $viewData = [
+            'order' => $order,
+            'timeline' => $this->orderService->getOrderTimeline($id),
+            'notifications' => $this->orderService->getOrderNotifications($id),
+            'paymentMethods' => $paymentMethods,
+        ];
+        return view('orders.show', $viewData);
+    }
+
+    /**
+     * Form sửa đơn hàng (chỉ Sales và chưa duyệt)
+     * Show the form for editing the specified resource.
+     */
+    public function edit(string $id)
+    {
+	    $order = $this->orderService->find($id);
+	    $this->authorize('update', $order);
+//	    $customers = $this->customerService->getCustomersForSelect();
+//	    $products = $this->productService->getProductsForSelect();
+//	    $warehouses = $this->warehouseService->getActiveWarehouses();
+//	    return view('orders.edit', compact('order', 'customers', 'products', 'warehouses'));
+        $viewData = [
+            'order' => $order,
+            'customers' => $this->customerService->getCustomersForSelect(),
+            'warehouses' => $this->warehouseService->getActiveWarehouses(),
+        ];
+        return view('orders.edit', $viewData);
+    }
+
+    /**
+     * Cập nhật đơn hàng
+     * Update the specified resource in storage.
+     */
+    public function update(OrderRequest $request, string $id)
+    {
+	    $order = $this->orderService->find($id);
+	    $this->authorize('update', $order);
+	    try {
+		    $this->orderService->updateOrder($id, $request->validated());
+		    return redirect()
+			    ->route('orders.show', $id)
+			    ->with('success', 'Đơn hàng đã được cập nhật');
+	    } catch (\Exception $e) {
+		    return back()
+			    ->withInput()
+			    ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+	    }
+    }
+    /**
+     * Hủy đơn hàng
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $id)
+    {
+	    $order = $this->orderService->find($id);
+	    $this->authorize('delete', $order);
+	    try {
+		    $this->orderService->cancelOrder($id);
+		    return redirect()
+			    ->route('orders.index')
+			    ->with('success', 'Đơn hàng đã được hủy');
+	    } catch (\Exception $e) {
+		    return back()->with('error', 'Không thể hủy đơn: ' . $e->getMessage());
+	    }
+    }
+	/**
+	 * Gửi yêu cầu duyệt (Sales)
+	 */
+	public function submitForApproval($id): RedirectResponse
+    {
+		$order = $this->orderService->find($id);
+		$this->authorize('submit', $order);
+		try {
+			$this->orderService->submitForApproval($id);
+			return back()->with('success', 'Đơn hàng đã được gửi duyệt');
+		} catch (\Exception $e) {
+			return back()->with('error', $e->getMessage());
+		}
+	}
+
+	/**
+	 * Form duyệt đơn (Kế toán/Duyệt 1/Duyệt 2)
+	 */
+	public function approvalForm($id): View
+    {
+		$order = $this->orderService->findWithDetails($id);
+		$this->authorize('approve', $order);
+		$user = Auth::user();
+		$currentLevel = $this->orderService->getCurrentApprovalLevel($order);
+		return view('orders.approval-form', compact('order', 'currentLevel'));
+	}
+
+	/**
+	 * Xử lý duyệt/từ chối
+	 */
+//	public function processApproval(Request $request, $id): RedirectResponse
+//    {
+//		$order = $this->orderService->find($id);
+//		$this->authorize('approve', $order);
+//
+////		$validated = $request->validate([
+////			'action' => 'required|in:approve,reject',
+////			'note' => 'nullable|string|max:1000',
+////			'rejection_reason' => 'required_if:action,reject|string|max:1000',
+////			'debt_checked' => 'nullable|boolean', // Cho kế toán
+////			'debt_note' => 'nullable|string|max:500',
+////		]);
+//        $validated = $request->validate([
+//            'action' => 'required|in:approve,reject',
+//            'rejection_reason' => 'required_if:action,reject|nullable|string|max:500',
+//            'note' => 'nullable|string|max:500',
+//            'debt_checked' => 'nullable|accepted', // Chỉ bắt buộc nếu checkbox được tích
+//        ], [
+//            'rejection_reason.required_if' => 'Vui lòng nhập lý do từ chối.',
+//            'debt_checked.accepted' => 'Bạn phải xác nhận đã kiểm tra công nợ.',
+//        ]);
+//
+//		try {
+////			if ($validated['action'] === 'approve') {
+////				$this->orderService->approveOrder($id, $validated);
+////			} else {
+////				$this->orderService->rejectOrder($id, $validated);
+////			}
+//            $this->orderService->processApproval($id, $validated);
+//            $msg = $validated['action'] === 'approve' ? 'Đã duyệt đơn hàng.' : 'Đã từ chối đơn hàng.';
+//            return redirect()
+//                ->route('orders.show', $id) // Quay lại trang chi tiết thay vì index để xem kết quả
+//                ->with('success', $msg);
+//		} catch (\Exception $e) {
+//            return back()->with('error', 'Lỗi xử lý: ' . $e->getMessage())->withInput();
+//        }
+//	}
+//    public function processApproval(Request $request, $id): RedirectResponse
+//    {
+//        $order = $this->orderService->find($id);
+//        $this->authorize('approve', $order);
+//
+//        // Validation rules cơ bản
+//        $rules = [
+//            'action' => 'required|in:approve,reject',
+//            'rejection_reason' => 'required_if:action,reject|nullable|string|max:500',
+//            'note' => 'nullable|string|max:500',
+//        ];
+//
+//        // CHỈ validate debt_checked nếu là kế toán VÀ action = approve
+//        if ($order->current_department === 'ketoan' && $request->input('action') === 'approve') {
+//            $rules['debt_checked'] = 'required|accepted';
+//            $rules['debt_note'] = 'nullable|string|max:500';
+//        }
+//
+//        $messages = [
+//            'action.required' => 'Vui lòng chọn hành động (Duyệt hoặc Từ chối).',
+//            'rejection_reason.required_if' => 'Vui lòng nhập lý do từ chối.',
+//            'debt_checked.required' => 'Bạn phải xác nhận đã kiểm tra công nợ.',
+//            'debt_checked.accepted' => 'Bạn phải tích vào checkbox xác nhận kiểm tra công nợ.',
+//        ];
+//
+//        $validated = $request->validate($rules, $messages);
+//
+//        try {
+//            $this->orderService->processApproval($id, $validated);
+//
+//            $msg = $validated['action'] === 'approve'
+//                ? 'Đã duyệt đơn hàng thành công.'
+//                : 'Đã từ chối đơn hàng.';
+//
+//            return redirect()
+//                ->route('orders.show', $id)
+//                ->with('success', $msg);
+//
+//        } catch (\Exception $e) {
+//            \Log::error('Lỗi xử lý duyệt đơn: ' . $e->getMessage(), [
+//                'order_id' => $id,
+//                'user_id' => Auth::id(),
+//                'trace' => $e->getTraceAsString()
+//            ]);
+//
+//            return back()
+//                ->with('error', 'Lỗi xử lý: ' . $e->getMessage())
+//                ->withInput();
+//        }
+//    }
+    public function processApproval(Request $request, $id): RedirectResponse
+    {
+        \Log::info('========================================');
+        \Log::info('🔵 PROCESS APPROVAL START');
+        \Log::info('Order ID: ' . $id);
+        \Log::info('User ID: ' . Auth::id());
+        \Log::info('Request Data: ', $request->all());
+        \Log::info('========================================');
+
+        $order = $this->orderService->find($id);
+
+        if (!$order) {
+            \Log::error('❌ Order not found: ' . $id);
+            return back()->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        \Log::info('Order found:', [
+            'order_code' => $order->order_code,
+            'current_dept' => $order->current_department,
+            'status_id' => $order->current_status_type_id
+        ]);
+
+        // Check authorization
+        try {
+            $this->authorize('approve', $order);
+            \Log::info('✅ Authorization passed');
+        } catch (\Exception $e) {
+            \Log::error('❌ Authorization failed: ' . $e->getMessage());
+            return back()->with('error', 'Bạn không có quyền duyệt đơn này');
+        }
+
+        // Validation rules động
+        $rules = [
+            'action' => 'required|in:approve,reject',
+            'rejection_reason' => 'required_if:action,reject|nullable|string|max:500',
+            'note' => 'nullable|string|max:500',
+        ];
+
+        // Chỉ validate debt_checked nếu là ketoan VÀ action = approve
+        if ($order->current_department === 'ketoan' && $request->input('action') === 'approve') {
+            $rules['debt_checked'] = 'required|accepted';
+            \Log::info('🔵 Added debt_checked validation (ketoan + approve)');
+        }
+
+        $messages = [
+            'action.required' => 'Vui lòng chọn hành động (Duyệt hoặc Từ chối).',
+            'rejection_reason.required_if' => 'Vui lòng nhập lý do từ chối.',
+            'debt_checked.required' => 'Bạn phải xác nhận đã kiểm tra công nợ.',
+            'debt_checked.accepted' => 'Bạn phải tích vào checkbox xác nhận kiểm tra công nợ.',
+        ];
+
+        // Validate
+        try {
+            $validated = $request->validate($rules, $messages);
+            \Log::info('✅ Validation passed');
+            \Log::info('Validated data: ', $validated);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('❌ Validation failed: ', $e->errors());
+            throw $e; // Re-throw để Laravel xử lý
+        }
+
+        // Process approval
+        try {
+            \Log::info('🔵 Calling orderService->processApproval()');
+
+            $this->orderService->processApproval($id, $validated);
+
+            \Log::info('✅ processApproval completed successfully');
+
+            $msg = $validated['action'] === 'approve'
+                ? 'Đã duyệt đơn hàng thành công.'
+                : 'Đã từ chối đơn hàng.';
+
+            \Log::info('========================================');
+            \Log::info('✅ PROCESS APPROVAL SUCCESS');
+            \Log::info('Message: ' . $msg);
+            \Log::info('========================================');
+
+//            return redirect()
+//                ->route('orders.show', $id)
+//                ->with('success', $msg);
+            return redirect()
+                ->route('orders.index')
+                ->with('success', 'Đã duyệt đơn hàng thành công!');
+
+        } catch (\Exception $e) {
+            \Log::error('========================================');
+            \Log::error('❌ PROCESS APPROVAL FAILED');
+            \Log::error('Error Message: ' . $e->getMessage());
+            \Log::error('Error File: ' . $e->getFile() . ':' . $e->getLine());
+            \Log::error('Stack Trace: ' . $e->getTraceAsString());
+            \Log::error('========================================');
+
+            return back()
+                ->with('error', 'Lỗi xử lý: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+	/**
+	 * Xuất kho (Thủ kho)
+	 */
+	public function shipOrder(Request $request, $id): RedirectResponse
+    {
+		$order = $this->orderService->find($id);
+
+		$this->authorize('ship', $order);
+
+		$validated = $request->validate([
+			'shipping_note' => 'nullable|string|max:500',
+			'actual_ship_date' => 'required|date',
+		]);
+
+		try {
+			$this->orderService->shipOrder($id, $validated);
+
+			return redirect()
+				->route('orders.show', $id)
+				->with('success', 'Đơn hàng đã được xuất kho');
+		} catch (\Exception $e) {
+			return back()->with('error', $e->getMessage());
+		}
+	}
+
+	/**
+	 * Ghi nhận thanh toán (Kế toán)
+	 */
+	public function recordPayment(Request $request, $id): RedirectResponse
+    {
+		$order = $this->orderService->find($id);
+		$this->authorize('recordPayment', $order);
+		$validated = $request->validate([
+			'payment_date' => 'required|date',
+			'amount' => 'required|numeric|min:0',
+			'method_id' => 'required|exists:crm_payment_methods,id',
+			'note' => 'nullable|string|max:500',
+		]);
+		try {
+			$this->orderService->recordPayment($id, $validated);
+			return back()->with('success', 'Đã ghi nhận thanh toán');
+		} catch (\Exception $e) {
+			return back()->with('error', $e->getMessage());
+		}
+	}
+
+	/**
+	 * API: Lấy thông tin khách hàng khi chọn
+	 */
+	public function getCustomerInfo($customerId): JsonResponse
+    {
+		$customer = $this->customerService->findWithDetails($customerId);
+
+		return response()->json([
+			'customer' => $customer,
+			'latest_orders' => $customer->orders()->latest()->take(5)->get(),
+			'total_debt' => $customer->unpaidDebts()->sum('debt_amount'),
+		]);
+	}
+
+	/**
+	 * API: Lấy giá sản phẩm theo loại khách
+	 */
+	public function getProductPrice(Request $request, $productId): JsonResponse
+    {
+		$customerTypeId = $request->input('customer_type_id');
+
+		$price = $this->productService->getPriceForCustomerType($productId, $customerTypeId);
+
+		return response()->json(['price' => $price]);
+	}
+    public function getProductsByWarehouse(Request $request): JsonResponse
+    {
+        $warehouseId = $request->input('warehouse_id');
+
+        if (!$warehouseId) {
+            return response()->json(['error' => 'Warehouse ID is required'], 400);
+        }
+
+        $products = $this->productService->getProductsForSelect($warehouseId);
+
+        return response()->json(['products' => $products]);
+    }
+	/**
+	 * Dashboard theo dõi đơn hàng (cho Sales)
+	 */
+	public function myOrders()
+	{
+		$user = Auth::user();
+//		$statistics = $this->orderService->getSalesStatistics($user->id);
+//		$recentOrders = $this->orderService->getRecentOrdersBySales($user->id, 10);
+//		$pendingNotifications = $this->orderService->getPendingNotifications($user->id);
+//
+//		return view('orders.my-orders', compact('statistics', 'recentOrders', 'pendingNotifications'));
+        $viewData = [
+            'statistics' => $this->orderService->getSalesStatistics($user->id),
+            'recentOrders' => $this->orderService->getRecentOrdersBySales($user->id, 10),
+            'pendingNotifications' => $this->orderService->getPendingNotifications($user->id),
+        ];
+        return view('orders.my-orders', $viewData);
+	}
+}

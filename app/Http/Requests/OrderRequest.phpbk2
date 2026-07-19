@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class OrderRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     */
+    public function rules(): array
+    {
+        return [
+            // Thông tin cơ bản
+            'customer_id' => [
+                'required',
+                'integer',
+                Rule::exists('crm_customers', 'id'),
+            ],
+            'lead_id' => [
+                'required',
+                'integer',
+                Rule::exists('crm_leads', 'id'),
+            ],
+            'order_date' => [
+                'required',
+                'date',
+                'before_or_equal:today',
+            ],
+            'warehouse_id' => [
+                'required',
+                'integer',
+                Rule::exists('crm_warehouses', 'id'),
+            ],
+
+            // Sản phẩm
+            'items' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+            'items.*.product_id' => [
+                'required',
+                'integer',
+                Rule::exists('crm_product_catalog', 'id'),
+            ],
+            'items.*.quantity' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+            'items.*.unit_price' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
+            // Action (optional)
+            'action' => [
+                'nullable',
+                'string',
+                Rule::in(['save_draft', 'submit']),
+            ],
+        ];
+    }
+
+    /**
+     * Get custom messages for validator errors.
+     */
+    public function messages(): array
+    {
+        return [
+            // Customer
+            'customer_id.required' => 'Vui lòng chọn khách hàng.',
+            'customer_id.exists' => 'Khách hàng không tồn tại.',
+
+            // Lead
+            'lead_id.required' => 'Thiếu thông tin lead.',
+            'lead_id.exists' => 'Lead không tồn tại.',
+
+            // Order date
+            'order_date.required' => 'Vui lòng chọn ngày đặt hàng.',
+            'order_date.date' => 'Ngày đặt hàng không hợp lệ.',
+            'order_date.before_or_equal' => 'Ngày đặt hàng không được là ngày tương lai.',
+
+            // Warehouse
+            'warehouse_id.required' => 'Vui lòng chọn kho xuất.',
+            'warehouse_id.exists' => 'Kho không tồn tại.',
+
+            // Items
+            'items.required' => 'Vui lòng thêm ít nhất một sản phẩm.',
+            'items.array' => 'Dữ liệu sản phẩm không hợp lệ.',
+            'items.min' => 'Đơn hàng phải có ít nhất một sản phẩm.',
+
+            // Product
+            'items.*.product_id.required' => 'Vui lòng chọn sản phẩm.',
+            'items.*.product_id.exists' => 'Sản phẩm không tồn tại.',
+
+            // Quantity
+            'items.*.quantity.required' => 'Vui lòng nhập số lượng.',
+            'items.*.quantity.integer' => 'Số lượng phải là số nguyên.',
+            'items.*.quantity.min' => 'Số lượng phải lớn hơn 0.',
+
+            // Price
+            'items.*.unit_price.required' => 'Vui lòng nhập đơn giá.',
+            'items.*.unit_price.numeric' => 'Đơn giá phải là số.',
+            'items.*.unit_price.min' => 'Đơn giá không được âm.',
+
+            // Action
+            'action.in' => 'Hành động không hợp lệ.',
+        ];
+    }
+
+    /**
+     * Get custom attributes for validator errors.
+     */
+    public function attributes(): array
+    {
+        return [
+            'customer_id' => 'khách hàng',
+            'lead_id' => 'lead',
+            'order_date' => 'ngày đặt hàng',
+            'warehouse_id' => 'kho xuất',
+            'items' => 'sản phẩm',
+            'items.*.product_id' => 'sản phẩm',
+            'items.*.quantity' => 'số lượng',
+            'items.*.unit_price' => 'đơn giá',
+            'action' => 'hành động',
+        ];
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        // Remove empty items
+        if ($this->has('items')) {
+            $items = collect($this->items)
+                ->filter(fn($item) => !empty($item['product_id']))
+                ->values()
+                ->toArray();
+
+            $this->merge(['items' => $items]);
+        }
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            // Validate stock availability
+            if (!$validator->errors()->has('items.*') && $this->has('items')) {
+                $this->validateStockAvailability($validator);
+            }
+
+            // Validate duplicate products
+            if (!$validator->errors()->has('items.*') && $this->has('items')) {
+                $this->validateDuplicateProducts($validator);
+            }
+        });
+    }
+
+    /**
+     * Validate stock availability for products
+     */
+    protected function validateStockAvailability($validator): void
+    {
+        $warehouseId = $this->warehouse_id;
+        $items = $this->items;
+
+        foreach ($items as $index => $item) {
+            $productId = $item['product_id'] ?? null;
+            $quantity = $item['quantity'] ?? 0;
+
+            if (!$productId) {
+                continue;
+            }
+
+            // Check stock in the selected warehouse
+            $stock = \App\Models\CRM\ProductStock::where('product_id', $productId)
+                ->where('warehouse_id', $warehouseId)
+                ->first();
+
+            $availableQty = $stock ? $stock->qty : 0;
+
+            if ($quantity > $availableQty) {
+                $product = \App\Models\Product::find($productId);
+                $productName = $product ? $product->name : "Sản phẩm #{$productId}";
+
+                $validator->errors()->add(
+                    "items.{$index}.quantity",
+                    "Không đủ tồn kho cho {$productName}. Tồn kho hiện tại: {$availableQty}, yêu cầu: {$quantity}."
+                );
+            }
+        }
+    }
+
+    /**
+     * Validate no duplicate products in order
+     */
+    protected function validateDuplicateProducts($validator): void
+    {
+        $productIds = collect($this->items)
+            ->pluck('product_id')
+            ->filter();
+
+        $duplicates = $productIds->duplicates();
+
+        if ($duplicates->isNotEmpty()) {
+            foreach ($duplicates as $index => $productId) {
+                $product = \App\Models\Product::find($productId);
+                $productName = $product ? $product->name : "Sản phẩm #{$productId}";
+
+                $validator->errors()->add(
+                    "items.{$index}.product_id",
+                    "Sản phẩm {$productName} đã được thêm vào đơn hàng. Vui lòng điều chỉnh số lượng thay vì thêm nhiều lần."
+                );
+            }
+        }
+    }
+
+    /**
+     * Get validated data with additional processing
+     */
+    public function validatedWithProcessing(): array
+    {
+        $validated = $this->validated();
+
+        // Calculate total amount
+        $totalAmount = collect($validated['items'])->sum(function ($item) {
+            return $item['quantity'] * $item['unit_price'];
+        });
+
+        $validated['total_amount'] = $totalAmount;
+
+        return $validated;
+    }
+}

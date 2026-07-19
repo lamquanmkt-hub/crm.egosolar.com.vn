@@ -1,0 +1,994 @@
+<?php
+
+/**
+ * Web Routes - Refactored
+ *
+ * Áp dụng:
+ * - Clean Code: Không có inline controller logic
+ * - Single Responsibility: Routes chỉ định nghĩa URL mapping
+ * - DRY: Sử dụng route groups để tránh lặp middleware
+ * - RESTful: Sử dụng resource routes khi có thể
+ *
+ * @author Your Name
+ * @version 2.0
+ */
+
+
+
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Controller Imports
+|--------------------------------------------------------------------------
+*/
+
+// Auth
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
+
+// Core
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\MediaController;
+use App\Http\Controllers\NotificationController;
+
+// Orders & Payments
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\PaymentRequestController;
+use App\Http\Controllers\PaymentRequestApprovalController;
+use App\Http\Controllers\PaymentAttachmentController;
+use App\Http\Controllers\SalesCommissionController;
+
+// Products
+use App\Http\Controllers\BrandController;
+use App\Http\Controllers\PriceTierController;
+use App\Http\Controllers\OrderReturnController;
+
+
+// Tasks & Chat
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\ChatController;
+
+// Construction Sites & Material Requests (Refactored)
+use App\Http\Controllers\SiteController;
+use App\Http\Controllers\MaterialRequestController;
+use App\Http\Controllers\MaterialRequestApprovalController;
+
+// Debug & Utils (Refactored)
+use App\Http\Controllers\DebugController;
+use App\Http\Controllers\PushSubscriptionController;
+
+// Marketing
+use App\Http\Controllers\Marketing\MarketingDashboardController;
+use App\Http\Controllers\Marketing\MarketingBudgetController;
+use App\Http\Controllers\Marketing\MarketingMetricController;
+use App\Http\Controllers\Marketing\MarketingCampaignController;
+use App\Http\Controllers\Marketing\MarketingLeadController;
+use App\Http\Controllers\Marketing\KpiPayrollController;
+
+use App\Http\Controllers\Marketing\ContentCalendarController;
+use App\Http\Controllers\Marketing\WeeklyTaskController;
+
+use App\Http\Controllers\Marketing\MarketingPlanController;
+use App\Http\Controllers\Marketing\MarketingProgressController;
+use App\Http\Controllers\Marketing\MarketingReportController;
+
+use App\Http\Controllers\ContentFeedbackController;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+// Finance
+use App\Http\Controllers\Finance\FinanceDashboardController;
+use App\Http\Controllers\Finance\CustomerDebtController;
+use App\Http\Controllers\Finance\SupplierDebtController;
+use App\Http\Controllers\Finance\ReceiptController;
+use App\Http\Controllers\Finance\PaymentController;
+use App\Http\Controllers\Finance\AccountController;
+use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\FinanceReportController;
+
+//Solar
+use App\Http\Controllers\SolarSettingController;
+use App\Http\Controllers\SolarCalculatorController;
+
+/*
+|--------------------------------------------------------------------------
+| Public / Auth Routes
+|--------------------------------------------------------------------------
+*/
+Route::get('/hr-test', function () {
+    return 'HR ROUTE OK';
+});
+Route::get('/debug/serial-columns', function () {
+    return response()->json([
+        'crm_serial_units' => DB::getSchemaBuilder()->getColumnListing('crm_serial_units'),
+        'crm_serial_unit_states' => Schema::hasTable('crm_serial_unit_states')
+            ? DB::getSchemaBuilder()->getColumnListing('crm_serial_unit_states')
+            : null,
+    ]);
+})->middleware('auth');
+Route::controller(LoginController::class)->group(function () {
+    Route::get('/login', 'showLoginForm')->name('login');
+    Route::post('/login', 'login');
+    Route::post('/logout', 'logout')->name('logout');
+});
+
+Route::controller(RegisterController::class)->group(function () {
+    Route::get('/register', 'showRegistrationForm')->name('register');
+    Route::post('/register', 'register');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Sales
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/sales/commissions', [SalesCommissionController::class, 'index'])
+        ->name('sales.commissions.index');
+
+    Route::get('/sales/commissions/export/excel', [SalesCommissionController::class, 'exportExcel'])
+        ->name('sales.commissions.export.excel');
+
+    Route::get('/sales/commissions/export/pdf', [SalesCommissionController::class, 'exportPdf'])
+        ->name('sales.commissions.export.pdf');
+
+    Route::get('/sales/kpi', [SalesCommissionController::class, 'kpiDashboard'])
+        ->name('sales.kpi.index');
+
+    Route::get('/sales/kpi/my', [SalesCommissionController::class, 'kpiMyForm'])
+        ->name('sales.kpi.my');
+
+    Route::post('/sales/kpi/my', [SalesCommissionController::class, 'kpiMyStore'])
+        ->name('sales.kpi.my.store');
+
+    Route::middleware(['role:admin|sales_manager|accounting'])->group(function () {
+        Route::get('/sales/kpi/settings', [SalesCommissionController::class, 'kpiSettings'])
+            ->name('sales.kpi.settings');
+
+        Route::post('/sales/kpi/settings', [SalesCommissionController::class, 'kpiSettingsSave'])
+            ->name('sales.kpi.settings.save');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', [DashboardController::class, 'index'])
+    ->middleware('auth')
+    ->name('dashboard');
+
+
+/*
+|--------------------------------------------------------------------------
+| Debug Routes (Development Only)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])
+    ->prefix('debug')
+    ->controller(DebugController::class)
+    ->group(function () {
+        Route::get('/ping-route', 'ping');
+        Route::get('/product-tables', 'productTables');
+        Route::get('/products-candidates', 'productsCandidates');
+        Route::get('/inventory', 'inventoryTables');
+        Route::get('/me', 'currentUser');
+    });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Notifications
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])
+    ->prefix('notifications')
+    ->name('notifications.')
+    ->controller(NotificationController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/{id}/read', 'markAsRead')->name('mark-read');
+        Route::post('/read-all', 'markAllAsRead')->name('mark-all-read');
+        Route::get('/unread-count', 'getUnreadCount')->name('unread-count');
+        Route::get('/json', 'json')->name('json');
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| Profile & Push Subscription
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+        // Warehouses
+    Route::resource('warehouses', WarehouseController::class)->except(['show']);
+
+    Route::get('warehouses/{warehouse}/inventory', [WarehouseController::class, 'inventory'])
+        ->middleware(['can:warehouse.manage', 'can:warehouse.stock_check'])
+        ->name('warehouses.inventory');
+
+    // ✅ Bulk actions (chọn nhiều kho: gán công ty / xoá)
+    Route::post('warehouses/bulk', [WarehouseController::class, 'bulk'])
+        ->name('warehouses.bulk');
+    // Profile
+Route::middleware(['auth'])->controller(UserController::class)->group(function () {
+    Route::get('/profile', 'profile')
+        ->name('users.profile');
+
+    Route::get('/profile/edit', 'editProfile')
+        ->name('users.profile-edit');
+
+    Route::match(['post', 'put'], '/profile/update', 'updateProfile')
+        ->name('users.profile-update');
+
+    Route::post('/profile/avatar', 'updateAvatar')
+        ->name('users.profile.avatar');
+});
+
+    // Push Notifications
+    Route::controller(PushSubscriptionController::class)->group(function () {
+        Route::post('/push/subscribe', 'subscribe')->name('push.subscribe');
+        Route::post('/push/unsubscribe', 'unsubscribe')->name('push.unsubscribe');
+    });
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Chat + Tasks
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth')
+    ->prefix('chat')
+    ->group(function () {
+        // Orders - Shipping
+        Route::controller(OrderController::class)->group(function () {
+            Route::post('/orders/{id}/shipping-info', 'updateShippingInfo')->name('orders.shippingInfo');
+            Route::post('/orders/{id}/mark-shipped', 'markShipped')->name('orders.markShipped');
+            Route::get('/orders/{id}/ship-serials', [OrderController::class, 'getShipSerials'])
+    ->name('orders.ship-serials');
+    
+        });
+
+        // Tasks
+        Route::controller(TaskController::class)->group(function () {
+            Route::get('/tasks/my', 'my')->name('tasks.my');
+            Route::get('/tasks', 'index')->name('tasks.index');
+            Route::get('/tasks/create', 'create')->name('tasks.create');
+            Route::post('/tasks', 'store')->name('tasks.store');
+            Route::post('/tasks/{task}/submit', 'submitResult')->name('tasks.submit');
+            Route::post('/tasks/{task}/approve', 'approve')->name('tasks.approve');
+            Route::patch('/tasks/{task}/status', 'updateStatus')->name('tasks.status');
+            Route::get('/tasks/{task}/edit', 'edit')->name('tasks.edit');
+            Route::put('/tasks/{task}', 'update')->name('tasks.update');
+            Route::delete('/tasks/{task}', 'destroy')->name('tasks.destroy');
+            Route::get('/tasks/{task}', 'show')->name('tasks.show');
+        });
+
+        // Chat
+        Route::controller(ChatController::class)->group(function () {
+            Route::get('/conversations/json', 'conversationsJson')->name('chat.conversations.json');
+            Route::post('/{conversation}/read/json', 'markReadJson')->name('chat.read.json');
+            Route::get('/', 'inbox')->name('chat.inbox');
+            Route::get('/users', 'users')->name('chat.users');
+            Route::post('/direct', 'direct')->name('chat.direct');
+            Route::get('/users/json', 'usersJson')->name('chat.users.json');
+            Route::post('/direct/json', 'directJson')->name('chat.direct.json');
+            Route::get('/{conversation}/messages/json', 'messagesJson')->name('chat.messages.json');
+            Route::post('/{conversation}/send/json', 'sendJson')->name('chat.send.json');
+            Route::get('/{conversation}', 'show')->name('chat.show');
+            Route::post('/{conversation}/send', 'send')->name('chat.send');
+        });
+    });
+
+
+ /*
+|--------------------------------------------------------------------------
+| Công trình (Sites) - Refactored
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse'])
+    ->prefix('cong-trinh')
+    ->name('sites.')
+    ->controller(SiteController::class)
+    ->group(function () {
+
+        Route::get('/', 'index')->name('index');
+
+        Route::get('/tao', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+
+        Route::get('/{id}/sua', 'edit')->name('edit')->whereNumber('id');
+
+        Route::post('/{id}/cap-nhat', 'update')->name('update')->whereNumber('id');
+
+        Route::post('/{id}/ghi-nhan-thanh-toan', 'recordPayment')
+            ->name('record-payment')
+            ->whereNumber('id');
+
+        Route::post('/{id}/xoa', 'destroy')->name('destroy')->whereNumber('id');
+
+        Route::get('/{id}', 'show')->name('show')->whereNumber('id');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Đơn vật tư (Material Requests) - Refactored
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse'])
+    ->prefix('don-vat-tu')
+    ->name('material-requests.')
+    ->group(function () {
+
+        Route::controller(MaterialRequestController::class)->group(function () {
+            Route::get('/site-info', 'siteInfo')->name('siteInfo');
+
+            // Static routes phải để TRƯỚC route động
+            Route::get('/', 'index')->name('index');
+
+            Route::get('/tao', 'create')
+                ->name('create')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::post('/', 'store')
+                ->name('store')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::get('/{materialRequest}/sua', 'edit')
+                ->name('edit')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::post('/{materialRequest}/cap-nhat', 'update')
+                ->name('update')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::post('/{materialRequest}/xoa', 'destroy')
+                ->name('destroy')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::post('/{materialRequest}/gui-duyet', 'submit')
+                ->name('submit')
+                ->middleware('role:ky_thuat|admin');
+
+            Route::post('/{materialRequest}/admin-duyet', 'adminApprove')
+                ->name('admin-approve')
+                ->middleware('role:admin');
+
+            Route::post('/{materialRequest}/kho-duyet', 'warehouseApprove')
+    ->name('warehouse-approve')
+    ->middleware('role:warehouse|admin');
+
+            // Route động để CUỐI
+            Route::get('/{materialRequest}', 'show')->name('show');
+        });
+    });
+
+// Status tracking
+Route::get('/theo-doi-trang-thai', fn() => 'Theo dõi trạng thái - OK')
+    ->middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse']);
+
+
+/*
+|--------------------------------------------------------------------------
+| Main Resources
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+      // Solar Settings
+        Route::get('/solar/settings', [SolarSettingController::class, 'index'])
+        ->name('solar.settings');
+
+    Route::post('/solar/settings', [SolarSettingController::class, 'update'])
+        ->name('solar.settings.update');
+
+    Route::get('/solar/calculator', [SolarCalculatorController::class, 'index'])
+        ->name('solar.calculator');
+
+    Route::post('/solar/calculator/calculate', [SolarCalculatorController::class, 'calculate'])
+        ->name('solar.calculator.calculate');
+    // Users
+    Route::resource('users', UserController::class)->except(['show']);
+
+    // Companies - thông tin pháp nhân dùng để in PDF đơn hàng
+    Route::resource('companies', CompanyController::class)->only(['index', 'edit', 'update']);
+
+    // Customers
+    Route::get('/customers/popup/form/{id?}', [CustomerController::class, 'ajaxForm'])
+        ->name('customers.popup-form');
+        Route::get('/customers/{customer}/invoice-info', [CustomerController::class, 'invoiceInfo'])
+    ->name('customers.invoice-info');
+
+Route::post('/customers/{customer}/billing-info', [CustomerController::class, 'updateBillingInfo'])
+    ->name('customers.billing-info.update');
+    Route::resource('customers', CustomerController::class);
+
+    // Product Categories, Brands, Price Tiers
+    Route::resource('categories', ProductCategoryController::class);
+    Route::resource('brands', BrandController::class);
+    Route::resource('price-tiers', PriceTierController::class);
+
+    // Warehouses
+    Route::resource('warehouses', WarehouseController::class)->except(['show']);
+    Route::get('warehouses/{warehouse}/inventory', [WarehouseController::class, 'inventory'])
+        ->middleware(['can:warehouse.manage', 'can:warehouse.stock_check'])
+        ->name('warehouses.inventory');
+    // ✅ Products Input/Output (PHẢI đặt trước Route::resource('products', ...))
+Route::get('/products/input', [ProductController::class, 'input'])->name('products.input');
+Route::get('/products/output', [ProductController::class, 'output'])->name('products.output');
+Route::get('/products/history', [ProductController::class, 'history'])->name('products.history');
+
+    // Products
+    Route::resource('products', ProductController::class);
+
+    // Media
+    Route::controller(MediaController::class)->group(function () {
+        Route::get('/media/list', 'list')->name('media.list');
+        Route::post('/media/upload', 'upload')->name('media.upload');
+        Route::delete('/media/{media}', 'destroy')
+            ->name('media.destroy')
+            ->middleware('permission:products.manage');
+    });
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Orders
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])
+    ->prefix('orders')
+    ->name('orders.')
+    ->controller(\App\Http\Controllers\OrderController::class)
+    ->group(function () {
+
+        // ✅ NEW: Search khách hàng cho dropdown (Tom Select)
+        Route::get('/customers/search', 'searchCustomers')->name('customers.search');
+
+        // ✅ FIX: bỏ double /orders (trước bạn bị /orders/orders/..)
+        Route::post('/{order}/send-completed-mail', 'sendCompletedMail')
+            ->whereNumber('order')
+            ->name('sendCompletedMail');
+
+        Route::post('/{id}/warehouse-issue', 'approveWarehouseIssue')
+            ->whereNumber('id')
+            ->name('warehouse.issue');
+        Route::post('/{order}/invoice', 'updateInvoice')
+    ->whereNumber('order')
+    ->name('updateInvoice');
+        Route::get('/{order}/returns/create', [\App\Http\Controllers\OrderReturnController::class, 'create'])
+            ->whereNumber('order')
+            ->name('returns.create');
+
+        Route::post('/{order}/returns', [\App\Http\Controllers\OrderReturnController::class, 'store'])
+            ->whereNumber('order')
+            ->name('returns.store');
+
+        // API endpoints
+        Route::get('/products-by-warehouse', 'getProductsByWarehouse')->name('products-by-warehouse');
+        Route::get('/warehouses-by-company', 'getWarehousesByCompany')->name('warehouses-by-company');
+        Route::get('/customer-info/{customerId}', 'getCustomerInfo')->name('customer-info');
+        Route::get('/product-price/{productId}', 'getProductPrice')->name('product-price');
+
+        // PDF
+        Route::get('/{order}/pdf', 'pdf')->whereNumber('order')->name('pdf');
+Route::get('/{order}/pdf-preview', 'pdfPreview')->whereNumber('order')->name('pdf.preview');
+        // CRUD
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{id}', 'show')->whereNumber('id')->name('show');
+        Route::get('/{id}/edit', 'edit')->whereNumber('id')->name('edit');
+        Route::put('/{id}', 'update')->name('update');
+        Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
+
+        // Workflow
+        Route::post('/{id}/submit', 'submitForApproval')->name('submit');
+        Route::get('/{id}/approval', 'approvalForm')->name('approval-form');
+        Route::post('/{id}/approval', 'processApproval')->name('process-approval');
+        Route::post('/{id}/cancel', 'cancelOrder')->name('cancel');
+        Route::post('/{id}/ship', 'shipOrder')->name('ship');
+        Route::post('/{id}/payment', 'recordPayment')->name('record-payment');
+        Route::get('/payments/{paymentId}/edit', 'editPayment')->name('payments.edit');
+Route::put('/payments/{paymentId}', 'updatePayment')->name('payments.update');
+Route::delete('/payments/{paymentId}', 'destroyPayment')->name('payments.destroy');
+
+        // Dashboard
+        Route::get('/my/dashboard', 'myOrders')->name('my-orders');
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| Payment Methods
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])
+    ->prefix('payment-methods')
+    ->name('payment-methods.')
+    ->controller(PaymentMethodController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{id}/edit', 'edit')->whereNumber('id')->name('edit');
+        Route::put('/{id}', 'update')->whereNumber('id')->name('update');
+        Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| Payment Requests
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+    // CRUD
+    Route::controller(PaymentRequestController::class)->group(function () {
+        Route::get('/payment-requests', 'index')->name('payment_requests.index');
+        Route::get('/payment-requests/export/excel', 'exportExcel')->name('payment_requests.export_excel');
+Route::get('/payment-requests/export/pdf', 'exportPdf')->name('payment_requests.export_pdf');
+        //Route::get('/payment-requests/create', 'create')->name('payment_requests.create');
+        Route::get('/payment-requests/new', 'create');
+        Route::post('/payment-requests', 'store')->name('payment_requests.store');
+        Route::get('/payment-requests/{id}', 'show')->whereNumber('id')->name('payment_requests.show');
+        Route::get('/payment-requests/{id}/edit', 'edit')->whereNumber('id')->name('payment_requests.edit');
+        Route::put('/payment-requests/{id}', 'update')->whereNumber('id')->name('payment_requests.update');
+        Route::delete('/payment-requests/{id}', 'destroy')->whereNumber('id')->name('payment_requests.destroy');
+        Route::get('/payment-requests/{id}/invoice', 'invoice')->whereNumber('id')->name('payment_requests.invoice');
+        Route::get('/payment-requests/demo-create', 'demoCreate')->name('payment_requests.demo_create');
+    });
+
+    // Approval Workflow
+    Route::controller(PaymentRequestApprovalController::class)->group(function () {
+        Route::post('/payment-requests/{id}/submit', 'submit')->name('payment_requests.submit');
+        Route::post('/payment-requests/{id}/admin-approve', 'adminApprove')->name('payment_requests.admin_approve');
+        Route::post('/payment-requests/{id}/admin-reject', 'adminReject')->name('payment_requests.admin_reject');
+        Route::post('/payment-requests/{id}/acc-approve', 'accApprove')->name('payment_requests.acc_approve');
+        Route::post('/payment-requests/{id}/acc-reject', 'accReject')->name('payment_requests.acc_reject');
+    });
+
+    // Attachments
+    Route::post('/payment-requests/{paymentRequest}/attachments', [PaymentAttachmentController::class, 'store'])
+        ->name('payment-attachments.store');
+});
+/*
+|--------------------------------------------------------------------------
+| Marketing
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'role:marketing|marketing_manager|admin'])
+    ->prefix('marketing')
+    ->name('marketing.')
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Dashboard
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/dashboard', [MarketingDashboardController::class, 'index'])
+            ->name('dashboard');
+
+      /*
+|--------------------------------------------------------------------------
+| ================== KẾ HOẠCH (PLAN) ==================
+|--------------------------------------------------------------------------
+*/
+Route::prefix('plan')
+    ->name('plan.')
+    ->controller(\App\Http\Controllers\Marketing\MarketingPlanController::class)
+    ->group(function () {
+
+        Route::get('/', 'index')->name('overview');
+
+        // CREATE
+        Route::get('/create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+
+        // EDIT
+        Route::get('/{id}/edit', 'edit')
+            ->whereNumber('id')
+            ->name('edit');
+
+        // SHOW
+        Route::get('/{id}', 'show')
+            ->whereNumber('id')
+            ->name('show');
+
+        // UPDATE
+        Route::put('/{id}', 'update')
+            ->whereNumber('id')
+            ->name('update');
+
+        // DELETE
+        Route::delete('/{id}', 'destroy')
+            ->whereNumber('id')
+            ->name('delete');
+
+        // APPROVE
+        Route::post('/{id}/approve', 'approve')
+            ->whereNumber('id')
+            ->middleware(['role:marketing_manager|admin'])
+            ->name('approve');
+    });
+        /*
+        |--------------------------------------------------------------------------
+        | ================== TIẾN ĐỘ ==================
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('progress')
+            ->name('progress.')
+            ->controller(MarketingProgressController::class)
+            ->group(function () {
+
+                Route::get('/', 'index')->name('index');
+                Route::get('/monthly', 'monthly')->name('monthly');
+
+                Route::post('/update', 'update')->name('update');
+
+                Route::post('/tasks/{id}/status', 'updateStatus')
+                    ->whereNumber('id')
+                    ->name('tasks.status');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | ================== BÁO CÁO (REPORT)
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('report')
+            ->name('report.')
+            ->controller(MarketingReportController::class)
+            ->group(function () {
+
+                Route::get('/ads', 'ads')->name('ads');
+                Route::get('/seo', 'seo')->name('seo');
+                Route::get('/overview', 'overview')->name('overview');
+                 // ✅ ADS INPUT
+        Route::get('/ads/input', 'adsInput')->name('ads.input');
+        Route::post('/ads/input', 'adsStore')->name('ads.store');
+        Route::post('/ads/delete', 'adsDelete')->name('ads.delete');
+
+        Route::get('/seo', 'seo')->name('seo');
+        Route::get('/overview', 'overview')->name('overview');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | ================== LEADS
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('leads')
+            ->name('leads.')
+            ->controller(MarketingLeadController::class)
+            ->group(function () {
+
+                Route::get('/', 'index')->name('index');
+                Route::get('/upload', 'upload')->name('upload');
+                Route::post('/import', 'import')->name('import');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | ================== KPI & PAYROLL
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('kpi-payroll')
+            ->name('kpi-payroll.')
+            ->group(function () {
+
+                Route::get('/', [KpiPayrollController::class, 'index'])
+                    ->name('index');
+
+                Route::get('/my', [KpiPayrollController::class, 'my'])
+                    ->name('my');
+
+                Route::post('/my', [KpiPayrollController::class, 'saveMy'])
+                    ->name('my.save');
+
+                Route::middleware(['role:marketing_manager|admin'])
+                    ->group(function () {
+
+                        Route::get('/settings', [KpiPayrollController::class, 'settings'])
+                            ->name('settings');
+
+                        Route::post('/settings', [KpiPayrollController::class, 'saveSettings'])
+                            ->name('settings.save');
+                    });
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | ================== REPORTS (CONTENT)
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('reports')
+            ->name('reports.')
+            ->group(function () {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Content Calendar
+                |--------------------------------------------------------------------------
+                */
+                Route::controller(ContentCalendarController::class)
+                    ->group(function () {
+
+                        Route::get('/content-calendar', 'index')
+                            ->name('content-calendar');
+
+                        Route::post('/content-calendar', 'store')
+                            ->name('content-calendar.store');
+
+                        Route::get('/content-calendar/{id}', 'show')
+                            ->whereNumber('id')
+                            ->name('content-calendar.show');
+
+                        Route::put('/content-calendar/{id}', 'update')
+                            ->whereNumber('id')
+                            ->name('content-calendar.update');
+
+                        Route::delete('/content-calendar/{id}', 'destroy')
+                            ->whereNumber('id')
+                            ->name('content-calendar.destroy');
+
+                        Route::post('/content-calendar/{id}/files', 'uploadFile')
+                            ->whereNumber('id')
+                            ->name('content-calendar.files');
+
+                        Route::delete('/content-calendar/{id}/files/{fileId}', 'deleteFile')
+                            ->whereNumber('id')
+                            ->whereNumber('fileId')
+                            ->name('content-calendar.files.delete');
+
+                        Route::post('/content-calendar/{id}/submit', 'submit')
+                            ->whereNumber('id')
+                            ->name('content-calendar.submit');
+
+                        Route::post('/content-calendar/{id}/approve', 'approve')
+                            ->whereNumber('id')
+                            ->middleware(['role:marketing_manager|admin'])
+                            ->name('content-calendar.approve');
+
+                        Route::get('/content-calendar/{id}/weekly-metrics', 'getWeeklyMetrics')
+                            ->whereNumber('id')
+                            ->name('content-calendar.weekly-metrics.get');
+
+                        Route::post('/content-calendar/{id}/weekly-metrics', 'saveWeeklyMetrics')
+                            ->whereNumber('id')
+                            ->name('content-calendar.weekly-metrics');
+
+                        Route::get('/content-calendar/weekly-dashboard', 'weeklyDashboard')
+                            ->name('content-calendar.weekly-dashboard');
+
+                        Route::post('/content-calendar/{id}/feedback', 'storeFeedback')
+                            ->whereNumber('id')
+                            ->name('content-calendar.feedback.store');
+
+                        Route::put('/content-calendar/{id}/feedback/{feedbackId}', 'updateFeedback')
+                            ->whereNumber('id')
+                            ->whereNumber('feedbackId')
+                            ->name('content-calendar.feedback.update');
+
+                        Route::delete('/content-calendar/{id}/feedback/{feedbackId}', 'deleteFeedback')
+                            ->whereNumber('id')
+                            ->name('content-calendar.feedback.delete');
+                    });
+
+                /*
+                |--------------------------------------------------------------------------
+                | Weekly Tasks
+                |--------------------------------------------------------------------------
+                */
+                Route::controller(WeeklyTaskController::class)
+                    ->group(function () {
+
+                        Route::get('/weekly-tasks', 'index')
+                            ->name('weekly-tasks');
+
+                        Route::get('/weekly-tasks/create', 'create')
+                            ->name('weekly-tasks.create');
+
+                        Route::post('/weekly-tasks', 'store')
+                            ->name('weekly-tasks.store');
+
+                        Route::get('/weekly-tasks/{id}', 'show')
+                            ->whereNumber('id')
+                            ->name('weekly-tasks.show');
+
+                        Route::get('/weekly-tasks/{id}/edit', 'edit')
+                            ->whereNumber('id')
+                            ->name('weekly-tasks.edit');
+
+                        Route::put('/weekly-tasks/{id}', 'update')
+                            ->whereNumber('id')
+                            ->name('weekly-tasks.update');
+
+                        Route::delete('/weekly-tasks/{id}', 'destroy')
+                            ->whereNumber('id')
+                            ->name('weekly-tasks.destroy');
+                    });
+            });
+
+    });
+/*
+|--------------------------------------------------------------------------
+| Finance
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:admin|accounting'])
+    ->prefix('finance')
+    ->name('finance.')
+    ->group(function () {
+        Route::get('/', [FinanceDashboardController::class, 'index'])->name('index');
+
+        Route::prefix('customer-debts')->name('customer-debts.')->group(function () {
+            Route::get('/', [CustomerDebtController::class, 'index'])->name('index');
+            Route::get('/by-customer', [CustomerDebtController::class, 'byCustomer'])->name('by-customer');
+            Route::get('/payment-history', [CustomerDebtController::class, 'paymentHistory'])->name('payment-history');
+        });
+
+        Route::prefix('supplier-debts')->name('supplier-debts.')->group(function () {
+            Route::get('/', [SupplierDebtController::class, 'index'])->name('index');
+        });
+
+        Route::prefix('receipts')->name('receipts.')->group(function () {
+    Route::get('/', [ReceiptController::class, 'index'])->name('index');
+    Route::get('/create', [ReceiptController::class, 'create'])->name('create');
+    Route::post('/', [ReceiptController::class, 'store'])->name('store');
+    Route::delete('/{receipt}', [ReceiptController::class, 'destroy'])->name('destroy');
+});
+
+     Route::prefix('payments')->name('payments.')->group(function () {
+    Route::get('/', [PaymentController::class, 'index'])->name('index');
+    Route::get('/create', [PaymentController::class, 'create'])->name('create');
+    Route::post('/', [PaymentController::class, 'store'])->name('store');
+    Route::delete('/{payment}', [PaymentController::class, 'destroy'])->name('destroy');
+});
+
+        Route::prefix('accounts')->name('accounts.')->group(function () {
+    Route::get('/', [AccountController::class, 'index'])->name('index');
+    Route::get('/create', [AccountController::class, 'create'])->name('create');
+    Route::post('/', [AccountController::class, 'store'])->name('store');
+    Route::get('/{account}/edit', [AccountController::class, 'edit'])->name('edit');
+    Route::put('/{account}', [AccountController::class, 'update'])->name('update');
+    Route::delete('/{account}', [AccountController::class, 'destroy'])->name('destroy');
+});
+
+        Route::get('/payment-request', [FinanceDashboardController::class, 'paymentRequest'])->name('payment-request');
+        Route::get('/salary', [FinanceDashboardController::class, 'salary'])->name('salary');
+        Route::get('/salary/my', [FinanceDashboardController::class, 'mySalary'])->name('salary.my');
+Route::get('/salary/{user}', [FinanceDashboardController::class, 'salaryDetail'])->name('salary.detail');
+        Route::get('/budget', [BudgetController::class, 'index'])->name('budget');
+        Route::post('/salary/save', [FinanceDashboardController::class, 'saveSalary'])->name('salary.save');
+        Route::get('/reports', [FinanceReportController::class, 'index'])->name('reports');
+    });
+    /*
+|--------------------------------------------------------------------------
+| Kỹ thuật - Tính lương
+|--------------------------------------------------------------------------
+*/
+/*
+|--------------------------------------------------------------------------
+| Kỹ thuật - Tính lương KPI
+|--------------------------------------------------------------------------
+*/
+/*
+|--------------------------------------------------------------------------
+| Kỹ thuật - Tính lương KPI
+|--------------------------------------------------------------------------
+*/
+/*
+|--------------------------------------------------------------------------
+| Kỹ thuật - Lương KPI
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:ky_thuat|accounting|admin|manager'])
+    ->prefix('ky-thuat/luong')
+    ->name('ky-thuat.luong.')
+    ->group(function () {
+
+        Route::get('/', [\App\Http\Controllers\TechnicalPayrollController::class, 'index'])
+            ->name('index');
+
+        Route::post('/luu', [\App\Http\Controllers\TechnicalPayrollController::class, 'store'])
+            ->name('store');
+
+        Route::get('/settings', [\App\Http\Controllers\TechnicalPayrollController::class, 'settings'])
+            ->name('settings');
+
+        Route::post('/settings', [\App\Http\Controllers\TechnicalPayrollController::class, 'saveSettings'])
+            ->name('settings.save');
+
+        Route::get('/{id}', [\App\Http\Controllers\TechnicalPayrollController::class, 'show'])
+            ->whereNumber('id')
+            ->name('show');
+
+        Route::get('/{id}/edit', [\App\Http\Controllers\TechnicalPayrollController::class, 'edit'])
+            ->whereNumber('id')
+            ->name('edit');
+
+        Route::post('/{id}/update', [\App\Http\Controllers\TechnicalPayrollController::class, 'update'])
+            ->whereNumber('id')
+            ->name('update');
+
+        Route::post('/{id}/approve', [\App\Http\Controllers\TechnicalPayrollController::class, 'approve'])
+            ->whereNumber('id')
+            ->name('approve');  
+        
+    });
+/*
+|--------------------------------------------------------------------------
+| Đề xuất chung
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])
+    ->prefix('de-xuat')
+    ->name('de-xuat.')
+    ->group(function () {
+
+        Route::get('/', [\App\Http\Controllers\ProposalController::class, 'index'])
+            ->name('index');
+
+        Route::get('/tao', [\App\Http\Controllers\ProposalController::class, 'create'])
+            ->name('create');
+
+        Route::post('/luu', [\App\Http\Controllers\ProposalController::class, 'store'])
+            ->name('store');
+
+        Route::get('/{id}', [\App\Http\Controllers\ProposalController::class, 'show'])
+            ->whereNumber('id')
+            ->name('show');
+
+        Route::post('/{id}/duyet', [\App\Http\Controllers\ProposalController::class, 'approve'])
+            ->whereNumber('id')
+            ->name('approve');
+
+        Route::post('/{id}/tu-choi', [\App\Http\Controllers\ProposalController::class, 'reject'])
+            ->whereNumber('id')
+            ->name('reject');
+
+        Route::post('/{id}/xoa', [\App\Http\Controllers\ProposalController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('destroy');
+    });
+    Route::middleware('auth')->get('/sidebar/status', function () {
+    return response()->json(
+        \App\Support\EgoSidebarStatus::data(request()->boolean('debug'))
+    );
+})->name('sidebar.status');
+    require __DIR__ . '/hr.php';
+//Route::get('/clear-opcache', function () {
+//    if (function_exists('opcache_reset')) {
+//        opcache_reset();
+//        return 'Opcache cleared!';
+//    }
+//    return 'Opcache not enabled';
+//});
+
+
+

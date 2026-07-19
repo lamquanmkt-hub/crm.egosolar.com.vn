@@ -1,0 +1,220 @@
+@extends('layouts.app')
+@section('title', 'Danh sách khách hàng')
+@section('content')
+{{--    @if(config('app.debug'))--}}
+{{--        <div class="alert alert-info">--}}
+{{--            <strong>Debug Info:</strong><br>--}}
+
+{{--            User: {{ auth()->user()->name }} (ID: {{ auth()->user()->id }})<br>--}}
+
+{{--            Roles:--}}
+{{--            {{ auth()->user()->roles->pluck('name')->implode(', ') }}<br>--}}
+
+{{--            Permissions:--}}
+{{--            {{ auth()->user()->getAllPermissions()->pluck('name')->implode(', ') }}<br>--}}
+{{--        </div>--}}
+{{--    @endif--}}
+
+    <div class="container-fluid px-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold text-uppercase text-secondary">DANH SÁCH KHÁCH HÀNG</h1>
+            @can('customer.create')
+                <button class="btn btn-primary" onclick="openCustomerForm()">
+                    <i class="bi bi-plus-lg"></i> Thêm mới
+                </button>
+            @endcan
+        </div>
+        {{-- Thanh công cụ tìm kiếm và lọc --}}
+        <form action="{{ route('customers.index') }}" method="GET" class="mb-3">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small">Tìm kiếm</label>
+                            <input type="text" name="search" class="form-control form-control-sm"
+                                   value="{{ request('search') }}"
+                                   placeholder="Tên, SĐT, Email...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Khu vực</label>
+                            <select name="region_id" class="form-select form-select-sm">
+                                <option value="">-- Tất cả --</option>
+                                @foreach($regions as $region)
+                                    <option value="{{ $region->id }}" {{ request('region_id') == $region->id ? 'selected' : '' }}>
+                                        {{ $region->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Loại khách</label>
+                            <select name="customer_type_id" class="form-select form-select-sm">
+                                <option value="">-- Tất cả --</option>
+                                @foreach($customerTypes as $type)
+                                    <option value="{{ $type->id }}" {{ request('customer_type_id') == $type->id ? 'selected' : '' }}>
+                                        {{ $type->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Trạng thái</label>
+                            <select name="customer_status" class="form-select form-select-sm">
+                                <option value="">-- Tất cả --</option>
+                                <option value="lead" {{ request('customer_status') == 'lead' ? 'selected' : '' }}>Lead</option>
+                                <option value="member" {{ request('customer_status') == 'member' ? 'selected' : '' }}>Member</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">Người phụ trách</label>
+                            <select name="owner_id" class="form-select form-select-sm">
+                                <option value="">-- Tất cả --</option>
+                                @foreach($users as $user)
+                                    <option value="{{ $user->id }}" {{ request('owner_id') == $user->id ? 'selected' : '' }}>
+                                        {{ $user->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="bi bi-search"></i> Lọc
+                            </button>
+                        </div>
+                    </div>
+                    @if(request()->hasAny(['search', 'region_id', 'customer_type_id', 'customer_status', 'owner_id']))
+                        <div class="mt-2">
+                            <a href="{{ route('customers.index') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Xóa bộ lọc
+                            </a>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </form>
+        {{-- Bảng dữ liệu --}}
+        <div class="table-responsive shadow-sm">
+            <table class="table table-striped table-bordered align-middle table-hover text-center">
+                <thead class="table-dark small">
+                <tr>
+                    <th><input type="checkbox"></th>
+                    <th>Action</th>
+                    <th>Ngày liên hệ</th>
+                    <th>Nguồn</th>
+                    <th>Tên Facebook</th>
+                    <th>Link Facebook</th>
+                    <th>Tên Zalo</th>
+                    <th>Số điện thoại</th>
+                    <th>Loại khách</th>
+                    <th>Trạng thái</th>
+                    <th>Ghi chú</th>
+                    <th>Người phụ trách</th>
+                    <th>Ngày mua hàng</th>
+                    <th>Sản phẩm đã mua</th>
+                    <th>Số tiền khách đã mua</th>
+                    <th>Hình thức thanh toán</th>
+                    <th>Đánh giá</th>
+                    <th>Khu vực</th>
+                    <th>Ngày cập nhật cuối</th>
+                    <th>Người nhập</th>
+                    <th>Ghi chú marketing</th>
+                </tr>
+                </thead>
+                <tbody class="small">
+                @forelse ($customers as $c)
+                    <tr owner_id="{{ $c->owner_id }}" user_id="{{ auth()->id() }}">
+                        <td><input type="checkbox"></td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                @can('view', $c)
+                                    <a href="{{ route('customers.show', $c->id) }}" class="btn btn-outline-info" title="Xem chi tiết">
+                                        <i class="bi bi-eye-fill"></i>
+                                    </a>
+                                @endif
+                                @can('update', $c)
+                                    <a class="btn btn-outline-warning"
+                                       onclick="openCustomerForm('{{ route('customers.popup-form', $c->id) }}')" title="Sửa">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                @endcan
+                                @can('customer.delete')
+                                    <form action="{{ route('customers.destroy', $c->id) }}" method="POST" class="d-inline-block">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-outline-danger"
+                                                onclick="return confirm('Xóa khách hàng này?')" title="Xóa">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                @endcan
+                            </div>
+                        </td>
+                        {{-- Ngày liên hệ --}}
+                        <td>{{ $c->latestLead->contact_date ?? '-' }}</td>
+                        {{-- Nguồn --}}
+                        <td>{{ $c->latestLead->source->name ?? 'N/A' }}</td>
+                        {{-- Tên Facebook + Link --}}
+                        <td>{{ $c->facebook_name }}</td>
+                        <td>
+                            @if($c->facebook_link)
+                                <a href="{{ $c->facebook_link }}" target="_blank">Xem link</a>
+                            @else - @endif
+                        </td>
+                        {{-- Zalo ID --}}
+                        <td>{{ $c->zalo_id }}</td>
+                        {{-- SĐT --}}
+                        <td>{{ $c->phone }}</td>
+                        {{-- Loại khách --}}
+                        <td>{{ $c->customerType->name ?? 'N/A' }}</td>
+                        {{-- Trạng thái --}}
+                        <td>
+                            <span class="badge {{ $c->customer_status == 'member' ? 'bg-success' : 'bg-warning' }}">
+                                {{ ucfirst($c->customer_status) }}
+                            </span>
+                        </td>
+                        {{-- Ghi chú --}}
+                        <td class="text-start">{{ $c->latestLead->note ?? '-' }}</td>
+                        {{-- Người phụ trách --}}
+                        <td>{{ $c->assignedUser->name ?? 'Chưa gán' }}</td>
+                        {{-- Ngày mua hàng --}}
+                        <td>{{ $c->latestOrder->order_date ?? '-' }}</td>
+                        {{-- Sản phẩm đã mua --}}
+                        <td>
+                            {{ $c->latestOrder?->orderItems?->pluck('product.name')?->join(', ') ?? '-' }}
+                        </td>
+                        {{-- Tổng tiền --}}
+                        <td>
+                            @if($c->latestPayment)
+                                {{ number_format($c->latestPayment->amount, 0, ',', '.') }} đ
+                            @else - @endif
+                        </td>
+                        {{-- Hình thức thanh toán --}}
+                        <td>{{ $c->latestPayment->method->method_name ?? '-' }}</td>
+                        {{-- Đánh giá khách --}}
+                        <td>{{ $c->is_potential ? '⭐ Tiềm năng' : '-' }}</td>
+                        {{-- Khu vực --}}
+                        <td>{{ $c->region->name ?? '-' }}</td>
+                        {{-- Ngày cập nhật cuối --}}
+                        <td>{{ $c->updated_at?->format('d/m/Y H:i') }}</td>
+                        {{-- Người nhập --}}
+                        <td>{{ $c->creator->name ?? 'N/A' }}</td>
+                        {{-- Ghi chú marketing --}}
+                        <td class="text-start text-muted">{{ $c->latestLead->marketing_note ?? '-' }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="21" class="text-center text-muted py-3">
+                            Không có dữ liệu khách hàng.
+                        </td>
+                    </tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+        {{-- Phân trang --}}
+        <div class="mt-3">
+            {{ $customers->links('pagination::bootstrap-5') }}
+        </div>
+    </div>
+
+@endsection
