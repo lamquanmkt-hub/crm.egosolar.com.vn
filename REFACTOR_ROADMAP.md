@@ -79,6 +79,15 @@ Tài liệu này ghi lại (1) những gì đã làm trong đợt refactor 2026-
 ### Vì sao KHÔNG nhân bản đủ 95 interface như crm-shop
 Interface chỉ trả cổ tức khi có nơi inject hoặc cần seam để test. Các lớp còn lại của egosolar là helper nội bộ dùng đúng 1 chỗ (exporter, `OrderStockGuard`, debug tool, `SalesCommissionScope` chỉ chứa hằng) — thêm interface cho chúng là ceremony, làm tăng file phải đồng bộ mà không đổi được gì. Tiêu chí đã dùng: **được inject ≥2 nơi, hoặc là seam ra hệ thống ngoài.**
 
+### P1g. Cấu trúc thư mục + Enum + DTO (đợt 2026-07-20, sau deploy)
+- **Controller**: nhóm 51 controller từ gốc vào domain theo mapping crm-shop (CRM/Inventory/System/Finance/Projects/Solar/Tasks/Content/Marketing/TechnicalKpi). Gốc chỉ còn `Controller.php`. Xử lý 3 cặp controller **trùng lặp** phát hiện lúc di chuyển — xem commit `14225ed`; ⚠️ `Marketing/MarketingMetricController` hiện **không có route nào trỏ tới**, cần quyết định giữ hay bỏ.
+- **Service**: KHÔNG xáo trộn — đo thấy 22/31 service ở gốc của egosolar cũng ở gốc bên crm-shop. Chỉ chuyển 5 cái thực sự lệch (CommissionEngine → CRM/Commission, StockLot → Inventory/Stock, SolarMaintenance* → Technical).
+- **Qualifier → import**: 335 lượt trong 43 file, dùng `token_get_all()` (không phải regex) để không đụng chuỗi/comment; tự bỏ qua 3 ca trùng tên ngắn.
+- **Enum**: `SupplierDebtStatus`, `SerialUnitState`, `ShippingStatus` — đều đã wire vào code thật.
+- **DTO**: `DTOs/Order/WarehouseIssueDTO` theo mẫu crm-shop.
+
+⚠️ **Bẫy khi đổi namespace**: lớp cùng namespace được tham chiếu bằng **tên ngắn không có `use`** sẽ gãy sau khi move (đã xảy ra: `OrderReturnInventoryService` → `StockLotService`, làm vỡ `route:list`). Sau mỗi lần move PHẢI chạy đủ: `route:list` (so số URI với baseline) + `route:cache` + resolve toàn bộ controller qua container + test. Riêng `route:cache` chỉ kiểm tra class **tồn tại**, không kiểm tra **resolve được DI** — cần cả 2.
+
 ## CÒN LẠI — theo thứ tự ưu tiên
 
 ### P1e. Tách tiếp phần còn lại của 4 controller trên (tuỳ chọn)
