@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Providers;
+
 use App\Repositories\Eloquent\BrandRepository;
 use App\Repositories\Eloquent\CustomerRepository;
 use App\Repositories\Eloquent\LeadRepository;
@@ -23,6 +25,7 @@ use App\Repositories\Interfaces\ProductRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\Interfaces\WarehouseRepositoryInterface;
 use Illuminate\Support\ServiceProvider;
+
 class RepositoryServiceProvider extends ServiceProvider
 {
     /**
@@ -31,15 +34,15 @@ class RepositoryServiceProvider extends ServiceProvider
     public function register(): void
     {
         //
-	    $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);
-	    $this->app->bind(OrderRepositoryInterface::class, OrderRepository::class);
-	    $this->app->bind(LeadRepositoryInterface::class, LeadRepository::class);
-	    $this->app->bind(PaymentRepositoryInterface::class, PaymentRepository::class);
-	    $this->app->bind(UserRepositoryInterface::class,UserRepository::class);
-	    $this->app->bind(ProductRepositoryInterface::class,ProductRepository::class);
-	    $this->app->bind(ProductCategoryRepositoryInterface::class,ProductCategoryRepository::class);
-	    $this->app->bind(WarehouseRepositoryInterface::class,WarehouseRepository::class);
-        $this->app->bind(PaymentMethodRepositoryInterface::class,PaymentMethodRepository::class);
+        $this->app->bind(CustomerRepositoryInterface::class, CustomerRepository::class);
+        $this->app->bind(OrderRepositoryInterface::class, OrderRepository::class);
+        $this->app->bind(LeadRepositoryInterface::class, LeadRepository::class);
+        $this->app->bind(PaymentRepositoryInterface::class, PaymentRepository::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
+        $this->app->bind(ProductRepositoryInterface::class, ProductRepository::class);
+        $this->app->bind(ProductCategoryRepositoryInterface::class, ProductCategoryRepository::class);
+        $this->app->bind(WarehouseRepositoryInterface::class, WarehouseRepository::class);
+        $this->app->bind(PaymentMethodRepositoryInterface::class, PaymentMethodRepository::class);
         $this->app->bind(BrandRepositoryInterface::class, BrandRepository::class);
         $this->app->bind(PriceTierRepositoryInterface::class, PriceTierRepository::class);
     }

@@ -1,13 +1,27 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Http\Requests\Push;
+
 use Illuminate\Foundation\Http\FormRequest;
+
+/**
+ * FormRequest validate dữ liệu đăng ký nhận thông báo đẩy (Web Push).
+ */
 final class SubscribePushSubscriptionRequest extends FormRequest
 {
+    /**
+     * Chỉ cho phép người dùng đã đăng nhập.
+     */
     public function authorize(): bool
     {
         return $this->user() !== null;
     }
+
+    /**
+     * Quy tắc validate dữ liệu đăng ký thông báo đẩy.
+     */
     public function rules(): array
     {
         return [

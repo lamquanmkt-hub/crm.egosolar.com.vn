@@ -11,8 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller ngân sách marketing: tổng hợp theo khoảng ngày và CRUD.
+ */
 class MarketingBudgetController extends Controller
 {
+    /**
+     * Tổng hợp ngân sách + chỉ số theo khoảng ngày/kênh/chiến dịch (phân bổ theo số ngày overlap).
+     */
     public function index(Request $request)
     {
         // Filters (NEW: from/to + giữ month cũ để tương thích tạm)
@@ -249,6 +255,11 @@ class MarketingBudgetController extends Controller
         ]);
     }
 
+    /**
+     * Parse ngày từ UI (hỗ trợ yyyy-mm-dd và dd/mm/yyyy).
+     *
+     * @return Carbon|null
+     */
     private function parseUiDate(?string $value): ?Carbon
     {
         $value = trim((string)$value);
@@ -267,6 +278,11 @@ class MarketingBudgetController extends Controller
         return null;
     }
 
+    /**
+     * Xác định khoảng ngày lọc, mặc định là cả tháng hiện tại.
+     *
+     * @return array [$start, $end, $fromView, $toView]
+     */
     private function resolveDateRange(?string $fromRaw, ?string $toRaw): array
     {
         $from = $this->parseUiDate($fromRaw);
@@ -315,6 +331,9 @@ class MarketingBudgetController extends Controller
 
     // ====== các hàm store/edit/update/destroy/clone giữ nguyên ======
 
+    /**
+     * Thêm dòng ngân sách theo tháng.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -335,6 +354,9 @@ class MarketingBudgetController extends Controller
         return back()->with('success', 'Đã thêm ngân sách.');
     }
 
+    /**
+     * Hiển thị form sửa ngân sách.
+     */
     public function edit($id)
     {
         $row = MarketingBudget::with('marketingCampaign')->findOrFail($id);
@@ -343,6 +365,9 @@ class MarketingBudgetController extends Controller
         return view('marketing.budget_edit', compact('row', 'campaigns'));
     }
 
+    /**
+     * Cập nhật dòng ngân sách.
+     */
     public function update(Request $request, $id)
     {
         $row = MarketingBudget::findOrFail($id);
@@ -364,6 +389,9 @@ class MarketingBudgetController extends Controller
         return redirect()->route('marketing.budget.edit', $row->id)->with('success', 'Đã cập nhật ngân sách.');
     }
 
+    /**
+     * Xóa dòng ngân sách.
+     */
     public function destroy($id)
     {
         $row = MarketingBudget::findOrFail($id);
@@ -372,6 +400,9 @@ class MarketingBudgetController extends Controller
         return back()->with('success', 'Đã xóa dòng ngân sách.');
     }
 
+    /**
+     * Nhân bản dòng ngân sách sang tháng kế tiếp (nếu chưa tồn tại).
+     */
     public function cloneToNextMonth($id)
     {
         $row = MarketingBudget::findOrFail($id);

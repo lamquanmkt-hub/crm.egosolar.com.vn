@@ -6,7 +6,7 @@ use App\Enums\Permission;
 
 /**
  * PermissionHelper - Helper functions for permissions
- * 
+ *
  * Usage in Controllers:
  * if (PermissionHelper::can(Permission::ORDER_VIEW_ALL)) {
  *     // Show order list

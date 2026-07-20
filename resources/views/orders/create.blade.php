@@ -124,10 +124,7 @@
 @section('scripts')
     <script>
         window.customerTypeId = null;
-        window.allPriceTiers = {!! json_encode(
-            $orderCreatePriceTiersJs,
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        ) !!};
+        window.allPriceTiers = @json($orderCreatePriceTiersJs);
     </script>
     <script src="{{ asset('js/order-form.js') }}?v={{ filemtime(public_path('js/order-form.js')) }}"></script>
 @endsection

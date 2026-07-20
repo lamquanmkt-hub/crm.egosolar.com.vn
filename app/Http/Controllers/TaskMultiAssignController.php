@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
+/**
+ * Controller dự phòng cho tính năng giao việc nhiều người (chưa triển khai).
+ */
 class TaskMultiAssignController extends Controller
 {
     //

@@ -7,8 +7,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * Controller phiếu nhập hàng nhà cung cấp: tạo phiếu, nhập kho, theo dõi công nợ.
+ */
 class ProductGoodsReceiptController extends Controller
 {
+    /**
+     * Danh sách phiếu nhập hàng có tìm kiếm, lọc trạng thái thanh toán và thống kê.
+     */
     public function index(Request $request)
     {
         abort_unless(Schema::hasTable('product_goods_receipts'), 500, 'Chưa có bảng product_goods_receipts.');
@@ -54,6 +60,9 @@ class ProductGoodsReceiptController extends Controller
         ));
     }
 
+    /**
+     * Tạo phiếu nhập hàng NCC kèm dòng hàng; nhập kho luôn nếu action=post.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -173,6 +182,9 @@ class ProductGoodsReceiptController extends Controller
             ->with('success', $action === 'post' ? 'Đã nhập hàng và cập nhật kho.' : 'Đã lưu phiếu nháp.');
     }
 
+    /**
+     * Ghi nhận nhập kho cho phiếu trong transaction.
+     */
     public function post($id)
     {
         try {
@@ -186,6 +198,9 @@ class ProductGoodsReceiptController extends Controller
         return back()->with('success', 'Đã cập nhật kho cho phiếu nhập hàng.');
     }
 
+    /**
+     * Xóa phiếu nháp (phiếu đã nhập kho thì không xóa).
+     */
     public function destroy($id)
     {
         $row = DB::table('product_goods_receipts')->where('id', (int) $id)->first();
@@ -203,11 +218,14 @@ class ProductGoodsReceiptController extends Controller
         return back()->with('success', 'Đã xóa phiếu nháp.');
     }
 
+    /**
+     * Xử lý nhập kho: cộng tồn từng dòng hàng, tạo lot giá vốn, sự kiện kho và chuyển trạng thái posted.
+     */
     private function postInsideTransaction(int $id): void
     {
         $receipt = DB::table('product_goods_receipts')->where('id', $id)->lockForUpdate()->first();
 
-        if (!$receipt) {
+        if (! $receipt) {
             throw new \RuntimeException('Không tìm thấy phiếu nhập hàng.');
         }
 
@@ -221,7 +239,7 @@ class ProductGoodsReceiptController extends Controller
             throw new \RuntimeException('Phiếu chưa có hàng hóa.');
         }
 
-        $eventId = $this->createInventoryEvent('goods_receipt', 'Nhập hàng NCC #' . $receipt->code);
+        $eventId = $this->createInventoryEvent('goods_receipt', 'Nhập hàng NCC #'.$receipt->code);
 
         foreach ($items as $item) {
             $this->adjustStock(
@@ -246,6 +264,9 @@ class ProductGoodsReceiptController extends Controller
         ]);
     }
 
+    /**
+     * Dữ liệu dropdown cho form: công ty, kho, sản phẩm kèm tồn hiện tại.
+     */
     private function formData(): array
     {
         $companies = collect();
@@ -287,7 +308,9 @@ class ProductGoodsReceiptController extends Controller
         return compact('companies', 'warehouses', 'products');
     }
 
-
+    /**
+     * Kiểm tra kho và sản phẩm phải thuộc công ty đã chọn, sai thì ném exception.
+     */
     private function guardCompanyWarehouseProducts(int $companyId, int $warehouseId, array $productIds): void
     {
         if ($companyId <= 0) {
@@ -301,18 +324,18 @@ class ProductGoodsReceiptController extends Controller
         if (Schema::hasTable('crm_warehouses') && Schema::hasColumn('crm_warehouses', 'company_id')) {
             $warehouse = DB::table('crm_warehouses')->where('id', $warehouseId)->first();
 
-            if (!$warehouse) {
+            if (! $warehouse) {
                 throw new \RuntimeException('Kho nhập hàng không tồn tại.');
             }
 
-            if (!empty($warehouse->company_id) && (int) $warehouse->company_id !== $companyId) {
+            if (! empty($warehouse->company_id) && (int) $warehouse->company_id !== $companyId) {
                 throw new \RuntimeException('Kho nhập hàng không thuộc công ty đã chọn.');
             }
         }
 
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
 
-        if (!$productIds) {
+        if (! $productIds) {
             throw new \RuntimeException('Vui lòng chọn hàng hóa nhập kho.');
         }
 
@@ -329,14 +352,20 @@ class ProductGoodsReceiptController extends Controller
         }
     }
 
+    /**
+     * Sinh mã phiếu nhập hàng dạng NH-Ymd-XXXX.
+     */
     private function makeCode(): string
     {
-        $prefix = 'NH-' . now()->format('Ymd') . '-';
-        $count = DB::table('product_goods_receipts')->where('code', 'like', $prefix . '%')->count() + 1;
+        $prefix = 'NH-'.now()->format('Ymd').'-';
+        $count = DB::table('product_goods_receipts')->where('code', 'like', $prefix.'%')->count() + 1;
 
-        return $prefix . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $count, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Cộng/trừ tồn kho theo cột thực có, ghi stock movement và đồng bộ tổng lên catalog.
+     */
     private function adjustStock(int $productId, int $warehouseId, int $companyId, float $changeQty, string $reason, int $referenceId): void
     {
         $stockTable = 'crm_product_stock';
@@ -429,9 +458,12 @@ class ProductGoodsReceiptController extends Controller
         }
     }
 
+    /**
+     * Tạo lot tồn kho với giá vốn trước/sau VAT cho dòng hàng nhập.
+     */
     private function createStockLot(object $receipt, object $item): void
     {
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             return;
         }
 
@@ -444,7 +476,7 @@ class ProductGoodsReceiptController extends Controller
             'company_id' => (int) $receipt->company_id,
             'warehouse_id' => (int) $receipt->warehouse_id,
             'lot_code' => $receipt->code,
-            'lot_name' => 'Nhập hàng NCC ' . $receipt->code,
+            'lot_name' => 'Nhập hàng NCC '.$receipt->code,
             'received_at' => now(),
             'qty_in' => $qty,
             'qty_remaining' => $qty,
@@ -455,7 +487,7 @@ class ProductGoodsReceiptController extends Controller
             'actual_cost_after_vat' => $qty > 0 ? ((float) $item->amount / $qty) : $unitCost,
             'source_type' => 'product_goods_receipt',
             'source_id' => (int) $receipt->id,
-            'note' => $receipt->supplier_name . ' - HĐ: ' . $receipt->invoice_no,
+            'note' => $receipt->supplier_name.' - HĐ: '.$receipt->invoice_no,
             'created_by' => auth()->id(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -464,9 +496,12 @@ class ProductGoodsReceiptController extends Controller
         DB::table('crm_product_stock_lots')->insert(array_intersect_key($data, array_flip($cols)));
     }
 
+    /**
+     * Tạo sự kiện kho, trả về id hoặc null nếu thiếu bảng.
+     */
     private function createInventoryEvent(string $type, string $note): ?int
     {
-        if (!Schema::hasTable('crm_inventory_events')) {
+        if (! Schema::hasTable('crm_inventory_events')) {
             return null;
         }
 
@@ -484,9 +519,12 @@ class ProductGoodsReceiptController extends Controller
         return (int) DB::table('crm_inventory_events')->insertGetId(array_intersect_key($data, array_flip($cols)));
     }
 
+    /**
+     * Gắn tham chiếu nguồn cho sự kiện kho.
+     */
     private function createInventoryRef(?int $eventId, string $refType, int $refId): void
     {
-        if (!$eventId || !Schema::hasTable('crm_inventory_event_refs')) {
+        if (! $eventId || ! Schema::hasTable('crm_inventory_event_refs')) {
             return;
         }
 

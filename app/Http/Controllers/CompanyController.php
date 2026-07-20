@@ -7,8 +7,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
+/**
+ * Quản lý thông tin công ty: danh sách, chỉnh sửa và cập nhật (kèm tài khoản ngân hàng).
+ */
 class CompanyController extends Controller
 {
+    /**
+     * Danh sách công ty, phân trang 20 dòng theo tên.
+     */
     public function index(): View
     {
         $companies = Company::query()
@@ -18,16 +24,22 @@ class CompanyController extends Controller
         return view('companies.index', compact('companies'));
     }
 
+    /**
+     * Form chỉnh sửa thông tin một công ty.
+     */
     public function edit(Company $company): View
     {
         return view('companies.edit', compact('company'));
     }
 
+    /**
+     * Cập nhật thông tin công ty, chuẩn hóa tối đa 2 tài khoản ngân hàng và tài khoản mặc định.
+     */
     public function update(Request $request, Company $company): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', 'unique:companies,code,' . $company->id],
+            'code' => ['required', 'string', 'max:50', 'unique:companies,code,'.$company->id],
             'tax_code' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
@@ -49,10 +61,10 @@ class CompanyController extends Controller
             ->take(2)
             ->map(function ($item, $index) use ($defaultIndex) {
                 return [
-                    'bank_account' => trim((string)($item['bank_account'] ?? '')),
-                    'bank_name' => trim((string)($item['bank_name'] ?? '')),
-                    'bank_holder' => trim((string)($item['bank_holder'] ?? '')),
-                    'is_default' => ((int)$index === $defaultIndex) ? 1 : 0,
+                    'bank_account' => trim((string) ($item['bank_account'] ?? '')),
+                    'bank_name' => trim((string) ($item['bank_name'] ?? '')),
+                    'bank_holder' => trim((string) ($item['bank_holder'] ?? '')),
+                    'is_default' => ((int) $index === $defaultIndex) ? 1 : 0,
                 ];
             })
             ->filter(function ($item) {
@@ -61,7 +73,7 @@ class CompanyController extends Controller
             ->values()
             ->all();
 
-        if (!$bankAccounts && (($data['bank_account'] ?? '') || ($data['bank_name'] ?? '') || ($data['bank_holder'] ?? ''))) {
+        if (! $bankAccounts && (($data['bank_account'] ?? '') || ($data['bank_name'] ?? '') || ($data['bank_holder'] ?? ''))) {
             $bankAccounts[] = [
                 'bank_account' => $data['bank_account'] ?? '',
                 'bank_name' => $data['bank_name'] ?? '',
@@ -72,10 +84,10 @@ class CompanyController extends Controller
 
         if ($bankAccounts) {
             $hasDefault = collect($bankAccounts)->contains(function ($item) {
-                return !empty($item['is_default']);
+                return ! empty($item['is_default']);
             });
 
-            if (!$hasDefault) {
+            if (! $hasDefault) {
                 $bankAccounts[0]['is_default'] = 1;
             }
 

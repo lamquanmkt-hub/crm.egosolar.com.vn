@@ -1,9 +1,13 @@
 <?php
+
 namespace App\Models\Tasks;
+
 use Illuminate\Database\Eloquent\Model;
+
 class WeeklyTask extends Model
 {
     protected $table = 'weekly_tasks';
+
     protected $fillable = [
         'title',
         'priority',
@@ -18,12 +22,13 @@ class WeeklyTask extends Model
         'links',        // json
         'attachments',  // json
     ];
+
     protected $casts = [
-        'assignees'   => 'array',
-        'links'       => 'array',
+        'assignees' => 'array',
+        'links' => 'array',
         'attachments' => 'array',
-        'start_date'  => 'date',
-        'due_date'    => 'date',
-        'progress'    => 'integer',
+        'start_date' => 'date',
+        'due_date' => 'date',
+        'progress' => 'integer',
     ];
 }

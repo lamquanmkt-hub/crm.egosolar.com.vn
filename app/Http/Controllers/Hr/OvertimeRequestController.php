@@ -11,8 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý đơn đăng ký tăng ca của nhân viên.
+ */
 class OvertimeRequestController extends Controller
 {
+    /**
+     * Hiển thị danh sách đơn tăng ca theo tháng / trạng thái / nhân viên kèm số liệu tổng hợp.
+     */
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -86,6 +92,9 @@ class OvertimeRequestController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form đăng ký tăng ca kèm danh sách người duyệt.
+     */
     public function create()
     {
         $approvers = $this->approverOptions();
@@ -93,6 +102,9 @@ class OvertimeRequestController extends Controller
         return view('hr.overtime.create', compact('approvers'));
     }
 
+    /**
+     * Tạo đơn tăng ca mới; tự cộng thêm 1 ngày nếu giờ kết thúc qua đêm, giới hạn tối đa 16 giờ/lần.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -135,6 +147,9 @@ class OvertimeRequestController extends Controller
             ->with('success', 'Đã gửi đơn đăng ký tăng ca.');
     }
 
+    /**
+     * Duyệt đơn tăng ca và đồng bộ ghi chú vào bản ghi chấm công.
+     */
     public function approve(Request $request, OvertimeRequest $overtime)
     {
         $user = auth()->user();
@@ -158,6 +173,9 @@ class OvertimeRequestController extends Controller
         return back()->with('success', 'Đã duyệt đơn tăng ca và note vào chấm công.');
     }
 
+    /**
+     * Từ chối đơn tăng ca.
+     */
     public function reject(Request $request, OvertimeRequest $overtime)
     {
         $user = auth()->user();
@@ -179,6 +197,9 @@ class OvertimeRequestController extends Controller
         return back()->with('success', 'Đã từ chối đơn tăng ca.');
     }
 
+    /**
+     * Ghi / thay thế ghi chú tăng ca (theo tag) vào bản ghi chấm công của ngày tương ứng.
+     */
     private function syncAttendanceNote(OvertimeRequest $overtime): void
     {
         $date = Carbon::parse($overtime->overtime_date)->toDateString();
@@ -219,6 +240,9 @@ class OvertimeRequestController extends Controller
         });
     }
 
+    /**
+     * Kiểm tra user có quyền duyệt đơn tăng ca (quản lý HR hoặc đúng người duyệt).
+     */
     private function canApprove($user, OvertimeRequest $overtime): bool
     {
         if (!$user) {
@@ -228,6 +252,9 @@ class OvertimeRequestController extends Controller
         return $this->canManageHr($user) || (int) $overtime->approver_id === (int) $user->id;
     }
 
+    /**
+     * Kiểm tra user thuộc nhóm quản lý HR (admin / accounting / hr).
+     */
     private function canManageHr($user): bool
     {
         if (!$user) {
@@ -253,6 +280,9 @@ class OvertimeRequestController extends Controller
         return in_array($rawRole, $roles, true);
     }
 
+    /**
+     * Lấy danh sách người duyệt khả dụng (tối đa 100 user đang hoạt động).
+     */
     private function approverOptions()
     {
         $query = User::query()->orderBy('name');
@@ -264,6 +294,9 @@ class OvertimeRequestController extends Controller
         return $query->limit(100)->get(['id', 'name', 'email']);
     }
 
+    /**
+     * Lấy danh sách nhân viên đang hoạt động kèm phòng ban để lọc.
+     */
     private function employeeOptions()
     {
         return User::query()

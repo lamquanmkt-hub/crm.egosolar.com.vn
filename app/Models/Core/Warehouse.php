@@ -16,7 +16,6 @@ use Illuminate\Support\Collection;
 
 class Warehouse extends Model
 {
-
     public function companies()
     {
         return $this->belongsToMany(
@@ -32,8 +31,7 @@ class Warehouse extends Model
         return $this->belongsTo(Company::class, 'company_id');
     }
 
-
-        protected $table = 'crm_warehouses';
+    protected $table = 'crm_warehouses';
 
     protected $fillable = [
         'company_id',
@@ -161,7 +159,7 @@ class Warehouse extends Model
         $query = $this->availableSerialStates();
 
         if ($productId) {
-            $query->whereHas('serialUnit', fn($q) => $q->where('product_id', $productId));
+            $query->whereHas('serialUnit', fn ($q) => $q->where('product_id', $productId));
         }
 
         return $query->count();
@@ -176,7 +174,7 @@ class Warehouse extends Model
             ->with(['serialUnit.identifiers.serialIdentifier', 'serialUnit.product']);
 
         if ($productId) {
-            $query->whereHas('serialUnit', fn($q) => $q->where('product_id', $productId));
+            $query->whereHas('serialUnit', fn ($q) => $q->where('product_id', $productId));
         }
 
         if ($limit) {
@@ -221,7 +219,7 @@ class Warehouse extends Model
     {
         $product = Product::find($productId);
 
-        if (!$product) {
+        if (! $product) {
             return false;
         }
 
@@ -243,7 +241,7 @@ class Warehouse extends Model
     {
         $product = Product::find($productId);
 
-        if (!$product) {
+        if (! $product) {
             return 0;
         }
 
@@ -268,7 +266,7 @@ class Warehouse extends Model
             ->with('product')
             ->where('qty', '>', 0)
             ->get()
-            ->map(fn($stock) => [
+            ->map(fn ($stock) => [
                 'product_id' => $stock->product_id,
                 'product_name' => $stock->product->name ?? 'N/A',
                 'product_sku' => $stock->product->sku ?? 'N/A',
@@ -318,29 +316,25 @@ class Warehouse extends Model
     public function scopeWithInventory($query)
     {
         return $query->where(function ($q) {
-            $q->whereHas('stocks', fn($s) => $s->where('qty', '>', 0))
-                ->orWhereHas('serialStates', fn($s) =>
-                $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
+            $q->whereHas('stocks', fn ($s) => $s->where('qty', '>', 0))
+                ->orWhereHas('serialStates', fn ($s) => $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
                 );
         });
     }
 
     public function scopeWithSerialInventory($query)
     {
-        return $query->whereHas('serialStates', fn($s) =>
-        $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
+        return $query->whereHas('serialStates', fn ($s) => $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
         );
     }
 
     public function scopeHasProduct($query, int $productId)
     {
         return $query->where(function ($q) use ($productId) {
-            $q->whereHas('stocks', fn($s) =>
-            $s->where('product_id', $productId)
+            $q->whereHas('stocks', fn ($s) => $s->where('product_id', $productId)
                 ->where('qty', '>', 0)
-            )->orWhereHas('serialStates', fn($s) =>
-            $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
-                ->whereHas('serialUnit', fn($u) => $u->where('product_id', $productId))
+            )->orWhereHas('serialStates', fn ($s) => $s->where('current_state', SerialUnitState::STATE_IN_STOCK)
+                ->whereHas('serialUnit', fn ($u) => $u->where('product_id', $productId))
             );
         });
     }

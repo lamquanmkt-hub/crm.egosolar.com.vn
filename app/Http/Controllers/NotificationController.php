@@ -9,13 +9,22 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller tổng hợp thông báo hệ thống, công việc và nhân sự cho người dùng.
+ */
 class NotificationController extends Controller
 {
+    /**
+     * Khởi tạo controller với service thông báo.
+     */
     public function __construct(
         protected NotificationService $notificationService
     ) {}
 
     /* EGO_TASK_NOTIFY_INDEX */
+    /**
+     * Hiển thị trang danh sách thông báo tổng hợp của người dùng.
+     */
     public function index()
     {
         $userId = Auth::id();
@@ -33,6 +42,9 @@ class NotificationController extends Controller
         return view('notifications.index', compact('notifications'));
     }
 
+    /**
+     * Đánh dấu một thông báo (hệ thống/công việc/nhân sự) là đã đọc.
+     */
     public function markAsRead($id)
     {
         if (is_string($id) && str_starts_with($id, 'hr_')) {
@@ -57,7 +69,6 @@ class NotificationController extends Controller
                 : back()->with('success', 'Đã đánh dấu thông báo nhân sự đã đọc');
         }
 
-
         /* EGO_TASK_NOTIFY_MARK_READ */
         if (is_string($id) && str_starts_with($id, 'task_')) {
             $this->ensureTaskNotificationTable();
@@ -80,6 +91,9 @@ class NotificationController extends Controller
             : back()->with('success', 'Đã đánh dấu thông báo đã đọc');
     }
 
+    /**
+     * Đánh dấu tất cả thông báo của người dùng là đã đọc.
+     */
     public function markAllAsRead()
     {
         $userId = Auth::id();
@@ -93,6 +107,9 @@ class NotificationController extends Controller
             : back()->with('success', 'Đã đánh dấu tất cả thông báo đã đọc');
     }
 
+    /**
+     * Trả về JSON tổng số thông báo chưa đọc.
+     */
     public function getUnreadCount()
     {
         $userId = Auth::id();
@@ -104,6 +121,9 @@ class NotificationController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    /**
+     * Trả về danh sách thông báo tổng hợp dạng JSON cho chuông thông báo.
+     */
     public function json(Request $request)
     {
         $userId = Auth::id();
@@ -132,11 +152,15 @@ class NotificationController extends Controller
         ]);
     }
 
-
     /* EGO_TASK_NOTIFY_CONTROLLER_START */
+    /**
+     * Tạo bảng task_notifications nếu chưa tồn tại.
+     */
     private function ensureTaskNotificationTable(): void
     {
-        if (Schema::hasTable('task_notifications')) return;
+        if (Schema::hasTable('task_notifications')) {
+            return;
+        }
 
         DB::statement("CREATE TABLE IF NOT EXISTS `task_notifications` (
             `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -156,9 +180,14 @@ class NotificationController extends Controller
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
 
+    /**
+     * Đếm số thông báo công việc chưa đọc của người dùng.
+     */
     private function taskNotificationUnreadCount(int $userId): int
     {
-        if (!Schema::hasTable('task_notifications')) return 0;
+        if (! Schema::hasTable('task_notifications')) {
+            return 0;
+        }
 
         return (int) DB::table('task_notifications')
             ->where('user_id', $userId)
@@ -166,9 +195,14 @@ class NotificationController extends Controller
             ->count();
     }
 
+    /**
+     * Lấy danh sách thông báo công việc đã chuẩn hóa để hiển thị.
+     */
     private function taskNotificationItems(int $userId, int $limit)
     {
-        if (!Schema::hasTable('task_notifications')) return collect();
+        if (! Schema::hasTable('task_notifications')) {
+            return collect();
+        }
 
         $query = DB::table('task_notifications as n');
         if (Schema::hasTable('tasks')) {
@@ -183,12 +217,12 @@ class NotificationController extends Controller
             ->map(function ($row) {
                 $createdAt = $this->formatDateTime($row->created_at);
                 $taskTitle = $row->task_title ?? null;
-                $link = $row->link ?: (!empty($row->task_id) ? url('/chat/tasks/' . $row->task_id) : route('notifications.index'));
+                $link = $row->link ?: (! empty($row->task_id) ? url('/chat/tasks/'.$row->task_id) : route('notifications.index'));
 
                 return [
-                    'id' => 'task_' . $row->id,
+                    'id' => 'task_'.$row->id,
                     'title' => $row->title ?: '📌 Công việc mới được giao',
-                    'message' => $row->message ?: ($taskTitle ? 'Bạn vừa được giao công việc: ' . $taskTitle : 'Bạn vừa được giao công việc mới.'),
+                    'message' => $row->message ?: ($taskTitle ? 'Bạn vừa được giao công việc: '.$taskTitle : 'Bạn vừa được giao công việc mới.'),
                     'is_read' => (bool) $row->is_read,
                     'order_id' => null,
                     'task_id' => $row->task_id,
@@ -202,9 +236,14 @@ class NotificationController extends Controller
             });
     }
 
+    /**
+     * Đánh dấu tất cả thông báo công việc là đã đọc.
+     */
     private function markAllTaskNotificationsAsRead(int $userId): void
     {
-        if (!Schema::hasTable('task_notifications')) return;
+        if (! Schema::hasTable('task_notifications')) {
+            return;
+        }
 
         DB::table('task_notifications')
             ->where('user_id', $userId)
@@ -213,6 +252,9 @@ class NotificationController extends Controller
     }
     /* EGO_TASK_NOTIFY_CONTROLLER_END */
 
+    /**
+     * Chuẩn hóa nguồn thông báo (paginator/collection/mảng) về collection thống nhất.
+     */
     private function normalizeNotificationItems($source)
     {
         if ($source instanceof \Illuminate\Pagination\AbstractPaginator) {
@@ -234,6 +276,9 @@ class NotificationController extends Controller
         return collect($source)->map(fn ($n) => $this->normalizeNotificationItem($n));
     }
 
+    /**
+     * Chuẩn hóa một thông báo thành mảng dữ liệu hiển thị thống nhất.
+     */
     private function normalizeNotificationItem($n): array
     {
         if (is_array($n)) {
@@ -264,7 +309,7 @@ class NotificationController extends Controller
         $orderCode = data_get($arr, 'order_code')
             ?: data_get($data, 'order_code')
             ?: data_get($data, 'orderCode')
-            ?: ($orderId ? '#' . $orderId : null);
+            ?: ($orderId ? '#'.$orderId : null);
 
         $title = $this->firstText([
             data_get($arr, 'title'),
@@ -287,11 +332,11 @@ class NotificationController extends Controller
 
         $type = (string) (data_get($arr, 'type') ?: data_get($data, 'type') ?: '');
 
-        if (!$title || $title === 'Thông báo') {
+        if (! $title || $title === 'Thông báo') {
             $title = $this->guessTitle($type, $data, $orderCode);
         }
 
-        if (!$message) {
+        if (! $message) {
             $message = $this->guessMessage($type, $data, $orderCode);
         }
 
@@ -299,11 +344,11 @@ class NotificationController extends Controller
             ?: data_get($data, 'link')
             ?: data_get($data, 'url');
 
-        if (!$link && $orderId) {
-            $link = url('/orders/' . $orderId);
+        if (! $link && $orderId) {
+            $link = url('/orders/'.$orderId);
         }
 
-        if (!$link) {
+        if (! $link) {
             $link = route('notifications.index');
         }
 
@@ -319,7 +364,7 @@ class NotificationController extends Controller
 
         $isRead = array_key_exists('is_read', $arr)
             ? (bool) $arr['is_read']
-            : !empty($readAt);
+            : ! empty($readAt);
 
         return [
             'id' => $id,
@@ -336,6 +381,9 @@ class NotificationController extends Controller
         ];
     }
 
+    /**
+     * Giải mã trường data của thông báo về mảng.
+     */
     private function decodeData($value): array
     {
         if (is_array($value)) {
@@ -348,12 +396,16 @@ class NotificationController extends Controller
 
         if (is_string($value) && trim($value) !== '') {
             $decoded = json_decode($value, true);
+
             return is_array($decoded) ? $decoded : [];
         }
 
         return [];
     }
 
+    /**
+     * Lấy chuỗi không rỗng đầu tiên trong danh sách giá trị.
+     */
     private function firstText(array $values): ?string
     {
         foreach ($values as $value) {
@@ -371,9 +423,12 @@ class NotificationController extends Controller
         return null;
     }
 
+    /**
+     * Suy đoán tiêu đề thông báo từ loại và dữ liệu.
+     */
     private function guessTitle(string $type, array $data, ?string $orderCode): string
     {
-        $lower = mb_strtolower($type . ' ' . json_encode($data, JSON_UNESCAPED_UNICODE), 'UTF-8');
+        $lower = mb_strtolower($type.' '.json_encode($data, JSON_UNESCAPED_UNICODE), 'UTF-8');
 
         if (str_contains($lower, 'payment') || str_contains($lower, 'thanh toán')) {
             return 'Đã ghi nhận thanh toán';
@@ -394,6 +449,9 @@ class NotificationController extends Controller
         return 'Thông báo';
     }
 
+    /**
+     * Suy đoán nội dung thông báo từ dữ liệu đơn hàng/thanh toán.
+     */
     private function guessMessage(string $type, array $data, ?string $orderCode): string
     {
         $status = data_get($data, 'status')
@@ -404,20 +462,23 @@ class NotificationController extends Controller
             ?: data_get($data, 'paid_amount');
 
         if ($amount && $orderCode) {
-            return 'Đã thu ' . number_format((float) $amount, 0, ',', '.') . 'đ cho đơn ' . $orderCode;
+            return 'Đã thu '.number_format((float) $amount, 0, ',', '.').'đ cho đơn '.$orderCode;
         }
 
         if ($status && $orderCode) {
-            return 'Đơn hàng ' . $orderCode . ' đã cập nhật trạng thái: ' . $status;
+            return 'Đơn hàng '.$orderCode.' đã cập nhật trạng thái: '.$status;
         }
 
         if ($orderCode) {
-            return 'Đơn hàng ' . $orderCode . ' có cập nhật mới.';
+            return 'Đơn hàng '.$orderCode.' có cập nhật mới.';
         }
 
         return 'Có cập nhật mới trong hệ thống.';
     }
 
+    /**
+     * Định dạng thời gian dạng d/m/Y H:i, trả chuỗi rỗng nếu lỗi.
+     */
     private function formatDateTime($value): string
     {
         try {
@@ -427,6 +488,9 @@ class NotificationController extends Controller
         }
     }
 
+    /**
+     * Chuyển giá trị thời gian về chuỗi datetime dùng để sắp xếp.
+     */
     private function dateForSort($value): string
     {
         try {
@@ -436,9 +500,12 @@ class NotificationController extends Controller
         }
     }
 
+    /**
+     * Tạo các bảng thông báo nhân sự nếu chưa tồn tại.
+     */
     private function ensureHrAnnouncementTables(): void
     {
-        if (!Schema::hasTable('hr_announcements')) {
+        if (! Schema::hasTable('hr_announcements')) {
             DB::statement("
                 CREATE TABLE hr_announcements (
                     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -459,8 +526,8 @@ class NotificationController extends Controller
             ");
         }
 
-        if (!Schema::hasTable('hr_announcement_reads')) {
-            DB::statement("
+        if (! Schema::hasTable('hr_announcement_reads')) {
+            DB::statement('
                 CREATE TABLE hr_announcement_reads (
                     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                     announcement_id BIGINT UNSIGNED NOT NULL,
@@ -470,10 +537,13 @@ class NotificationController extends Controller
                     updated_at TIMESTAMP NULL DEFAULT NULL,
                     UNIQUE KEY hra_reads_unique (announcement_id, user_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ");
+            ');
         }
     }
 
+    /**
+     * Dựng query các thông báo nhân sự hiển thị được cho người dùng.
+     */
     private function hrVisibleQuery(int $userId)
     {
         $this->ensureHrAnnouncementTables();
@@ -504,9 +574,12 @@ class NotificationController extends Controller
             });
     }
 
+    /**
+     * Đếm số thông báo nhân sự chưa đọc của người dùng.
+     */
     private function hrAnnouncementUnreadCount(int $userId): int
     {
-        if (!Schema::hasTable('hr_announcements')) {
+        if (! Schema::hasTable('hr_announcements')) {
             return 0;
         }
 
@@ -519,9 +592,12 @@ class NotificationController extends Controller
             ->count('a.id');
     }
 
+    /**
+     * Lấy danh sách thông báo nhân sự đã chuẩn hóa để hiển thị.
+     */
     private function hrAnnouncementItems(int $userId, int $limit)
     {
-        if (!Schema::hasTable('hr_announcements')) {
+        if (! Schema::hasTable('hr_announcements')) {
             return collect();
         }
 
@@ -547,24 +623,27 @@ class NotificationController extends Controller
                 $createdAt = $this->formatDateTime($row->created_at);
 
                 return [
-                    'id' => 'hr_' . $row->id,
-                    'title' => 'Nhân sự: ' . $row->title,
+                    'id' => 'hr_'.$row->id,
+                    'title' => 'Nhân sự: '.$row->title,
                     'message' => mb_strimwidth(strip_tags((string) $row->body), 0, 140, '...'),
-                    'is_read' => !empty($row->read_at),
+                    'is_read' => ! empty($row->read_at),
                     'order_id' => null,
                     'created_at' => $createdAt,
                     'created_at_sort' => $this->dateForSort($row->created_at),
                     'time_text' => $createdAt,
-                    'link' => url('/hr/announcements/' . $row->id),
+                    'link' => url('/hr/announcements/'.$row->id),
                     'source' => 'hr',
                     'category' => $row->category,
                 ];
             });
     }
 
+    /**
+     * Đánh dấu tất cả thông báo nhân sự là đã đọc.
+     */
     private function markAllHrAnnouncementsAsRead(int $userId): void
     {
-        if (!Schema::hasTable('hr_announcements')) {
+        if (! Schema::hasTable('hr_announcements')) {
             return;
         }
 

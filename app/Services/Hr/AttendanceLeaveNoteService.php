@@ -8,8 +8,16 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Service đồng bộ ghi chú chấm công từ đơn nghỉ phép/làm online đã duyệt.
+ */
 class AttendanceLeaveNoteService
 {
+    /**
+     * Ghi chú đơn nghỉ đã duyệt vào bản ghi chấm công từng ngày trong khoảng nghỉ.
+     *
+     * @return int Số bản ghi chấm công đã cập nhật
+     */
     public function sync(LeaveRequest $leave, ?User $approver = null): int
     {
         if ((string) $leave->status !== 'approved') {
@@ -53,6 +61,11 @@ class AttendanceLeaveNoteService
         return $changed;
     }
 
+    /**
+     * Đồng bộ tất cả đơn nghỉ đã duyệt (lọc theo khoảng ngày nếu có), xử lý theo chunk.
+     *
+     * @return int Tổng số bản ghi chấm công đã cập nhật
+     */
     public function syncAllApproved(?string $from = null, ?string $to = null): int
     {
         $query = LeaveRequest::query()
@@ -78,6 +91,9 @@ class AttendanceLeaveNoteService
         return $count;
     }
 
+    /**
+     * Gộp ghi chú mới vào ghi chú hiện có, thay thế block cũ theo tag [Đơn HR #id] để tránh trùng.
+     */
     private function mergeTaggedNote(string $currentNote, LeaveRequest $leave, ?User $approver = null): string
     {
         $tagStart = '[Đơn HR #' . $leave->id . ']';
@@ -91,6 +107,9 @@ class AttendanceLeaveNoteService
         return trim($clean === '' ? $newNote : ($clean . "\n" . $newNote));
     }
 
+    /**
+     * Tạo nội dung ghi chú từ đơn nghỉ: loại, ngày, số ngày, lý do, người duyệt.
+     */
     private function buildNoteText(LeaveRequest $leave, ?User $approver = null): string
     {
         $type = (string) $leave->request_type === 'wfh' ? 'Làm online đã duyệt' : 'Nghỉ phép đã duyệt';
@@ -134,6 +153,9 @@ class AttendanceLeaveNoteService
         return implode(' | ', $parts);
     }
 
+    /**
+     * Chuyển mã loại nghỉ phép sang nhãn tiếng Việt.
+     */
     private function leaveTypeLabel(string $value): string
     {
         return match ($value) {
@@ -146,6 +168,9 @@ class AttendanceLeaveNoteService
         };
     }
 
+    /**
+     * Rút gọn chuỗi về giới hạn ký tự (bỏ HTML, gộp khoảng trắng, thêm dấu ...).
+     */
     private function shorten(string $text, int $limit): string
     {
         $text = trim(preg_replace('/\s+/u', ' ', strip_tags($text)) ?? '');

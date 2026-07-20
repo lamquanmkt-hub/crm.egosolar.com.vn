@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
+/**
+ * Service truy vấn tồn kho sản phẩm theo từng kho (có cache).
+ */
 final class InventoryService
 {
     private const STOCK_TABLE   = 'crm_product_stock';

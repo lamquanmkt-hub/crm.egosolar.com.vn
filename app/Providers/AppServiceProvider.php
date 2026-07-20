@@ -9,9 +9,9 @@ use App\Services\Debug\TableFilter;
 use App\Services\Debug\TableMetadataReader;
 use App\Services\Push\PushSubscriptionGateway;
 use App\Services\Push\UserModelPushSubscriptionGateway;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,11 +31,9 @@ class AppServiceProvider extends ServiceProvider
             // Ignore middleware registration issues during artisan optimize/package discovery.
         }
 
-
-
         // Map policy cho Task
         Gate::policy(Task::class, TaskPolicy::class);
-            Paginator::useBootstrap();
+        Paginator::useBootstrap();
 
     }
 }

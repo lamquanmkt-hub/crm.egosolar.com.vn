@@ -3,15 +3,21 @@
 namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\System\Conversation;
 use App\Models\System\Message;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Chat nội bộ hệ thống: hội thoại 1-1, gửi/nhận tin nhắn, widget chat.
+ */
 class ChatController extends Controller
 {
+    /**
+     * Trang chat chính: danh sách người dùng, hội thoại và tin nhắn của hội thoại đang mở.
+     */
     public function index(Request $request)
     {
         $me = auth()->user();
@@ -46,6 +52,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Danh sách người dùng có thể bắt đầu chat (trừ bản thân).
+     */
     public function users()
     {
         $users = User::query()
@@ -56,6 +65,9 @@ class ChatController extends Controller
         return view('chat.user', compact('users'));
     }
 
+    /**
+     * Mở (hoặc tạo mới) hội thoại 1-1 với người dùng rồi chuyển tới trang hội thoại.
+     */
     public function direct(Request $request)
     {
         $request->validate([
@@ -67,6 +79,9 @@ class ChatController extends Controller
         return redirect()->route('chat.show', $conversation->id);
     }
 
+    /**
+     * Mở (hoặc tạo mới) hội thoại 1-1 và trả dữ liệu hội thoại + tin nhắn dạng JSON.
+     */
     public function directJson(Request $request)
     {
         $request->validate([
@@ -83,6 +98,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị trang một hội thoại và đánh dấu đã đọc.
+     */
     public function show(Conversation $conversation)
     {
         $this->authorizeConversation($conversation);
@@ -97,6 +115,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Gửi tin nhắn vào hội thoại rồi quay lại trang hội thoại.
+     */
     public function send(Request $request, Conversation $conversation)
     {
         $this->authorizeConversation($conversation);
@@ -112,6 +133,9 @@ class ChatController extends Controller
             ->with('success', 'Đã gửi tin nhắn.');
     }
 
+    /**
+     * Gửi tin nhắn qua AJAX, trả về tin nhắn mới và hội thoại đã cập nhật dạng JSON.
+     */
     public function sendJson(Request $request, Conversation $conversation)
     {
         $this->authorizeConversation($conversation);
@@ -129,6 +153,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Lấy tin nhắn mới của hội thoại (sau after_id) dạng JSON và đánh dấu đã đọc.
+     */
     public function messagesJson(Request $request, Conversation $conversation)
     {
         $this->authorizeConversation($conversation);
@@ -154,6 +181,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Dữ liệu JSON cho widget chat: thông tin bản thân, người dùng và danh sách hội thoại.
+     */
     public function widgetData()
     {
         $me = auth()->user();
@@ -183,6 +213,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Tìm hội thoại 1-1 giữa hai người dùng, chưa có thì tạo mới trong transaction.
+     */
     private function findOrCreateDirectConversation(int $meId, int $otherId): Conversation
     {
         if ($meId === $otherId) {
@@ -212,6 +245,9 @@ class ChatController extends Controller
         });
     }
 
+    /**
+     * Tạo tin nhắn mới, cập nhật mốc thời gian hội thoại và đánh dấu chưa đọc cho người còn lại.
+     */
     private function createMessage(Conversation $conversation, int $userId, string $body): Message
     {
         return DB::transaction(function () use ($conversation, $userId, $body) {
@@ -236,6 +272,9 @@ class ChatController extends Controller
         });
     }
 
+    /**
+     * Chặn 403 nếu người dùng hiện tại không thuộc hội thoại.
+     */
     private function authorizeConversation(Conversation $conversation): void
     {
         $allowed = $conversation->users()
@@ -245,6 +284,9 @@ class ChatController extends Controller
         abort_unless($allowed, 403);
     }
 
+    /**
+     * Lấy tối đa 300 tin nhắn của hội thoại theo thứ tự cũ đến mới.
+     */
     private function messagesForConversation(int $conversationId)
     {
         return Message::query()
@@ -255,6 +297,9 @@ class ChatController extends Controller
             ->get();
     }
 
+    /**
+     * Danh sách hội thoại của người dùng (mới nhất trước) đã chuyển thành payload hiển thị.
+     */
     private function conversationList(int $meId)
     {
         return Conversation::query()
@@ -268,12 +313,15 @@ class ChatController extends Controller
             ->values();
     }
 
+    /**
+     * Chuyển hội thoại thành mảng hiển thị: tên đối phương, tin nhắn cuối, thời gian.
+     */
     private function conversationPayload(Conversation $conversation, int $meId): array
     {
         $other = $conversation->users->firstWhere('id', '!=', $meId);
         $last = $conversation->messages->first();
 
-        if (!$last) {
+        if (! $last) {
             $last = Message::query()
                 ->with('sender')
                 ->where('conversation_id', $conversation->id)
@@ -293,11 +341,17 @@ class ChatController extends Controller
         ];
     }
 
+    /**
+     * Chuyển danh sách tin nhắn thành mảng payload JSON.
+     */
     private function messagePayloads($messages): array
     {
         return collect($messages)->map(fn ($m) => $this->messagePayload($m))->values()->all();
     }
 
+    /**
+     * Chuyển một tin nhắn thành mảng payload (kèm tên người gửi, thời gian định dạng).
+     */
     private function messagePayload(Message $message): array
     {
         $message->loadMissing('sender');
@@ -313,9 +367,12 @@ class ChatController extends Controller
         ];
     }
 
+    /**
+     * Đánh dấu hội thoại là đã đọc cho người dùng (nếu bảng/cột hỗ trợ).
+     */
     private function markRead(int $conversationId, int $userId): void
     {
-        if (!Schema::hasTable('conversation_user') || !Schema::hasColumn('conversation_user', 'last_read_at')) {
+        if (! Schema::hasTable('conversation_user') || ! Schema::hasColumn('conversation_user', 'last_read_at')) {
             return;
         }
 

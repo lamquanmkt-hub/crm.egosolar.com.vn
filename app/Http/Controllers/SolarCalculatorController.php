@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller tính toán cấu hình và báo giá nhanh hệ thống điện mặt trời.
+ */
 class SolarCalculatorController extends Controller
 {
     private const DEFAULT_ELECTRICITY_PRICE = 3000;
@@ -17,6 +20,9 @@ class SolarCalculatorController extends Controller
     private const DEFAULT_GENERATION_PER_KWP_YEAR = 1800;
     private const DEFAULT_DC_AC_RATIO = 1.15;
 
+    /**
+     * Hiển thị trang công cụ tính toán điện mặt trời.
+     */
     public function index()
     {
         $provinces = SolarProvince::with('regionProfile')
@@ -44,6 +50,9 @@ class SolarCalculatorController extends Controller
         return view('solar.calculator', compact('provinces', 'defaults', 'panels', 'inverters', 'batteries'));
     }
 
+    /**
+     * Tính cấu hình, dự toán và phân tích hoàn vốn theo tiền điện, trả về JSON.
+     */
     public function calculate(Request $request)
     {
         $request->validate([
@@ -265,6 +274,11 @@ class SolarCalculatorController extends Controller
         ]);
     }
 
+    /**
+     * Lấy thông tin tỉnh/vùng và bức xạ từ request.
+     *
+     * @return array [provinceText, regionText, irradiation]
+     */
     private function resolveProvinceInfo(Request $request): array
     {
         $irradiation = 4.6;
@@ -285,6 +299,9 @@ class SolarCalculatorController extends Controller
         return [$provinceText, $regionText, $irradiation];
     }
 
+    /**
+     * Dựng gói báo giá đầy đủ: tấm pin, inverter, pin lưu trữ, vật tư, nhân công.
+     */
     private function buildQuotePackage(
         float $recommendedKwp,
         int $panelCount,
@@ -442,6 +459,9 @@ class SolarCalculatorController extends Controller
         ];
     }
 
+    /**
+     * Dựng các phương án so sánh với số tấm pin lân cận.
+     */
     private function buildComparisonPlans(
         int $panelCount,
         float $panelPowerWp,
@@ -501,6 +521,9 @@ class SolarCalculatorController extends Controller
         })->values()->all();
     }
 
+    /**
+     * Tạo một dòng hạng mục báo giá.
+     */
     private function quoteItem(string $name, string $unit, float $qty, float $unitPrice, float $total, string $note = ''): array
     {
         return [
@@ -513,6 +536,9 @@ class SolarCalculatorController extends Controller
         ];
     }
 
+    /**
+     * Chuẩn hóa số tấm pin: tối thiểu 4 và làm tròn thành số chẵn.
+     */
     private function normalizePanelCount(int $count): int
     {
         $count = max(4, $count);
@@ -523,6 +549,9 @@ class SolarCalculatorController extends Controller
         return $count;
     }
 
+    /**
+     * Lấy danh sách tấm pin, inverter, pin lưu trữ từ danh mục sản phẩm.
+     */
     private function getSolarProductOptions(): array
     {
         if (!Schema::hasTable('crm_product_catalog')) {
@@ -668,6 +697,9 @@ class SolarCalculatorController extends Controller
         return ['panels' => $panels, 'inverters' => $inverters, 'batteries' => $batteries];
     }
 
+    /**
+     * Lấy giá bán lẻ theo bậc giá cho các sản phẩm.
+     */
     private function getRetailTierPrices(array $productIds): array
     {
         if (empty($productIds) || !Schema::hasTable('crm_product_prices')) {
@@ -732,6 +764,9 @@ class SolarCalculatorController extends Controller
         return $map;
     }
 
+    /**
+     * Phân loại sản phẩm là panel/inverter/battery từ tên, SKU và danh mục.
+     */
     private function detectSolarProductType(object $row, string $text): ?string
     {
         $lower = mb_strtolower($text, 'UTF-8');
@@ -780,6 +815,9 @@ class SolarCalculatorController extends Controller
         return null;
     }
 
+    /**
+     * Tính giá bán (đã VAT) của sản phẩm theo thứ tự ưu tiên các cột giá.
+     */
     private function resolveProductSalePrice(object $row): float
     {
         $vatPercent = (float) ($row->vat_percent ?? 0);
@@ -808,6 +846,9 @@ class SolarCalculatorController extends Controller
         return (float) ($row->price ?? 0);
     }
 
+    /**
+     * Chọn tấm pin theo lựa chọn của người dùng hoặc gần công suất mặc định nhất.
+     */
     private function resolvePanelProduct(int $selectedId, array $panels): ?array
     {
         if ($selectedId > 0) {
@@ -834,6 +875,9 @@ class SolarCalculatorController extends Controller
         return $candidates[0] ?? null;
     }
 
+    /**
+     * Chọn tổ hợp inverter phù hợp công suất mục tiêu, số pha và tồn kho.
+     */
     private function resolveInverterBundle(float $targetKw, string $phase, string $systemType, int $selectedId, array $inverters): array
     {
         $selectedProduct = null;
@@ -919,6 +963,9 @@ class SolarCalculatorController extends Controller
         return $bundle;
     }
 
+    /**
+     * Tạo tổ hợp inverter từ một sản phẩm cụ thể.
+     */
     private function makeInverterBundle(array $product, float $targetKw, bool $respectStock, bool $manualSelected = false): array
     {
         $cap = max(0.1, (float) ($product['capacity_kw'] ?? 0));
@@ -937,6 +984,9 @@ class SolarCalculatorController extends Controller
         ];
     }
 
+    /**
+     * Tính dung lượng pin lưu trữ mục tiêu theo mức dùng điện và thói quen.
+     */
     private function resolveTargetBatteryKwh(float $monthlyKwh, string $usageType, string $systemType): float
     {
         if ($systemType === 'on_grid') {
@@ -962,6 +1012,9 @@ class SolarCalculatorController extends Controller
         return round(max(5.0, $target), 2);
     }
 
+    /**
+     * Chọn tổ hợp pin lưu trữ phù hợp dung lượng mục tiêu và tồn kho.
+     */
     private function resolveBatteryBundle(float $targetKwh, int $selectedId, array $batteries): array
     {
         $selectedProduct = null;
@@ -1028,6 +1081,9 @@ class SolarCalculatorController extends Controller
         return $bundle;
     }
 
+    /**
+     * Tạo tổ hợp pin lưu trữ từ một sản phẩm cụ thể.
+     */
     private function makeBatteryBundle(array $product, float $targetKwh, bool $respectStock, bool $manualSelected = false): array
     {
         $cap = max(0.1, (float) ($product['capacity_kwh'] ?? 0));
@@ -1046,6 +1102,9 @@ class SolarCalculatorController extends Controller
         ];
     }
 
+    /**
+     * Kiểm tra inverter có tương thích số pha yêu cầu.
+     */
     private function isPhaseCompatible(array $product, string $phase): bool
     {
         if ($phase === 'auto') {
@@ -1056,12 +1115,18 @@ class SolarCalculatorController extends Controller
         return $productPhase !== '' && $productPhase === (string) $phase;
     }
 
+    /**
+     * Nhận diện inverter hybrid từ tên/SKU.
+     */
     private function isHybridInverterProduct(array $product): bool
     {
         $text = mb_strtolower(($product['name'] ?? '') . ' ' . ($product['sku'] ?? '') . ' ' . ($product['display_name'] ?? ''), 'UTF-8');
         return str_contains($text, 'hybrid') || str_contains($text, '-es') || str_contains($text, '-et') || str_contains($text, 'ess2');
     }
 
+    /**
+     * Trích công suất tấm pin (Wp) từ chuỗi mô tả.
+     */
     private function extractPanelPowerWp(string $text): float
     {
         if (preg_match('/(\d{3,4}(?:[\.,]\d+)?)\s*wp\b/i', $text, $match)) {
@@ -1073,6 +1138,9 @@ class SolarCalculatorController extends Controller
         return 0;
     }
 
+    /**
+     * Trích công suất inverter (kW) từ chuỗi mô tả.
+     */
     private function extractInverterCapacityKw(string $text): float
     {
         if (preg_match('/ESS2-(\d+(?:[\.,]\d+)?)K/i', $text, $match)) {
@@ -1094,6 +1162,9 @@ class SolarCalculatorController extends Controller
         return 0;
     }
 
+    /**
+     * Trích dung lượng pin lưu trữ (kWh) từ chuỗi mô tả.
+     */
     private function extractBatteryCapacityKwh(string $text): float
     {
         if (preg_match('/(\d+(?:[\.,]\d+)?)\s*kwh\b/i', $text, $match)) {
@@ -1114,6 +1185,9 @@ class SolarCalculatorController extends Controller
         return 0;
     }
 
+    /**
+     * Nhận diện số pha của inverter từ chuỗi mô tả.
+     */
     private function detectInverterPhase(string $text): string
     {
         $lower = mb_strtolower($text, 'UTF-8');
@@ -1132,6 +1206,9 @@ class SolarCalculatorController extends Controller
         return '';
     }
 
+    /**
+     * Công suất inverter mặc định theo kWp khi không có sản phẩm trong kho.
+     */
     private function fallbackInverterCapacity(float $kwp): float
     {
         if ($kwp <= 7.6) return 6.6;
@@ -1142,6 +1219,9 @@ class SolarCalculatorController extends Controller
         return 20;
     }
 
+    /**
+     * Giá inverter tham chiếu theo công suất.
+     */
     private function fallbackInverterPrice(float $capacityKw): float
     {
         if ($capacityKw <= 6.6) return 18000000;
@@ -1152,6 +1232,9 @@ class SolarCalculatorController extends Controller
         return 60000000;
     }
 
+    /**
+     * Giá pin lưu trữ tham chiếu theo sản phẩm/dung lượng.
+     */
     private function fallbackBatteryPrice(?array $batteryProduct, float $targetKwh): float
     {
         $text = mb_strtolower(($batteryProduct['display_name'] ?? '') . ' ' . ($batteryProduct['sku'] ?? ''), 'UTF-8');
@@ -1167,6 +1250,9 @@ class SolarCalculatorController extends Controller
         return 47000000;
     }
 
+    /**
+     * Tỷ lệ tự dùng điện theo thói quen sử dụng và loại hệ.
+     */
     private function getSelfConsumptionRatio(string $usageType, string $systemType): float
     {
         if ($systemType === 'on_grid') {
@@ -1178,6 +1264,9 @@ class SolarCalculatorController extends Controller
         return $usageType === 'night' ? 0.90 : 0.88;
     }
 
+    /**
+     * Nhãn tiếng Việt của số pha.
+     */
     private function getPhaseLabel(?string $phase, ?string $fallbackPhase = null): string
     {
         $value = $phase && $phase !== 'auto' ? $phase : ($fallbackPhase ?: '');
@@ -1188,6 +1277,9 @@ class SolarCalculatorController extends Controller
         };
     }
 
+    /**
+     * Nhãn tiếng Việt của loại hệ thống.
+     */
     private function getSystemTypeLabel(string $systemType): string
     {
         return match ($systemType) {
@@ -1197,6 +1289,9 @@ class SolarCalculatorController extends Controller
         };
     }
 
+    /**
+     * Nhãn tiếng Việt của thói quen dùng điện.
+     */
     private function getUsageTypeLabel(string $usageType): string
     {
         return match ($usageType) {

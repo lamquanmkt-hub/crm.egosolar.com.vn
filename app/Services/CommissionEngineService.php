@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 
+/**
+ * Service tính hoa hồng: quản lý chính sách, quy tắc và tính hoa hồng theo đơn hàng.
+ */
 class CommissionEngineService
 {
+    /**
+     * Tạo các bảng chính sách/quy tắc/dòng hoa hồng nếu chưa tồn tại.
+     */
     public function ensureSchema(): void
     {
         if (!Schema::hasTable('crm_commission_policies')) {
@@ -96,6 +102,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Tạo bảng lương cứng và bậc KPI của sales nếu chưa tồn tại.
+     */
     private function ensureSalesCompensationSchema(): void
     {
         $this->ensureSchema();
@@ -134,6 +143,9 @@ class CommissionEngineService
         }
     }
 
+    /**
+     * Lấy danh sách user thuộc nhóm sales, hỗ trợ nhiều dạng schema role khác nhau.
+     */
     private function salesUserRows(): Collection
     {
         if (!Schema::hasTable('users')) {
@@ -281,6 +293,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Lấy thiết lập lương theo tháng cho từng sales, tự sinh giá trị mặc định nếu chưa có.
+     */
     private function salarySettingsForMonth(string $month, Collection $salesUsers): Collection
     {
         $this->ensureSalesCompensationSchema();
@@ -309,6 +324,9 @@ class CommissionEngineService
         });
     }
 
+    /**
+     * Lưu thiết lập lương và các bậc KPI của sales cho tháng chỉ định.
+     */
     private function saveCompensationSettings(Request $request, string $month): void
     {
         $this->ensureSalesCompensationSchema();
@@ -379,6 +397,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Lấy chính sách hoa hồng của tháng, tự tạo chính sách mặc định nếu chưa có.
+     */
     public function currentPolicy(string $month): object
     {
         $this->ensureSchema();
@@ -418,6 +439,9 @@ class CommissionEngineService
         return DB::table('crm_commission_policies')->where('id', $id)->first();
     }
 
+    /**
+     * Sao chép chính sách và quy tắc hoa hồng từ tháng trước sang tháng chỉ định.
+     */
     public function copyPreviousMonth(string $month): void
     {
         $this->ensureSchema();
@@ -466,6 +490,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Bổ sung quy tắc mặc định cho khách lead/ADS nếu chính sách chưa có.
+     */
     private function ensureCustomerStatusDefaultRules(object $policy): void
     {
         if (!Schema::hasTable('crm_commission_rules')) {
@@ -526,6 +553,9 @@ class CommissionEngineService
         DB::table('crm_commission_rules')->insert($rows);
     }
 
+    /**
+     * Chuẩn hóa giá trị trạng thái khách hàng về mã thống nhất (lead/member/retail...).
+     */
     private function normalizeCustomerStatusValue($value): string
     {
         $value = trim((string) $value);
@@ -551,6 +581,9 @@ class CommissionEngineService
         return $ascii;
     }
 
+    /**
+     * Xác định ngữ cảnh tính hoa hồng của đơn: trạng thái khách và có phải đơn công trình.
+     */
     private function orderCommissionContext(int $orderId): array
     {
         $ctx = [
@@ -630,6 +663,9 @@ class CommissionEngineService
         return $ctx;
     }
 
+    /**
+     * Lấy danh sách quy tắc của chính sách, tự seed quy tắc mặc định nếu rỗng.
+     */
     public function rulesForPolicy(int $policyId): Collection
     {
         $this->ensureSchema();
@@ -656,6 +692,9 @@ class CommissionEngineService
         return $rules;
     }
 
+    /**
+     * Tạo bộ quy tắc hoa hồng mặc định (công trình, thương mại, tấm pin) cho chính sách.
+     */
     private function seedDefaultRules(object $policy): void
     {
         $rows = [
@@ -705,6 +744,9 @@ class CommissionEngineService
         }
     }
 
+    /**
+     * Chuẩn bị dữ liệu cho trang cấu hình hoa hồng (chính sách, quy tắc, lương, KPI...).
+     */
     public function settingsViewData(string $month): array
     {
         $policy = $this->currentPolicy($month);
@@ -772,6 +814,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Lưu toàn bộ cấu hình hoa hồng của tháng từ request và trả về tháng đã lưu.
+     */
     public function saveSettings(Request $request): string
     {
         $this->ensureSchema();
@@ -853,6 +898,9 @@ class CommissionEngineService
         return $month;
     }
 
+    /**
+     * Tính lại hoa hồng cho dữ liệu dashboard, lọc theo mức tối thiểu và xếp hạng sales.
+     */
     public function applyDashboard(array $data, object $policy, Collection $rules, Request $request): array
     {
         $rows = $this->recalculateRows(collect($data['rows'] ?? []), $policy, $rules);
@@ -881,6 +929,9 @@ class CommissionEngineService
         return $data;
     }
 
+    /**
+     * Tính tổng tiền trước VAT của đơn hàng từ bảng đơn hoặc từ các dòng item.
+     */
     private function orderBeforeVatTotalFromOrder(int $orderId): ?float
     {
         if ($orderId <= 0 || !Schema::hasTable('crm_orders')) {
@@ -941,6 +992,9 @@ class CommissionEngineService
         return null;
     }
 
+    /**
+     * Tính lại doanh thu, giá vốn và hoa hồng cho từng dòng dữ liệu.
+     */
     public function recalculateRows($rows, object $policy, Collection $rules): Collection
     {
         return collect($rows)->map(function ($row) use ($policy, $rules) {
@@ -964,6 +1018,9 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Chuyển giá trị bất kỳ về số float tiền tệ an toàn.
+     */
     private function moneyNumber($value): float
     {
         if ($value === null || $value === '') {
@@ -979,6 +1036,9 @@ class CommissionEngineService
         return is_numeric($value) ? (float) $value : 0.0;
     }
 
+    /**
+     * Trả về cột đầu tiên tồn tại trong bảng theo danh sách ứng viên.
+     */
     private function firstExistingColumn(string $table, array $columns): ?string
     {
         if (!Schema::hasTable($table)) {
@@ -996,6 +1056,9 @@ class CommissionEngineService
         return null;
     }
 
+    /**
+     * Lấy giá trước VAT của sản phẩm từ catalog theo thứ tự ưu tiên cột giá.
+     */
     private function productCatalogBeforeVatPrice(int $productId, ?int $priceTierId = null): float
     {
         if ($productId <= 0 || !Schema::hasTable('crm_product_catalog')) {
@@ -1041,6 +1104,9 @@ class CommissionEngineService
         return 0.0;
     }
 
+    /**
+     * Lấy giá trước VAT theo bảng giá (price tier) cho một dòng item.
+     */
     private function productPriceBeforeVatForItem(object $rawItem, int $orderId): float
     {
         if (!Schema::hasTable('crm_product_prices')) {
@@ -1081,6 +1147,9 @@ class CommissionEngineService
         return 0.0;
     }
 
+    /**
+     * Tính thành tiền trước VAT của một dòng item theo nhiều lớp fallback.
+     */
     private function lineBeforeVatForCommissionItem(object $item, float $qty, float $lineAfter, float $vat, int $orderId): float
     {
         $qty = $qty > 0 ? $qty : 1;
@@ -1199,6 +1268,11 @@ class CommissionEngineService
     }
 
 
+    /**
+     * Tính toàn bộ hoa hồng của một đơn hàng.
+     *
+     * @return array Doanh thu trước/sau VAT, giá vốn FIFO, lợi nhuận, hoa hồng và nhãn diễn giải.
+     */
     private function calculateOrderCommission(int $orderId, object $policy, Collection $rules): array
     {
         if ($orderId <= 0) {
@@ -1290,6 +1364,9 @@ class CommissionEngineService
         ];
     }
 
+    /**
+     * Lấy các dòng item của đơn kèm thông tin sản phẩm, danh mục, thương hiệu.
+     */
     private function orderItemRows(int $orderId): Collection
     {
         if (!Schema::hasTable('crm_order_items') || !Schema::hasTable('crm_product_catalog')) {
@@ -1331,6 +1408,9 @@ class CommissionEngineService
             ->get();
     }
 
+    /**
+     * Chọn quy tắc hoa hồng phù hợp nhất theo loại, mục tiêu, khoảng áp dụng và độ ưu tiên.
+     */
     private function bestRule(Collection $rules, string $type, object $item, float $lineBefore, float $qty, string $customerStatus = ''): ?object
     {
         return $rules
@@ -1352,6 +1432,9 @@ class CommissionEngineService
             ->first();
     }
 
+    /**
+     * Kiểm tra item có khớp mục tiêu của quy tắc (sản phẩm/danh mục/thương hiệu/từ khóa/trạng thái khách).
+     */
     private function targetMatches(object $rule, object $item, string $customerStatus = ''): bool
     {
         $targetType = $rule->target_type ?? 'all';
@@ -1396,6 +1479,9 @@ class CommissionEngineService
         return false;
     }
 
+    /**
+     * Kiểm tra giá trị và số lượng có nằm trong khoảng áp dụng của quy tắc.
+     */
     private function rangeMatches(object $rule, float $amount, float $qty): bool
     {
         $fromAmount = $rule->from_amount;
@@ -1411,6 +1497,9 @@ class CommissionEngineService
         return true;
     }
 
+    /**
+     * Tính số tiền hoa hồng cho dòng item theo cách tính của quy tắc.
+     */
     private function commissionAmountFromRule(object $rule, object $item, float $qty, float $lineBefore, float $lineAfter, float $lineCost): float
     {
         $calcType = $rule->calculation_type ?? 'percent';
@@ -1434,6 +1523,9 @@ class CommissionEngineService
         };
     }
 
+    /**
+     * Sinh nhãn ngắn mô tả quy tắc và số tiền hoa hồng.
+     */
     private function ruleMiniLabel(object $rule, float $amount): string
     {
         $type = match ($rule->commission_type ?? '') {
@@ -1452,6 +1544,9 @@ class CommissionEngineService
         return $type . ' ' . $calc . ': ' . number_format($amount, 0, ',', '.') . 'đ';
     }
 
+    /**
+     * Nhận diện item có phải tấm pin mặt trời dựa trên tên/sku/thương hiệu.
+     */
     private function isSolarPanel(object $item): bool
     {
         $hay = mb_strtolower(implode(' ', [
@@ -1471,6 +1566,9 @@ class CommissionEngineService
         return false;
     }
 
+    /**
+     * Ước tính công suất kWp từ số watt trong tên sản phẩm nhân với số lượng.
+     */
     private function parseKwp(object $item, float $qty): float
     {
         $text = (string) (($item->product_name ?? '') . ' ' . ($item->sku ?? ''));
@@ -1482,6 +1580,9 @@ class CommissionEngineService
         return 0;
     }
 
+    /**
+     * Tính giá vốn FIFO của một dòng đơn hàng từ các lô đã phân bổ.
+     */
     private function fifoCostForOrderItem(int $orderItemId): float
     {
         if ($orderItemId <= 0 || !Schema::hasTable('crm_product_stock_lots')) {
@@ -1524,6 +1625,9 @@ class CommissionEngineService
         return 0;
     }
 
+    /**
+     * Thống kê số quy tắc đang hoạt động theo từng loại hoa hồng.
+     */
     public function ruleStats(Collection $rules): array
     {
         return [

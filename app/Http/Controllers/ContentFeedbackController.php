@@ -5,8 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ContentFeedback;
 
+/**
+ * Nhận feedback cho nội dung trong lịch content.
+ */
 class ContentFeedbackController extends Controller
 {
+    /**
+     * Lưu feedback (nội dung + ảnh kèm nếu có) cho một mục content calendar.
+     */
     public function store(Request $request, $contentCalendarId)
     {
         $request->validate([

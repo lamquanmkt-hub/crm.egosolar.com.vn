@@ -6,7 +6,7 @@ use App\Enums\Permission;
 
 /**
  * RolePermissionMatrix - Define role-permission mapping
- * 
+ *
  * Tuân thủ:
  * - SRP: Chỉ định nghĩa mapping
  * - OCP: Dễ thêm role/permission mới
@@ -16,8 +16,7 @@ class RolePermissionMatrix
 {
     /**
      * Get permissions for a role
-     * 
-     * @param string $role
+     *
      * @return array<Permission>
      */
     public static function getPermissions(string $role): array
@@ -57,17 +56,17 @@ class RolePermissionMatrix
             Permission::LEAD_VIEW_OWN,
             Permission::LEAD_UPDATE_OWN,
             Permission::LEAD_CONVERT,
-            
+
             // Customer
             Permission::CUSTOMER_VIEW_OWN,
             Permission::CUSTOMER_CREATE,
             Permission::CUSTOMER_UPDATE_OWN,
-            
+
             // Order
             Permission::ORDER_CREATE,
             Permission::ORDER_VIEW_OWN,
             Permission::ORDER_VIEW_STATUS,
-            
+
             // Lookup
             Permission::PRODUCT_VIEW,
             Permission::WAREHOUSE_VIEW,
@@ -84,28 +83,28 @@ class RolePermissionMatrix
             Permission::LEAD_VIEW_ALL,
             Permission::LEAD_ASSIGN,
             Permission::LEAD_UPDATE_ALL,
-            
+
             // Customer - Xem toàn bộ khách hàng
             Permission::CUSTOMER_VIEW_ALL,
             Permission::CUSTOMER_VIEW_SALES_ALL,
             Permission::CUSTOMER_UPDATE_SALES,
-            
+
             // Order
             Permission::ORDER_VIEW_SALES_ALL,
             Permission::ORDER_APPROVE_LEVEL1,
             Permission::ORDER_REJECT,
-            
+
             // Payment
             Permission::PAYMENT_CREATE,
-            
+
             // Lookup
             Permission::PRODUCT_VIEW,
             Permission::WAREHOUSE_VIEW,
-            
+
             // Management
             Permission::USER_VIEW_SALES,
             Permission::USER_MANAGE_SALES,
-            
+
             // Report
             Permission::REPORT_VIEW_SALES,
         ];
@@ -123,11 +122,11 @@ class RolePermissionMatrix
             Permission::ORDER_APPROVE_ACCOUNTING,
             Permission::ORDER_REJECT,
             Permission::ORDER_MARK_PAID,
-            
+
             // Lookup
             Permission::PRODUCT_VIEW,
             Permission::WAREHOUSE_VIEW,
-            
+
             // Report
             Permission::REPORT_REVENUE,
         ];
@@ -146,12 +145,12 @@ class RolePermissionMatrix
             Permission::WAREHOUSE_STOCK_CHECK,
             Permission::WAREHOUSE_STOCK_UPDATE,
             Permission::WAREHOUSE_EXPORT,
-            
+
             // Product
             Permission::PRODUCT_VIEW,
             Permission::PRODUCTS_MANAGE,
             Permission::CATEGORIES_MANAGE,
-            
+
             // Order
             Permission::ORDER_VIEW_WAREHOUSE,
         ];
@@ -165,15 +164,15 @@ class RolePermissionMatrix
         return [
             // Customer
             Permission::CUSTOMER_VIEW_ALL,
-            
+
             // Order
             Permission::ORDER_VIEW_ALL,
             Permission::ORDER_APPROVE_LEVEL2,
             Permission::ORDER_FORCE_APPROVE,
-            
+
             // Report
             Permission::REPORT_VIEW_ALL,
-            
+
             // System
             Permission::SYSTEM_VIEW_LOGS,
         ];
@@ -190,7 +189,7 @@ class RolePermissionMatrix
 
     /**
      * Get all roles
-     * 
+     *
      * @return array<string>
      */
     public static function getAllRoles(): array
@@ -200,9 +199,6 @@ class RolePermissionMatrix
 
     /**
      * Get role description
-     * 
-     * @param string $role
-     * @return string
      */
     public static function getRoleDescription(string $role): string
     {

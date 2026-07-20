@@ -7,8 +7,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * Controller phiếu lắp ráp/sản xuất thành phẩm từ vật tư kho công trình.
+ */
 class SiteAssemblyController extends Controller
 {
+    /**
+     * Danh sách phiếu lắp ráp có tìm kiếm, lọc trạng thái và thống kê.
+     */
     public function index(Request $request)
     {
         abort_unless(Schema::hasTable('site_assemblies'), 500, 'Chưa có bảng site_assemblies. Hãy chạy migrate.');
@@ -57,6 +63,9 @@ class SiteAssemblyController extends Controller
         return view('site-assemblies.index', array_merge($this->formData(), compact('assemblies', 'stats', 'q', 'status')));
     }
 
+    /**
+     * Tạo phiếu lắp ráp nháp kèm vật tư; hoàn thành luôn nếu action=complete.
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -151,9 +160,12 @@ class SiteAssemblyController extends Controller
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()->route('site-assemblies.index')->with('success', 'Đã tạo phiếu lắp ráp #' . $id . ($action === 'complete' ? ' và cập nhật kho.' : '.'));
+        return redirect()->route('site-assemblies.index')->with('success', 'Đã tạo phiếu lắp ráp #'.$id.($action === 'complete' ? ' và cập nhật kho.' : '.'));
     }
 
+    /**
+     * Hoàn thành phiếu lắp ráp và cập nhật tồn kho trong transaction.
+     */
     public function complete($id)
     {
         try {
@@ -167,6 +179,9 @@ class SiteAssemblyController extends Controller
         return back()->with('success', 'Đã hoàn thành lắp ráp và cập nhật kho.');
     }
 
+    /**
+     * Xóa phiếu lắp ráp nháp (phiếu đã hoàn thành thì không xóa).
+     */
     public function destroy($id)
     {
         $assembly = DB::table('site_assemblies')->where('id', (int) $id)->first();
@@ -184,11 +199,14 @@ class SiteAssemblyController extends Controller
         return back()->with('success', 'Đã xóa phiếu lắp ráp nháp.');
     }
 
+    /**
+     * Xử lý hoàn thành phiếu: kiểm tồn, trừ vật tư, cộng thành phẩm, tạo lot và sự kiện kho.
+     */
     private function completeInsideTransaction(int $id): void
     {
         $assembly = DB::table('site_assemblies')->where('id', $id)->lockForUpdate()->first();
 
-        if (!$assembly) {
+        if (! $assembly) {
             throw new \RuntimeException('Không tìm thấy phiếu lắp ráp.');
         }
 
@@ -207,13 +225,13 @@ class SiteAssemblyController extends Controller
 
             if ($currentQty < (int) $item->qty) {
                 $product = DB::table('crm_product_catalog')->where('id', (int) $item->product_id)->first();
-                $name = $product ? (($product->sku ? $product->sku . ' - ' : '') . $product->name) : ('SP #' . $item->product_id);
+                $name = $product ? (($product->sku ? $product->sku.' - ' : '').$product->name) : ('SP #'.$item->product_id);
 
-                throw new \RuntimeException('Không đủ tồn kho vật tư: ' . $name . '. Tồn hiện tại ' . $currentQty . ', cần ' . (int) $item->qty . '.');
+                throw new \RuntimeException('Không đủ tồn kho vật tư: '.$name.'. Tồn hiện tại '.$currentQty.', cần '.(int) $item->qty.'.');
             }
         }
 
-        $eventId = $this->createInventoryEvent('assembly', 'Lắp ráp / sản xuất #' . $assembly->code);
+        $eventId = $this->createInventoryEvent('assembly', 'Lắp ráp / sản xuất #'.$assembly->code);
 
         foreach ($items as $item) {
             $this->adjustStock(
@@ -246,6 +264,9 @@ class SiteAssemblyController extends Controller
         ]);
     }
 
+    /**
+     * Dữ liệu dropdown cho form: công ty, kho, sản phẩm (kèm tồn), công trình.
+     */
     private function formData(): array
     {
         $companies = Schema::hasTable('companies')
@@ -274,7 +295,9 @@ class SiteAssemblyController extends Controller
         return compact('companies', 'warehouses', 'products', 'sites');
     }
 
-
+    /**
+     * Kiểm tra kho và sản phẩm phải thuộc công ty đã chọn, sai thì ném exception.
+     */
     private function guardCompanyWarehousesProducts(int $companyId, array $warehouseIds, array $productIds): void
     {
         if ($companyId <= 0) {
@@ -283,7 +306,7 @@ class SiteAssemblyController extends Controller
 
         $warehouseIds = array_values(array_unique(array_filter(array_map('intval', $warehouseIds))));
 
-        if (!$warehouseIds) {
+        if (! $warehouseIds) {
             throw new \RuntimeException('Vui lòng chọn kho.');
         }
 
@@ -301,7 +324,7 @@ class SiteAssemblyController extends Controller
 
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
 
-        if (!$productIds) {
+        if (! $productIds) {
             throw new \RuntimeException('Vui lòng chọn sản phẩm.');
         }
 
@@ -318,14 +341,20 @@ class SiteAssemblyController extends Controller
         }
     }
 
+    /**
+     * Sinh mã phiếu lắp ráp dạng LR-Ymd-XXXX.
+     */
     private function makeCode(): string
     {
-        $prefix = 'LR-' . now()->format('Ymd') . '-';
-        $count = DB::table('site_assemblies')->where('code', 'like', $prefix . '%')->count() + 1;
+        $prefix = 'LR-'.now()->format('Ymd').'-';
+        $count = DB::table('site_assemblies')->where('code', 'like', $prefix.'%')->count() + 1;
 
-        return $prefix . str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $count, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Lấy tồn kho hiện tại của sản phẩm tại kho/công ty (có lock).
+     */
     private function stockQty(int $productId, int $warehouseId, int $companyId): int
     {
         $row = DB::table('crm_product_stock')
@@ -338,6 +367,9 @@ class SiteAssemblyController extends Controller
         return $row ? (int) $row->qty : 0;
     }
 
+    /**
+     * Cộng/trừ tồn kho, ghi stock movement và đồng bộ tổng số lượng lên catalog.
+     */
     private function adjustStock(int $productId, int $warehouseId, int $companyId, int $changeQty, string $reason, int $referenceId): void
     {
         $row = DB::table('crm_product_stock')
@@ -395,9 +427,12 @@ class SiteAssemblyController extends Controller
         }
     }
 
+    /**
+     * Tạo lot tồn kho cho thành phẩm lắp ráp nếu có bảng lot.
+     */
     private function createFinishedLot(object $assembly): void
     {
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             return;
         }
 
@@ -406,7 +441,7 @@ class SiteAssemblyController extends Controller
             'company_id' => (int) $assembly->company_id,
             'warehouse_id' => (int) $assembly->finished_warehouse_id,
             'lot_code' => $assembly->code,
-            'lot_name' => 'Thành phẩm lắp ráp ' . $assembly->code,
+            'lot_name' => 'Thành phẩm lắp ráp '.$assembly->code,
             'received_at' => now(),
             'qty_in' => (int) $assembly->finished_qty,
             'qty_remaining' => (int) $assembly->finished_qty,
@@ -424,9 +459,12 @@ class SiteAssemblyController extends Controller
         ]);
     }
 
+    /**
+     * Tạo sự kiện kho (inventory event), trả về id hoặc null nếu thiếu bảng.
+     */
     private function createInventoryEvent(string $type, string $note): ?int
     {
-        if (!Schema::hasTable('crm_inventory_events')) {
+        if (! Schema::hasTable('crm_inventory_events')) {
             return null;
         }
 
@@ -440,9 +478,12 @@ class SiteAssemblyController extends Controller
         ]);
     }
 
+    /**
+     * Gắn tham chiếu nguồn (ref) cho sự kiện kho.
+     */
     private function createInventoryRef(?int $eventId, string $refType, int $refId): void
     {
-        if (!$eventId || !Schema::hasTable('crm_inventory_event_refs')) {
+        if (! $eventId || ! Schema::hasTable('crm_inventory_event_refs')) {
             return;
         }
 

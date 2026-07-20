@@ -7,8 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Báo cáo tài chính tổng hợp theo tháng.
+ */
 class FinanceReportController extends Controller
 {
+    /**
+     * Báo cáo tháng: thu chi, ngân sách, đề nghị thanh toán và công nợ khách hàng.
+     */
     public function index(Request $request)
     {
         /*

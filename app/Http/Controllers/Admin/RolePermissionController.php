@@ -16,12 +16,19 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
+/**
+ * Quản trị vai trò và phân quyền (Spatie Permission): CRUD role, ma trận quyền, gán role/quyền cho user, audit.
+ */
 class RolePermissionController extends Controller
 {
-    public function __construct(private readonly PageAccessService $pageAccess)
-    {
-    }
+    /**
+     * Khởi tạo controller với service quản lý quyền truy cập trang.
+     */
+    public function __construct(private readonly PageAccessService $pageAccess) {}
 
+    /**
+     * Trang tổng quan phân quyền: danh sách role, ma trận quyền, người dùng, thống kê và audit.
+     */
     public function index(Request $request)
     {
         $roleTable = config('permission.table_names.roles', 'roles');
@@ -36,7 +43,7 @@ class RolePermissionController extends Controller
         $roles = Role::query()
             ->with('permissions')
             ->orderByRaw("CASE WHEN name = 'admin' THEN 0 ELSE 1 END")
-            ->orderByRaw("COALESCE(display_name, name)")
+            ->orderByRaw('COALESCE(display_name, name)')
             ->get()
             ->each(function (Role $role) use ($roleUserCounts) {
                 $role->setAttribute('users_count', (int) ($roleUserCounts[$role->id] ?? 0));
@@ -82,6 +89,9 @@ class RolePermissionController extends Controller
         ));
     }
 
+    /**
+     * Tạo vai trò mới (có thể sao chép quyền từ role khác) và ghi audit.
+     */
     public function storeRole(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -114,7 +124,7 @@ class RolePermissionController extends Controller
                 'page_access_enabled' => true,
             ]);
 
-            if (!empty($validated['clone_from'])) {
+            if (! empty($validated['clone_from'])) {
                 $source = Role::with('permissions')->findOrFail($validated['clone_from']);
                 $role->syncPermissions($source->permissions->pluck('name')->all());
             } else {
@@ -132,6 +142,9 @@ class RolePermissionController extends Controller
             ->with('success', 'Đã tạo vai trò mới.');
     }
 
+    /**
+     * Cập nhật thông tin vai trò (role hệ thống không được đổi mã name).
+     */
     public function updateRole(Request $request, Role $role): RedirectResponse
     {
         $isSystem = (bool) ($role->is_system ?? false) || in_array($role->name, config('role_permissions.protected_roles', []), true);
@@ -141,7 +154,7 @@ class RolePermissionController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
         ];
 
-        if (!$isSystem) {
+        if (! $isSystem) {
             $rules['name'] = [
                 'required',
                 'string',
@@ -157,7 +170,7 @@ class RolePermissionController extends Controller
         $role->display_name = $validated['display_name'];
         $role->description = $validated['description'] ?? null;
 
-        if (!$isSystem) {
+        if (! $isSystem) {
             $role->name = $validated['name'];
         }
 
@@ -168,6 +181,9 @@ class RolePermissionController extends Controller
         return back()->with('success', 'Đã cập nhật thông tin vai trò.');
     }
 
+    /**
+     * Lưu ma trận quyền cho vai trò (role admin luôn giữ các quyền cốt lõi).
+     */
     public function syncRolePermissions(Request $request, Role $role): RedirectResponse
     {
         $validated = $request->validate([
@@ -180,7 +196,7 @@ class RolePermissionController extends Controller
         $permissions = collect($validated['permissions'] ?? [])->unique()->values();
         $pageEnabled = $request->boolean('page_access_enabled');
 
-        if ($pageEnabled && !$permissions->contains('page.dashboard')) {
+        if ($pageEnabled && ! $permissions->contains('page.dashboard')) {
             $permissions->push('page.dashboard');
         }
 
@@ -212,25 +228,28 @@ class RolePermissionController extends Controller
         return back()->with('success', 'Đã lưu ma trận phân quyền cho vai trò.');
     }
 
+    /**
+     * Sao chép vai trò kèm toàn bộ quyền, tự sinh mã name không trùng.
+     */
     public function cloneRole(Request $request, Role $role): RedirectResponse
     {
         $validated = $request->validate([
             'display_name' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $baseCode = $role->name . '_copy';
+        $baseCode = $role->name.'_copy';
         $code = $baseCode;
         $suffix = 2;
 
         while (Role::where('name', $code)->where('guard_name', 'web')->exists()) {
-            $code = $baseCode . '_' . $suffix++;
+            $code = $baseCode.'_'.$suffix++;
         }
 
         $clone = DB::transaction(function () use ($role, $validated, $code) {
             $clone = Role::create([
                 'name' => $code,
                 'guard_name' => 'web',
-                'display_name' => $validated['display_name'] ?: $this->pageAccess->displayRoleName($role) . ' - Bản sao',
+                'display_name' => $validated['display_name'] ?: $this->pageAccess->displayRoleName($role).' - Bản sao',
                 'description' => $role->description,
                 'is_system' => false,
                 'page_access_enabled' => (bool) ($role->page_access_enabled ?? false),
@@ -249,6 +268,9 @@ class RolePermissionController extends Controller
             ->with('success', 'Đã sao chép vai trò.');
     }
 
+    /**
+     * Xóa vai trò (chặn role hệ thống hoặc role còn được gán cho nhân viên).
+     */
     public function destroyRole(Role $role): RedirectResponse
     {
         $isSystem = (bool) ($role->is_system ?? false) || in_array($role->name, config('role_permissions.protected_roles', []), true);
@@ -271,6 +293,9 @@ class RolePermissionController extends Controller
         return redirect()->route('admin.role-permissions.index')->with('success', 'Đã xóa vai trò.');
     }
 
+    /**
+     * Gán lại danh sách vai trò cho người dùng (không cho tự gỡ role admin của chính mình).
+     */
     public function syncUserRoles(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
@@ -283,7 +308,7 @@ class RolePermissionController extends Controller
             'roles' => $user->roles()->pluck('name')->all(),
         ];
 
-        if ($user->is(auth()->user()) && $user->hasRole('admin') && !$roles->contains('name', 'admin')) {
+        if ($user->is(auth()->user()) && $user->hasRole('admin') && ! $roles->contains('name', 'admin')) {
             return back()->withErrors(['roles' => 'Bạn không thể tự gỡ role admin khỏi tài khoản đang đăng nhập.']);
         }
 
@@ -293,9 +318,12 @@ class RolePermissionController extends Controller
             'roles' => $user->fresh()->roles()->pluck('name')->all(),
         ]);
 
-        return back()->with('success', 'Đã cập nhật vai trò cho ' . $user->name . '.');
+        return back()->with('success', 'Đã cập nhật vai trò cho '.$user->name.'.');
     }
 
+    /**
+     * Cập nhật các quyền gán trực tiếp cho người dùng và ghi audit.
+     */
     public function syncUserPermissions(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
@@ -313,9 +341,12 @@ class RolePermissionController extends Controller
             'direct_permissions' => $user->fresh()->permissions()->pluck('name')->all(),
         ]);
 
-        return back()->with('success', 'Đã cập nhật quyền riêng cho ' . $user->name . '.');
+        return back()->with('success', 'Đã cập nhật quyền riêng cho '.$user->name.'.');
     }
 
+    /**
+     * Chụp trạng thái hiện tại của role (thông tin + danh sách quyền) để ghi audit.
+     */
     private function roleSnapshot(Role $role): array
     {
         return [
@@ -329,6 +360,9 @@ class RolePermissionController extends Controller
         ];
     }
 
+    /**
+     * Ghi audit cho một đối tượng model (role/user) với dữ liệu trước và sau.
+     */
     private function audit(string $action, $subject, ?array $before, ?array $after): void
     {
         $this->auditRaw(
@@ -341,6 +375,9 @@ class RolePermissionController extends Controller
         );
     }
 
+    /**
+     * Ghi bản ghi audit thô vào bảng role_permission_audits (bỏ qua nếu chưa có bảng).
+     */
     private function auditRaw(
         string $action,
         string $subjectType,
@@ -349,7 +386,7 @@ class RolePermissionController extends Controller
         ?array $before,
         ?array $after
     ): void {
-        if (!Schema::hasTable('role_permission_audits')) {
+        if (! Schema::hasTable('role_permission_audits')) {
             return;
         }
 
@@ -366,6 +403,9 @@ class RolePermissionController extends Controller
         ]);
     }
 
+    /**
+     * Xóa cache quyền của Spatie Permission để áp dụng thay đổi ngay.
+     */
     private function flushPermissionCache(): void
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();

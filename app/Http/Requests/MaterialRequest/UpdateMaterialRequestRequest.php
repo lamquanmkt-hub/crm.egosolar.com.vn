@@ -6,14 +6,23 @@ namespace App\Http\Requests\MaterialRequest;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * FormRequest validate dữ liệu cập nhật phiếu yêu cầu vật tư.
+ */
 class UpdateMaterialRequestRequest extends FormRequest
 {
+    /**
+     * Xác định quyền thực hiện request (hiện cho phép tất cả).
+     */
     public function authorize(): bool
     {
         /* EGO_MR_UPDATE_AUTHORIZE_PATCH */
         return true;
     }
 
+    /**
+     * Quy tắc validate dữ liệu phiếu yêu cầu vật tư.
+     */
     public function rules(): array
     {
         return [
@@ -49,6 +58,9 @@ class UpdateMaterialRequestRequest extends FormRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi validate tuỳ chỉnh bằng tiếng Việt.
+     */
     public function messages(): array
     {
         return [
@@ -71,16 +83,19 @@ class UpdateMaterialRequestRequest extends FormRequest
         ];
     }
 
+    /**
+     * Chuẩn hoá danh sách vật tư trong kho, vật tư phụ và ghi chú trước khi validate.
+     */
     protected function prepareForValidation(): void
     {
         $items = $this->input('items', []);
         $extraItems = $this->input('extra_items', []);
 
-        if (!is_array($items)) {
+        if (! is_array($items)) {
             $items = [];
         }
 
-        if (!is_array($extraItems)) {
+        if (! is_array($extraItems)) {
             $extraItems = [];
         }
 
@@ -90,17 +105,17 @@ class UpdateMaterialRequestRequest extends FormRequest
         |--------------------------------------------------------------------------
         */
         $items = array_values(array_filter($items, function ($row) {
-            if (!is_array($row)) {
+            if (! is_array($row)) {
                 return false;
             }
 
             $warehouseId = $row['warehouse_id'] ?? null;
             $productId = $row['product_id'] ?? null;
-            $qty = (float)($row['qty'] ?? 0);
-            $note = trim((string)($row['note'] ?? ''));
+            $qty = (float) ($row['qty'] ?? 0);
+            $note = trim((string) ($row['note'] ?? ''));
 
-            return !empty($warehouseId)
-                || !empty($productId)
+            return ! empty($warehouseId)
+                || ! empty($productId)
                 || $qty > 0
                 || $note !== '';
         }));
@@ -111,14 +126,14 @@ class UpdateMaterialRequestRequest extends FormRequest
         |--------------------------------------------------------------------------
         */
         $extraItems = array_values(array_filter($extraItems, function ($row) {
-            if (!is_array($row)) {
+            if (! is_array($row)) {
                 return false;
             }
 
-            $name = trim((string)($row['name'] ?? ''));
-            $qty = (float)($row['qty'] ?? 0);
-            $unit = trim((string)($row['unit'] ?? ''));
-            $note = trim((string)($row['note'] ?? ''));
+            $name = trim((string) ($row['name'] ?? ''));
+            $qty = (float) ($row['qty'] ?? 0);
+            $unit = trim((string) ($row['unit'] ?? ''));
+            $note = trim((string) ($row['note'] ?? ''));
 
             return $name !== ''
                 || $qty > 0
@@ -129,10 +144,13 @@ class UpdateMaterialRequestRequest extends FormRequest
         $this->merge([
             'items' => $items,
             'extra_items' => $extraItems,
-            'note' => $this->note !== null ? trim((string)$this->note) : null,
+            'note' => $this->note !== null ? trim((string) $this->note) : null,
         ]);
     }
 
+    /**
+     * Kiểm tra bổ sung: bắt buộc có ít nhất 1 vật tư hợp lệ và validate từng dòng vật tư.
+     */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
@@ -144,9 +162,9 @@ class UpdateMaterialRequestRequest extends FormRequest
             foreach ($items as $row) {
                 $warehouseId = $row['warehouse_id'] ?? null;
                 $productId = $row['product_id'] ?? null;
-                $qty = (float)($row['qty'] ?? 0);
+                $qty = (float) ($row['qty'] ?? 0);
 
-                if (!empty($warehouseId) && !empty($productId) && $qty > 0) {
+                if (! empty($warehouseId) && ! empty($productId) && $qty > 0) {
                     $hasStockItem = true;
                     break;
                 }
@@ -155,8 +173,8 @@ class UpdateMaterialRequestRequest extends FormRequest
             $hasExtraItem = false;
 
             foreach ($extraItems as $row) {
-                $name = trim((string)($row['name'] ?? ''));
-                $qty = (float)($row['qty'] ?? 0);
+                $name = trim((string) ($row['name'] ?? ''));
+                $qty = (float) ($row['qty'] ?? 0);
 
                 if ($name !== '' && $qty > 0) {
                     $hasExtraItem = true;
@@ -164,7 +182,7 @@ class UpdateMaterialRequestRequest extends FormRequest
                 }
             }
 
-            if (!$hasStockItem && !$hasExtraItem) {
+            if (! $hasStockItem && ! $hasExtraItem) {
                 $validator->errors()->add(
                     'items',
                     'Vui lòng nhập ít nhất 1 vật tư trong kho hoặc 1 vật tư phụ / ngoài kho.'
@@ -177,12 +195,12 @@ class UpdateMaterialRequestRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
             foreach ($items as $index => $row) {
-                $hasAny = !empty($row['warehouse_id'])
-                    || !empty($row['product_id'])
-                    || ((float)($row['qty'] ?? 0) > 0)
-                    || trim((string)($row['note'] ?? '')) !== '';
+                $hasAny = ! empty($row['warehouse_id'])
+                    || ! empty($row['product_id'])
+                    || ((float) ($row['qty'] ?? 0) > 0)
+                    || trim((string) ($row['note'] ?? '')) !== '';
 
-                if (!$hasAny) {
+                if (! $hasAny) {
                     continue;
                 }
 
@@ -194,7 +212,7 @@ class UpdateMaterialRequestRequest extends FormRequest
                     $validator->errors()->add("items.$index.product_id", 'Vui lòng chọn vật tư trong kho.');
                 }
 
-                if ((float)($row['qty'] ?? 0) <= 0) {
+                if ((float) ($row['qty'] ?? 0) <= 0) {
                     $validator->errors()->add("items.$index.qty", 'Số lượng vật tư trong kho phải lớn hơn 0.');
                 }
             }
@@ -205,23 +223,23 @@ class UpdateMaterialRequestRequest extends FormRequest
             |--------------------------------------------------------------------------
             */
             foreach ($extraItems as $index => $row) {
-                $hasAny = trim((string)($row['name'] ?? '')) !== ''
-                    || ((float)($row['qty'] ?? 0) > 0)
-                    || trim((string)($row['unit'] ?? '')) !== ''
-                    || trim((string)($row['note'] ?? '')) !== '';
+                $hasAny = trim((string) ($row['name'] ?? '')) !== ''
+                    || ((float) ($row['qty'] ?? 0) > 0)
+                    || trim((string) ($row['unit'] ?? '')) !== ''
+                    || trim((string) ($row['note'] ?? '')) !== '';
 
-                if (!$hasAny) {
+                if (! $hasAny) {
                     continue;
                 }
 
-                if (trim((string)($row['name'] ?? '')) === '') {
+                if (trim((string) ($row['name'] ?? '')) === '') {
                     $validator->errors()->add(
                         "extra_items.$index.name",
                         'Vui lòng nhập tên vật tư phụ / ngoài kho.'
                     );
                 }
 
-                if ((float)($row['qty'] ?? 0) <= 0) {
+                if ((float) ($row['qty'] ?? 0) <= 0) {
                     $validator->errors()->add(
                         "extra_items.$index.qty",
                         'Số lượng vật tư phụ / ngoài kho phải lớn hơn 0.'

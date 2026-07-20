@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class OrderReturnApproval extends Model
 {
     protected $table = 'order_return_approvals';
+
     protected $fillable = ['order_return_id', 'level', 'action', 'status', 'approver_id', 'comment'];
 
     public function approver(): BelongsTo

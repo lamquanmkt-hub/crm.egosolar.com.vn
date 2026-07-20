@@ -10,8 +10,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller xử lý xóa mềm đơn hàng kèm lý do.
+ */
 class OrderDeleteController extends Controller
 {
+    /**
+     * Xóa mềm đơn hàng, lưu người xóa và lý do; giữ nguyên dữ liệu nghiệp vụ để đối soát.
+     */
     public function destroy(
         Request $request,
         Order $order
@@ -87,6 +93,9 @@ class OrderDeleteController extends Controller
             );
     }
 
+    /**
+     * Kiểm tra người dùng có quyền xóa đơn hàng hay không.
+     */
     private function canDeleteOrder($user): bool
     {
         if (!$user) {

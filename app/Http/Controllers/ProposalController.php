@@ -7,16 +7,25 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller quản lý đề xuất nội bộ: tạo, duyệt, từ chối, xóa.
+ */
 class ProposalController extends Controller
 {
+    /**
+     * Kiểm tra bảng có tồn tại trong database.
+     */
     private function tableExists(string $table): bool
     {
         return Schema::hasTable($table);
     }
 
+    /**
+     * Lọc dữ liệu chỉ giữ các cột có trong bảng.
+     */
     private function filterColumns(string $table, array $data): array
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return $data;
         }
 
@@ -25,11 +34,14 @@ class ProposalController extends Controller
             ->toArray();
     }
 
+    /**
+     * Kiểm tra người dùng có quyền duyệt đề xuất.
+     */
     private function isApprover(): bool
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -46,6 +58,9 @@ class ProposalController extends Controller
         return false;
     }
 
+    /**
+     * Danh sách loại đề xuất.
+     */
     private function types(): array
     {
         return [
@@ -59,6 +74,9 @@ class ProposalController extends Controller
         ];
     }
 
+    /**
+     * Danh sách mức độ ưu tiên.
+     */
     private function priorities(): array
     {
         return [
@@ -69,11 +87,14 @@ class ProposalController extends Controller
         ];
     }
 
+    /**
+     * Lấy tên phòng ban của người dùng hiện tại.
+     */
     private function currentUserDepartment(): string
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return '';
         }
 
@@ -94,9 +115,12 @@ class ProposalController extends Controller
         return '';
     }
 
+    /**
+     * Hiển thị danh sách đề xuất kèm bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
-        if (!$this->tableExists('proposals')) {
+        if (! $this->tableExists('proposals')) {
             return back()->with('error', 'Chưa có bảng proposals trong database.');
         }
 
@@ -112,7 +136,7 @@ class ProposalController extends Controller
             )
             ->orderByDesc('proposals.id');
 
-        if (!$canApprove) {
+        if (! $canApprove) {
             $query->where('proposals.user_id', auth()->id());
         }
 
@@ -143,7 +167,7 @@ class ProposalController extends Controller
 
         $summaryQuery = DB::table('proposals');
 
-        if (!$canApprove) {
+        if (! $canApprove) {
             $summaryQuery->where('user_id', auth()->id());
         }
 
@@ -166,6 +190,9 @@ class ProposalController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form tạo đề xuất.
+     */
     public function create()
     {
         return view('proposals.create', [
@@ -175,9 +202,12 @@ class ProposalController extends Controller
         ]);
     }
 
+    /**
+     * Lưu đề xuất mới kèm file đính kèm.
+     */
     public function store(Request $request)
     {
-        if (!$this->tableExists('proposals')) {
+        if (! $this->tableExists('proposals')) {
             return back()->with('error', 'Chưa có bảng proposals trong database.');
         }
 
@@ -215,11 +245,11 @@ class ProposalController extends Controller
 
         if ($request->hasFile('attachments') && $this->tableExists('proposal_attachments')) {
             foreach ($request->file('attachments') as $file) {
-                if (!$file) {
+                if (! $file) {
                     continue;
                 }
 
-                $path = $file->store('proposal_attachments/' . $proposalId, 'public');
+                $path = $file->store('proposal_attachments/'.$proposalId, 'public');
 
                 DB::table('proposal_attachments')->insert([
                     'proposal_id' => $proposalId,
@@ -239,9 +269,12 @@ class ProposalController extends Controller
             ->with('success', 'Đã gửi đề xuất cho sếp duyệt.');
     }
 
+    /**
+     * Hiển thị chi tiết đề xuất và file đính kèm.
+     */
     public function show($id)
     {
-        if (!$this->tableExists('proposals')) {
+        if (! $this->tableExists('proposals')) {
             abort(404);
         }
 
@@ -256,11 +289,11 @@ class ProposalController extends Controller
             )
             ->first();
 
-        abort_if(!$proposal, 404);
+        abort_if(! $proposal, 404);
 
         $canApprove = $this->isApprover();
 
-        if (!$canApprove && (int) $proposal->user_id !== (int) auth()->id()) {
+        if (! $canApprove && (int) $proposal->user_id !== (int) auth()->id()) {
             abort(403);
         }
 
@@ -280,9 +313,12 @@ class ProposalController extends Controller
         ]);
     }
 
+    /**
+     * Duyệt đề xuất kèm ghi chú.
+     */
     public function approve(Request $request, $id)
     {
-        if (!$this->isApprover()) {
+        if (! $this->isApprover()) {
             abort(403);
         }
 
@@ -306,9 +342,12 @@ class ProposalController extends Controller
         return back()->with('success', 'Đã duyệt đề xuất.');
     }
 
+    /**
+     * Từ chối đề xuất kèm lý do.
+     */
     public function reject(Request $request, $id)
     {
-        if (!$this->isApprover()) {
+        if (! $this->isApprover()) {
             abort(403);
         }
 
@@ -331,9 +370,12 @@ class ProposalController extends Controller
         return back()->with('success', 'Đã từ chối đề xuất.');
     }
 
+    /**
+     * Xóa đề xuất và toàn bộ file đính kèm.
+     */
     public function destroy($id)
     {
-        if (!$this->tableExists('proposals')) {
+        if (! $this->tableExists('proposals')) {
             abort(404);
         }
 
@@ -341,12 +383,12 @@ class ProposalController extends Controller
             ->where('id', $id)
             ->first();
 
-        abort_if(!$proposal, 404);
+        abort_if(! $proposal, 404);
 
         $canDelete = $this->isApprover()
             || ((int) $proposal->user_id === (int) auth()->id() && $proposal->status === 'pending');
 
-        if (!$canDelete) {
+        if (! $canDelete) {
             abort(403);
         }
 

@@ -6,13 +6,22 @@ use App\Models\SolarMaintenanceSchedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * FormRequest validate dữ liệu tạo lịch bảo trì điện mặt trời.
+ */
 class StoreSolarMaintenanceRequest extends FormRequest
 {
+    /**
+     * Xác định quyền thực hiện request (hiện cho phép tất cả).
+     */
     public function authorize(): bool
     {
         return true;
     }
 
+    /**
+     * Quy tắc validate dữ liệu lịch bảo trì điện mặt trời.
+     */
     public function rules(): array
     {
         return [
@@ -39,6 +48,9 @@ class StoreSolarMaintenanceRequest extends FormRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi validate tuỳ chỉnh bằng tiếng Việt.
+     */
     public function messages(): array
     {
         return [

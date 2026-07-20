@@ -14,10 +14,16 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Service vòng đời phiếu đổi/trả hàng: tạo, duyệt, nhận hàng, kiểm tra, chuyển trạng thái.
+ */
 class OrderReturnService
 {
     private const CLOSED = ['rejected', 'cancelled'];
 
+    /**
+     * Tạo phiếu đổi/trả từ đơn hàng: kiểm tra số lượng còn được hoàn, serial và tính tiền hoàn.
+     */
     public function create(Order $order, array $data, User $user): OrderReturn
     {
         return DB::transaction(function () use ($order, $data, $user) {
@@ -166,6 +172,9 @@ class OrderReturnService
         });
     }
 
+    /**
+     * Gửi phiếu đổi/trả cho quản lý sales duyệt.
+     */
     public function submit(OrderReturn $return, User $user): OrderReturn
     {
         if (!in_array($return->status, ['draft', 'revision_requested'], true)) {
@@ -177,6 +186,9 @@ class OrderReturnService
         ]);
     }
 
+    /**
+     * Phê duyệt phiếu theo chuỗi: sales manager -> kế toán -> (BGĐ nếu giá trị lớn) -> chờ nhận hàng.
+     */
     public function approve(OrderReturn $return, User $user, ?string $comment = null): OrderReturn
     {
         $next = match ($return->status) {
@@ -207,6 +219,9 @@ class OrderReturnService
         return $this->transition($return, $next, 'approve', $comment ?: 'Phê duyệt', $user, $extra);
     }
 
+    /**
+     * Từ chối phiếu đổi/trả kèm lý do.
+     */
     public function reject(OrderReturn $return, User $user, string $comment): OrderReturn
     {
         OrderReturnApproval::create([
@@ -220,6 +235,9 @@ class OrderReturnService
         return $this->transition($return, 'rejected', 'reject', $comment, $user);
     }
 
+    /**
+     * Yêu cầu sales chỉnh sửa lại phiếu đổi/trả.
+     */
     public function requestRevision(OrderReturn $return, User $user, string $comment): OrderReturn
     {
         OrderReturnApproval::create([
@@ -233,6 +251,9 @@ class OrderReturnService
         return $this->transition($return, 'revision_requested', 'request_revision', $comment, $user);
     }
 
+    /**
+     * Kho xác nhận số lượng hàng hoàn thực nhận.
+     */
     public function receive(OrderReturn $return, User $user, array $quantities): OrderReturn
     {
         return DB::transaction(function () use ($return, $user, $quantities) {
@@ -255,6 +276,9 @@ class OrderReturnService
         });
     }
 
+    /**
+     * Kho kiểm tra, phân loại tình trạng hàng hoàn và cập nhật serial.
+     */
     public function inspect(OrderReturn $return, User $user, array $rows): OrderReturn
     {
         return DB::transaction(function () use ($return, $user, $rows) {
@@ -296,6 +320,9 @@ class OrderReturnService
         });
     }
 
+    /**
+     * Chuyển trạng thái phiếu và ghi lịch sử.
+     */
     public function transition(OrderReturn $return, string $to, string $action, ?string $note, User $user, array $extra = []): OrderReturn
     {
         $from = $return->status;
@@ -304,6 +331,9 @@ class OrderReturnService
         return $return->fresh();
     }
 
+    /**
+     * Ghi lịch sử thay đổi trạng thái phiếu kèm IP và user agent.
+     */
     public function history(OrderReturn $return, ?string $from, string $to, string $action, ?string $note, User $user): void
     {
         OrderReturnStatusHistory::create([

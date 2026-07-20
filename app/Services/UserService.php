@@ -3,9 +3,18 @@ namespace App\Services;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+/**
+ * Service quản lý người dùng (tạo, cập nhật, xoá, phân trang theo quyền).
+ */
 class UserService
 {
+	/**
+	 * Khởi tạo service với repository người dùng.
+	 */
 	public function __construct(protected UserRepositoryInterface $users) {}
+	/**
+	 * Tạo người dùng mới (hash mật khẩu, chỉ admin được gán role).
+	 */
 	public function createUser(array $data)
 	{
 		try {
@@ -20,6 +29,9 @@ class UserService
 			throw new \Exception("Không thể tạo user: ".$e->getMessage());
 		}
 	}
+	/**
+	 * Cập nhật người dùng; chỉ hash mật khẩu khi có nhập, non-admin không đổi được role.
+	 */
 	public function updateUser($id, array $data)
 	{
 		if (!empty($data['password'])) {
@@ -33,14 +45,23 @@ class UserService
 		}
 		return $this->users->update($id, $data);
 	}
+	/**
+	 * Xoá người dùng theo ID.
+	 */
 	public function deleteUser($id)
 	{
 		return $this->users->delete($id);
 	}
+	/**
+	 * Lấy thông tin người dùng theo ID.
+	 */
 	public function getUser($id)
 	{
 		return $this->users->find($id);
 	}
+	/**
+	 * Phân trang danh sách người dùng; non-admin chỉ thấy chính mình.
+	 */
 	public function paginateUsers($perPage = 15)
 	{
 		if (Auth::user()->hasRole('admin')) {

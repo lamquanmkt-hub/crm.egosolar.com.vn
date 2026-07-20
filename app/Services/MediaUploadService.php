@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManagerStatic as Image;
 
+/**
+ * Service upload và quản lý file media (media_files + media_metadata).
+ */
 class MediaUploadService
 {
 	protected string $disk = 'public';

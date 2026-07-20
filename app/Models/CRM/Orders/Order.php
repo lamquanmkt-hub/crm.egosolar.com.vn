@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models\CRM\Orders;
 
-
-use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Enums\OrderDepartment;
 use App\Models\Core\Company;
 use App\Models\Core\Warehouse;
@@ -21,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Model đơn hàng CRM.
@@ -28,24 +27,24 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough;
  * Đơn hàng đi qua luồng phê duyệt:
  * Sales → Sales Manager → Kế toán → Ban GĐ → Kho → Hoàn thành
  *
- * @property int         $id
- * @property int|null    $lead_id
- * @property string      $order_code
+ * @property int $id
+ * @property int|null $lead_id
+ * @property string $order_code
  * @property string|null $order_date
- * @property int|null    $warehouse_id
- * @property int|null    $price_tier_id
- * @property float       $total_amount
- * @property float       $shipping_fee
- * @property float       $discount_amount
- * @property float       $tax_amount
- * @property int         $created_by
- * @property int|null    $approved_by
+ * @property int|null $warehouse_id
+ * @property int|null $price_tier_id
+ * @property float $total_amount
+ * @property float $shipping_fee
+ * @property float $discount_amount
+ * @property float $tax_amount
+ * @property int $created_by
+ * @property int|null $approved_by
  * @property string|null $approved_at
- * @property bool        $payment_recorded
- * @property string      $current_department
- * @property int|null    $current_status_type_id
+ * @property bool $payment_recorded
+ * @property string $current_department
+ * @property int|null $current_status_type_id
  * @property string|null $shipping_status
- * @property bool        $is_shipped
+ * @property bool $is_shipped
  * @property string|null $shipped_at
  * @property string|null $shipping_carrier
  * @property string|null $tracking_number
@@ -54,10 +53,9 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough;
  * @property string|null $shipping_address
  * @property string|null $shipping_note
  * @property string|null $estimated_delivery
- * @property bool        $inventory_issued
+ * @property bool $inventory_issued
  * @property string|null $inventory_issued_at
- * @property int|null    $inventory_issued_by
- *
+ * @property int|null $inventory_issued_by
  * @property-read Customer|null      $customer
  * @property-read float              $paid_amount
  * @property-read float              $remain_amount
@@ -74,77 +72,76 @@ use Illuminate\Database\Eloquent\Relations\HasOneThrough;
  */
 class Order extends Model
 {
-    use SoftDeletes;
-
     use HasFactory;
+    use SoftDeletes;
 
     /** @var string */
     protected $table = 'crm_orders';
 
     /** @var array<int, string> */
-protected $fillable = [
-    'lead_id',
-    'order_code',
-    'order_date',
-    'warehouse_id',
-    'price_tier_id',
+    protected $fillable = [
+        'lead_id',
+        'order_code',
+        'order_date',
+        'warehouse_id',
+        'price_tier_id',
 
-    // 🔥 THÊM ĐOẠN NÀY
-    'invoice_company_name',
-    'invoice_tax_code',
-    'invoice_address',
-    'invoice_email',
-'invoice_status',
-'invoice_file',
-    'shipping_address',
-    'shipping_fee',
-    'discount_amount',
-    'tax_amount',
-    'total_amount',
-    'created_by',
-    'approved_by',
-    'approved_at',
-    'payment_recorded',
-    'current_department',
-    'shipping_status',
-    'is_shipped',
-    'shipped_at',
-    'shipping_carrier',
-    'tracking_number',
-    'receiver_name',
-    'receiver_phone',
-    'shipping_note',
-    'current_status_type_id',
-    'estimated_delivery',
-    'inventory_issued',
-    'inventory_issued_at',
-    'inventory_issued_by',
-    'note',
-    'company_id',
-    'customer_id',
-];
+        // 🔥 THÊM ĐOẠN NÀY
+        'invoice_company_name',
+        'invoice_tax_code',
+        'invoice_address',
+        'invoice_email',
+        'invoice_status',
+        'invoice_file',
+        'shipping_address',
+        'shipping_fee',
+        'discount_amount',
+        'tax_amount',
+        'total_amount',
+        'created_by',
+        'approved_by',
+        'approved_at',
+        'payment_recorded',
+        'current_department',
+        'shipping_status',
+        'is_shipped',
+        'shipped_at',
+        'shipping_carrier',
+        'tracking_number',
+        'receiver_name',
+        'receiver_phone',
+        'shipping_note',
+        'current_status_type_id',
+        'estimated_delivery',
+        'inventory_issued',
+        'inventory_issued_at',
+        'inventory_issued_by',
+        'note',
+        'company_id',
+        'customer_id',
+    ];
 
     /** @var array<string, string> */
     protected $casts = [
-        'order_date'             => 'date',
-        'approved_at'            => 'datetime',
-        'estimated_delivery'     => 'datetime',
-        'shipping_fee'           => 'decimal:2',
-        'discount_amount'        => 'decimal:2',
-        'tax_amount'             => 'decimal:2',
-        'total_amount'           => 'decimal:2',
-        'payment_recorded'       => 'boolean',
-        'shipping_status'        => 'string',
-        'is_shipped'             => 'boolean',
-        'shipped_at'             => 'datetime',
-        'created_by'             => 'integer',
-        'approved_by'            => 'integer',
-        'warehouse_id'           => 'integer',
-        'company_id'             => 'integer',
+        'order_date' => 'date',
+        'approved_at' => 'datetime',
+        'estimated_delivery' => 'datetime',
+        'shipping_fee' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'payment_recorded' => 'boolean',
+        'shipping_status' => 'string',
+        'is_shipped' => 'boolean',
+        'shipped_at' => 'datetime',
+        'created_by' => 'integer',
+        'approved_by' => 'integer',
+        'warehouse_id' => 'integer',
+        'company_id' => 'integer',
         'current_status_type_id' => 'integer',
-        'inventory_issued'       => 'boolean',
-        'inventory_issued_at'    => 'datetime',
-        'inventory_issued_by'    => 'integer',
+        'inventory_issued' => 'boolean',
+        'inventory_issued_at' => 'datetime',
+        'inventory_issued_by' => 'integer',
     ];
 
     // =========================================================================
@@ -241,7 +238,6 @@ protected $fillable = [
     {
         return $this->belongsTo(OrderStatusType::class, 'current_status_type_id');
     }
-
 
     /** Hồ sơ đổi trả, thu hồi và hoàn tiền của đơn. */
     public function returns(): HasMany

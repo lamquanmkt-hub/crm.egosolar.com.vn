@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\SolarSetting;
 use Illuminate\Http\Request;
 
+/**
+ * Controller quản lý cài đặt công thức tính toán điện mặt trời.
+ */
 class SolarSettingController extends Controller
 {
     private array $solarDefaults = [
@@ -257,6 +260,9 @@ class SolarSettingController extends Controller
         ],
     ];
 
+    /**
+     * Hiển thị trang cài đặt Solar sau khi đồng bộ giá trị mặc định.
+     */
     public function index()
     {
         $this->syncDefaults();
@@ -268,6 +274,9 @@ class SolarSettingController extends Controller
         return view('solar.settings', compact('settings'));
     }
 
+    /**
+     * Lưu các cài đặt Solar từ form.
+     */
     public function update(Request $request)
     {
         $this->syncDefaults();
@@ -292,6 +301,9 @@ class SolarSettingController extends Controller
         return back()->with('success', 'Đã lưu cài đặt Solar thành công.');
     }
 
+    /**
+     * Tạo/cập nhật các cài đặt mặc định vào database.
+     */
     private function syncDefaults(): void
     {
         foreach ($this->solarDefaults as $key => $item) {

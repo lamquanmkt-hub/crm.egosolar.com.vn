@@ -9,8 +9,14 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller cài đặt chấm công: giờ làm việc, ngày làm việc trong tuần và ngày nghỉ lễ.
+ */
 class AttendanceSettingController extends Controller
 {
+    /**
+     * Hiển thị form cài đặt chấm công; tự tạo bản ghi mặc định nếu chưa có, kèm danh sách ngày nghỉ theo tháng.
+     */
     public function edit(Request $request)
     {
         $setting = AttendanceSetting::first();
@@ -62,6 +68,9 @@ class AttendanceSettingController extends Controller
         ));
     }
 
+    /**
+     * Lưu cài đặt chấm công và đồng bộ danh sách ngày nghỉ (thêm mới / xoá).
+     */
     public function update(Request $request)
     {
         $request->validate([
@@ -167,6 +176,9 @@ class AttendanceSettingController extends Controller
             ->with('success', 'Đã lưu cài đặt chấm công thành công.');
     }
 
+    /**
+     * Gán giá trị cho cột của bản ghi cài đặt chỉ khi cột tồn tại trong bảng.
+     */
     private function safeSet(AttendanceSetting $setting, string $column, mixed $value): void
     {
         if (Schema::hasColumn($setting->getTable(), $column)) {
@@ -174,6 +186,11 @@ class AttendanceSettingController extends Controller
         }
     }
 
+    /**
+     * Chuẩn hoá danh sách ngày thứ 7 tuỳ chọn (chuỗi hoặc mảng) về mảng ngày Y-m-d duy nhất.
+     *
+     * @return array|null Mảng ngày hợp lệ hoặc null nếu rỗng
+     */
     private function normalizeCustomDates(mixed $value): ?array
     {
         if (blank($value)) {

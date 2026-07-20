@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Services\OrderServiceInterface;
 use App\Enums\OrderDepartment;
 use App\Enums\OrderStatusCode;
 use App\Models\CRM\Customers\CustomerDebt;
@@ -28,28 +29,40 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class OrderService
+/**
+ * Service xử lý nghiệp vụ đơn hàng (Order): truy vấn, tạo/sửa, duyệt, xuất kho, thanh toán.
+ */
+class OrderService implements OrderServiceInterface
 {
+    /**
+     * Khởi tạo service với repository và các handler nghiệp vụ đơn hàng.
+     */
     public function __construct(
         protected OrderRepositoryInterface $orderRepo,
-        protected ProductStockService      $stockService,
-        protected NotificationService      $notificationService,
-        protected PricingService           $pricingService,
-        protected OrderApprovalHandler     $approvalHandler,
-        protected OrderInventoryHandler    $inventoryHandler,
-        protected OrderPaymentHandler      $paymentHandler,
-        protected OrderItemCalculator      $itemCalculator,
+        protected \App\Contracts\Services\ProductStockServiceInterface $stockService,
+        protected NotificationService $notificationService,
+        protected \App\Contracts\Services\PricingServiceInterface $pricingService,
+        protected OrderApprovalHandler $approvalHandler,
+        protected OrderInventoryHandler $inventoryHandler,
+        protected OrderPaymentHandler $paymentHandler,
+        protected OrderItemCalculator $itemCalculator,
     ) {}
 
     // =========================================================================
     // QUERIES
     // =========================================================================
 
+    /**
+     * Đếm tổng số đơn hàng.
+     */
     public function count(): int
     {
         return $this->orderRepo->count();
     }
 
+    /**
+     * Lấy danh sách đơn hàng mới nhất.
+     */
     public function getRecentOrders(int $limit = 5): Collection
     {
         return $this->orderRepo->getRecent($limit);
@@ -84,7 +97,7 @@ class OrderService
 
         $this->excludeCancelledOrders($query);
 
-        $paymentTable = (new Payment())->getTable();
+        $paymentTable = (new Payment)->getTable();
 
         $paidSql = "
             (
@@ -116,8 +129,8 @@ class OrderService
 
         return [
             'total_amount' => (float) ($summary->total_amount ?? 0),
-            'total_paid'   => (float) ($summary->total_paid ?? 0),
-            'total_debt'   => (float) ($summary->total_debt ?? 0),
+            'total_paid' => (float) ($summary->total_paid ?? 0),
+            'total_debt' => (float) ($summary->total_debt ?? 0),
             'debt_over_30' => (float) ($summary->debt_over_30 ?? 0),
         ];
     }
@@ -141,7 +154,7 @@ class OrderService
         if (
             $user
             && $user->hasRole('sales')
-            && !$user->hasRole(['admin', 'management', 'accounting', 'sales_manager', 'warehouse'])
+            && ! $user->hasRole(['admin', 'management', 'accounting', 'sales_manager', 'warehouse'])
         ) {
             $query->where('created_by', $user->id);
         }
@@ -173,15 +186,15 @@ class OrderService
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $status = $filters['status'];
 
             $statusMap = [
-                'sales'     => ['sales'],
-                'ketoan'    => ['accounting', 'ketoan'],
-                'duyet1'    => ['sales_manager', 'duyet1'],
-                'duyet2'    => ['management', 'director', 'duyet2'],
-                'kho'       => ['warehouse', 'kho'],
+                'sales' => ['sales'],
+                'ketoan' => ['accounting', 'ketoan'],
+                'duyet1' => ['sales_manager', 'duyet1'],
+                'duyet2' => ['management', 'director', 'duyet2'],
+                'kho' => ['warehouse', 'kho'],
                 'completed' => ['completed'],
                 'cancelled' => ['cancelled', 'canceled', 'da_huy', 'huy'],
             ];
@@ -189,7 +202,7 @@ class OrderService
             $query->whereIn('current_department', $statusMap[$status] ?? [$status]);
         }
 
-        if (!empty($filters['company_id'])) {
+        if (! empty($filters['company_id'])) {
             $companyId = (int) $filters['company_id'];
 
             $query->where(function ($q) use ($companyId) {
@@ -207,19 +220,19 @@ class OrderService
             });
         }
 
-        if (!empty($filters['created_by'])) {
+        if (! empty($filters['created_by'])) {
             $query->where('created_by', (int) $filters['created_by']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('order_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('order_date', '<=', $filters['to_date']);
         }
 
-        if (!empty($filters['payment_filter'])) {
+        if (! empty($filters['payment_filter'])) {
             $this->applyOrderPaymentFilter($query, (string) $filters['payment_filter']);
         }
     }
@@ -231,7 +244,7 @@ class OrderService
     {
         $this->excludeCancelledOrders($query);
 
-        $paymentTable = (new Payment())->getTable();
+        $paymentTable = (new Payment)->getTable();
 
         $paidSql = "
             (
@@ -294,16 +307,25 @@ class OrderService
         }
     }
 
+    /**
+     * Lấy danh sách đơn hàng phân trang theo bộ lọc.
+     */
     public function getAllOrders(array $filters = []): LengthAwarePaginator
     {
         return $this->orderRepo->search($filters);
     }
 
+    /**
+     * Tìm đơn hàng theo ID.
+     */
     public function find($id): ?Order
     {
         return $this->orderRepo->find($id);
     }
 
+    /**
+     * Lấy chi tiết đơn hàng kèm items, thanh toán và khách hàng.
+     */
     public function findWithDetails($id): Order
     {
         return Order::query()
@@ -315,11 +337,17 @@ class OrderService
             ->findOrFail($id);
     }
 
+    /**
+     * Lấy bộ phận đang xử lý đơn hàng.
+     */
     public function getCurrentApprovalLevel(Order $order): ?string
     {
         return $order->current_department;
     }
 
+    /**
+     * Lấy timeline lịch sử trạng thái của đơn hàng.
+     */
     public function getOrderTimeline($orderId)
     {
         return OrderStatusHistory::where('order_id', $orderId)
@@ -328,6 +356,9 @@ class OrderService
             ->get();
     }
 
+    /**
+     * Lấy các thông báo của đơn dành cho người tạo đơn.
+     */
     public function getOrderNotifications($orderId)
     {
         $order = $this->orderRepo->find($orderId);
@@ -338,16 +369,22 @@ class OrderService
             ->get();
     }
 
+    /**
+     * Thống kê đơn hàng và doanh thu của một sales.
+     */
     public function getSalesStatistics(int $salesId): array
     {
         return [
-            'total_orders'  => Order::where('created_by', $salesId)->count(),
-            'pending'       => Order::where('created_by', $salesId)->where('current_department', '!=', 'completed')->count(),
-            'completed'     => Order::where('created_by', $salesId)->where('current_department', 'completed')->count(),
+            'total_orders' => Order::where('created_by', $salesId)->count(),
+            'pending' => Order::where('created_by', $salesId)->where('current_department', '!=', 'completed')->count(),
+            'completed' => Order::where('created_by', $salesId)->where('current_department', 'completed')->count(),
             'total_revenue' => (float) Order::where('created_by', $salesId)->where('payment_recorded', true)->sum('total_amount'),
         ];
     }
 
+    /**
+     * Lấy các đơn hàng gần đây của một sales.
+     */
     public function getRecentOrdersBySales(int $salesId, int $limit = 10)
     {
         return Order::where('created_by', $salesId)
@@ -357,6 +394,9 @@ class OrderService
             ->get();
     }
 
+    /**
+     * Lấy các thông báo chưa đọc của sales.
+     */
     public function getPendingNotifications(int $salesId)
     {
         return OrderNotification::where('user_id', $salesId)
@@ -370,6 +410,9 @@ class OrderService
     // COMMANDS
     // =========================================================================
 
+    /**
+     * Tạo đơn hàng mới: đảm bảo có lead, tạo items, approval ban đầu và ghi lịch sử.
+     */
     public function createOrder(array $data): Order
     {
         return DB::transaction(function () use ($data) {
@@ -384,18 +427,21 @@ class OrderService
         });
     }
 
+    /**
+     * Cập nhật đơn hàng: kiểm tra quyền, chuẩn hóa dữ liệu và đồng bộ items.
+     */
     public function updateOrder($id, array $data): Order
     {
         return DB::transaction(function () use ($id, $data) {
             $order = $this->orderRepo->find($id);
-            $user  = Auth::user();
+            $user = Auth::user();
 
             $this->guardUpdatePermission($order, $user);
 
             $data = $this->preserveLeadId($data, $order);
             $data = $this->normalizeOrderDate($data);
 
-            if (!empty($data['items'])) {
+            if (! empty($data['items'])) {
                 $data['company_id'] = $this->resolveCompanyIdFromItems($data);
             }
 
@@ -406,6 +452,9 @@ class OrderService
         });
     }
 
+    /**
+     * Gửi đơn từ Sales sang Sales Manager duyệt.
+     */
     public function submitForApproval($id): void
     {
         DB::transaction(function () use ($id) {
@@ -419,16 +468,20 @@ class OrderService
         });
     }
 
+    /**
+     * Điều phối hành động duyệt/từ chối; ở bước kho thì chuyển sang xuất kho.
+     */
     public function processApproval(string $id, array $data): void
     {
         $action = $data['action'] ?? 'approve';
-        $order  = $this->orderRepo->find($id);
+        $order = $this->orderRepo->find($id);
 
         if ($action === 'approve' && $order->current_department === OrderDepartment::WAREHOUSE->value) {
             $this->shipOrder($id, [
                 'shipping_note' => $data['note'] ?? null,
-                'serials'       => $data['serials'] ?? [],
+                'serials' => $data['serials'] ?? [],
             ]);
+
             return;
         }
 
@@ -439,13 +492,16 @@ class OrderService
         }
     }
 
+    /**
+     * Duyệt đơn ở bộ phận hiện tại và chuyển sang bộ phận kế tiếp.
+     */
     public function approveOrder($id, array $data): void
     {
         DB::transaction(function () use ($id, $data) {
-            $order       = $this->orderRepo->find($id);
-            $user        = Auth::user();
+            $order = $this->orderRepo->find($id);
+            $user = Auth::user();
             $currentDept = OrderDepartment::from($order->current_department);
-            $nextDept    = $currentDept->nextDepartment();
+            $nextDept = $currentDept->nextDepartment();
 
             $this->approvalHandler->updateCurrentApproval($order, $currentDept, $user, $data);
             $this->approvalHandler->transitionToDepartment($order, $nextDept, $currentDept->statusCode());
@@ -458,23 +514,26 @@ class OrderService
                 $this->approvalHandler->createApprovalRecord($order, $nextDept->value);
             }
 
-            $note = "Đã duyệt bởi {$user->name}" . (isset($data['note']) ? " - GC: {$data['note']}" : '');
+            $note = "Đã duyệt bởi {$user->name}".(isset($data['note']) ? " - GC: {$data['note']}" : '');
             $this->recordStatusHistory($order, $currentDept->value, $nextDept->value, $note);
             $this->sendApprovalNotifications($order, $currentDept, $nextDept);
         });
     }
 
+    /**
+     * Từ chối đơn và trả về Sales kèm lý do.
+     */
     public function rejectOrder($id, array $data): void
     {
         DB::transaction(function () use ($id, $data) {
-            $order       = $this->orderRepo->find($id);
-            $user        = Auth::user();
+            $order = $this->orderRepo->find($id);
+            $user = Auth::user();
             $currentDept = OrderDepartment::from($order->current_department);
 
             $this->approvalHandler->updateRejectedApproval($order, $currentDept->value, $user, $data);
             $this->approvalHandler->transitionToDepartment($order, OrderDepartment::SALES, OrderStatusCode::REJECTED);
 
-            $note = "Từ chối bởi {$user->name}: " . ($data['rejection_reason'] ?? '');
+            $note = "Từ chối bởi {$user->name}: ".($data['rejection_reason'] ?? '');
             $this->recordStatusHistory($order, $currentDept->value, OrderDepartment::SALES->value, $note);
 
             $this->notificationService->notifySales(
@@ -486,6 +545,9 @@ class OrderService
         });
     }
 
+    /**
+     * Hủy đơn hàng (chỉ khi còn ở bộ phận Sales).
+     */
     public function cancelOrder($id): void
     {
         DB::transaction(function () use ($id) {
@@ -497,7 +559,7 @@ class OrderService
 
             $this->approvalHandler->transitionToDepartment($order, null, OrderStatusCode::CANCELLED, 'cancelled');
 
-            $this->recordStatusHistory($order, OrderDepartment::SALES->value, 'cancelled', 'Đơn hàng được hủy bởi ' . Auth::user()->name);
+            $this->recordStatusHistory($order, OrderDepartment::SALES->value, 'cancelled', 'Đơn hàng được hủy bởi '.Auth::user()->name);
             $this->notificationService->notifyDepartment(
                 'sales_manager',
                 $order,
@@ -506,6 +568,9 @@ class OrderService
         });
     }
 
+    /**
+     * Xóa đơn hàng cùng toàn bộ dữ liệu liên quan (trừ đơn đã hoàn tất).
+     */
     public function deleteOrder($id): void
     {
         DB::transaction(function () use ($id) {
@@ -516,7 +581,7 @@ class OrderService
             }
 
             $deletedByUser = Auth::user();
-            $orderCode     = $order->order_code;
+            $orderCode = $order->order_code;
 
             $order->items()->delete();
             OrderApproval::where('order_id', $order->id)->delete();
@@ -526,10 +591,10 @@ class OrderService
             OrderStatusHistory::where('order_id', $order->id)->delete();
 
             Log::info('Order deleted', [
-                'order_id'            => $order->id,
-                'order_code'          => $orderCode,
-                'deleted_by'          => $deletedByUser->id,
-                'deleted_by_name'     => $deletedByUser->name,
+                'order_id' => $order->id,
+                'order_code' => $orderCode,
+                'deleted_by' => $deletedByUser->id,
+                'deleted_by_name' => $deletedByUser->name,
                 'original_department' => $order->current_department,
             ]);
 
@@ -544,16 +609,25 @@ class OrderService
         });
     }
 
+    /**
+     * Xuất kho đơn hàng thông qua inventory handler.
+     */
     public function shipOrder($id, array $data): void
     {
         $this->inventoryHandler->shipOrder($id, $data, $this->orderRepo, $this);
     }
 
+    /**
+     * Ghi nhận thanh toán cho đơn thông qua payment handler.
+     */
     public function recordPayment($id, array $data): void
     {
         $this->paymentHandler->recordPayment($id, $data, $this->orderRepo, $this->notificationService);
     }
 
+    /**
+     * Lấy payload serial phục vụ modal xuất kho.
+     */
     public function getShipSerialsPayload(Order $order): array
     {
         return $this->inventoryHandler->getShipSerialsPayload($order);
@@ -563,9 +637,12 @@ class OrderService
     // HELPERS
     // =========================================================================
 
+    /**
+     * Đảm bảo dữ liệu có lead_id, tự tạo lead mới nếu thiếu.
+     */
     private function ensureLeadExists(array $data): array
     {
-        if (!empty($data['lead_id'])) {
+        if (! empty($data['lead_id'])) {
             return $data;
         }
 
@@ -573,8 +650,8 @@ class OrderService
 
         $lead = Lead::create([
             'customer_id' => $data['customer_id'],
-            'status_id'   => $newStatus?->id,
-            'created_by'  => Auth::id(),
+            'status_id' => $newStatus?->id,
+            'created_by' => Auth::id(),
         ]);
 
         $data['lead_id'] = $lead->id;
@@ -582,10 +659,13 @@ class OrderService
         return $data;
     }
 
+    /**
+     * Tạo bản ghi đơn hàng với mã đơn, tổng tiền và bộ phận khởi tạo.
+     */
     private function createOrderRecord(array $data): Order
     {
         $initialStatus = OrderStatusType::where('code', 'PENDING_APPROVAL')->first();
-        $finalTotal    = $this->itemCalculator->calcOrderTotalFromItems($data['items'] ?? []);
+        $finalTotal = $this->itemCalculator->calcOrderTotalFromItems($data['items'] ?? []);
 
         $warehouseIds = collect($data['items'] ?? [])
             ->pluck('warehouse_id')
@@ -596,23 +676,26 @@ class OrderService
         $companyId = $this->resolveCompanyIdFromItems($data);
 
         return $this->orderRepo->create([
-            'order_code'             => $this->generateOrderCode(),
-            'lead_id'                => $data['lead_id'],
-            'order_date'             => $data['order_date'],
-            'warehouse_id'           => $warehouseIds->count() === 1 ? (int) $warehouseIds->first() : null,
-            'company_id'             => $companyId,
-            'price_tier_id'          => $data['price_tier_id'] ?? null,
-            'total_amount'           => $finalTotal,
-            'created_by'             => Auth::id(),
-            'current_department'     => OrderDepartment::SALES->value,
+            'order_code' => $this->generateOrderCode(),
+            'lead_id' => $data['lead_id'],
+            'order_date' => $data['order_date'],
+            'warehouse_id' => $warehouseIds->count() === 1 ? (int) $warehouseIds->first() : null,
+            'company_id' => $companyId,
+            'price_tier_id' => $data['price_tier_id'] ?? null,
+            'total_amount' => $finalTotal,
+            'created_by' => Auth::id(),
+            'current_department' => OrderDepartment::SALES->value,
             'current_status_type_id' => $initialStatus?->id,
         ]);
     }
 
+    /**
+     * Cập nhật các trường cho phép của bản ghi đơn hàng.
+     */
     private function updateOrderRecord(Order $order, array $data): void
     {
         $fillable = ['lead_id', 'order_date', 'warehouse_id', 'note', 'company_id', 'price_tier_id'];
-        $payload  = [];
+        $payload = [];
 
         foreach ($fillable as $field) {
             if (array_key_exists($field, $data)) {
@@ -620,29 +703,38 @@ class OrderService
             }
         }
 
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             $order->update($payload);
         }
     }
 
+    /**
+     * Chặn sửa đơn đã gửi duyệt nếu user không có quyền đặc biệt.
+     */
     private function guardUpdatePermission(Order $order, $user): void
     {
         $isPrivileged = $user && $user->hasRole(['admin', 'super_admin', 'accounting']);
 
-        if (!$isPrivileged && ($order->current_department ?? 'sales') !== OrderDepartment::SALES->value) {
+        if (! $isPrivileged && ($order->current_department ?? 'sales') !== OrderDepartment::SALES->value) {
             throw new \Exception('Đơn hàng đã gửi duyệt, không thể chỉnh sửa lúc này.');
         }
     }
 
+    /**
+     * Giữ lead_id cũ của đơn nếu request không gửi lên.
+     */
     private function preserveLeadId(array $data, Order $order): array
     {
-        if (empty($data['lead_id']) && !empty($order->lead_id)) {
+        if (empty($data['lead_id']) && ! empty($order->lead_id)) {
             $data['lead_id'] = $order->lead_id;
         }
 
         return $data;
     }
 
+    /**
+     * Chuẩn hóa ngày đơn hàng về định dạng Y-m-d.
+     */
     private function normalizeOrderDate(array $data): array
     {
         if (empty($data['order_date'])) {
@@ -662,9 +754,12 @@ class OrderService
         return $data;
     }
 
+    /**
+     * Suy ra company_id từ các kho trong items, chặn đơn lấy hàng từ nhiều công ty.
+     */
     private function resolveCompanyIdFromItems(array $data): ?int
     {
-        if (!empty($data['company_id'])) {
+        if (! empty($data['company_id'])) {
             return (int) $data['company_id'];
         }
 
@@ -709,11 +804,14 @@ class OrderService
             : null;
     }
 
+    /**
+     * Sinh mã đơn hàng tăng dần theo ngày (ORDyyyymmddNNNN).
+     */
     protected function generateOrderCode(): string
     {
-        $prefix = 'ORD' . now()->format('Ymd');
+        $prefix = 'ORD'.now()->format('Ymd');
 
-        $lastCode = Order::where('order_code', 'like', $prefix . '%')
+        $lastCode = Order::where('order_code', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('order_code')
             ->value('order_code');
@@ -727,19 +825,25 @@ class OrderService
         return sprintf('%s%04d', $prefix, $next);
     }
 
+    /**
+     * Ghi lịch sử chuyển trạng thái/bộ phận của đơn.
+     */
     public function recordStatusHistory(Order $order, ?string $from, string $to, string $note): void
     {
         OrderStatusHistory::create([
-            'order_id'        => $order->id,
+            'order_id' => $order->id,
             'from_department' => $from,
-            'to_department'   => $to,
-            'note'            => $note,
-            'changed_by'      => Auth::id(),
-            'changed_at'      => now(),
-            'status_type_id'  => $order->current_status_type_id,
+            'to_department' => $to,
+            'note' => $note,
+            'changed_by' => Auth::id(),
+            'changed_at' => now(),
+            'status_type_id' => $order->current_status_type_id,
         ]);
     }
 
+    /**
+     * Gửi thông báo cho sales và bộ phận kế tiếp sau khi duyệt.
+     */
     private function sendApprovalNotifications(Order $order, OrderDepartment $from, OrderDepartment $to): void
     {
         $this->notificationService->notifySales(

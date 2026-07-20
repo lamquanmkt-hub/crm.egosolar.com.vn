@@ -10,10 +10,9 @@
  * - RESTful: Sử dụng resource routes khi có thể
  *
  * @author Your Name
+ *
  * @version 2.0
  */
-
-
 
 use Illuminate\Support\Facades\Route;
 
@@ -45,80 +44,56 @@ Route::middleware(['auth'])
 
 // Auth
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\RegisterController;
-
 // Core
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\ProductCategoryController;
-use App\Http\Controllers\WarehouseController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\MediaController;
-use App\Http\Controllers\NotificationController;
-
-// Orders & Payments
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentMethodController;
-use App\Http\Controllers\PaymentRequestController;
-use App\Http\Controllers\PaymentRequestApprovalController;
-use App\Http\Controllers\PaymentAttachmentController;
-use App\Http\Controllers\SalesCommissionController;
-
-// Products
 use App\Http\Controllers\BrandController;
-use App\Http\Controllers\PriceTierController;
-use App\Http\Controllers\OrderReturnController;
-
-
-// Tasks & Chat
-use App\Http\Controllers\TaskController;
 use App\Http\Controllers\ChatController;
-
-// Construction Sites & Material Requests (Refactored)
-use App\Http\Controllers\SiteController;
-use App\Http\Controllers\MaterialRequestController;
-use App\Http\Controllers\MaterialRequestApprovalController;
-
-// Debug & Utils (Refactored)
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DebugController;
-use App\Http\Controllers\PushSubscriptionController;
-
-// Marketing
-use App\Http\Controllers\Marketing\MarketingDashboardController;
-use App\Http\Controllers\Marketing\MarketingBudgetController;
-use App\Http\Controllers\Marketing\MarketingMetricController;
-use App\Http\Controllers\Marketing\MarketingCampaignController;
-use App\Http\Controllers\Marketing\MarketingLeadController;
-use App\Http\Controllers\Marketing\KpiPayrollController;
-
-use App\Http\Controllers\Marketing\ContentCalendarController;
-use App\Http\Controllers\Marketing\WeeklyTaskController;
-
-use App\Http\Controllers\Marketing\MarketingPlanController;
-use App\Http\Controllers\Marketing\MarketingProgressController;
-use App\Http\Controllers\Marketing\MarketingReportController;
-
-use App\Http\Controllers\ContentFeedbackController;
-
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-
-// Finance
-use App\Http\Controllers\Finance\FinanceDashboardController;
-use App\Http\Controllers\Finance\CustomerDebtController;
-use App\Http\Controllers\Finance\SupplierDebtController;
-use App\Http\Controllers\Finance\ReceiptController;
-use App\Http\Controllers\Finance\PaymentController;
 use App\Http\Controllers\Finance\AccountController;
 use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\CustomerDebtController;
+// Orders & Payments
+use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\FinanceReportController;
-
-//Solar
-use App\Http\Controllers\SolarSettingController;
+use App\Http\Controllers\Finance\PaymentController;
+use App\Http\Controllers\Finance\ReceiptController;
+use App\Http\Controllers\Finance\SupplierDebtController;
+use App\Http\Controllers\Marketing\ContentCalendarController;
+// Products
+use App\Http\Controllers\Marketing\KpiPayrollController;
+use App\Http\Controllers\Marketing\MarketingDashboardController;
+// Tasks & Chat
+use App\Http\Controllers\Marketing\MarketingLeadController;
+use App\Http\Controllers\Marketing\MarketingProgressController;
+// Construction Sites & Material Requests (Refactored)
+use App\Http\Controllers\Marketing\MarketingReportController;
+use App\Http\Controllers\Marketing\WeeklyTaskController;
+// Debug & Utils (Refactored)
+use App\Http\Controllers\MaterialRequestController;
+use App\Http\Controllers\MediaController;
+// Marketing
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\PaymentAttachmentController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\PaymentRequestApprovalController;
+use App\Http\Controllers\PaymentRequestController;
+use App\Http\Controllers\PriceTierController;
+use App\Http\Controllers\ProductCategoryController;
+// Finance
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PushSubscriptionController;
+use App\Http\Controllers\SalesCommissionController;
+use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SolarCalculatorController;
-
+use App\Http\Controllers\SolarSettingController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserController;
+// Solar
+use App\Http\Controllers\WarehouseController;
+use Illuminate\Support\Facades\Schema;
 
 /* EGO_COMPANY_CONTEXT_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
@@ -133,28 +108,15 @@ Route::middleware(['auth'])->group(function () {
 | Public / Auth Routes
 |--------------------------------------------------------------------------
 */
-Route::get('/hr-test', function () {
-    return 'HR ROUTE OK';
-});
-Route::get('/debug/serial-columns', function () {
-    return response()->json([
-        'crm_serial_units' => DB::getSchemaBuilder()->getColumnListing('crm_serial_units'),
-        'crm_serial_unit_states' => Schema::hasTable('crm_serial_unit_states')
-            ? DB::getSchemaBuilder()->getColumnListing('crm_serial_unit_states')
-            : null,
-    ]);
-})->middleware('auth');
 Route::controller(LoginController::class)->group(function () {
     Route::get('/login', 'showLoginForm')->name('login');
     Route::post('/login', 'login');
     Route::post('/logout', 'logout')->name('logout');
 });
 
-Route::controller(RegisterController::class)->group(function () {
-    Route::get('/register', 'showRegistrationForm')->name('register');
-    Route::post('/register', 'register');
-});
-
+// Đăng ký công khai đã bị vô hiệu hóa vì lý do bảo mật (CRM nội bộ):
+// tài khoản nhân viên do admin tạo qua module Quản lý người dùng / phân quyền.
+// Nếu cần mở lại có kiểm soát, gate bằng role:admin thay vì mở public.
 
 /*
 |--------------------------------------------------------------------------
@@ -204,7 +166,6 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-
 /* EGO_COMPANY_MANAGEMENT_START */
 Route::middleware(['auth'])->prefix('company-management')->name('company-management.')->group(function () {
     Route::get('/', [\App\Http\Controllers\CompanyManagementController::class, 'index'])->name('index');
@@ -220,14 +181,14 @@ Route::get('/', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
 
-
 /*
 |--------------------------------------------------------------------------
 | Debug Routes (Development Only)
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth'])
+// Debug routes: chỉ admin mới được truy cập (lộ thông tin schema nếu mở rộng hơn)
+Route::middleware(['auth', 'role:admin'])
     ->prefix('debug')
     ->controller(DebugController::class)
     ->group(function () {
@@ -237,8 +198,6 @@ Route::middleware(['auth'])
         Route::get('/inventory', 'inventoryTables');
         Route::get('/me', 'currentUser');
     });
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -258,7 +217,6 @@ Route::middleware(['auth'])
         Route::get('/json', 'json')->name('json');
     });
 
-
 /*
 |--------------------------------------------------------------------------
 | Profile & Push Subscription
@@ -266,7 +224,7 @@ Route::middleware(['auth'])
 */
 
 Route::middleware(['auth'])->group(function () {
-        // Warehouses
+    // Warehouses
     Route::resource('warehouses', WarehouseController::class)->except(['show']);
 
     Route::get('warehouses/{warehouse}/inventory', [WarehouseController::class, 'inventory'])
@@ -277,19 +235,19 @@ Route::middleware(['auth'])->group(function () {
     Route::post('warehouses/bulk', [WarehouseController::class, 'bulk'])
         ->name('warehouses.bulk');
     // Profile
-Route::middleware(['auth'])->controller(UserController::class)->group(function () {
-    Route::get('/profile', 'profile')
-        ->name('users.profile');
+    Route::middleware(['auth'])->controller(UserController::class)->group(function () {
+        Route::get('/profile', 'profile')
+            ->name('users.profile');
 
-    Route::get('/profile/edit', 'editProfile')
-        ->name('users.profile-edit');
+        Route::get('/profile/edit', 'editProfile')
+            ->name('users.profile-edit');
 
-    Route::match(['post', 'put'], '/profile/update', 'updateProfile')
-        ->name('users.profile-update');
+        Route::match(['post', 'put'], '/profile/update', 'updateProfile')
+            ->name('users.profile-update');
 
-    Route::post('/profile/avatar', 'updateAvatar')
-        ->name('users.profile.avatar');
-});
+        Route::post('/profile/avatar', 'updateAvatar')
+            ->name('users.profile.avatar');
+    });
 
     // Push Notifications
     Route::controller(PushSubscriptionController::class)->group(function () {
@@ -297,7 +255,6 @@ Route::middleware(['auth'])->controller(UserController::class)->group(function (
         Route::post('/push/unsubscribe', 'unsubscribe')->name('push.unsubscribe');
     });
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -313,8 +270,8 @@ Route::middleware('auth')
             Route::post('/orders/{id}/shipping-info', 'updateShippingInfo')->name('orders.shippingInfo');
             Route::post('/orders/{id}/mark-shipped', 'markShipped')->name('orders.markShipped');
             Route::get('/orders/{id}/ship-serials', [OrderController::class, 'getShipSerials'])
-    ->name('orders.ship-serials');
-    
+                ->name('orders.ship-serials');
+
         });
 
         // Tasks
@@ -356,8 +313,7 @@ Route::middleware('auth')
         });
     });
 
-
- /*
+/*
 |--------------------------------------------------------------------------
 | Công trình (Sites) - Refactored
 |--------------------------------------------------------------------------
@@ -400,7 +356,6 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales|s
         Route::get('/{id}', 'show')->name('show')->whereNumber('id');
     });
 
-
 /* EGO_MR_ADMIN_DELETE_COMPLETED_ROUTE_START */
 Route::match(['post', 'delete'], '/don-vat-tu/{materialRequest}/xoa', function ($materialRequest) {
     $id = (int) $materialRequest;
@@ -411,7 +366,7 @@ Route::match(['post', 'delete'], '/don-vat-tu/{materialRequest}/xoa', function (
     $user = auth()->user();
 
     $hasRole = function (array $roles) use ($user) {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -480,7 +435,7 @@ Route::match(['post', 'delete'], '/don-vat-tu/{materialRequest}/xoa', function (
             ->delete();
     });
 
-    return redirect('/don-vat-tu')->with('success', 'Đã xóa đơn vật tư #' . $id . '.');
+    return redirect('/don-vat-tu')->with('success', 'Đã xóa đơn vật tư #'.$id.'.');
 })
     ->middleware(['auth', 'role:ky_thuat|admin'])
     ->whereNumber('materialRequest');
@@ -531,8 +486,8 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales']
                 ->middleware('role:admin');
 
             Route::post('/{materialRequest}/kho-duyet', 'warehouseApprove')
-    ->name('warehouse-approve')
-    ->middleware('role:warehouse|kho|admin');
+                ->name('warehouse-approve')
+                ->middleware('role:warehouse|kho|admin');
 
             Route::get('/{materialRequest}/export/excel', 'exportExcel')
                 ->name('export.excel');
@@ -543,9 +498,8 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales']
     });
 
 // Status tracking
-Route::get('/theo-doi-trang-thai', fn() => 'Theo dõi trạng thái - OK')
+Route::get('/theo-doi-trang-thai', fn () => 'Theo dõi trạng thái - OK')
     ->middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales|sales']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -554,8 +508,8 @@ Route::get('/theo-doi-trang-thai', fn() => 'Theo dõi trạng thái - OK')
 */
 
 Route::middleware(['auth'])->group(function () {
-      // Solar Settings
-        Route::get('/solar/settings', [SolarSettingController::class, 'index'])
+    // Solar Settings
+    Route::get('/solar/settings', [SolarSettingController::class, 'index'])
         ->name('solar.settings');
 
     Route::post('/solar/settings', [SolarSettingController::class, 'update'])
@@ -575,41 +529,40 @@ Route::middleware(['auth'])->group(function () {
     // Customers
     Route::get('/customers/popup/form/{id?}', [CustomerController::class, 'ajaxForm'])
         ->name('customers.popup-form');
-        Route::get('/customers/{customer}/invoice-info', [CustomerController::class, 'invoiceInfo'])
-    ->name('customers.invoice-info');
+    Route::get('/customers/{customer}/invoice-info', [CustomerController::class, 'invoiceInfo'])
+        ->name('customers.invoice-info');
 
-Route::post('/customers/{customer}/billing-info', [CustomerController::class, 'updateBillingInfo'])
-    ->name('customers.billing-info.update');
+    Route::post('/customers/{customer}/billing-info', [CustomerController::class, 'updateBillingInfo'])
+        ->name('customers.billing-info.update');
     Route::resource('customers', CustomerController::class);
 
-/* EGO_CUSTOMER_PROFILES_ROUTES_START */
-Route::middleware(['auth'])
-    ->prefix('customer-profiles')
-    ->name('customer-profiles.')
-    ->controller(\App\Http\Controllers\CustomerProfileController::class)
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/create', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
-        Route::post('/sync-customers', 'syncCustomers')->name('sync-customers');
-        Route::get('/export/csv', 'export')->name('export');
-        Route::get('/shipping', 'shippingIndex')->name('shipping.index');
-        Route::post('/shipping', 'storeShipping')->name('shipping.store');
-        Route::put('/shipping/{shipping}', 'updateShipping')->whereNumber('shipping')->name('shipping.update');
-        Route::delete('/shipping/{shipping}', 'destroyShipping')->whereNumber('shipping')->name('shipping.destroy');
-        Route::post('/shipping', 'storeShipping')->name('shipping.store');
-        Route::put('/shipping/{shipping}', 'updateShipping')->whereNumber('shipping')->name('shipping.update');
-        Route::delete('/shipping/{shipping}', 'destroyShipping')->whereNumber('shipping')->name('shipping.destroy');
-        Route::get('/{customerProfile}', 'show')->whereNumber('customerProfile')->name('show');
-        Route::get('/{customerProfile}/edit', 'edit')->whereNumber('customerProfile')->name('edit');
-        Route::put('/{customerProfile}', 'update')->whereNumber('customerProfile')->name('update');
-        Route::delete('/{customerProfile}', 'destroy')->whereNumber('customerProfile')->name('destroy');
-        Route::post('/{customerProfile}/documents', 'storeDocument')->whereNumber('customerProfile')->name('documents.store');
-        Route::get('/{customerProfile}/documents/{document}', 'downloadDocument')->whereNumber('customerProfile')->whereNumber('document')->name('documents.download');
-        Route::delete('/{customerProfile}/documents/{document}', 'destroyDocument')->whereNumber('customerProfile')->whereNumber('document')->name('documents.destroy');
-    });
-/* EGO_CUSTOMER_PROFILES_ROUTES_END */
-
+    /* EGO_CUSTOMER_PROFILES_ROUTES_START */
+    Route::middleware(['auth'])
+        ->prefix('customer-profiles')
+        ->name('customer-profiles.')
+        ->controller(\App\Http\Controllers\CustomerProfileController::class)
+        ->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::post('/sync-customers', 'syncCustomers')->name('sync-customers');
+            Route::get('/export/csv', 'export')->name('export');
+            Route::get('/shipping', 'shippingIndex')->name('shipping.index');
+            Route::post('/shipping', 'storeShipping')->name('shipping.store');
+            Route::put('/shipping/{shipping}', 'updateShipping')->whereNumber('shipping')->name('shipping.update');
+            Route::delete('/shipping/{shipping}', 'destroyShipping')->whereNumber('shipping')->name('shipping.destroy');
+            Route::post('/shipping', 'storeShipping')->name('shipping.store');
+            Route::put('/shipping/{shipping}', 'updateShipping')->whereNumber('shipping')->name('shipping.update');
+            Route::delete('/shipping/{shipping}', 'destroyShipping')->whereNumber('shipping')->name('shipping.destroy');
+            Route::get('/{customerProfile}', 'show')->whereNumber('customerProfile')->name('show');
+            Route::get('/{customerProfile}/edit', 'edit')->whereNumber('customerProfile')->name('edit');
+            Route::put('/{customerProfile}', 'update')->whereNumber('customerProfile')->name('update');
+            Route::delete('/{customerProfile}', 'destroy')->whereNumber('customerProfile')->name('destroy');
+            Route::post('/{customerProfile}/documents', 'storeDocument')->whereNumber('customerProfile')->name('documents.store');
+            Route::get('/{customerProfile}/documents/{document}', 'downloadDocument')->whereNumber('customerProfile')->whereNumber('document')->name('documents.download');
+            Route::delete('/{customerProfile}/documents/{document}', 'destroyDocument')->whereNumber('customerProfile')->whereNumber('document')->name('documents.destroy');
+        });
+    /* EGO_CUSTOMER_PROFILES_ROUTES_END */
 
     // Product Categories, Brands, Price Tiers
     Route::resource('categories', ProductCategoryController::class);
@@ -622,42 +575,39 @@ Route::middleware(['auth'])
         ->middleware(['can:warehouse.manage', 'can:warehouse.stock_check'])
         ->name('warehouses.inventory');
     // ✅ Products Input/Output (PHẢI đặt trước Route::resource('products', ...))
-Route::get('/products/input', [ProductController::class, 'input'])->name('products.input');
-Route::get('/products/input/export/excel', [ProductController::class, 'exportInputExcel'])->name('products.input.export.excel');
-Route::get('/products/output', [ProductController::class, 'output'])->name('products.output');
-Route::get('/products/history', [ProductController::class, 'history'])->name('products.history');
+    Route::get('/products/input', [ProductController::class, 'input'])->name('products.input');
+    Route::get('/products/input/export/excel', [ProductController::class, 'exportInputExcel'])->name('products.input.export.excel');
+    Route::get('/products/output', [ProductController::class, 'output'])->name('products.output');
+    Route::get('/products/history', [ProductController::class, 'history'])->name('products.history');
 
     // Products
-    
 
+    /* EGO_PRODUCT_SERIAL_MANAGEMENT_ROUTES_START */
+    Route::middleware(['auth'])
+        ->prefix('products/serials')
+        ->name('products.serials.')
+        ->controller(\App\Http\Controllers\ProductSerialManagementController::class)
+        ->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/export', 'export')->name('export');
+        });
+    /* EGO_PRODUCT_SERIAL_MANAGEMENT_ROUTES_END */
 
-/* EGO_PRODUCT_SERIAL_MANAGEMENT_ROUTES_START */
-Route::middleware(['auth'])
-    ->prefix('products/serials')
-    ->name('products.serials.')
-    ->controller(\App\Http\Controllers\ProductSerialManagementController::class)
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('/export', 'export')->name('export');
-    });
-/* EGO_PRODUCT_SERIAL_MANAGEMENT_ROUTES_END */
+    /* EGO_PRODUCT_GOODS_RECEIPTS_ROUTES_START */
+    Route::middleware(['auth', 'role:admin|warehouse|accounting'])
+        ->prefix('products/goods-receipts')
+        ->name('product-goods-receipts.')
+        ->controller(\App\Http\Controllers\ProductGoodsReceiptController::class)
+        ->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::post('/{id}/nhap-kho', 'post')->whereNumber('id')->name('post');
+            Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
+        });
+    /* EGO_PRODUCT_GOODS_RECEIPTS_ROUTES_END */
 
-
-/* EGO_PRODUCT_GOODS_RECEIPTS_ROUTES_START */
-Route::middleware(['auth', 'role:admin|warehouse|accounting'])
-    ->prefix('products/goods-receipts')
-    ->name('product-goods-receipts.')
-    ->controller(\App\Http\Controllers\ProductGoodsReceiptController::class)
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::post('/', 'store')->name('store');
-        Route::post('/{id}/nhap-kho', 'post')->whereNumber('id')->name('post');
-        Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
-    });
-/* EGO_PRODUCT_GOODS_RECEIPTS_ROUTES_END */
-
-
-Route::resource('products', ProductController::class);
+    // ProductController không có method show — loại khỏi resource để /products/{id} trả 404 thay vì 500.
+    Route::resource('products', ProductController::class)->except(['show']);
 
     // Media
     Route::controller(MediaController::class)->group(function () {
@@ -668,7 +618,6 @@ Route::resource('products', ProductController::class);
             ->middleware('permission:products.manage');
     });
 });
-
 
 /*
 |--------------------------------------------------------------------------
@@ -693,8 +642,8 @@ Route::middleware(['auth'])
             ->whereNumber('id')
             ->name('warehouse.issue');
         Route::post('/{order}/invoice', 'updateInvoice')
-    ->whereNumber('order')
-    ->name('updateInvoice');
+            ->whereNumber('order')
+            ->name('updateInvoice');
         Route::get('/{order}/returns/create', [\App\Http\Controllers\OrderReturnController::class, 'create'])
             ->whereNumber('order')
             ->name('returns.create');
@@ -715,10 +664,10 @@ Route::middleware(['auth'])
 
         // PDF
         Route::get('/{order}/pdf', 'pdf')->whereNumber('order')->name('pdf');
-Route::get('/{order}/pdf-preview', 'pdfPreview')->whereNumber('order')->name('pdf.preview');
+        Route::get('/{order}/pdf-preview', 'pdfPreview')->whereNumber('order')->name('pdf.preview');
         // CRUD
         Route::get('/', 'index')->name('index');
-    Route::get('/export/excel', 'exportExcel')->name('export.excel');
+        Route::get('/export/excel', 'exportExcel')->name('export.excel');
         Route::get('/create', 'create')->name('create');
         Route::post('/', 'store')->name('store');
         Route::get('/{id}', 'show')->whereNumber('id')->name('show');
@@ -734,13 +683,12 @@ Route::get('/{order}/pdf-preview', 'pdfPreview')->whereNumber('order')->name('pd
         Route::post('/{id}/ship', 'shipOrder')->name('ship');
         Route::post('/{id}/payment', 'recordPayment')->name('record-payment');
         Route::get('/payments/{paymentId}/edit', 'editPayment')->name('payments.edit');
-Route::put('/payments/{paymentId}', 'updatePayment')->name('payments.update');
-Route::delete('/payments/{paymentId}', 'destroyPayment')->name('payments.destroy');
+        Route::put('/payments/{paymentId}', 'updatePayment')->name('payments.update');
+        Route::delete('/payments/{paymentId}', 'destroyPayment')->name('payments.destroy');
 
         // Dashboard
         Route::get('/my/dashboard', 'myOrders')->name('my-orders');
     });
-
 
 /* EGO_ORDER_AFTER_SALES_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
@@ -782,8 +730,6 @@ Route::middleware(['auth'])
         Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
     });
 
-
-
 /* EGO_THAO_FULL_PAYMENT_REQUESTS_START */
 Route::middleware(['auth'])->group(function () {
     $egoThaoCanFullPaymentRequest = function () {
@@ -803,7 +749,7 @@ Route::middleware(['auth'])->group(function () {
     };
 
     Route::match(['put', 'patch'], '/payment-requests/{id}', function (\Illuminate\Http\Request $request, $id) use ($egoThaoCanFullPaymentRequest, $egoMoneyToNumber) {
-        if (!$egoThaoCanFullPaymentRequest()) {
+        if (! $egoThaoCanFullPaymentRequest()) {
             return app(\App\Http\Controllers\PaymentRequestController::class)->update($request, $id);
         }
 
@@ -834,7 +780,7 @@ Route::middleware(['auth'])->group(function () {
         $data = [];
 
         foreach ($request->except($blocked) as $key => $value) {
-            if (!in_array($key, $columns, true)) {
+            if (! in_array($key, $columns, true)) {
                 continue;
             }
 
@@ -863,12 +809,12 @@ Route::middleware(['auth'])->group(function () {
         ];
 
         foreach ($aliases as $from => $tos) {
-            if (!$request->has($from)) {
+            if (! $request->has($from)) {
                 continue;
             }
 
             foreach ($tos as $to) {
-                if (in_array($to, $columns, true) && !array_key_exists($to, $data)) {
+                if (in_array($to, $columns, true) && ! array_key_exists($to, $data)) {
                     $value = $request->input($from);
 
                     if (is_array($value)) {
@@ -892,7 +838,7 @@ Route::middleware(['auth'])->group(function () {
             ->where('id', $id)
             ->update($data);
 
-        return redirect('/payment-requests/' . $id)->with('success', 'Bùi Bích Thảo đã cập nhật ĐNTT #' . $id . ' ở mọi trạng thái.');
+        return redirect('/payment-requests/'.$id)->with('success', 'Bùi Bích Thảo đã cập nhật ĐNTT #'.$id.' ở mọi trạng thái.');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_full_update');
@@ -950,13 +896,13 @@ Route::middleware(['auth'])->group(function () {
             }
         });
 
-        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #' . $id . ' ở mọi trạng thái.');
+        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #'.$id.' ở mọi trạng thái.');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_full_delete');
 
     Route::match(['post', 'delete'], '/payment-requests/{id}', function ($id) use ($egoThaoCanFullPaymentRequest) {
-        if (!$egoThaoCanFullPaymentRequest()) {
+        if (! $egoThaoCanFullPaymentRequest()) {
             return app(\App\Http\Controllers\PaymentRequestController::class)->destroy($id);
         }
 
@@ -1010,15 +956,12 @@ Route::middleware(['auth'])->group(function () {
             }
         });
 
-        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #' . $id . ' ở mọi trạng thái.');
+        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #'.$id.' ở mọi trạng thái.');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_destroy_any_status');
 });
 /* EGO_THAO_FULL_PAYMENT_REQUESTS_END */
-
-
-
 
 /* EGO_THAO_PR_ATTACHMENTS_START */
 Route::middleware(['auth'])->group(function () {
@@ -1048,8 +991,6 @@ Route::middleware(['auth'])->group(function () {
 });
 /* EGO_THAO_PR_ATTACHMENTS_END */
 
-
-
 /* EGO_COPY_PAYMENT_REQUEST_START */
 Route::post('/payment-requests/{id}/copy', function ($id) {
     $id = (int) $id;
@@ -1066,16 +1007,16 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
 
     // Tạo mã phiếu mới dạng PR-2026-00072
     $year = now()->format('Y');
-    $prefix = 'PR-' . $year . '-';
+    $prefix = 'PR-'.$year.'-';
     $startPos = strlen($prefix) + 1;
 
     $maxNo = \Illuminate\Support\Facades\DB::table('payment_requests')
-        ->where('code', 'like', $prefix . '%')
+        ->where('code', 'like', $prefix.'%')
         ->selectRaw("MAX(CAST(SUBSTRING(code, {$startPos}) AS UNSIGNED)) as max_no")
         ->value('max_no');
 
     if (in_array('code', $columns, true)) {
-        $data['code'] = $prefix . str_pad(((int) $maxNo) + 1, 5, '0', STR_PAD_LEFT);
+        $data['code'] = $prefix.str_pad(((int) $maxNo) + 1, 5, '0', STR_PAD_LEFT);
     }
 
     /* EGO_COPY_ENSURE_REASON */
@@ -1162,14 +1103,13 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
         }
     }
 
-    return redirect('/payment-requests/' . $newId . '/edit')
+    return redirect('/payment-requests/'.$newId.'/edit')
         ->with('success', 'Đã sao chép phiếu mới thành công.');
 })
     ->middleware('auth')
     ->whereNumber('id')
     ->name('payment_requests.copy');
 /* EGO_COPY_PAYMENT_REQUEST_END */
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1182,14 +1122,13 @@ Route::middleware(['auth'])->group(function () {
     Route::controller(PaymentRequestController::class)->group(function () {
         Route::get('/payment-requests', 'index')->name('payment_requests.index');
         Route::get('/payment-requests/export/excel', 'exportExcel')->name('payment_requests.export_excel');
-Route::get('/payment-requests/export/pdf', 'exportPdf')->name('payment_requests.export_pdf');
-        //Route::get('/payment-requests/create', 'create')->name('payment_requests.create');
+        Route::get('/payment-requests/export/pdf', 'exportPdf')->name('payment_requests.export_pdf');
+        // Route::get('/payment-requests/create', 'create')->name('payment_requests.create');
         Route::get('/payment-requests/new', 'create');
         Route::post(
             '/payment-requests',
             [PaymentRequestController::class, 'store']
         )->name('payment_requests.store');
-
 
         Route::get('/payment-requests/{id}', 'show')->whereNumber('id')->name('payment_requests.show');
         Route::get('/payment-requests/{id}/edit', 'edit')->whereNumber('id')->name('payment_requests.edit');
@@ -1235,48 +1174,48 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin'])
         Route::get('/dashboard', [MarketingDashboardController::class, 'index'])
             ->name('dashboard');
 
-      /*
+        /*
 |--------------------------------------------------------------------------
 | ================== KẾ HOẠCH (PLAN) ==================
 |--------------------------------------------------------------------------
 */
-Route::prefix('plan')
-    ->name('plan.')
-    ->controller(\App\Http\Controllers\Marketing\MarketingPlanController::class)
-    ->group(function () {
+        Route::prefix('plan')
+            ->name('plan.')
+            ->controller(\App\Http\Controllers\Marketing\MarketingPlanController::class)
+            ->group(function () {
 
-        Route::get('/', 'index')->name('overview');
+                Route::get('/', 'index')->name('overview');
 
-        // CREATE
-        Route::get('/create', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
+                // CREATE
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
 
-        // EDIT
-        Route::get('/{id}/edit', 'edit')
-            ->whereNumber('id')
-            ->name('edit');
+                // EDIT
+                Route::get('/{id}/edit', 'edit')
+                    ->whereNumber('id')
+                    ->name('edit');
 
-        // SHOW
-        Route::get('/{id}', 'show')
-            ->whereNumber('id')
-            ->name('show');
+                // SHOW
+                Route::get('/{id}', 'show')
+                    ->whereNumber('id')
+                    ->name('show');
 
-        // UPDATE
-        Route::put('/{id}', 'update')
-            ->whereNumber('id')
-            ->name('update');
+                // UPDATE
+                Route::put('/{id}', 'update')
+                    ->whereNumber('id')
+                    ->name('update');
 
-        // DELETE
-        Route::delete('/{id}', 'destroy')
-            ->whereNumber('id')
-            ->name('delete');
+                // DELETE
+                Route::delete('/{id}', 'destroy')
+                    ->whereNumber('id')
+                    ->name('delete');
 
-        // APPROVE
-        Route::post('/{id}/approve', 'approve')
-            ->whereNumber('id')
-            ->middleware(['role:marketing_manager|admin'])
-            ->name('approve');
-    });
+                // APPROVE
+                Route::post('/{id}/approve', 'approve')
+                    ->whereNumber('id')
+                    ->middleware(['role:marketing_manager|admin'])
+                    ->name('approve');
+            });
         /*
         |--------------------------------------------------------------------------
         | ================== TIẾN ĐỘ ==================
@@ -1310,14 +1249,14 @@ Route::prefix('plan')
                 Route::get('/ads', 'ads')->name('ads');
                 Route::get('/seo', 'seo')->name('seo');
                 Route::get('/overview', 'overview')->name('overview');
-                 // ✅ ADS INPUT
-        Route::get('/ads/input', 'adsInput')->name('ads.input');
-        Route::post('/ads/input', 'adsStore')->name('ads.store');
-        Route::post('/ads/import', 'adsImport')->name('ads.import');
-        Route::post('/ads/delete', 'adsDelete')->name('ads.delete');
+                // ✅ ADS INPUT
+                Route::get('/ads/input', 'adsInput')->name('ads.input');
+                Route::post('/ads/input', 'adsStore')->name('ads.store');
+                Route::post('/ads/import', 'adsImport')->name('ads.import');
+                Route::post('/ads/delete', 'adsDelete')->name('ads.delete');
 
-        Route::get('/seo', 'seo')->name('seo');
-        Route::get('/overview', 'overview')->name('overview');
+                Route::get('/seo', 'seo')->name('seo');
+                Route::get('/overview', 'overview')->name('overview');
             });
 
         /*
@@ -1506,7 +1445,6 @@ Route::middleware(['auth', 'role:admin|accounting'])
             });
         /* EGO_FINANCE_ASSETS_ROUTES_END */
 
-
         Route::prefix('customer-debts')->name('customer-debts.')->group(function () {
             Route::get('/', [CustomerDebtController::class, 'index'])->name('index');
             Route::get('/by-customer', [CustomerDebtController::class, 'byCustomer'])->name('by-customer');
@@ -1519,7 +1457,6 @@ Route::middleware(['auth', 'role:admin|accounting'])
             Route::post('/', [SupplierDebtController::class, 'store'])
                 ->name('store');
 
-            
             Route::post('/{id}/files', [SupplierDebtController::class, 'storeDebtFileOnly'])
                 ->whereNumber('id')
                 ->name('files.store');
@@ -1532,7 +1469,7 @@ Route::middleware(['auth', 'role:admin|accounting'])
                 ->whereNumber('fileId')
                 ->name('files.destroy');
 
-Route::put('/{id}', [SupplierDebtController::class, 'update'])
+            Route::put('/{id}', [SupplierDebtController::class, 'update'])
                 ->whereNumber('id')
                 ->name('update');
 
@@ -1562,49 +1499,49 @@ Route::put('/{id}', [SupplierDebtController::class, 'update'])
         });
 
         Route::prefix('receipts')->name('receipts.')->group(function () {
-    Route::get('/', [ReceiptController::class, 'index'])->name('index');
-    Route::get('/create', [ReceiptController::class, 'create'])->name('create');
-    Route::post('/', [ReceiptController::class, 'store'])->name('store');
-    Route::delete('/{receipt}', [ReceiptController::class, 'destroy'])->name('destroy');
-});
+            Route::get('/', [ReceiptController::class, 'index'])->name('index');
+            Route::get('/create', [ReceiptController::class, 'create'])->name('create');
+            Route::post('/', [ReceiptController::class, 'store'])->name('store');
+            Route::delete('/{receipt}', [ReceiptController::class, 'destroy'])->name('destroy');
+        });
 
-     Route::prefix('payments')->name('payments.')->group(function () {
-    Route::get('/', [PaymentController::class, 'index'])->name('index');
-    Route::get('/create', [PaymentController::class, 'create'])->name('create');
-    Route::post('/', [PaymentController::class, 'store'])->name('store');
-    Route::delete('/{payment}', [PaymentController::class, 'destroy'])->name('destroy');
-});
+        Route::prefix('payments')->name('payments.')->group(function () {
+            Route::get('/', [PaymentController::class, 'index'])->name('index');
+            Route::get('/create', [PaymentController::class, 'create'])->name('create');
+            Route::post('/', [PaymentController::class, 'store'])->name('store');
+            Route::delete('/{payment}', [PaymentController::class, 'destroy'])->name('destroy');
+        });
 
         Route::prefix('accounts')->name('accounts.')->group(function () {
-    Route::get('/', [AccountController::class, 'index'])->name('index');
-    Route::get('/create', [AccountController::class, 'create'])->name('create');
-    Route::post('/', [AccountController::class, 'store'])->name('store');
-    Route::get('/{account}/edit', [AccountController::class, 'edit'])->name('edit');
-    Route::put('/{account}', [AccountController::class, 'update'])->name('update');
-    Route::delete('/{account}', [AccountController::class, 'destroy'])->name('destroy');
-});
+            Route::get('/', [AccountController::class, 'index'])->name('index');
+            Route::get('/create', [AccountController::class, 'create'])->name('create');
+            Route::post('/', [AccountController::class, 'store'])->name('store');
+            Route::get('/{account}/edit', [AccountController::class, 'edit'])->name('edit');
+            Route::put('/{account}', [AccountController::class, 'update'])->name('update');
+            Route::delete('/{account}', [AccountController::class, 'destroy'])->name('destroy');
+        });
 
         Route::get('/payment-request', [FinanceDashboardController::class, 'paymentRequest'])->name('payment-request');
         Route::get('/salary', [FinanceDashboardController::class, 'salary'])->name('salary');
         Route::get('/salary/export/excel', [FinanceDashboardController::class, 'exportSalaryExcel'])->name('salary.export.excel');
         Route::get('/salary/my', [FinanceDashboardController::class, 'mySalary'])->name('salary.my');
-Route::get('/salary/{user}', [FinanceDashboardController::class, 'salaryDetail'])->name('salary.detail');
+        Route::get('/salary/{user}', [FinanceDashboardController::class, 'salaryDetail'])->name('salary.detail');
         Route::get('/budget', [BudgetController::class, 'index'])->name('budget');
 
-Route::post('/budget', [BudgetController::class, 'store'])
-    ->name('budget.store');
+        Route::post('/budget', [BudgetController::class, 'store'])
+            ->name('budget.store');
 
-Route::put('/budget/{id}', [BudgetController::class, 'update'])
-    ->whereNumber('id')
-    ->name('budget.update');
+        Route::put('/budget/{id}', [BudgetController::class, 'update'])
+            ->whereNumber('id')
+            ->name('budget.update');
 
-Route::delete('/budget/{id}', [BudgetController::class, 'destroy'])
-    ->whereNumber('id')
-    ->name('budget.destroy');
+        Route::delete('/budget/{id}', [BudgetController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('budget.destroy');
         Route::post('/salary/save', [FinanceDashboardController::class, 'saveSalary'])->name('salary.save');
         Route::get('/reports', [FinanceReportController::class, 'index'])->name('reports');
     });
-    /*
+/*
 |--------------------------------------------------------------------------
 | Kỹ thuật - Tính lương
 |--------------------------------------------------------------------------
@@ -1655,8 +1592,8 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|manager'])
 
         Route::post('/{id}/approve', [\App\Http\Controllers\TechnicalPayrollController::class, 'approve'])
             ->whereNumber('id')
-            ->name('approve');  
-        
+            ->name('approve');
+
     });
 
 /*
@@ -1727,12 +1664,12 @@ Route::middleware(['auth'])
             ->whereNumber('id')
             ->name('destroy');
     });
-    Route::middleware('auth')->get('/sidebar/status', function () {
+Route::middleware('auth')->get('/sidebar/status', function () {
     return response()->json(
         \App\Support\EgoSidebarStatus::data(request()->boolean('debug'))
     );
 })->name('sidebar.status');
-    
+
 /* EGO_HR_ANNOUNCEMENTS_ROUTES_START */
 Route::middleware(['auth'])
     ->prefix('hr/announcements')
@@ -1751,7 +1688,6 @@ Route::middleware(['auth'])
     });
 /* EGO_HR_ANNOUNCEMENTS_ROUTES_END */
 
-
 /* EGO_SITE_ASSEMBLY_ROUTES_START */
 Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales'])
     ->prefix('cong-trinh/lap-rap-san-xuat')
@@ -1765,14 +1701,14 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales']
     });
 /* EGO_SITE_ASSEMBLY_ROUTES_END */
 
-    require __DIR__ . '/hr.php';
-//Route::get('/clear-opcache', function () {
+require __DIR__.'/hr.php';
+// Route::get('/clear-opcache', function () {
 //    if (function_exists('opcache_reset')) {
 //        opcache_reset();
 //        return 'Opcache cleared!';
 //    }
 //    return 'Opcache not enabled';
-//});
+// });
 
 Route::post('/ky-thuat/luong/settings/kpi-items', [\App\Http\Controllers\TechnicalPayrollController::class, 'saveKpiItems'])
     ->middleware(['auth', 'role:admin|accounting|manager'])
@@ -1781,7 +1717,6 @@ Route::post('/ky-thuat/luong/settings/kpi-items', [\App\Http\Controllers\Technic
 Route::delete('/ky-thuat/luong/settings/kpi-items/{id}', [\App\Http\Controllers\TechnicalPayrollController::class, 'destroyKpiItem'])
     ->middleware(['auth', 'role:admin|accounting|manager'])
     ->name('ky-thuat.luong.settings.kpi-items.destroy');
-
 
 /* EGO_SALES_WORK_REPORTS_START */
 Route::middleware(['auth'])
@@ -1804,20 +1739,12 @@ Route::middleware(['auth'])
     });
 /* EGO_SALES_WORK_REPORTS_END */
 
-
 /* EGO_FIX_MARKETING_PLAN_FILE_ROUTE_START */
 Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
     ->get('/marketing/plan/file/{file}', [\App\Http\Controllers\Marketing\MarketingPlanController::class, 'file'])
     ->whereNumber('file')
     ->name('marketing.plan.file');
 /* EGO_FIX_MARKETING_PLAN_FILE_ROUTE_END */
-
-
-
-
-
-
-
 
 /* EGO_MARKETING_PLAN_FILE_PREVIEW_START */
 Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
@@ -1851,17 +1778,17 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
 
             $candidates = [
                 base_path($clean),
-                storage_path('app/' . $clean),
-                storage_path('app/public/' . $clean),
-                storage_path('app/public/' . $cleanNoStorage),
-                storage_path('app/public/' . $cleanNoPublic),
+                storage_path('app/'.$clean),
+                storage_path('app/public/'.$clean),
+                storage_path('app/public/'.$cleanNoStorage),
+                storage_path('app/public/'.$cleanNoPublic),
                 public_path($clean),
-                public_path('storage/' . $clean),
-                public_path('storage/' . $cleanNoStorage),
-                public_path('uploads/' . basename($clean)),
-                public_path('marketing/' . basename($clean)),
-                storage_path('app/public/uploads/' . basename($clean)),
-                storage_path('app/public/marketing/' . basename($clean)),
+                public_path('storage/'.$clean),
+                public_path('storage/'.$cleanNoStorage),
+                public_path('uploads/'.basename($clean)),
+                public_path('marketing/'.basename($clean)),
+                storage_path('app/public/uploads/'.basename($clean)),
+                storage_path('app/public/marketing/'.basename($clean)),
             ];
 
             foreach ($candidates as $candidate) {
@@ -1906,17 +1833,17 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
 
             foreach ($tables as $table) {
                 try {
-                    if (!\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                    if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
                         continue;
                     }
 
-                    if (!\Illuminate\Support\Facades\Schema::hasColumn($table, 'id')) {
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn($table, 'id')) {
                         continue;
                     }
 
                     $row = \Illuminate\Support\Facades\DB::table($table)->where('id', $id)->first();
 
-                    if (!$row) {
+                    if (! $row) {
                         continue;
                     }
 
@@ -1949,7 +1876,7 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
                         $score += 700;
                     }
 
-                    if ($desiredExt !== '' && strpos($allText, '.' . $desiredExt) !== false) {
+                    if ($desiredExt !== '' && strpos($allText, '.'.$desiredExt) !== false) {
                         $score += 500;
                     }
 
@@ -1970,7 +1897,7 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
                         'original_name',
                         'name',
                     ] as $field) {
-                        if (!empty($values[$field])) {
+                        if (! empty($values[$field])) {
                             $paths[] = trim((string) $values[$field]);
                         }
                     }
@@ -1988,14 +1915,14 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
                     foreach ($paths as $path) {
                         $resolved = $resolveRealPath($path);
 
-                        if (!$resolved) {
+                        if (! $resolved) {
                             continue;
                         }
 
                         $name = $desiredName ?: basename($path);
 
                         foreach (['original_name', 'file_name', 'filename', 'name', 'title'] as $nf) {
-                            if (!empty($values[$nf]) && preg_match('/\.(xlsx|xls|ods|csv|pdf|png|jpg|jpeg|webp|gif|docx?|pptx?)$/i', (string) $values[$nf])) {
+                            if (! empty($values[$nf]) && preg_match('/\.(xlsx|xls|ods|csv|pdf|png|jpg|jpeg|webp|gif|docx?|pptx?)$/i', (string) $values[$nf])) {
                                 $name = basename((string) $values[$nf]);
                                 break;
                             }
@@ -2061,11 +1988,11 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
             return response('<!doctype html><html><head><meta charset="utf-8">'.$baseCss.'</head><body>'.$body.'</body></html>');
         };
 
-        if (!$found) {
+        if (! $found) {
             return $page('Không tìm thấy file', '<div class="preview-top"><div class="preview-bar"><div class="preview-title">Không tìm thấy file</div></div></div><div class="preview-body"><div class="notice">Không tìm thấy file ID #'.e($id).' trong database/storage.</div></div>');
         }
 
-        $name = $found['name'] ?: $desiredName ?: ('File #' . $id);
+        $name = $found['name'] ?: $desiredName ?: ('File #'.$id);
         $source = $found['table'] ?? 'file';
         $real = $found['real'];
         $url = $found['url'];
@@ -2079,7 +2006,7 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
         $headerOnly = '<div class="preview-top"><div class="preview-bar"><div class="preview-title">'.e($name).'</div><div class="preview-source">'.e($source).'</div></div></div>';
 
         if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'], true)) {
-            $mime = @mime_content_type($real) ?: 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
+            $mime = @mime_content_type($real) ?: 'image/'.($ext === 'jpg' ? 'jpeg' : $ext);
             $data = base64_encode(file_get_contents($real));
 
             return $page($name, $headerOnly.'<div class="preview-body"><img src="data:'.e($mime).';base64,'.$data.'"></div>');
@@ -2092,7 +2019,7 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
         }
 
         if (in_array($ext, ['xlsx', 'xls', 'ods'], true)) {
-            if (!class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+            if (! class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
                 return $page($name, $headerOnly.'<div class="preview-body"><div class="notice">Server chưa có PhpSpreadsheet. Chạy: <b>composer require phpoffice/phpspreadsheet</b></div></div>');
             }
 
@@ -2115,7 +2042,7 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin|accounting'])
                     $query = request()->query();
                     $query['sheet'] = $i;
 
-                    $href = url('/marketing/plan/file-preview/' . $id) . '?' . http_build_query($query);
+                    $href = url('/marketing/plan/file-preview/'.$id).'?'.http_build_query($query);
 
                     $tabs .= '<a class="preview-tab '.($i === $sheetIndex ? 'active' : '').'" href="'.e($href).'">'.e($sheetName).'</a>';
                 }
@@ -2194,7 +2121,7 @@ Route::middleware(['auth'])
 
         if ($schema::hasTable('users')) {
             $q->leftJoin('users as u', 'u.id', '=', 'r.assigned_to')
-              ->leftJoin('users as creator', 'creator.id', '=', 'r.created_by');
+                ->leftJoin('users as creator', 'creator.id', '=', 'r.created_by');
             $select[] = 'u.name as sales_name';
             $select[] = 'creator.name as creator_name';
         } else {
@@ -2212,7 +2139,7 @@ Route::middleware(['auth'])
         $report = $q->select($select)->where('r.id', (int) $id)->first();
 
         abort_unless($report, 404);
-        abort_if(!$canManage && (int) $report->assigned_to !== (int) $auth::id(), 403);
+        abort_if(! $canManage && (int) $report->assigned_to !== (int) $auth::id(), 403);
 
         $types = [
             'dealer' => 'Đại lý',
@@ -2273,7 +2200,9 @@ Route::middleware(['auth'])
         ];
 
         $dateText = function ($value) {
-            if (!$value) return '—';
+            if (! $value) {
+                return '—';
+            }
             try {
                 return \Carbon\Carbon::parse($value)->format('d/m/Y H:i');
             } catch (\Throwable $e) {
@@ -2282,8 +2211,11 @@ Route::middleware(['auth'])
         };
 
         $moneyText = function ($value) {
-            if ($value === null || $value === '') return '—';
-            return number_format((float) $value, 0, ',', '.') . ' đ';
+            if ($value === null || $value === '') {
+                return '—';
+            }
+
+            return number_format((float) $value, 0, ',', '.').' đ';
         };
 
         $row = (array) $report;
@@ -2308,7 +2240,7 @@ Route::middleware(['auth'])
             ->leftJoin('users as hu', 'hu.id', '=', 'h.assigned_to')
             ->select('h.id', 'h.customer_name', 'h.customer_phone', 'h.status', 'h.priority', 'h.customer_stage', 'h.call_1_result', 'h.quote_status', 'h.created_at', 'h.updated_at', 'hu.name as sales_name')
             ->where(function ($x) use ($report) {
-                if (!empty($report->customer_phone)) {
+                if (! empty($report->customer_phone)) {
                     $x->where('h.customer_phone', $report->customer_phone);
                 } else {
                     $x->where('h.customer_name', $report->customer_name);
@@ -2325,6 +2257,7 @@ Route::middleware(['auth'])
             $a['call_1_result_label'] = $calls[$h->call_1_result] ?? ($h->call_1_result ?: '—');
             $a['quote_status_label'] = $quotes[$h->quote_status] ?? ($h->quote_status ?: '—');
             $a['updated_at_text'] = $dateText($h->updated_at ?? null);
+
             return $a;
         })->values();
 
@@ -2336,7 +2269,7 @@ Route::middleware(['auth'])
                 ->select('f.*', 'fu.name as creator_name')
                 ->where(function ($x) use ($report) {
                     $x->where('f.sales_work_report_id', $report->id);
-                    if (!empty($report->customer_phone)) {
+                    if (! empty($report->customer_phone)) {
                         $x->orWhere('f.customer_phone', $report->customer_phone);
                     }
                 })
@@ -2347,6 +2280,7 @@ Route::middleware(['auth'])
                 $a = (array) $f;
                 $a['created_at_text'] = $dateText($f->created_at ?? null);
                 $a['followup_at_text'] = $dateText($f->followup_at ?? null);
+
                 return $a;
             })->values();
         }
@@ -2360,7 +2294,6 @@ Route::middleware(['auth'])
     ->whereNumber('id')
     ->name('sales.work-reports.detail-json');
 /* EGO_SALES_WORK_REPORT_DETAIL_JSON_END */
-
 
 /* EGO_THAO_FORCE_DELETE_PAYMENT_REQUEST_ONLY_START */
 Route::middleware(['auth'])
@@ -2417,7 +2350,7 @@ Route::middleware(['auth'])
             foreach ($affectedDebtIds as $debtId) {
                 $debt = \Illuminate\Support\Facades\DB::table('finance_supplier_debts')->where('id', (int) $debtId)->first();
 
-                if (!$debt) {
+                if (! $debt) {
                     continue;
                 }
 
@@ -2427,7 +2360,7 @@ Route::middleware(['auth'])
                 foreach ($rounds as $round) {
                     $roundAmount = (float) ($round->amount ?? 0);
 
-                    if (!empty($round->payment_request_id)) {
+                    if (! empty($round->payment_request_id)) {
                         $linked = \Illuminate\Support\Facades\DB::table('payment_requests')
                             ->where('id', (int) $round->payment_request_id)
                             ->first();
@@ -2458,12 +2391,11 @@ Route::middleware(['auth'])
             }
         }
 
-        return redirect('/payment-requests')->with('success', 'Đã xóa phiếu ĐNTT #' . $id . '.');
+        return redirect('/payment-requests')->with('success', 'Đã xóa phiếu ĐNTT #'.$id.'.');
     })
     ->whereNumber('paymentRequest')
     ->name('payment_requests.force-delete-by-thao');
 /* EGO_THAO_FORCE_DELETE_PAYMENT_REQUEST_ONLY_END */
-
 
 /* EGO_SERIAL_WARRANTY_ROUTES_START */
 Route::middleware(['auth'])
@@ -2486,7 +2418,6 @@ Route::middleware(['auth'])
         Route::post('/serial/{serialUnit}/delete', 'productDeleteSerial')->whereNumber('serialUnit')->name('product.serials.delete');
     });
 /* EGO_SERIAL_WARRANTY_ROUTES_END */
-
 
 /* EGO_COMPANY_DOCUMENTS_ROUTES_START */
 Route::middleware(['auth', 'role:admin|sales|sales_manager|marketing|marketing_manager|ky_thuat|accounting|assistant|tro_ly|management|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho'])
@@ -2530,7 +2461,6 @@ Route::middleware(['auth'])->group(function () {
 });
 /* EGO_ORDER_DOCUMENTS_PROFILE_ROUTES_END */
 
-
 /* EGO_CUSTOMER_PROFILE_DOCUMENT_PREVIEW_START */
 Route::middleware(['auth'])->get(
     '/customer-profiles/{customerProfile}/documents/{document}/preview-ego',
@@ -2543,52 +2473,51 @@ Route::middleware(['auth'])
     ->name('hr.office-supply-process.')
     ->controller(\App\Http\Controllers\Hr\OfficeSupplyProcessController::class)
     ->group(function () {
-        if (!Route::has('hr.office-supply-process.index')) {
+        if (! Route::has('hr.office-supply-process.index')) {
             Route::get('/', 'index')->name('index');
         }
 
-        if (!Route::has('hr.office-supply-process.store')) {
+        if (! Route::has('hr.office-supply-process.store')) {
             Route::post('/', 'store')->name('store');
         }
 
-        if (!Route::has('hr.office-supply-process.show')) {
+        if (! Route::has('hr.office-supply-process.show')) {
             Route::get('/{id}', 'show')->whereNumber('id')->name('show');
         }
 
-        if (!Route::has('hr.office-supply-process.update')) {
+        if (! Route::has('hr.office-supply-process.update')) {
             Route::put('/{id}', 'update')->whereNumber('id')->name('update');
         }
 
-        if (!Route::has('hr.office-supply-process.destroy')) {
+        if (! Route::has('hr.office-supply-process.destroy')) {
             Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
         }
 
-        if (!Route::has('hr.office-supply-process.hr-review')) {
+        if (! Route::has('hr.office-supply-process.hr-review')) {
             Route::post('/{id}/hr-kiem-tra', 'hrReview')->whereNumber('id')->name('hr-review');
         }
 
-        if (!Route::has('hr.office-supply-process.approve')) {
+        if (! Route::has('hr.office-supply-process.approve')) {
             Route::post('/{id}/duyet', 'approve')->whereNumber('id')->name('approve');
         }
 
-        if (!Route::has('hr.office-supply-process.reject')) {
+        if (! Route::has('hr.office-supply-process.reject')) {
             Route::post('/{id}/tu-choi', 'reject')->whereNumber('id')->name('reject');
         }
 
-        if (!Route::has('hr.office-supply-process.issue')) {
+        if (! Route::has('hr.office-supply-process.issue')) {
             Route::post('/{id}/xuat-kho', 'issue')->whereNumber('id')->name('issue');
         }
 
-        if (!Route::has('hr.office-supply-process.receive')) {
+        if (! Route::has('hr.office-supply-process.receive')) {
             Route::post('/{id}/ky-nhan', 'receive')->whereNumber('id')->name('receive');
         }
 
-        if (!Route::has('hr.office-supply-process.complete')) {
+        if (! Route::has('hr.office-supply-process.complete')) {
             Route::post('/{id}/hoan-tat', 'complete')->whereNumber('id')->name('complete');
         }
     });
 /* EGO_VPP_FUNCTION_ROUTES_END */
-
 
 /* EGO_VPP_SAVE_ONLY_ROUTES_START */
 // Route riêng cho module VPP HR.
@@ -2604,7 +2533,6 @@ Route::middleware(['auth'])
     });
 /* EGO_VPP_SAVE_ONLY_ROUTES_END */
 
-
 /* EGO_VPP_POPUP_EDIT_ROUTE_START */
 Route::middleware(['auth'])
     ->prefix('nhan-su/quy-trinh-phan-bo-vpp')
@@ -2615,7 +2543,6 @@ Route::middleware(['auth'])
     });
 /* EGO_VPP_POPUP_EDIT_ROUTE_END */
 
-
 /* EGO_VPP_DELETE_ROUTE_START */
 Route::middleware(['auth'])
     ->prefix('nhan-su/quy-trinh-phan-bo-vpp')
@@ -2625,7 +2552,6 @@ Route::middleware(['auth'])
         Route::delete('/xoa-vpp/{id}', 'productDestroy')->whereNumber('id')->name('product.destroy');
     });
 /* EGO_VPP_DELETE_ROUTE_END */
-
 
 /* EGO_VPP_DETAIL_POPUP_ROUTE_START */
 Route::middleware(['auth'])
@@ -2638,9 +2564,8 @@ Route::middleware(['auth'])
 /* EGO_VPP_DETAIL_POPUP_ROUTE_END */
 
 /* EGO_BOOKING_ROOM_ROUTES_START */
-require __DIR__ . '/booking_room.php';
+require __DIR__.'/booking_room.php';
 /* EGO_BOOKING_ROOM_ROUTES_END */
-
 
 /*
 |--------------------------------------------------------------------------

@@ -2,8 +2,14 @@
 
 namespace App\Services\Marketing;
 
+/**
+ * Bộ tính KPI marketing (ROAS, CPL, tiến độ) từ số liệu mục tiêu và thực tế.
+ */
 class PlanKpiCalculator
 {
+    /**
+     * Tính ROAS, CPL thực tế và phần trăm tiến độ ngân sách/lead/doanh thu.
+     */
     public function calculate(array $target, array $actual): array
     {
         $roas = $actual['spend'] > 0
@@ -23,6 +29,9 @@ class PlanKpiCalculator
         ];
     }
 
+    /**
+     * Tính phần trăm a/b (làm tròn 1 chữ số), trả 0 nếu mẫu số rỗng.
+     */
     private function percent($a, $b)
     {
         if (!$b || $b == 0) return 0;

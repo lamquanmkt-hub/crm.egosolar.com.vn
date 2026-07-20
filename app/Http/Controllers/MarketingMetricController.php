@@ -3,8 +3,14 @@ namespace App\Http\Controllers;
 use App\Models\Marketing\MarketingCampaign;
 use App\Models\Marketing\MarketingMetric;
 use Illuminate\Http\Request;
+/**
+ * Controller CRUD chỉ số marketing (namespace gốc, dùng cho trang ngân sách).
+ */
 class MarketingMetricController extends Controller
 {
+    /**
+     * Lưu chỉ số marketing mới kèm breakdown giới tính/tuổi/khu vực.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -38,12 +44,18 @@ class MarketingMetricController extends Controller
         $m->save();
         return back()->with('success', 'Đã thêm chỉ số marketing.');
     }
+    /**
+     * Hiển thị form sửa chỉ số marketing.
+     */
     public function edit($id)
 {
     $m = MarketingMetric::with('campaign')->findOrFail($id);
     $campaigns = MarketingCampaign::orderBy('name')->get();
     return view('marketing.metrics.edit', compact('m', 'campaigns'));
 }
+    /**
+     * Cập nhật chỉ số marketing rồi chuyển về trang ngân sách.
+     */
     public function update(Request $request, $id)
     {
         $data = $request->validate([
@@ -77,6 +89,9 @@ class MarketingMetricController extends Controller
         $m->save();
         return redirect()->route('marketing.budget')->with('success', 'Đã cập nhật chỉ số marketing.');
     }
+    /**
+     * Xóa chỉ số marketing.
+     */
     public function destroy($id)
     {
         $m = MarketingMetric::findOrFail($id);

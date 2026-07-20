@@ -9,8 +9,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller báo cáo marketing: ads (KPI, nhập liệu, import Excel/CSV), SEO và tổng quan.
+ */
 class MarketingReportController extends Controller
 {
+    /**
+     * Báo cáo Ads: KPI tổng, chuỗi theo ngày, theo chiến dịch, tuỳ chọn so sánh kỳ trước.
+     */
     public function ads(Request $request)
     {
         $table = 'mkt_actual_kpi_daily';
@@ -303,6 +309,9 @@ class MarketingReportController extends Controller
         ]);
     }
 
+    /**
+     * Form nhập KPI ads theo ngày kèm gợi ý kênh/chiến dịch và dữ liệu nhập gần đây.
+     */
     public function adsInput(Request $request)
     {
         $planTable = 'mkt_ads_plans';
@@ -380,6 +389,9 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
         ]);
     }
 
+    /**
+     * Lưu (upsert) KPI ads theo ngày/kênh/chiến dịch rồi chuyển sang ngày kế tiếp.
+     */
     public function adsStore(Request $request)
     {
         $actualTable = 'mkt_actual_kpi_daily';
@@ -436,6 +448,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
     ->with('success', 'Đã lưu dữ liệu ADS.');
     }
 
+    /**
+     * Xóa dữ liệu KPI ads theo ngày/kênh/chiến dịch.
+     */
     public function adsDelete(Request $request)
     {
         $actualTable = 'mkt_actual_kpi_daily';
@@ -464,6 +479,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
     }
 
 
+    /**
+     * Tạo bảng mkt_actual_kpi_daily nếu chưa có và bổ sung các cột còn thiếu.
+     */
     private function ensureAdsActualTableForImport(): void
     {
         DB::statement("
@@ -502,6 +520,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         }
     }
 
+    /**
+     * Import báo cáo ads từ file CSV/XLSX (Meta Ads) vào bảng KPI theo ngày.
+     */
     public function adsImport(Request $request)
     {
         $this->ensureAdsActualTableForImport();
@@ -654,6 +675,11 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         ]))->with('success', $message);
     }
 
+    /**
+     * Đọc file CSV thành mảng dòng theo header.
+     *
+     * @return array
+     */
     private function readAdsCsvRows(string $path): array
     {
         $handle = fopen($path, 'r');
@@ -685,6 +711,11 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return $rows;
     }
 
+    /**
+     * Đọc file XLSX thành mảng dòng theo header (dùng ZipArchive hoặc lệnh unzip).
+     *
+     * @return array
+     */
     private function readAdsXlsxRows(string $path): array
     {
         $sharedXml = null;
@@ -854,6 +885,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return $rows;
     }
 
+    /**
+     * Đổi ký hiệu cột Excel (A, B, ..., AA) sang chỉ số 0-based.
+     */
     private function adsColumnIndex(string $letters): int
     {
         $letters = strtoupper($letters);
@@ -866,6 +900,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return $num - 1;
     }
 
+    /**
+     * Chuẩn hoá toàn bộ key của một dòng dữ liệu ads.
+     */
     private function normalizeAdsRowKeys(array $row): array
     {
         $out = [];
@@ -877,6 +914,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return $out;
     }
 
+    /**
+     * Chuẩn hoá chuỗi: bỏ dấu tiếng Việt, viết thường, chỉ giữ chữ và số.
+     */
     private function adsNorm(string $value): string
     {
         $value = \Illuminate\Support\Str::ascii(trim($value));
@@ -886,6 +926,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return trim(preg_replace('/\s+/', ' ', $value));
     }
 
+    /**
+     * Lấy giá trị đầu tiên khớp một trong các key (sau khi chuẩn hoá).
+     */
     private function adsPick(array $row, array $keys, $default = null)
     {
         foreach ($keys as $key) {
@@ -899,6 +942,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return $default;
     }
 
+    /**
+     * Chuyển giá trị chuỗi/số về float (xử lý dấu phẩy, dấu chấm, ký tự tiền tệ).
+     */
     private function adsNumber($value): float
     {
         if ($value === null || $value === '') {
@@ -920,6 +966,11 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return is_numeric($value) ? (float) $value : 0;
     }
 
+    /**
+     * Parse ngày từ chuỗi hoặc số serial Excel.
+     *
+     * @return string|null Ngày dạng Y-m-d hoặc null nếu không parse được
+     */
     private function parseAdsDate($value): ?string
     {
         if ($value === null || $value === '') {
@@ -940,11 +991,17 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
             return null;
         }
     }
+    /**
+     * Trang báo cáo SEO.
+     */
     public function seo()
     {
         return view('marketing.reports.seo');
     }
 
+    /**
+     * Trang báo cáo tổng quan marketing.
+     */
     public function overview()
     {
         return view('marketing.reports.overview');

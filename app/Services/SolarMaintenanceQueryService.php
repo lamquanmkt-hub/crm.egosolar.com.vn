@@ -11,8 +11,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Service truy vấn dữ liệu lịch bảo trì điện mặt trời (danh sách, thống kê, tìm công trình, nhân sự kỹ thuật).
+ */
 class SolarMaintenanceQueryService
 {
+    /**
+     * Lấy danh sách lịch bảo trì có phân trang, ưu tiên lịch quá hạn và sắp đến hạn.
+     */
     public function schedules(Request $request, User $user)
     {
         $query = SolarMaintenanceSchedule::query()
@@ -37,6 +43,9 @@ class SolarMaintenanceQueryService
             ->withQueryString();
     }
 
+    /**
+     * Thống kê số lượng lịch theo nhóm: hôm nay, quá hạn, sắp tới, đang làm, chờ duyệt, hoàn thành...
+     */
     public function summary(User $user): array
     {
         $query = SolarMaintenanceSchedule::query();
@@ -66,6 +75,9 @@ class SolarMaintenanceQueryService
         ];
     }
 
+    /**
+     * Lấy 50 công trình mới nhất (giới hạn theo công ty nếu không phải admin).
+     */
     public function recentSites(User $user)
     {
         $companyId = EgoCompanyScope::currentId();
@@ -78,6 +90,9 @@ class SolarMaintenanceQueryService
             ->get();
     }
 
+    /**
+     * Tìm công trình theo tên, người liên hệ, SĐT hoặc địa chỉ (tối đa 30 kết quả).
+     */
     public function searchSites(string $keyword, User $user)
     {
         $companyId = EgoCompanyScope::currentId();
@@ -99,6 +114,9 @@ class SolarMaintenanceQueryService
             ->get();
     }
 
+    /**
+     * Lấy danh sách nhân sự kỹ thuật khả dụng (theo role, phòng ban, chức vụ liên quan kỹ thuật/bảo hành).
+     */
     public function technicalUsers()
     {
         $technicalRoles = [
@@ -202,6 +220,9 @@ class SolarMaintenanceQueryService
         return $query;
     }
 
+    /**
+     * Danh sách cột công trình dùng chung cho các truy vấn site.
+     */
     private function siteColumns(): array
     {
         return [
@@ -211,6 +232,9 @@ class SolarMaintenanceQueryService
         ];
     }
 
+    /**
+     * Áp dụng các bộ lọc từ request: từ khoá, trạng thái, loại, ưu tiên, người phụ trách, quá hạn, khoảng ngày/tháng.
+     */
     private function applyFilters(Builder $query, Request $request): void
     {
         $search = trim((string) $request->input('q', ''));

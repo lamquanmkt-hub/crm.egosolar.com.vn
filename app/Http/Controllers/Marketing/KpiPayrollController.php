@@ -11,14 +11,23 @@ use App\Models\Marketing\MarketingKpiPayRule;
 use App\Models\Marketing\MarketingKpiPayActual;
 use Carbon\Carbon;
 
+/**
+ * Controller KPI & lương marketing: thiết lập, tính toán và hiển thị bảng lương.
+ */
 class KpiPayrollController extends Controller
 {
+    /**
+     * Trang chính KPI & lương.
+     */
     public function index(Request $request)
     {
         return view('marketing.kpi_payroll.index');
     }
 
     // Trang settings cho marketing_manager/admin
+    /**
+     * Trang thiết lập KPI & lương theo kỳ cho marketing_manager/admin.
+     */
     public function settings(Request $request)
     {
         $period = $request->get('period') ?? Carbon::now()->format('Y-m');
@@ -128,6 +137,9 @@ class KpiPayrollController extends Controller
         ));
     }
 
+    /**
+     * Lưu thiết lập KPI, quy tắc trọng số và cấu hình thưởng theo kỳ.
+     */
     public function saveSettings(Request $request)
     {
         $request->validate([
@@ -466,6 +478,11 @@ class KpiPayrollController extends Controller
     // Helpers: tính lương
     // =========================
 
+    /**
+     * Chuẩn hoá 3 trọng số review/AI/post về tổng 100%.
+     *
+     * @return array [$wReview, $wAi, $wPost]
+     */
     private function normalizeWeights($wReview, $wAi, $wPost): array
     {
         $wReview = (float)$wReview;
@@ -482,6 +499,9 @@ class KpiPayrollController extends Controller
         return [$wReview, $wAi, $wPost];
     }
 
+    /**
+     * Chọn mức thưởng cao nhất mà views/engagement đạt điều kiện trong các tier.
+     */
     private function pickTierReward(array $tiers, int $views, int $engagement): int
     {
         $best = 0;
@@ -497,6 +517,11 @@ class KpiPayrollController extends Controller
         return $best;
     }
 
+    /**
+     * Tính bảng lương: lương KPI theo trọng số, thưởng trend/livestream/lead và trừ phạt gian lận.
+     *
+     * @return array Chi tiết lương, thưởng và breakdown theo hạng mục
+     */
     private function calcPayroll($setting, $rule, array $bonusConfig, MarketingKpiPayActual $actual): array
     {
         $baseSalary = (int)($setting->base_salary ?? 0);
@@ -616,6 +641,9 @@ class KpiPayrollController extends Controller
         ];
     }
 
+    /**
+     * Placeholder lưu trang KPI cá nhân (hiện chỉ redirect về trang trước).
+     */
     public function saveMy(Request $request)
     {
         return redirect()->back();

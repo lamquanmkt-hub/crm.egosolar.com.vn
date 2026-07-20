@@ -8,17 +8,26 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller tiến độ kế hoạch marketing: sinh task tự động từ kế hoạch và theo dõi trạng thái.
+ */
 class MarketingProgressController extends Controller
 {
     // =========================================================
     // Helpers
     // =========================================================
+    /**
+     * Kiểm tra bảng tồn tại (an toàn với exception).
+     */
     private function safeTable(string $table): bool
     {
         try { return Schema::hasTable($table); }
         catch (\Throwable $e) { return false; }
     }
 
+    /**
+     * Quy đổi trạng thái task sang tỉ lệ tiến độ (done=1, doing=0.5, còn lại=0).
+     */
     private function statusPct(string $st): float
     {
         // weight-based progress rule
@@ -30,6 +39,9 @@ class MarketingProgressController extends Controller
         };
     }
 
+    /**
+     * Chuẩn hoá kênh về seo/ads/email, các giá trị khác thành other.
+     */
     private function normalizeChannel(?string $ch): string
     {
         $ch = strtolower(trim((string)$ch));

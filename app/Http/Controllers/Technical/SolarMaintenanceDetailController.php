@@ -16,12 +16,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
+/**
+ * Hiển thị trang chi tiết công trình và chi tiết đợt bảo trì điện mặt trời.
+ */
 class SolarMaintenanceDetailController extends Controller
 {
+    /**
+     * Khởi tạo controller với service truy vấn bảo trì.
+     */
     public function __construct(private readonly SolarMaintenanceQueryService $queryService)
     {
     }
 
+    /**
+     * Trang hồ sơ công trình: các chu kỳ bảo trì, tài liệu, serial và nhật ký hoạt động.
+     */
     public function site(Request $request, int $site): View|RedirectResponse
     {
         if (!SolarMaintenanceAccess::canViewAny($request->user())) {
@@ -106,6 +115,9 @@ class SolarMaintenanceDetailController extends Controller
         ]);
     }
 
+    /**
+     * Trang chi tiết một đợt bảo trì: các đợt cùng chu kỳ, phê duyệt, file đính kèm và quyền thao tác.
+     */
     public function show(Request $request, SolarMaintenanceSchedule $schedule): View|RedirectResponse
     {
         $schedule->loadMissing([
@@ -175,6 +187,9 @@ class SolarMaintenanceDetailController extends Controller
         ]);
     }
 
+    /**
+     * Kiểm tra người dùng có được truy cập công trình theo phạm vi công ty hay không.
+     */
     private function canAccessSite(Request $request, Site $site): bool
     {
         if (SolarMaintenanceAccess::isAdmin($request->user())) {
@@ -194,6 +209,9 @@ class SolarMaintenanceDetailController extends Controller
         return $siteCompanyId === $companyId;
     }
 
+    /**
+     * Chuyển hướng về trang danh sách bảo trì kèm thông báo lỗi.
+     */
     private function deny(string $message): RedirectResponse
     {
         return redirect()
@@ -201,6 +219,9 @@ class SolarMaintenanceDetailController extends Controller
             ->with('error', $message);
     }
 
+    /**
+     * Lấy danh sách serial/bảo hành thiết bị của công trình (trả rỗng nếu thiếu bảng).
+     */
     private function serialsForSite(int $siteId): Collection
     {
         $tables = [
@@ -233,6 +254,9 @@ class SolarMaintenanceDetailController extends Controller
             ->get();
     }
 
+    /**
+     * Gộp nhật ký đổi trạng thái và lịch sử phê duyệt của các đợt bảo trì (tối đa 100 dòng mới nhất).
+     */
     private function activityForSchedules(array $scheduleIds): Collection
     {
         if (!$scheduleIds) {

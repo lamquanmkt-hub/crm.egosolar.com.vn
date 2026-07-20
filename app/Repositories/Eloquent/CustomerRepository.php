@@ -1,14 +1,29 @@
 <?php
+
 namespace App\Repositories\Eloquent;
+
 use App\Models\CRM\Customers\Customer;
 use App\Repositories\Interfaces\CustomerRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+
+/**
+ * Repository Eloquent thao tác dữ liệu khách hàng.
+ */
 class CustomerRepository implements CustomerRepositoryInterface
 {
-    public function all(): LengthAwarePaginator|array {
+    /**
+     * Lấy danh sách khách hàng kèm khu vực, phân trang.
+     */
+    public function all(): LengthAwarePaginator|array
+    {
         return Customer::with('region')->latest()->paginate(20);
     }
-    public function getAllWithRelations(): LengthAwarePaginator {
+
+    /**
+     * Lấy danh sách khách hàng kèm đầy đủ quan hệ, phân trang.
+     */
+    public function getAllWithRelations(): LengthAwarePaginator
+    {
         return Customer::query()
             ->with([
                 'region',
@@ -20,10 +35,18 @@ class CustomerRepository implements CustomerRepositoryInterface
             ->latest('id')
             ->paginate(20);
     }
+
+    /**
+     * Tìm khách hàng theo ID.
+     */
     public function find($id)
     {
         return Customer::findOrFail($id);
     }
+
+    /**
+     * Tìm khách hàng theo ID kèm đầy đủ quan hệ chi tiết.
+     */
     public function findWithDetails($id)
     {
         return Customer::with([
@@ -40,6 +63,10 @@ class CustomerRepository implements CustomerRepositoryInterface
             // Loại bỏ 'creator' vì Customer ko có quan hệ này trực tiếp
         ])->findOrFail($id);
     }
+
+    /**
+     * Tìm kiếm khách hàng theo bộ lọc, có phân quyền theo user, phân trang.
+     */
     public function search(array $filters = []): LengthAwarePaginator
     {
         $user = auth()->user();
@@ -53,7 +80,7 @@ class CustomerRepository implements CustomerRepositoryInterface
                 'latestLead.source',
             ]);
         // 2. Lọc theo từ khóa (Tên, SĐT, Email, Nickname)
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = trim($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -64,48 +91,74 @@ class CustomerRepository implements CustomerRepositoryInterface
             });
         }
         // 3. Các bộ lọc chính xác
-        if (!empty($filters['region_id'])) {
+        if (! empty($filters['region_id'])) {
             $query->where('region_id', $filters['region_id']);
         }
-        if (!empty($filters['customer_type_id'])) {
+        if (! empty($filters['customer_type_id'])) {
             $query->where('customer_type_id', $filters['customer_type_id']);
         }
-        if (!empty($filters['customer_status'])) {
+        if (! empty($filters['customer_status'])) {
             $query->where('customer_status', $filters['customer_status']);
         }
         // Lọc khách đã mua hàng (có đơn)
-if (isset($filters['has_order']) && $filters['has_order'] !== '') {
-    if ($filters['has_order'] == '1') {
-        $query->whereHas('orders');
-    } elseif ($filters['has_order'] == '0') {
-        $query->whereDoesntHave('orders');
-    }
-}
+        if (isset($filters['has_order']) && $filters['has_order'] !== '') {
+            if ($filters['has_order'] == '1') {
+                $query->whereHas('orders');
+            } elseif ($filters['has_order'] == '0') {
+                $query->whereDoesntHave('orders');
+            }
+        }
         // Chỉ Admin/Manager mới được lọc theo Owner (Sales chỉ thấy của mình)
-        if (!empty($filters['owner_id']) && $user->can('customer.view_all')) {
+        if (! empty($filters['owner_id']) && $user->can('customer.view_all')) {
             $query->where('owner_id', $filters['owner_id']);
         }
         if (isset($filters['is_potential'])) {
             $query->where('is_potential', $filters['is_potential']);
         }
+
         return $query->latest('id')->paginate($filters['per_page'] ?? 20);
     }
+
+    /**
+     * Tạo mới khách hàng.
+     */
     public function create(array $data)
     {
         return Customer::create($data);
     }
-    public function update($id, array $data): Customer|array {
+
+    /**
+     * Cập nhật khách hàng.
+     */
+    public function update($id, array $data): Customer|array
+    {
         $customer = Customer::findOrFail($id);
         $customer->update($data);
+
         return $customer;
     }
-    public function delete($id): int {
+
+    /**
+     * Xoá khách hàng.
+     */
+    public function delete($id): int
+    {
         return Customer::destroy($id);
     }
-    public function count(): int {
+
+    /**
+     * Đếm tổng số khách hàng.
+     */
+    public function count(): int
+    {
         return Customer::count();
     }
-    public function countPurchased(): int {
+
+    /**
+     * Đếm số khách hàng đã từng mua hàng.
+     */
+    public function countPurchased(): int
+    {
         return Customer::whereHas('orders')->count();
     }
 }

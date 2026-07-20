@@ -40,19 +40,19 @@ class OrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id'             => ['required', 'integer', Rule::exists('crm_customers', 'id')],
-            'lead_id'                 => ['nullable', 'integer', Rule::exists('crm_leads', 'id')],
-            'order_date'              => ['required', 'date', 'before_or_equal:today'],
-            'items'                   => ['required', 'array', 'min:1'],
-            'price_tier_id'           => ['nullable', 'integer', 'exists:crm_price_tiers,id'],
-            'items.*.warehouse_id'    => ['required', 'integer', 'exists:crm_warehouses,id'],
-            'items.*.product_id'      => ['required', 'integer', 'exists:crm_product_catalog,id'],
-            'items.*.price_tier_id'   => ['nullable', 'integer', 'exists:crm_price_tiers,id'],
-            'items.*.unit_price'      => ['required', 'numeric', 'min:0'],
-            'items.*.quantity'        => ['required', 'integer', 'min:1'],
+            'customer_id' => ['required', 'integer', Rule::exists('crm_customers', 'id')],
+            'lead_id' => ['nullable', 'integer', Rule::exists('crm_leads', 'id')],
+            'order_date' => ['required', 'date', 'before_or_equal:today'],
+            'items' => ['required', 'array', 'min:1'],
+            'price_tier_id' => ['nullable', 'integer', 'exists:crm_price_tiers,id'],
+            'items.*.warehouse_id' => ['required', 'integer', 'exists:crm_warehouses,id'],
+            'items.*.product_id' => ['required', 'integer', 'exists:crm_product_catalog,id'],
+            'items.*.price_tier_id' => ['nullable', 'integer', 'exists:crm_price_tiers,id'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'items.*.discount_amount' => ['nullable', 'numeric', 'min:0'],
-            'action'                  => ['nullable', 'string', Rule::in(['save_draft', 'submit'])],
+            'action' => ['nullable', 'string', Rule::in(['save_draft', 'submit'])],
         ];
     }
 
@@ -64,22 +64,22 @@ class OrderRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'customer_id.required'         => 'Vui lòng chọn khách hàng.',
-            'customer_id.exists'           => 'Khách hàng không tồn tại.',
-            'lead_id.exists'               => 'Lead không tồn tại.',
-            'order_date.required'          => 'Vui lòng chọn ngày đặt hàng.',
-            'order_date.date'              => 'Ngày đặt hàng không hợp lệ.',
-            'order_date.before_or_equal'   => 'Ngày đặt hàng không được là ngày tương lai.',
-            'items.required'               => 'Vui lòng thêm ít nhất một sản phẩm.',
-            'items.min'                    => 'Đơn hàng phải có ít nhất một sản phẩm.',
+            'customer_id.required' => 'Vui lòng chọn khách hàng.',
+            'customer_id.exists' => 'Khách hàng không tồn tại.',
+            'lead_id.exists' => 'Lead không tồn tại.',
+            'order_date.required' => 'Vui lòng chọn ngày đặt hàng.',
+            'order_date.date' => 'Ngày đặt hàng không hợp lệ.',
+            'order_date.before_or_equal' => 'Ngày đặt hàng không được là ngày tương lai.',
+            'items.required' => 'Vui lòng thêm ít nhất một sản phẩm.',
+            'items.min' => 'Đơn hàng phải có ít nhất một sản phẩm.',
             'items.*.warehouse_id.required' => 'Vui lòng chọn kho cho dòng sản phẩm.',
-            'items.*.warehouse_id.exists'  => 'Kho không tồn tại.',
-            'items.*.product_id.required'  => 'Vui lòng chọn sản phẩm.',
-            'items.*.product_id.exists'    => 'Sản phẩm không tồn tại.',
-            'items.*.quantity.required'    => 'Vui lòng nhập số lượng.',
-            'items.*.quantity.min'         => 'Số lượng phải lớn hơn 0.',
-            'items.*.unit_price.required'  => 'Vui lòng nhập đơn giá.',
-            'items.*.unit_price.min'       => 'Đơn giá không được âm.',
+            'items.*.warehouse_id.exists' => 'Kho không tồn tại.',
+            'items.*.product_id.required' => 'Vui lòng chọn sản phẩm.',
+            'items.*.product_id.exists' => 'Sản phẩm không tồn tại.',
+            'items.*.quantity.required' => 'Vui lòng nhập số lượng.',
+            'items.*.quantity.min' => 'Số lượng phải lớn hơn 0.',
+            'items.*.unit_price.required' => 'Vui lòng nhập đơn giá.',
+            'items.*.unit_price.min' => 'Đơn giá không được âm.',
             'items.*.discount_percent.max' => 'Giảm giá không được vượt quá 100%.',
         ];
     }
@@ -119,8 +119,6 @@ class OrderRequest extends FormRequest
 
     /**
      * Lấy dữ liệu đã validate kèm tính toán tổng tiền.
-     *
-     * @return array
      */
     public function validatedWithProcessing(): array
     {
@@ -152,12 +150,12 @@ class OrderRequest extends FormRequest
      */
     private function sanitizeItems(): void
     {
-        if (!$this->has('items') || !is_array($this->input('items'))) {
+        if (! $this->has('items') || ! is_array($this->input('items'))) {
             return;
         }
 
         $items = collect($this->input('items'))
-            ->filter(fn ($it) => !empty($it['product_id']) || !empty($it['warehouse_id']))
+            ->filter(fn ($it) => ! empty($it['product_id']) || ! empty($it['warehouse_id']))
             ->values()
             ->map(fn ($it) => $this->sanitizeItem($it))
             ->toArray();
@@ -167,16 +165,13 @@ class OrderRequest extends FormRequest
 
     /**
      * Chuẩn hóa 1 item.
-     *
-     * @param array $item
-     * @return array
      */
     private function sanitizeItem(array $item): array
     {
-        $item['warehouse_id']    = (int) ($item['warehouse_id'] ?? 0);
-        $item['product_id']      = (int) ($item['product_id'] ?? 0);
-        $item['quantity']        = (int) ($item['quantity'] ?? 0);
-        $item['unit_price']      = $this->parseMoney($item['unit_price'] ?? 0);
+        $item['warehouse_id'] = (int) ($item['warehouse_id'] ?? 0);
+        $item['product_id'] = (int) ($item['product_id'] ?? 0);
+        $item['quantity'] = (int) ($item['quantity'] ?? 0);
+        $item['unit_price'] = $this->parseMoney($item['unit_price'] ?? 0);
         $item['discount_amount'] = $this->parseMoney($item['discount_amount'] ?? 0);
 
         $disc = $item['discount_percent'] ?? 0;
@@ -192,8 +187,7 @@ class OrderRequest extends FormRequest
     /**
      * Parse chuỗi tiền tệ (VD: "2.000.000" → 2000000).
      *
-     * @param mixed $value
-     * @return float
+     * @param  mixed  $value
      */
     private function parseMoney($value): float
     {
@@ -211,7 +205,7 @@ class OrderRequest extends FormRequest
      */
     private function autoResolveLeadId(): void
     {
-        $leadId     = (int) $this->input('lead_id', 0);
+        $leadId = (int) $this->input('lead_id', 0);
         $customerId = (int) $this->input('customer_id', 0);
 
         if ($leadId > 0 || $customerId <= 0) {
@@ -231,7 +225,7 @@ class OrderRequest extends FormRequest
     /**
      * Kiểm tra trùng sản phẩm trong cùng kho.
      *
-     * @param \Illuminate\Validation\Validator $validator
+     * @param  \Illuminate\Validation\Validator  $validator
      */
     private function validateDuplicateProductsByWarehouse($validator): void
     {
@@ -262,7 +256,7 @@ class OrderRequest extends FormRequest
     /**
      * Kiểm tra tồn kho có đủ không.
      *
-     * @param \Illuminate\Validation\Validator $validator
+     * @param  \Illuminate\Validation\Validator  $validator
      */
     /**
      * Khi tạo đơn mới, kho đã chọn phải còn đủ tồn khả dụng.
@@ -293,7 +287,7 @@ class OrderRequest extends FormRequest
                 ])
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 continue;
             }
 
@@ -323,10 +317,10 @@ class OrderRequest extends FormRequest
                     ->sum('qty_remaining'));
             }
 
-            $label = trim((string) ($product->name ?? ('Sản phẩm #' . $productId)));
+            $label = trim((string) ($product->name ?? ('Sản phẩm #'.$productId)));
             $sku = trim((string) ($product->sku ?? ''));
             if ($sku !== '') {
-                $label .= ' (' . $sku . ')';
+                $label .= ' ('.$sku.')';
             }
 
             if ($available <= 0) {
@@ -334,6 +328,7 @@ class OrderRequest extends FormRequest
                     "items.{$index}.warehouse_id",
                     "Kho đã chọn hiện không còn {$label}. Vui lòng chọn kho khác."
                 );
+
                 continue;
             }
 
@@ -346,12 +341,15 @@ class OrderRequest extends FormRequest
         }
     }
 
+    /**
+     * Kiểm tra tồn kho khả dụng cho từng dòng sản phẩm trong đơn hàng.
+     */
     private function validateStockAvailability($validator): void
     {
         foreach ($this->input('items', []) as $index => $item) {
             $warehouseId = (int) ($item['warehouse_id'] ?? 0);
-            $productId   = (int) ($item['product_id'] ?? 0);
-            $qty         = (int) ($item['quantity'] ?? 0);
+            $productId = (int) ($item['product_id'] ?? 0);
+            $qty = (int) ($item['quantity'] ?? 0);
 
             if ($warehouseId <= 0 || $productId <= 0 || $qty <= 0) {
                 continue;
@@ -373,17 +371,14 @@ class OrderRequest extends FormRequest
 
     /**
      * Tính thành tiền cho 1 dòng sản phẩm.
-     *
-     * @param array $item
-     * @return float
      */
     private function calculateItemLineTotal(array $item): float
     {
-        $qty         = max(1, (int) ($item['quantity'] ?? 1));
-        $price       = (float) ($item['unit_price'] ?? 0);
+        $qty = max(1, (int) ($item['quantity'] ?? 1));
+        $price = (float) ($item['unit_price'] ?? 0);
         $discPercent = max(0, min(100, (float) ($item['discount_percent'] ?? 0)));
         $discPerUnit = max(0, (float) ($item['discount_amount'] ?? 0));
-        $lineTotal   = $qty * $price;
+        $lineTotal = $qty * $price;
 
         $discount = ($discPerUnit > 0)
             ? $discPerUnit * $qty

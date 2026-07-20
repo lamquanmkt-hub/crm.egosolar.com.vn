@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Controller quản lý và tra cứu serial/IMEI sản phẩm.
+ */
 class ProductSerialManagementController extends Controller
 {
     private array $soldStates = ['sold', 'delivered', 'shipped', 'issued', 'out'];
@@ -25,6 +28,9 @@ class ProductSerialManagementController extends Controller
         'unknown' => 'Chưa rõ',
     ];
 
+    /**
+     * Hiển thị trang quản lý serial với bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
         $this->ensureSerialTables();
@@ -75,6 +81,9 @@ class ProductSerialManagementController extends Controller
         ));
     }
 
+    /**
+     * Xuất danh sách serial theo bộ lọc ra file CSV.
+     */
     public function export(Request $request): StreamedResponse
     {
         $this->ensureSerialTables();
@@ -132,6 +141,9 @@ class ProductSerialManagementController extends Controller
         ]);
     }
 
+    /**
+     * Chặn 500 nếu thiếu bảng dữ liệu serial.
+     */
     private function ensureSerialTables(): void
     {
         foreach (['crm_serial_units', 'crm_serial_identifiers', 'crm_serial_unit_identifiers', 'crm_serial_unit_states'] as $table) {
@@ -139,6 +151,9 @@ class ProductSerialManagementController extends Controller
         }
     }
 
+    /**
+     * Đọc bộ lọc từ query string.
+     */
     private function filters(Request $request): array
     {
         return [
@@ -151,6 +166,9 @@ class ProductSerialManagementController extends Controller
         ];
     }
 
+    /**
+     * Dựng query gốc join serial với sản phẩm, kho, đơn hàng, khách và bảo hành.
+     */
     private function baseQuery()
     {
         $primaryCodes = DB::table('crm_serial_unit_identifiers as sui')
@@ -267,6 +285,9 @@ class ProductSerialManagementController extends Controller
         return $query;
     }
 
+    /**
+     * Áp dụng bộ lọc tìm kiếm, trạng thái, kho, công ty, bảo hành vào query.
+     */
     private function applyFilters($query, array $filters): void
     {
         if ($filters['q'] !== '') {
@@ -399,6 +420,9 @@ class ProductSerialManagementController extends Controller
         };
     }
 
+    /**
+     * Tính số liệu thống kê tổng quan về serial.
+     */
     private function stats(): array
     {
         $totalQuery = DB::table('crm_serial_units');
@@ -440,6 +464,9 @@ class ProductSerialManagementController extends Controller
         ];
     }
 
+    /**
+     * Lấy nhãn tiếng Việt của trạng thái serial.
+     */
     private function statusLabel(string $state): string
     {
         return $this->stateLabels[$state] ?? ($state ?: 'Chưa rõ');

@@ -3,217 +3,37 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Finance\SupplierDebtPaymentRoundRequest;
+use App\Http\Requests\Finance\SupplierDebtRequest;
+use App\Services\Finance\SupplierDebtService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
+/**
+ * Quản lý công nợ nhà cung cấp: đợt thanh toán, ĐNTT liên kết và tệp đính kèm.
+ */
 class SupplierDebtController extends Controller
 {
-    private function companyOptions(): array
-    {
-        return [
-            'Công ty TNHH Ego Việt Nam',
-            'Công ty TNHH TMKT Quốc Tế EGO',
-        ];
-    }
+    /**
+     * Khởi tạo controller, inject service nghiệp vụ công nợ nhà cung cấp.
+     */
+    public function __construct(
+        private readonly SupplierDebtService $supplierDebtService,
+    ) {}
 
-    private function paidRoundStatuses(): array
-    {
-        // payment_requests.status = accounting_approved nghĩa là kế toán đã chi.
-        return ['paid', 'accounting_approved'];
-    }
-
-    private function pendingRoundStatuses(): array
-    {
-        return ['planned', 'requested', 'draft', 'submitted', 'pending', 'admin_approved'];
-    }
-
-
-    private function completedPaymentRequestStatuses(): array
-    {
-        return ['accounting_approved', 'paid', 'completed', 'complete', 'done', 'closed'];
-    }
-
-    private function payablePaymentRequestStatuses(): array
-    {
-        return ['submitted', 'admin_approved', 'requested', 'draft', 'pending'];
-    }
-
-    private function paymentRequestRow($paymentRequestId)
-    {
-        if (!$paymentRequestId || !Schema::hasTable('payment_requests')) {
-            return null;
-        }
-
-        $query = DB::table('payment_requests')->where('id', (int) $paymentRequestId);
-
-        if (Schema::hasColumn('payment_requests', 'deleted_at')) {
-            $query->whereNull('deleted_at');
-        }
-
-        return $query->first();
-    }
-
-    private function paymentRequestIsCompleted($paymentRequest): bool
-    {
-        if (!$paymentRequest) {
-            return false;
-        }
-
-        return in_array(strtolower((string) ($paymentRequest->status ?? '')), $this->completedPaymentRequestStatuses(), true);
-    }
-
-    private function paymentRequestIsOpen($paymentRequest): bool
-    {
-        if (!$paymentRequest) {
-            return false;
-        }
-
-        return in_array(strtolower((string) ($paymentRequest->status ?? '')), $this->payablePaymentRequestStatuses(), true);
-    }
-
-    private function roundPaymentMeta($round): array
-    {
-        $roundAmount = (float) ($round->amount ?? 0);
-        $paymentRequest = null;
-        $paymentRequestAmount = null;
-        $paymentRequestStatus = null;
-        $paidAmount = 0.0;
-        $pendingAmount = 0.0;
-        $isLocked = false;
-        $isPartial = false;
-        $missing = false;
-
-        if (!empty($round->payment_request_id)) {
-            $paymentRequest = $this->paymentRequestRow((int) $round->payment_request_id);
-
-            if ($paymentRequest) {
-                $paymentRequestAmount = (float) ($paymentRequest->amount ?? 0);
-                $paymentRequestStatus = strtolower((string) ($paymentRequest->status ?? ''));
-                $isLocked = in_array($paymentRequestStatus, array_merge($this->completedPaymentRequestStatuses(), ['submitted', 'admin_approved']), true);
-
-                if ($this->paymentRequestIsCompleted($paymentRequest)) {
-                    $paidAmount = $paymentRequestAmount > 0
-                        ? min($roundAmount, $paymentRequestAmount)
-                        : $roundAmount;
-                } else {
-                    $pendingAmount = $roundAmount;
-                }
-            } else {
-                $missing = true;
-            }
-        } else {
-            $roundStatus = strtolower((string) ($round->status ?? ''));
-
-            if (in_array($roundStatus, $this->paidRoundStatuses(), true)) {
-                $paidAmount = $roundAmount;
-            } elseif (in_array($roundStatus, $this->pendingRoundStatuses(), true)) {
-                $pendingAmount = $roundAmount;
-            }
-        }
-
-        $remainingAmount = max($roundAmount - $paidAmount, 0);
-        $isPartial = $paidAmount > 0 && $remainingAmount > 0;
-
-        return [
-            'payment_request' => $paymentRequest,
-            'payment_request_amount' => $paymentRequestAmount,
-            'payment_request_status' => $paymentRequestStatus,
-            'payment_request_missing' => $missing,
-            'payment_request_is_locked' => $isLocked,
-            'paid_amount' => $paidAmount,
-            'pending_amount' => $pendingAmount,
-            'remaining_amount' => $remainingAmount,
-            'is_partial_paid' => $isPartial,
-        ];
-    }
-
-    private function remainingRoundAlreadyExists($round, float $remainingAmount): bool
-    {
-        if ($remainingAmount <= 0 || !Schema::hasTable('finance_supplier_debt_payments')) {
-            return false;
-        }
-
-        return DB::table('finance_supplier_debt_payments')
-            ->where('supplier_debt_id', (int) ($round->supplier_debt_id ?? 0))
-            ->whereNull('payment_request_id')
-            ->where(function ($q) use ($round, $remainingAmount) {
-                $q->where('note', 'like', '%Phần còn lại của đợt ' . ($round->payment_round ?? '') . '%')
-                    ->orWhere(function ($x) use ($remainingAmount) {
-                        $x->whereBetween('amount', [$remainingAmount - 1, $remainingAmount + 1])
-                            ->whereIn('status', ['planned', 'draft', 'requested', 'pending']);
-                    });
-            })
-            ->exists();
-    }
-
-    private function normalizeMoneyInput($value): string
-    {
-        $value = trim((string) ($value ?? ''));
-
-        if ($value === '') {
-            return '';
-        }
-
-        $value = preg_replace('/[\s\x{00A0}]+/u', '', $value) ?? '';
-        $value = preg_replace('/[^0-9,.-]/u', '', $value) ?? '';
-
-        if ($value === '' || $value === '-' || $value === ',' || $value === '.') {
-            return '';
-        }
-
-        $isNegative = substr($value, 0, 1) === '-';
-        $value = ltrim($value, '-');
-
-        $lastComma = strrpos($value, ',');
-        $lastDot = strrpos($value, '.');
-
-        if ($lastComma !== false && $lastDot !== false) {
-            $decimalSeparator = $lastComma > $lastDot ? ',' : '.';
-            $thousandSeparator = $decimalSeparator === ',' ? '.' : ',';
-            $value = str_replace($thousandSeparator, '', $value);
-            $value = str_replace($decimalSeparator, '.', $value);
-        } elseif ($lastComma !== false) {
-            $after = strlen($value) - $lastComma - 1;
-            if (substr_count($value, ',') > 1 || $after > 2) {
-                $value = str_replace(',', '', $value);
-            } else {
-                $value = str_replace(',', '.', $value);
-            }
-        } elseif ($lastDot !== false) {
-            $after = strlen($value) - $lastDot - 1;
-            if (substr_count($value, '.') > 1 || $after === 3) {
-                $value = str_replace('.', '', $value);
-            }
-        }
-
-        $value = preg_replace('/[^0-9.]/', '', $value) ?? '';
-
-        if (substr_count($value, '.') > 1) {
-            $parts = explode('.', $value);
-            $decimal = array_pop($parts);
-            $value = implode('', $parts) . '.' . $decimal;
-        }
-
-        $value = trim($value, '.');
-
-        if ($value === '') {
-            return '';
-        }
-
-        return ($isNegative ? '-' : '') . $value;
-    }
-
+    /**
+     * Chuẩn hóa các trường tiền tệ trong request trước khi validate.
+     */
     private function normalizeMoneyFields(Request $request, array $fields): void
     {
         $payload = [];
 
         foreach ($fields as $field) {
             if ($request->has($field)) {
-                $payload[$field] = $this->normalizeMoneyInput($request->input($field));
+                $payload[$field] = $this->supplierDebtService->normalizeMoneyInput($request->input($field));
             }
         }
 
@@ -222,75 +42,9 @@ class SupplierDebtController extends Controller
         }
     }
 
-    private function paymentRoundIsLocked($round): bool
-    {
-        if (empty($round->payment_request_id)) {
-            return false;
-        }
-
-        if (!Schema::hasTable('payment_requests') || !Schema::hasColumn('payment_requests', 'status')) {
-            return true;
-        }
-
-        $status = DB::table('payment_requests')
-            ->where('id', $round->payment_request_id)
-            ->value('status');
-
-        return in_array((string) $status, ['submitted', 'admin_approved', 'accounting_approved', 'paid'], true);
-    }
-
-    private function syncSupplierDebtTotals(int $debtId): void
-    {
-        if (!Schema::hasTable('finance_supplier_debts')) {
-            return;
-        }
-
-        $debt = DB::table('finance_supplier_debts')->where('id', $debtId)->first();
-
-        if (!$debt) {
-            return;
-        }
-
-        $rounds = collect();
-
-        if (Schema::hasTable('finance_supplier_debt_payments')) {
-            $rounds = DB::table('finance_supplier_debt_payments')
-                ->where('supplier_debt_id', $debtId)
-                ->get();
-        }
-
-        $paidAmount = 0.0;
-        $pendingAmount = 0.0;
-
-        foreach ($rounds as $round) {
-            $meta = $this->roundPaymentMeta($round);
-            $paidAmount += (float) $meta['paid_amount'];
-            $pendingAmount += (float) $meta['pending_amount'];
-        }
-
-        $totalAmount = (float) ($debt->total_amount ?? 0);
-        $remainAmount = max($totalAmount - $paidAmount, 0);
-
-        $status = 'unpaid';
-
-        if ($remainAmount <= 0 && $totalAmount > 0) {
-            $status = 'paid';
-        } elseif ($paidAmount > 0 || $pendingAmount > 0) {
-            $status = 'partial';
-        }
-
-        $payload = [
-            'paid_amount' => $paidAmount,
-            'status' => $status,
-            'updated_at' => now(),
-        ];
-
-        DB::table('finance_supplier_debts')
-            ->where('id', $debtId)
-            ->update($payload);
-    }
-
-
+    /**
+     * Tạo các bảng công nợ NCC nếu chưa tồn tại và bổ sung cột còn thiếu.
+     */
     private function ensureSupplierDebtTables(): void
     {
         DB::statement("\n            CREATE TABLE IF NOT EXISTS finance_supplier_debts (\n                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n                supplier_name VARCHAR(255) NOT NULL,\n                company_name VARCHAR(255) NULL,\n                document_no VARCHAR(100) NULL,\n                document_date DATE NULL,\n                debt_month DATE NULL,\n                total_amount DECIMAL(15,2) NOT NULL DEFAULT 0,\n                paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0,\n                note TEXT NULL,\n                bank_info TEXT NULL,\n                status VARCHAR(50) NOT NULL DEFAULT 'unpaid',\n                created_by BIGINT UNSIGNED NULL,\n                created_at TIMESTAMP NULL DEFAULT NULL,\n                updated_at TIMESTAMP NULL DEFAULT NULL,\n                INDEX finance_supplier_debts_supplier_name_index (supplier_name),\n                INDEX finance_supplier_debts_debt_month_index (debt_month),\n                INDEX finance_supplier_debts_status_index (status)\n            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci\n        ");
@@ -301,14 +55,18 @@ class SupplierDebtController extends Controller
 
         DB::statement("\n            CREATE TABLE IF NOT EXISTS finance_supplier_debt_payment_files (\n                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n                supplier_debt_payment_id BIGINT UNSIGNED NOT NULL,\n                original_name VARCHAR(255) NOT NULL,\n                path VARCHAR(500) NOT NULL,\n                mime_type VARCHAR(150) NULL,\n                size BIGINT UNSIGNED NULL,\n                created_at TIMESTAMP NULL DEFAULT NULL,\n                updated_at TIMESTAMP NULL DEFAULT NULL,\n                INDEX fsdpf_payment_id_index (supplier_debt_payment_id)\n            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci\n        ");
 
-        if (!Schema::hasColumn('finance_supplier_debts', 'bank_info')) {
+        if (! Schema::hasColumn('finance_supplier_debts', 'bank_info')) {
             DB::statement('ALTER TABLE finance_supplier_debts ADD COLUMN bank_info TEXT NULL AFTER note');
         }
 
-        if (!Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')) {
+        if (! Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')) {
             DB::statement('ALTER TABLE finance_supplier_debt_payments ADD COLUMN payment_request_id BIGINT UNSIGNED NULL AFTER supplier_debt_id');
         }
     }
+
+    /**
+     * Danh sách công nợ NCC kèm đợt thanh toán, tệp đính kèm và tổng hợp theo bộ lọc.
+     */
     public function index(Request $request)
     {
         $this->ensureSupplierDebtTables();
@@ -316,13 +74,13 @@ class SupplierDebtController extends Controller
         $status = $request->input('status');
         $period = $request->input('period', 'all');
 
-        if (!in_array($period, ['all', 'month'], true)) {
+        if (! in_array($period, ['all', 'month'], true)) {
             $period = 'all';
         }
 
         $month = $request->input('month', now()->format('Y-m'));
 
-        $monthStart = $month . '-01';
+        $monthStart = $month.'-01';
         $monthEnd = date('Y-m-t', strtotime($monthStart));
 
         $debts = collect();
@@ -341,13 +99,13 @@ class SupplierDebtController extends Controller
 
             if ($keyword !== '') {
                 $query->where(function ($q) use ($keyword) {
-                    $q->where('supplier_name', 'like', '%' . $keyword . '%')
-                        ->orWhere('company_name', 'like', '%' . $keyword . '%')
-                        ->orWhere('document_no', 'like', '%' . $keyword . '%')
-                        ->orWhere('note', 'like', '%' . $keyword . '%');
+                    $q->where('supplier_name', 'like', '%'.$keyword.'%')
+                        ->orWhere('company_name', 'like', '%'.$keyword.'%')
+                        ->orWhere('document_no', 'like', '%'.$keyword.'%')
+                        ->orWhere('note', 'like', '%'.$keyword.'%');
 
                     if (Schema::hasColumn('finance_supplier_debts', 'bank_info')) {
-                        $q->orWhere('bank_info', 'like', '%' . $keyword . '%');
+                        $q->orWhere('bank_info', 'like', '%'.$keyword.'%');
                     }
                 });
             }
@@ -367,6 +125,7 @@ class SupplierDebtController extends Controller
                 $debts = $debts->map(function ($debt) use ($debtFiles) {
                     $debt->files = $debtFiles->get($debt->id, collect());
                     $debt->file_count = $debt->files->count();
+
                     return $debt;
                 });
             }
@@ -381,7 +140,7 @@ class SupplierDebtController extends Controller
                 ->orderBy('id')
                 ->get();
 
-            $cleanedMissingPaymentRequests = $this->clearMissingSupplierDebtPaymentRequests($rounds->pluck('id')->values()->all());
+            $cleanedMissingPaymentRequests = $this->supplierDebtService->clearMissingSupplierDebtPaymentRequests($rounds->pluck('id')->values()->all());
 
             if ($cleanedMissingPaymentRequests > 0) {
                 $rounds = DB::table('finance_supplier_debt_payments')
@@ -421,9 +180,9 @@ class SupplierDebtController extends Controller
                     $round->is_partial_paid = false;
                     $round->remaining_round_exists = false;
 
-                    if (!empty($round->payment_request_id) && $requestMap->has($round->payment_request_id)) {
+                    if (! empty($round->payment_request_id) && $requestMap->has($round->payment_request_id)) {
                         $paymentRequest = $requestMap[$round->payment_request_id];
-                        $meta = $this->roundPaymentMeta($round);
+                        $meta = $this->supplierDebtService->roundPaymentMeta($round);
 
                         $round->payment_request_status = $meta['payment_request_status'];
                         $round->payment_request_amount = $meta['payment_request_amount'];
@@ -431,11 +190,11 @@ class SupplierDebtController extends Controller
                         $round->paid_amount_by_request = $meta['paid_amount'];
                         $round->remaining_amount_by_request = $meta['remaining_amount'];
                         $round->is_partial_paid = $meta['is_partial_paid'];
-                        $round->remaining_round_exists = $this->remainingRoundAlreadyExists($round, (float) $meta['remaining_amount']);
+                        $round->remaining_round_exists = $this->supplierDebtService->remainingRoundAlreadyExists($round, (float) $meta['remaining_amount']);
 
-                        if ($this->paymentRequestIsCompleted($paymentRequest)) {
+                        if ($this->supplierDebtService->paymentRequestIsCompleted($paymentRequest)) {
                             $round->status = 'accounting_approved';
-                        } elseif (!empty($round->payment_request_status)) {
+                        } elseif (! empty($round->payment_request_status)) {
                             $round->status = $round->payment_request_status;
                         }
                     }
@@ -459,6 +218,7 @@ class SupplierDebtController extends Controller
                 $rounds = $rounds->map(function ($round) use ($paymentFilesByRound) {
                     $round->files = $paymentFilesByRound->get($round->id, collect());
                     $round->file_count = $round->files->count();
+
                     return $round;
                 });
             }
@@ -466,10 +226,10 @@ class SupplierDebtController extends Controller
             $paymentRoundsByDebt = $rounds->groupBy('supplier_debt_id');
         }
 
-        $paidStatuses = $this->paidRoundStatuses();
-        $pendingStatuses = $this->pendingRoundStatuses();
+        $paidStatuses = $this->supplierDebtService->paidRoundStatuses();
+        $pendingStatuses = $this->supplierDebtService->pendingRoundStatuses();
 
-        $debts = $debts->map(function ($item) use ($paymentRoundsByDebt, $paidStatuses, $pendingStatuses) {
+        $debts = $debts->map(function ($item) use ($paymentRoundsByDebt) {
             $item->total_amount = (float) ($item->total_amount ?? 0);
 
             $rounds = $paymentRoundsByDebt->get($item->id, collect());
@@ -489,7 +249,7 @@ class SupplierDebtController extends Controller
                  * - Không có ĐNTT nhưng round.status = paid/accounting_approved: tính đã thanh toán.
                  * - Đợt planned/requested/submitted/admin_approved: tính đang chờ.
                  */
-                $meta = $this->roundPaymentMeta($round);
+                $meta = $this->supplierDebtService->roundPaymentMeta($round);
                 $paidAmount += (float) $meta['paid_amount'];
                 $pendingAmount += (float) $meta['pending_amount'];
             }
@@ -535,7 +295,7 @@ class SupplierDebtController extends Controller
             'payment_round_count' => (int) $debts->sum('payment_round_count'),
         ];
 
-        $companyOptions = $this->companyOptions();
+        $companyOptions = $this->supplierDebtService->companyOptions();
 
         return view('finance.supplier-debts.index', compact(
             'debts',
@@ -552,27 +312,19 @@ class SupplierDebtController extends Controller
         ));
     }
 
-    public function store(Request $request)
+    /**
+     * Thêm công nợ nhà cung cấp mới kèm tệp đính kèm.
+     */
+    public function store(SupplierDebtRequest $request)
     {
-        $this->normalizeMoneyFields($request, ['total_amount']);
-
-        $data = $request->validate([
-            'supplier_name' => ['required', 'string', 'max:255'],
-            'company_name' => ['required', 'string', Rule::in($this->companyOptions())],
-            'document_no' => ['nullable', 'string', 'max:100'],
-            'document_date' => ['nullable', 'date'],
-            'debt_month' => ['required', 'date_format:Y-m'],
-            'total_amount' => ['required', 'numeric', 'min:0'],
-            'bank_info' => ['nullable', 'string'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $data = $request->validated();
 
         $payload = [
             'supplier_name' => trim($data['supplier_name']),
             'company_name' => $data['company_name'],
-            'document_no' => !empty($data['document_no']) ? trim($data['document_no']) : null,
+            'document_no' => ! empty($data['document_no']) ? trim($data['document_no']) : null,
             'document_date' => $data['document_date'] ?? null,
-            'debt_month' => $data['debt_month'] . '-01',
+            'debt_month' => $data['debt_month'].'-01',
             'total_amount' => (float) $data['total_amount'],
             'paid_amount' => 0,
             'note' => $data['note'] ?? null,
@@ -589,27 +341,19 @@ class SupplierDebtController extends Controller
         $debtId = DB::table('finance_supplier_debts')->insertGetId($payload);
 
         $this->storeDebtFiles($request, (int) $debtId);
-        $this->syncSupplierDebtTotals((int) $debtId);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $debtId);
 
         return redirect()
             ->route('finance.supplier-debts.index', ['month' => $data['debt_month']])
             ->with('success', 'Đã thêm công nợ nhà cung cấp.');
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Cập nhật công nợ NCC (chặn khi tổng nhỏ hơn các đợt đã nhập).
+     */
+    public function update(SupplierDebtRequest $request, $id)
     {
-        $this->normalizeMoneyFields($request, ['total_amount']);
-
-        $data = $request->validate([
-            'supplier_name' => ['required', 'string', 'max:255'],
-            'company_name' => ['required', 'string', Rule::in($this->companyOptions())],
-            'document_no' => ['nullable', 'string', 'max:100'],
-            'document_date' => ['nullable', 'date'],
-            'debt_month' => ['required', 'date_format:Y-m'],
-            'total_amount' => ['required', 'numeric', 'min:0'],
-            'bank_info' => ['nullable', 'string'],
-            'note' => ['nullable', 'string'],
-        ]);
+        $data = $request->validated();
 
         $otherRoundsTotal = Schema::hasTable('finance_supplier_debt_payments')
             ? (float) DB::table('finance_supplier_debt_payments')
@@ -626,9 +370,9 @@ class SupplierDebtController extends Controller
         $payload = [
             'supplier_name' => trim($data['supplier_name']),
             'company_name' => $data['company_name'],
-            'document_no' => !empty($data['document_no']) ? trim($data['document_no']) : null,
+            'document_no' => ! empty($data['document_no']) ? trim($data['document_no']) : null,
             'document_date' => $data['document_date'] ?? null,
-            'debt_month' => $data['debt_month'] . '-01',
+            'debt_month' => $data['debt_month'].'-01',
             'total_amount' => (float) $data['total_amount'],
             'note' => $data['note'] ?? null,
             'updated_at' => now(),
@@ -643,18 +387,21 @@ class SupplierDebtController extends Controller
             ->update($payload);
 
         $this->storeDebtFiles($request, (int) $id);
-        $this->syncSupplierDebtTotals((int) $id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
         return redirect()
             ->route('finance.supplier-debts.index', ['month' => $data['debt_month']])
             ->with('success', 'Đã cập nhật công nợ nhà cung cấp.');
     }
 
+    /**
+     * Xóa công nợ NCC cùng các đợt thanh toán và tệp liên quan.
+     */
     public function destroy($id)
     {
         $debt = DB::table('finance_supplier_debts')->where('id', $id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             abort(404);
         }
 
@@ -665,7 +412,7 @@ class SupplierDebtController extends Controller
                 ->where('supplier_debt_id', $id)
                 ->whereNotNull('payment_request_id')
                 ->exists() &&
-            !$this->canEditCompletedFinanceRecord()
+            ! $this->canEditCompletedFinanceRecord()
         ) {
             return back()->withErrors([
                 'error' => 'Công nợ này đã có ĐNTT liên kết, chỉ buibichthao@egosolar.vn được xóa/sửa.',
@@ -685,7 +432,7 @@ class SupplierDebtController extends Controller
                     ->get();
 
                 foreach ($files as $file) {
-                    if (!empty($file->path)) {
+                    if (! empty($file->path)) {
                         Storage::disk('public')->delete($file->path);
                     }
                 }
@@ -706,7 +453,7 @@ class SupplierDebtController extends Controller
                 ->get();
 
             foreach ($debtFiles as $file) {
-                if (!empty($file->path)) {
+                if (! empty($file->path)) {
                     Storage::disk('public')->delete($file->path);
                 }
             }
@@ -722,29 +469,32 @@ class SupplierDebtController extends Controller
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã xóa công nợ nhà cung cấp.');
     }
 
+    /**
+     * Thêm đợt thanh toán: đơn lẻ hoặc hàng loạt theo phần trăm / số tiền.
+     */
     public function storePaymentRound(Request $request, $id)
     {
         $this->normalizeMoneyFields($request, ['amount']);
 
-        if (!Schema::hasTable('finance_supplier_debt_payments')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments')) {
             return back()->withErrors(['error' => 'Chưa có bảng finance_supplier_debt_payments.']);
         }
 
         $debt = DB::table('finance_supplier_debts')->where('id', $id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             abort(404);
         }
 
         if ($request->has('bulk_rounds')) {
             $rawRows = collect($request->input('bulk_rounds', []))
                 ->filter(function ($row) {
-                    if (!is_array($row)) {
+                    if (! is_array($row)) {
                         return false;
                     }
 
@@ -776,8 +526,8 @@ class SupplierDebtController extends Controller
                     ? (int) $row['payment_round']
                     : ($nextRound + (int) $index);
 
-                $percentText = $this->normalizeMoneyInput($row['percent'] ?? '');
-                $amountText = $this->normalizeMoneyInput($row['amount'] ?? '');
+                $percentText = $this->supplierDebtService->normalizeMoneyInput($row['percent'] ?? '');
+                $amountText = $this->supplierDebtService->normalizeMoneyInput($row['amount'] ?? '');
 
                 $percent = $percentText !== '' ? (float) $percentText : null;
                 $amount = $amountText !== '' ? (float) $amountText : null;
@@ -787,11 +537,12 @@ class SupplierDebtController extends Controller
                 }
 
                 if ($percent !== null && ($percent < 0 || $percent > 100)) {
-                    $errors[] = 'Dòng ' . ($index + 1) . ': phần trăm phải từ 0 đến 100.';
+                    $errors[] = 'Dòng '.($index + 1).': phần trăm phải từ 0 đến 100.';
                 }
 
                 if ($amount === null || $amount <= 0) {
-                    $errors[] = 'Dòng ' . ($index + 1) . ': số tiền phải lớn hơn 0.';
+                    $errors[] = 'Dòng '.($index + 1).': số tiền phải lớn hơn 0.';
+
                     continue;
                 }
 
@@ -799,12 +550,13 @@ class SupplierDebtController extends Controller
                 $paymentDate = $paymentDate !== '' ? $paymentDate : null;
 
                 if ($paymentDate !== null && strtotime($paymentDate) === false) {
-                    $errors[] = 'Dòng ' . ($index + 1) . ': ngày thanh toán không hợp lệ.';
+                    $errors[] = 'Dòng '.($index + 1).': ngày thanh toán không hợp lệ.';
+
                     continue;
                 }
 
                 $status = (string) ($row['status'] ?? 'planned');
-                if (!in_array($status, $allowedStatuses, true)) {
+                if (! in_array($status, $allowedStatuses, true)) {
                     $status = 'planned';
                 }
 
@@ -839,17 +591,17 @@ class SupplierDebtController extends Controller
             }
 
             DB::table('finance_supplier_debt_payments')->insert($bulkRows);
-            $this->syncSupplierDebtTotals((int) $id);
+            $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
             return redirect()
                 ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtMonth($debt),
+                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
                 ])
-                ->with('success', 'Đã thêm ' . count($bulkRows) . ' đợt thanh toán.');
+                ->with('success', 'Đã thêm '.count($bulkRows).' đợt thanh toán.');
         }
 
         /* EGO_SINGLE_ROUND_PERCENT_AMOUNT_START */
-        if (!$request->has('bulk_rounds')) {
+        if (! $request->has('bulk_rounds')) {
             $percentRaw = trim((string) $request->input('_percent', ''));
 
             if ($percentRaw !== '' && trim((string) $request->input('amount', '')) === '') {
@@ -865,6 +617,12 @@ class SupplierDebtController extends Controller
         }
         /* EGO_SINGLE_ROUND_PERCENT_AMOUNT_END */
 
+        /*
+         * CỐ Ý giữ validate inline (không dùng SupplierDebtPaymentRoundRequest):
+         * endpoint này nhận 2 dạng payload — nhập 1 đợt (amount ở cấp gốc) hoặc
+         * nhập nhiều đợt qua bulk_rounds[] (đã xử lý và return ở nhánh trên).
+         * FormRequest chạy trước controller sẽ bắt buộc 'amount' và làm gãy nhánh bulk.
+         */
         $data = $request->validate([
             'payment_round' => ['nullable', 'integer', 'min:1'],
             'amount' => ['required', 'numeric', 'min:0'],
@@ -889,7 +647,7 @@ class SupplierDebtController extends Controller
 
         $paymentRound = $data['payment_round'] ?? null;
 
-        if (!$paymentRound) {
+        if (! $paymentRound) {
             $paymentRound = ((int) DB::table('finance_supplier_debt_payments')
                 ->where('supplier_debt_id', $id)
                 ->max('payment_round')) + 1;
@@ -909,50 +667,43 @@ class SupplierDebtController extends Controller
         ]);
 
         $this->storeRoundFiles($request, $roundId);
-        $this->syncSupplierDebtTotals((int) $id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã thêm đợt thanh toán.');
     }
 
-    public function updatePaymentRound(Request $request, $paymentRoundId)
+    /**
+     * Cập nhật đợt thanh toán và đồng bộ ĐNTT liên kết nếu phiếu chưa chi.
+     */
+    public function updatePaymentRound(SupplierDebtPaymentRoundRequest $request, $paymentRoundId)
     {
-        $this->normalizeMoneyFields($request, ['amount']);
-
-        if (!Schema::hasTable('finance_supplier_debt_payments')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments')) {
             return back()->withErrors(['error' => 'Chưa có bảng finance_supplier_debt_payments.']);
         }
 
         $round = DB::table('finance_supplier_debt_payments')->where('id', $paymentRoundId)->first();
 
-        if (!$round) {
+        if (! $round) {
             abort(404);
         }
 
         $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             abort(404);
         }
 
-        if ($this->paymentRoundIsLocked($round) && !$this->canEditCompletedFinanceRecord()) {
+        if ($this->supplierDebtService->paymentRoundIsLocked($round) && ! $this->canEditCompletedFinanceRecord()) {
             return back()->withErrors([
                 'error' => 'Đợt thanh toán đã có ĐNTT đang gửi/đã duyệt, không sửa trực tiếp được. Hãy xử lý ĐNTT trước.',
             ]);
         }
 
-        $data = $request->validate([
-            'payment_round' => ['required', 'integer', 'min:1'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'payment_date' => ['nullable', 'date'],
-            'status' => ['nullable', 'string', 'max:50'],
-            'note' => ['nullable', 'string'],
-            'attachments' => ['nullable', 'array'],
-            'attachments.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
-        ]);
+        $data = $request->validated();
 
         $amount = (float) $data['amount'];
 
@@ -980,13 +731,13 @@ class SupplierDebtController extends Controller
 
         $this->storeRoundFiles($request, $paymentRoundId);
 
-        if (!empty($round->payment_request_id) && Schema::hasTable('payment_requests')) {
-            $linkedPaymentRequest = $this->paymentRequestRow((int) $round->payment_request_id);
+        if (! empty($round->payment_request_id) && Schema::hasTable('payment_requests')) {
+            $linkedPaymentRequest = $this->supplierDebtService->paymentRequestRow((int) $round->payment_request_id);
 
             // Phiếu đã kế toán chi thì KHÔNG tự nâng/hạ số tiền theo đợt nữa.
             // Nếu phiếu đã chi 458tr trong đợt 658tr, phần còn lại sẽ tạo dòng công nợ mới.
-            if ($linkedPaymentRequest && !$this->paymentRequestIsCompleted($linkedPaymentRequest)) {
-                $reason = $this->supplierDebtPaymentReason(
+            if ($linkedPaymentRequest && ! $this->supplierDebtService->paymentRequestIsCompleted($linkedPaymentRequest)) {
+                $reason = $this->supplierDebtService->supplierDebtPaymentReason(
                     $debt,
                     (object) array_merge((array) $round, $data)
                 );
@@ -1027,30 +778,33 @@ class SupplierDebtController extends Controller
             $this->copyRoundFilesToPaymentRequest($paymentRoundId, $round->payment_request_id);
         }
 
-        $this->syncSupplierDebtTotals((int) $round->supplier_debt_id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã cập nhật đợt thanh toán.');
     }
 
+    /**
+     * Xóa đợt thanh toán cùng tệp đính kèm.
+     */
     public function destroyPaymentRound($paymentRoundId)
     {
-        if (!Schema::hasTable('finance_supplier_debt_payments')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments')) {
             return back()->withErrors(['error' => 'Chưa có bảng finance_supplier_debt_payments.']);
         }
 
         $round = DB::table('finance_supplier_debt_payments')->where('id', $paymentRoundId)->first();
 
-        if (!$round) {
+        if (! $round) {
             abort(404);
         }
 
         $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
 
-        if (!empty($round->payment_request_id) && $this->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id) && !$this->canEditCompletedFinanceRecord()) {
+        if (! empty($round->payment_request_id) && $this->supplierDebtService->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id) && ! $this->canEditCompletedFinanceRecord()) {
             return back()->withErrors([
                 'error' => 'Đợt này đã liên kết ĐNTT, chỉ buibichthao@egosolar.vn được xóa/sửa.',
             ]);
@@ -1062,7 +816,7 @@ class SupplierDebtController extends Controller
                 ->get();
 
             foreach ($files as $file) {
-                if (!empty($file->path)) {
+                if (! empty($file->path)) {
                     Storage::disk('public')->delete($file->path);
                 }
             }
@@ -1076,34 +830,37 @@ class SupplierDebtController extends Controller
             ->where('id', $paymentRoundId)
             ->delete();
 
-        $this->syncSupplierDebtTotals((int) $round->supplier_debt_id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã xóa đợt thanh toán.');
     }
 
+    /**
+     * Tạo ĐNTT nháp từ một đợt thanh toán công nợ NCC.
+     */
     public function createPaymentRequestFromRound($paymentRoundId)
     {
-        if (!Schema::hasTable('finance_supplier_debt_payments') || !Schema::hasTable('payment_requests')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments') || ! Schema::hasTable('payment_requests')) {
             return back()->withErrors(['error' => 'Thiếu bảng finance_supplier_debt_payments hoặc payment_requests.']);
         }
 
         $round = DB::table('finance_supplier_debt_payments')->where('id', $paymentRoundId)->first();
 
-        if (!$round) {
+        if (! $round) {
             abort(404);
         }
 
         $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             abort(404);
         }
-        if (!empty($round->payment_request_id)) {
-            if ($this->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id)) {
+        if (! empty($round->payment_request_id)) {
+            if ($this->supplierDebtService->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id)) {
                 return redirect()
                     ->route('payment_requests.show', $round->payment_request_id)
                     ->with('success', 'Đợt thanh toán này đã có ĐNTT liên kết.');
@@ -1123,25 +880,25 @@ class SupplierDebtController extends Controller
             session()->flash('success', 'ĐNTT liên kết này đã bị xóa nên hệ thống đã mở lại đợt thanh toán.');
         }
 
-        if (in_array((string) ($round->status ?? ''), ['paid', 'accounting_approved'], true) && !$this->canEditCompletedFinanceRecord()) {
+        if (in_array((string) ($round->status ?? ''), ['paid', 'accounting_approved'], true) && ! $this->canEditCompletedFinanceRecord()) {
             return redirect()
                 ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtMonth($debt),
+                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
                 ])
                 ->withErrors(['error' => 'Đợt thanh toán này đã thanh toán nên không tạo ĐNTT nữa.']);
         }
 
-if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) && !$this->canEditCompletedFinanceRecord()) {
-            $this->syncSupplierDebtTotals((int) $debt->id);
+        if (in_array((string) ($round->status ?? ''), $this->supplierDebtService->paidRoundStatuses(), true) && ! $this->canEditCompletedFinanceRecord()) {
+            $this->supplierDebtService->syncSupplierDebtTotals((int) $debt->id);
 
             return redirect()
                 ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtMonth($debt),
+                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
                 ])
                 ->withErrors(['error' => 'Đợt thanh toán này đã đánh dấu đã thanh toán nên không tạo ĐNTT nữa.']);
         }
 
-        $reason = $this->supplierDebtPaymentReason($debt, $round);
+        $reason = $this->supplierDebtService->supplierDebtPaymentReason($debt, $round);
         $company = $debt->company_name ?: 'Công ty TNHH Ego Việt Nam';
 
         $columns = Schema::getColumnListing('payment_requests');
@@ -1153,14 +910,14 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             }
         };
 
-        $put('code', 'TMP-SUPPLIER-' . (string) Str::uuid());
+        $put('code', 'TMP-SUPPLIER-'.(string) Str::uuid());
         $put('doc_type', 'payment_request');
         $put('company', $company);
 
         if (in_array('company_id', $columns, true) && Schema::hasTable('companies')) {
             $companyId = (int) DB::table('companies')->where('name', $company)->value('id');
 
-            if (!$companyId) {
+            if (! $companyId) {
                 if (stripos($company, 'Quốc') !== false || stripos($company, 'Quoc') !== false || stripos($company, 'TMKT') !== false || stripos($company, 'QT') !== false) {
                     $companyId = (int) DB::table('companies')
                         ->where('name', 'like', '%Quốc%')
@@ -1181,7 +938,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             }
         }
 
-        if (in_array('payment_due_date', $columns, true) && !empty($round->payment_date)) {
+        if (in_array('payment_due_date', $columns, true) && ! empty($round->payment_date)) {
             $put('payment_due_date', $round->payment_date);
         }
         $put('receiver_name', $debt->supplier_name);
@@ -1202,7 +959,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
         $paymentRequestId = DB::transaction(function () use ($data, $paymentRoundId) {
             $paymentRequestId = DB::table('payment_requests')->insertGetId($data);
 
-            $code = 'PR-' . now()->format('Y') . '-' . str_pad((string) $paymentRequestId, 5, '0', STR_PAD_LEFT);
+            $code = 'PR-'.now()->format('Y').'-'.str_pad((string) $paymentRequestId, 5, '0', STR_PAD_LEFT);
 
             DB::table('payment_requests')
                 ->where('id', $paymentRequestId)
@@ -1224,26 +981,27 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
 
         $this->copyRoundFilesToPaymentRequest($paymentRoundId, $paymentRequestId);
         $this->copyDebtFilesToPaymentRequest((int) $debt->id, $paymentRequestId);
-        $this->syncSupplierDebtTotals((int) $debt->id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $debt->id);
 
         return redirect()
             ->route('payment_requests.show', $paymentRequestId)
             ->with('success', 'Đã tạo ĐNTT nháp từ đợt thanh toán công nợ NCC. Bạn kiểm tra rồi bấm Gửi duyệt.');
     }
 
-
-
+    /**
+     * Tạo đợt mới cho phần còn thiếu khi ĐNTT liên kết chi ít hơn số tiền của đợt.
+     */
     public function createRemainingRoundFromLinkedPayment($paymentRoundId)
     {
         abort_unless($this->canEditCompletedFinanceRecord(), 403);
 
-        if (!Schema::hasTable('finance_supplier_debt_payments')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments')) {
             return back()->withErrors(['error' => 'Chưa có bảng finance_supplier_debt_payments.']);
         }
 
         $round = DB::table('finance_supplier_debt_payments')->where('id', (int) $paymentRoundId)->first();
 
-        if (!$round) {
+        if (! $round) {
             abort(404);
         }
 
@@ -1253,24 +1011,24 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
 
         $debt = DB::table('finance_supplier_debts')->where('id', (int) $round->supplier_debt_id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             abort(404);
         }
 
-        $paymentRequest = $this->paymentRequestRow((int) $round->payment_request_id);
+        $paymentRequest = $this->supplierDebtService->paymentRequestRow((int) $round->payment_request_id);
 
-        if (!$paymentRequest || !$this->paymentRequestIsCompleted($paymentRequest)) {
+        if (! $paymentRequest || ! $this->supplierDebtService->paymentRequestIsCompleted($paymentRequest)) {
             return back()->withErrors(['error' => 'ĐNTT liên kết chưa ở trạng thái kế toán đã chi.']);
         }
 
-        $meta = $this->roundPaymentMeta($round);
+        $meta = $this->supplierDebtService->roundPaymentMeta($round);
         $remainingAmount = (float) $meta['remaining_amount'];
 
         if ($remainingAmount <= 0) {
             return back()->withErrors(['error' => 'Đợt này không còn số tiền thiếu.']);
         }
 
-        if ($this->remainingRoundAlreadyExists($round, $remainingAmount)) {
+        if ($this->supplierDebtService->remainingRoundAlreadyExists($round, $remainingAmount)) {
             return back()->withErrors(['error' => 'Đã có dòng công nợ cho phần còn lại của đợt này.']);
         }
 
@@ -1285,113 +1043,34 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             'amount' => $remainingAmount,
             'payment_date' => null,
             'status' => 'planned',
-            'note' => 'Phần còn lại của đợt ' . ($round->payment_round ?? '') . ' - ĐNTT #' . $round->payment_request_id . ' đã chi ' . number_format((float) $meta['paid_amount'], 0, ',', '.') . ' đ',
+            'note' => 'Phần còn lại của đợt '.($round->payment_round ?? '').' - ĐNTT #'.$round->payment_request_id.' đã chi '.number_format((float) $meta['paid_amount'], 0, ',', '.').' đ',
             'created_by' => auth()->id(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $this->syncSupplierDebtTotals((int) $round->supplier_debt_id);
+        $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
         return redirect()
-            ->route('finance.supplier-debts.index', ['month' => $this->supplierDebtMonth($debt)])
-            ->with('success', 'Đã tạo đợt còn lại ' . number_format($remainingAmount, 0, ',', '.') . ' đ. Bấm Tạo ĐNTT ở dòng mới để lập phiếu tiếp.');
+            ->route('finance.supplier-debts.index', ['month' => $this->supplierDebtService->supplierDebtMonth($debt)])
+            ->with('success', 'Đã tạo đợt còn lại '.number_format($remainingAmount, 0, ',', '.').' đ. Bấm Tạo ĐNTT ở dòng mới để lập phiếu tiếp.');
     }
 
-    private function paymentRequestExistsForSupplierDebt($paymentRequestId): bool
-    {
-        if (!$paymentRequestId || !Schema::hasTable('payment_requests')) {
-            return false;
-        }
-
-        $query = DB::table('payment_requests')->where('id', (int) $paymentRequestId);
-
-        if (Schema::hasColumn('payment_requests', 'deleted_at')) {
-            $query->whereNull('deleted_at');
-        }
-
-        return $query->exists();
-    }
-
-    private function clearMissingSupplierDebtPaymentRequests(array $roundIds = []): int
-    {
-        if (
-            !Schema::hasTable('finance_supplier_debt_payments') ||
-            !Schema::hasTable('payment_requests') ||
-            !Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')
-        ) {
-            return 0;
-        }
-
-        $query = DB::table('finance_supplier_debt_payments as p')
-            ->leftJoin('payment_requests as pr', 'pr.id', '=', 'p.payment_request_id')
-            ->whereNotNull('p.payment_request_id');
-
-        if (Schema::hasColumn('payment_requests', 'deleted_at')) {
-            $query->where(function ($q) {
-                $q->whereNull('pr.id')->orWhereNotNull('pr.deleted_at');
-            });
-        } else {
-            $query->whereNull('pr.id');
-        }
-
-        if (count($roundIds)) {
-            $query->whereIn('p.id', $roundIds);
-        }
-
-        $ids = $query->pluck('p.id')->values()->all();
-
-        if (!count($ids)) {
-            return 0;
-        }
-
-        DB::table('finance_supplier_debt_payments')
-            ->whereIn('id', $ids)
-            ->update([
-                'payment_request_id' => null,
-                'status' => 'planned',
-                'updated_at' => now(),
-            ]);
-
-        return count($ids);
-    }
-
-    private function supplierDebtMonth($debt)
-    {
-        return $debt && !empty($debt->debt_month)
-            ? date('Y-m', strtotime($debt->debt_month))
-            : now()->format('Y-m');
-    }
-
-    private function supplierDebtPaymentReason($debt, $round)
-    {
-        $roundNo = (int) ($round->payment_round ?? 1);
-
-        $reason = 'Thanh toán đợt ' . $roundNo . ' công nợ nhà cung cấp ' . ($debt->supplier_name ?? '');
-
-        if (!empty($debt->document_no)) {
-            $reason .= ' - chứng từ ' . $debt->document_no;
-        }
-
-        if (!empty($debt->document_date)) {
-            $reason .= ' ngày ' . date('d/m/Y', strtotime($debt->document_date));
-        }
-
-        return $reason;
-    }
-
+    /**
+     * Lưu tệp đính kèm cho đợt thanh toán.
+     */
     private function storeRoundFiles(Request $request, int $roundId): void
     {
-        if (!Schema::hasTable('finance_supplier_debt_payment_files')) {
+        if (! Schema::hasTable('finance_supplier_debt_payment_files')) {
             return;
         }
 
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return;
         }
 
         foreach ($request->file('attachments') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
@@ -1409,15 +1088,18 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
         }
     }
 
+    /**
+     * Sao chép tệp của đợt thanh toán sang tệp đính kèm của ĐNTT.
+     */
     private function copyRoundFilesToPaymentRequest(int $roundId, int $paymentRequestId): void
     {
-        if (!Schema::hasTable('finance_supplier_debt_payment_files')) {
+        if (! Schema::hasTable('finance_supplier_debt_payment_files')) {
             return;
         }
 
         $attachmentTable = $this->paymentRequestAttachmentTable();
 
-        if (!$attachmentTable) {
+        if (! $attachmentTable) {
             return;
         }
 
@@ -1426,7 +1108,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             ->get();
 
         foreach ($files as $file) {
-            if (empty($file->path) || !Storage::disk('public')->exists($file->path)) {
+            if (empty($file->path) || ! Storage::disk('public')->exists($file->path)) {
                 continue;
             }
 
@@ -1435,7 +1117,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             $newPath = "payment_requests/{$paymentRequestId}/supplier-debt-{$file->id}-{$safeName}";
 
             if ($extension) {
-                $newPath .= '.' . $extension;
+                $newPath .= '.'.$extension;
             }
 
             Storage::disk('public')->copy($file->path, $newPath);
@@ -1462,12 +1144,15 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
                 ->where('original_name', $file->original_name)
                 ->exists();
 
-            if (!$alreadyExists) {
+            if (! $alreadyExists) {
                 DB::table($attachmentTable)->insert($payload);
             }
         }
     }
 
+    /**
+     * Xác định bảng lưu tệp đính kèm ĐNTT đang được dùng.
+     */
     private function paymentRequestAttachmentTable(): ?string
     {
         if (Schema::hasTable('payment_request_attachments')) {
@@ -1485,7 +1170,9 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
         return null;
     }
 
-
+    /**
+     * Chỉ upload thêm tệp đính kèm cho công nợ NCC.
+     */
     public function storeDebtFileOnly(Request $request, $id)
     {
         $this->ensureSupplierDebtTables();
@@ -1503,11 +1190,14 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã thêm tệp công nợ.');
     }
 
+    /**
+     * Tải xuống tệp đính kèm của công nợ NCC.
+     */
     public function downloadDebtFile($fileId)
     {
         $this->ensureSupplierDebtTables();
@@ -1517,11 +1207,14 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
         $file = DB::table('finance_supplier_debt_files')->where('id', (int) $fileId)->first();
 
         abort_unless($file, 404);
-        abort_if(empty($file->path) || !Storage::disk('public')->exists($file->path), 404);
+        abort_if(empty($file->path) || ! Storage::disk('public')->exists($file->path), 404);
 
         return Storage::disk('public')->download($file->path, $file->original_name ?: basename($file->path));
     }
 
+    /**
+     * Xóa tệp đính kèm của công nợ NCC.
+     */
     public function destroyDebtFile($fileId)
     {
         $this->ensureSupplierDebtTables();
@@ -1534,7 +1227,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
 
         $debt = DB::table('finance_supplier_debts')->where('id', (int) $file->supplier_debt_id)->first();
 
-        if (!empty($file->path)) {
+        if (! empty($file->path)) {
             Storage::disk('public')->delete($file->path);
         }
 
@@ -1542,24 +1235,26 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
 
         return redirect()
             ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtMonth($debt),
+                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
             ])
             ->with('success', 'Đã xóa tệp công nợ.');
     }
 
-
+    /**
+     * Lưu các tệp upload đính kèm cho công nợ NCC.
+     */
     private function storeDebtFiles(Request $request, int $debtId): void
     {
-        if (!Schema::hasTable('finance_supplier_debt_files')) {
+        if (! Schema::hasTable('finance_supplier_debt_files')) {
             return;
         }
 
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return;
         }
 
         foreach ($request->file('attachments') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
@@ -1577,15 +1272,18 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
         }
     }
 
+    /**
+     * Sao chép tệp của công nợ sang tệp đính kèm của ĐNTT.
+     */
     private function copyDebtFilesToPaymentRequest(int $debtId, int $paymentRequestId): void
     {
-        if (!Schema::hasTable('finance_supplier_debt_files')) {
+        if (! Schema::hasTable('finance_supplier_debt_files')) {
             return;
         }
 
         $attachmentTable = $this->paymentRequestAttachmentTable();
 
-        if (!$attachmentTable) {
+        if (! $attachmentTable) {
             return;
         }
 
@@ -1594,7 +1292,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             ->get();
 
         foreach ($files as $file) {
-            if (empty($file->path) || !Storage::disk('public')->exists($file->path)) {
+            if (empty($file->path) || ! Storage::disk('public')->exists($file->path)) {
                 continue;
             }
 
@@ -1603,7 +1301,7 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
             $newPath = "payment_requests/{$paymentRequestId}/supplier-debt-main-{$file->id}-{$safeName}";
 
             if ($extension) {
-                $newPath .= '.' . $extension;
+                $newPath .= '.'.$extension;
             }
 
             Storage::disk('public')->copy($file->path, $newPath);
@@ -1630,16 +1328,17 @@ if (in_array((string) ($round->status ?? ''), $this->paidRoundStatuses(), true) 
                 ->where('original_name', $file->original_name)
                 ->exists();
 
-            if (!$alreadyExists) {
+            if (! $alreadyExists) {
                 DB::table($attachmentTable)->insert($payload);
             }
         }
     }
 
+    /**
+     * Chỉ tài khoản buibichthao@egosolar.vn được sửa / xóa bản ghi đã hoàn tất.
+     */
     private function canEditCompletedFinanceRecord(): bool
     {
         return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
     }
-
-
 }

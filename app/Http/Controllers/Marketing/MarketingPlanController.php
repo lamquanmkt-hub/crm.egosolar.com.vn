@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller kế hoạch marketing theo tháng kèm file đính kèm.
+ */
 class MarketingPlanController extends Controller
 {
+    /**
+     * Chọn bảng kế hoạch đang dùng (mkt_plans hoặc marketing_plans).
+     */
     private function planTable(): string
     {
         if (Schema::hasTable('mkt_plans')) {
@@ -20,6 +26,9 @@ class MarketingPlanController extends Controller
         return 'marketing_plans';
     }
 
+    /**
+     * Kiểm tra bảng có cột hay không (an toàn với exception).
+     */
     private function hasCol(string $table, string $col): bool
     {
         try {
@@ -29,6 +38,9 @@ class MarketingPlanController extends Controller
         }
     }
 
+    /**
+     * Lọc mảng dữ liệu, chỉ giữ các key là cột tồn tại trong bảng.
+     */
     private function filterCols(string $table, array $data): array
     {
         if (!Schema::hasTable($table)) {
@@ -38,6 +50,9 @@ class MarketingPlanController extends Controller
         return collect($data)->only(Schema::getColumnListing($table))->toArray();
     }
 
+    /**
+     * Chuyển chuỗi tiền tệ VN (có dấu phẩy, đ, VND...) về số float.
+     */
     private function money($value): float
     {
         $value = trim((string) $value);
@@ -45,6 +60,9 @@ class MarketingPlanController extends Controller
         return is_numeric($value) ? (float) $value : 0;
     }
 
+    /**
+     * Danh sách kế hoạch có tìm kiếm, lọc trạng thái/tháng và đếm file đính kèm.
+     */
     public function index(Request $request)
     {
         $table = $this->planTable();
@@ -106,11 +124,17 @@ class MarketingPlanController extends Controller
         return view('marketing.plans.index', compact('plans', 'attachmentCounts'));
     }
 
+    /**
+     * Hiển thị form tạo kế hoạch.
+     */
     public function create()
     {
         return view('marketing.plans.create');
     }
 
+    /**
+     * Tạo kế hoạch mới theo tháng và lưu file đính kèm.
+     */
     public function store(Request $request)
     {
         $table = $this->planTable();
@@ -156,6 +180,9 @@ class MarketingPlanController extends Controller
             ->with('success', 'Đã tạo kế hoạch mới.');
     }
 
+    /**
+     * Chi tiết kế hoạch kèm danh sách file đính kèm.
+     */
     public function show(int $id)
     {
         $table = $this->planTable();
@@ -168,6 +195,9 @@ class MarketingPlanController extends Controller
         return view('marketing.plans.show', compact('plan', 'attachments'));
     }
 
+    /**
+     * Hiển thị form sửa kế hoạch.
+     */
     public function edit(int $id)
     {
         $table = $this->planTable();
@@ -180,6 +210,9 @@ class MarketingPlanController extends Controller
         return view('marketing.plans.edit', compact('plan', 'attachments'));
     }
 
+    /**
+     * Cập nhật kế hoạch, xoá/thêm file đính kèm theo yêu cầu.
+     */
     public function update(Request $request, int $id)
     {
         $table = $this->planTable();
@@ -226,6 +259,9 @@ class MarketingPlanController extends Controller
             ->with('success', 'Đã cập nhật kế hoạch.');
     }
 
+    /**
+     * Xoá kế hoạch cùng toàn bộ file đính kèm.
+     */
     public function destroy(int $id)
     {
         $table = $this->planTable();
@@ -245,6 +281,9 @@ class MarketingPlanController extends Controller
             ->with('success', 'Đã xoá kế hoạch.');
     }
 
+    /**
+     * Duyệt kế hoạch (đổi status thành approved).
+     */
     public function approve(int $id)
     {
         $table = $this->planTable();
@@ -261,6 +300,9 @@ class MarketingPlanController extends Controller
             ->with('success', 'Đã duyệt kế hoạch.');
     }
 
+    /**
+     * Trả về nội dung file đính kèm để xem inline.
+     */
     public function file(int $file)
     {
         abort_unless(Schema::hasTable('mkt_plan_attachments'), 404);
@@ -280,6 +322,9 @@ class MarketingPlanController extends Controller
         ]);
     }
 
+    /**
+     * Lấy danh sách file đính kèm của kế hoạch.
+     */
     private function attachments(int $planId)
     {
         if (!Schema::hasTable('mkt_plan_attachments')) {
@@ -292,6 +337,9 @@ class MarketingPlanController extends Controller
             ->get();
     }
 
+    /**
+     * Lưu các file đính kèm được upload cho kế hoạch.
+     */
     private function storeAttachments(Request $request, int $planId): void
     {
         if (!$request->hasFile('attachments') || !Schema::hasTable('mkt_plan_attachments')) {
@@ -318,6 +366,9 @@ class MarketingPlanController extends Controller
         }
     }
 
+    /**
+     * Xoá các file đính kèm được chọn (cả file vật lý và bản ghi DB).
+     */
     private function deleteAttachments(array $ids, int $planId): void
     {
         if (empty($ids) || !Schema::hasTable('mkt_plan_attachments')) {

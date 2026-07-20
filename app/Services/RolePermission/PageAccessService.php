@@ -8,15 +8,24 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+/**
+ * Service kiểm soát quyền truy cập trang theo role/permission (page.*) từ cấu hình role_permissions.
+ */
 class PageAccessService
 {
     private ?bool $rolesHavePageFlag = null;
 
+    /**
+     * Lấy định nghĩa các quyền trang từ config role_permissions.page_permissions.
+     */
     public function definitions(): array
     {
         return config('role_permissions.page_permissions', []);
     }
 
+    /**
+     * Xác định quyền trang tương ứng với request theo tên route, path chính xác hoặc prefix.
+     */
     public function permissionForRequest(Request $request): ?string
     {
         $routeName = optional($request->route())->getName();
@@ -45,11 +54,17 @@ class PageAccessService
         return null;
     }
 
+    /**
+     * Kiểm tra người dùng có thuộc nhóm role admin theo cấu hình.
+     */
     public function isAdmin(User $user): bool
     {
         return $user->hasAnyRole(config('role_permissions.admin_roles', ['admin']));
     }
 
+    /**
+     * Kiểm tra có bật kiểm soát quyền trang cho người dùng (admin luôn miễn kiểm soát).
+     */
     public function pageControlEnabled(User $user): bool
     {
         if ($this->isAdmin($user)) {
@@ -72,6 +87,9 @@ class PageAccessService
             ->contains(fn ($permission) => str_starts_with($permission->name, 'page.'));
     }
 
+    /**
+     * Kiểm tra người dùng được truy cập trang: admin hoặc chưa bật kiểm soát thì luôn cho phép.
+     */
     public function canAccess(User $user, string $pagePermission): bool
     {
         if ($this->isAdmin($user)) {
@@ -85,6 +103,9 @@ class PageAccessService
         return $user->can($pagePermission);
     }
 
+    /**
+     * Cho phép vượt qua middleware role cũ nếu người dùng có quyền trang tương ứng (legacy fallback).
+     */
     public function canSatisfyLegacyRole(User $user, Request $request, string $roleExpression): bool
     {
         if (!$this->pageControlEnabled($user)) {
@@ -103,6 +124,9 @@ class PageAccessService
         return $permission !== null && $user->can($permission);
     }
 
+    /**
+     * Lấy danh sách rule các trang người dùng KHÔNG được truy cập (dùng ẩn menu điều hướng).
+     */
     public function deniedNavigationRules(User $user): array
     {
         if (!$this->pageControlEnabled($user)) {
@@ -127,6 +151,9 @@ class PageAccessService
         return $rules;
     }
 
+    /**
+     * Gom danh sách permission thành các nhóm hiển thị (nhóm quyền trang đưa lên đầu).
+     */
     public function permissionGroups(Collection $permissions): array
     {
         $groups = [];
@@ -169,6 +196,9 @@ class PageAccessService
         return array_values($groups);
     }
 
+    /**
+     * Lấy tên hiển thị tiếng Việt của role (ưu tiên display_name).
+     */
     public function displayRoleName($role): string
     {
         if (!empty($role->display_name)) {
@@ -191,6 +221,9 @@ class PageAccessService
         };
     }
 
+    /**
+     * Xây metadata hiển thị (nhóm, nhãn, icon) cho permission nghiệp vụ theo cấu hình.
+     */
     private function metaForBusinessPermission(string $name): array
     {
         $parts = explode('.', $name);
@@ -219,11 +252,17 @@ class PageAccessService
         ];
     }
 
+    /**
+     * Chuyển chuỗi kỹ thuật (dấu chấm, gạch) thành dạng tiêu đề dễ đọc.
+     */
     private function humanize(string $value): string
     {
         return Str::headline(str_replace(['.', '-', '_'], ' ', $value));
     }
 
+    /**
+     * Kiểm tra bảng roles có cột page_access_enabled hay không (cache trong request).
+     */
     private function rolesHavePageFlag(): bool
     {
         if ($this->rolesHavePageFlag === null) {
@@ -236,6 +275,9 @@ class PageAccessService
         return $this->rolesHavePageFlag;
     }
 
+    /**
+     * Chuẩn hoá biểu thức role (a|b|c): trim, bỏ trùng, sắp xếp để so sánh ổn định.
+     */
     private function normalizeRoleExpression(string $expression): string
     {
         $roles = array_values(array_unique(array_filter(array_map(

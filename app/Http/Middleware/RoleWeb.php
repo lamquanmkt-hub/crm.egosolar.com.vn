@@ -15,7 +15,7 @@ class RoleWeb extends RoleMiddleware
         $authGuard = Auth::guard($guard);
         $user = $authGuard->user();
 
-        if (!$user) {
+        if (! $user) {
             throw UnauthorizedException::notLoggedIn();
         }
 

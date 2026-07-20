@@ -7,13 +7,26 @@ use App\Models\Inventory\Catalog\Brand;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\Inventory\Catalog\ProductCategory;
 use App\Models\Inventory\Stock\ProductStock;
+use App\Services\Inventory\ProductCatalogOptionsService;
+use App\Services\Inventory\ProductStockLotExcelExporter;
+use App\Services\Inventory\ProductStockLotQueryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Pagination\LengthAwarePaginator;
 
+/**
+ * Controller quản lý sản phẩm và tồn kho: danh mục, nhập/xuất kho, lô hàng FIFO, serial, bảng giá theo tier và lịch sử kho.
+ */
 class ProductController extends Controller
 {
+    /**
+     * Khởi tạo controller, inject service truy vấn lô/tồn, nạp options catalog và exporter.
+     */
+    public function __construct(
+        private readonly ProductStockLotQueryService $lotQuery,
+        private readonly ProductCatalogOptionsService $catalogOptions,
+        private readonly ProductStockLotExcelExporter $lotExporter,
+    ) {}
 
     /**
      * EGO: Lay SKU goc tu SKU bi sinh loi dang ABC-LOT20260508193129-1
@@ -23,390 +36,17 @@ class ProductController extends Controller
         return preg_replace('/-LOT20[0-9]{12,14}(?:-[0-9]+)?$/', '', trim($sku));
     }
 
-
-    /**
-     * ✅ TÍNH TỔNG THEO TOÀN BỘ KẾT QUẢ SAU FILTER (ALL PAGES)
-     * - total_qty: SUM(qty) theo điều kiện kho/công ty
-     * - total_amount: SUM( (giá vốn sau VAT) * qty )
-     */
-    private function calcTotalsAllPages(
-        string $keyword,
-        ?int $categoryId,
-        ?int $brandId,
-        ?int $companyId,
-        ?int $warehouseId
-    ): object {
-        $product = (new Product());
-        $productTable = $product->getTable();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Ưu tiên tính theo lô FIFO còn lại
-        |--------------------------------------------------------------------------
-        | total_qty    = tổng qty_remaining của lô
-        | total_amount = tổng qty_remaining * giá vốn sau VAT của từng lô
-        | Như vậy cùng SKU nhiều lô giá khác nhau vẫn ra đúng giá trị tồn.
-        */
-        if (Schema::hasTable('crm_product_stock_lots')) {
-            $q = DB::table('crm_product_stock_lots as l')
-                ->join($productTable . ' as p', 'p.id', '=', 'l.product_id')
-                ->where('l.qty_remaining', '>', 0);
-
-            if (Schema::hasColumn($productTable, 'is_active')) {
-                $q->where(function ($activeQuery) {
-                    $activeQuery->where('p.is_active', 1)->orWhereNull('p.is_active');
-                });
-            }
-
-            if ($keyword !== '') {
-                $q->where(function ($w) use ($keyword) {
-                    $w->where('p.name', 'like', "%{$keyword}%")
-                      ->orWhere('p.sku', 'like', "%{$keyword}%");
-                });
-            }
-
-            if ($categoryId) {
-                $q->where('p.category_id', $categoryId);
-            }
-
-            if ($brandId) {
-                $q->where('p.brand_id', $brandId);
-            }
-
-            if ($warehouseId) {
-                $q->where('l.warehouse_id', $warehouseId);
-            } elseif ($companyId) {
-                $q->where('l.company_id', $companyId);
-            }
-
-            $costAfterExpr = "
-                COALESCE(
-                    NULLIF(l.actual_cost_after_vat, 0),
-                    NULLIF(l.cost_after_vat, 0),
-                    COALESCE(l.cost_before_vat, 0) * (1 + (COALESCE(l.cost_vat_percent, 0) / 100)),
-                    0
-                )
-            ";
-
-            $row = $q->selectRaw("
-                    COALESCE(SUM(COALESCE(l.qty_remaining, 0)), 0) as total_qty,
-                    COALESCE(SUM(COALESCE(l.qty_remaining, 0) * {$costAfterExpr}), 0) as total_amount
-                ")
-                ->first();
-
-            return (object)[
-                'total_qty' => (int)($row->total_qty ?? 0),
-                'total_amount' => (float)($row->total_amount ?? 0),
-            ];
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fallback cũ nếu chưa có bảng lô
-        |--------------------------------------------------------------------------
-        */
-        $costAfterExpr = "
-            (CASE
-                WHEN {$productTable}.price_agent_vat IS NOT NULL AND {$productTable}.price_agent_vat > 0
-                    THEN {$productTable}.price_agent_vat
-                ELSE
-                    COALESCE({$productTable}.price_agent,0) * (1 + (COALESCE({$productTable}.vat_percent,0) / 100))
-            END)
-        ";
-
-        $q = DB::table($productTable)
-            ->leftJoin('crm_product_stock as s', 's.product_id', '=', "{$productTable}.id");
-
-        if (Schema::hasColumn($productTable, 'is_active')) {
-            $q->where(function ($activeQuery) use ($productTable) {
-                $activeQuery->where("{$productTable}.is_active", 1)->orWhereNull("{$productTable}.is_active");
-            });
-        }
-
-        if ($keyword !== '') {
-            $q->where(function ($w) use ($keyword, $productTable) {
-                $w->where("{$productTable}.name", 'like', "%{$keyword}%")
-                  ->orWhere("{$productTable}.sku", 'like', "%{$keyword}%");
-            });
-        }
-
-        if ($categoryId) $q->where("{$productTable}.category_id", $categoryId);
-        if ($brandId)    $q->where("{$productTable}.brand_id", $brandId);
-
-        if ($warehouseId) {
-            $q->where('s.warehouse_id', $warehouseId);
-        } elseif ($companyId) {
-            $q->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
-                $qq->from('company_warehouse')
-                   ->select('warehouse_id')
-                   ->where('company_id', $companyId);
-            });
-        }
-
-        $row = $q->selectRaw("
-                COALESCE(SUM(COALESCE(s.qty,0)),0) as total_qty,
-                COALESCE(SUM(($costAfterExpr) * COALESCE(s.qty,0)),0) as total_amount
-            ")
-            ->first();
-
-        return (object)[
-            'total_qty' => (int)($row->total_qty ?? 0),
-            'total_amount' => (float)($row->total_amount ?? 0),
-        ];
-    }
-
-
-    /**
-     * Tách danh sách tồn kho theo từng dòng nhập/lô FIFO.
-     * Một dòng = Product + SKU + kho + giá vốn + số lượng còn + chi phí riêng.
-     */
-    private function paginateStockLotIndexRows(
-        string $keyword,
-        ?int $categoryId,
-        ?int $brandId,
-        ?int $companyId,
-        ?int $warehouseId,
-        int $perPage = 20
-    ): LengthAwarePaginator {
-        $productTable = (new Product())->getTable();
-        $costAfterExpr = $this->stockLotActualCostExpr('l', 'p');
-
-        $q = Product::query()
-            ->from($productTable . ' as p')
-            ->leftJoin('crm_product_stock_lots as l', function ($join) {
-                $join->on('l.product_id', '=', 'p.id')
-                    ->where('l.qty_remaining', '>', 0);
-            })
-            ->leftJoin('crm_warehouses as w', 'w.id', '=', 'l.warehouse_id')
-            ->leftJoin('companies as c', 'c.id', '=', 'l.company_id');
-
-        try { $q->with(['mainImage']); } catch (\Throwable $e) {}
-        try { $q->with(['brand', 'category']); } catch (\Throwable $e) {}
-
-        if (Schema::hasColumn($productTable, 'is_active')) {
-            $q->where(function ($activeQuery) {
-                $activeQuery->where('p.is_active', 1)->orWhereNull('p.is_active');
-            });
-        }
-
-        if ($keyword !== '') {
-            $q->where(function ($wq) use ($keyword) {
-                $wq->where('p.name', 'like', "%{$keyword}%")
-                   ->orWhere('p.sku', 'like', "%{$keyword}%")
-                   ->orWhere('l.lot_code', 'like', "%{$keyword}%")
-                   ->orWhere('l.lot_name', 'like', "%{$keyword}%")
-                   ->orWhere('w.name', 'like', "%{$keyword}%");
-            });
-        }
-
-        if ($categoryId) {
-            $q->where('p.category_id', $categoryId);
-        }
-
-        if ($brandId) {
-            $q->where('p.brand_id', $brandId);
-        }
-
-        if ($warehouseId) {
-            $q->where('l.warehouse_id', $warehouseId);
-        } elseif ($companyId) {
-            $q->where('l.company_id', $companyId);
-        }
-
-        $q->select([
-            'p.*',
-            DB::raw('l.id as stock_lot_id'),
-            DB::raw('l.lot_code as stock_lot_code'),
-            DB::raw('l.lot_name as stock_lot_name'),
-            DB::raw('l.company_id as stock_lot_company_id'),
-            DB::raw('l.warehouse_id as stock_lot_warehouse_id'),
-            DB::raw('c.name as stock_lot_company_name'),
-            DB::raw('w.name as warehouse_name'),
-            DB::raw('COALESCE(l.qty_in, 0) as lot_qty_in'),
-            DB::raw('COALESCE(l.qty_remaining, 0) as stocks_sum_qty'),
-            DB::raw('COALESCE(l.qty_remaining, 0) as warehouse_qty'),
-            DB::raw('l.received_at as stock_lot_received_at'),
-            DB::raw('COALESCE(l.cost_before_vat, p.price_agent, 0) as lot_cost_before_vat'),
-            DB::raw('COALESCE(l.cost_vat_percent, p.cost_vat_percent, p.vat_percent, 0) as lot_cost_vat_percent'),
-            DB::raw('COALESCE(l.cost_after_vat, p.price_agent_vat, 0) as lot_cost_after_vat'),
-            DB::raw('COALESCE(l.extra_cost, 0) as lot_extra_cost'),
-            DB::raw("{$costAfterExpr} as lot_actual_cost_after_vat"),
-            DB::raw('COALESCE(l.cost_before_vat, p.price_agent, 0) as price_agent'),
-            DB::raw("{$costAfterExpr} as price_agent_vat"),
-            DB::raw('(COALESCE(l.qty_remaining, 0) * ' . $costAfterExpr . ') as lot_total_amount'),
-        ]);
-
-        return $q->orderByRaw('p.name ASC, p.sku ASC, COALESCE(l.received_at, l.created_at) ASC, l.id ASC')
-            ->paginate($perPage)
-            ->withQueryString();
-    }
-
-    private function stockLotActualCostExpr(string $lotAlias = 'l', string $productAlias = 'p'): string
-    {
-        return "
-            COALESCE(
-                NULLIF({$lotAlias}.actual_cost_after_vat, 0),
-                NULLIF({$lotAlias}.cost_after_vat, 0),
-                COALESCE({$lotAlias}.cost_before_vat, {$productAlias}.price_agent, 0)
-                    * (1 + (COALESCE({$lotAlias}.cost_vat_percent, {$productAlias}.cost_vat_percent, {$productAlias}.vat_percent, 0) / 100)),
-                0
-            )
-        ";
-    }
-
-    private function exportStockLotInputExcel(
-        string $keyword,
-        ?int $categoryId,
-        ?int $brandId,
-        ?int $companyId,
-        ?int $warehouseId
-    ) {
-        $productTable = (new Product())->getTable();
-        $costAfterExpr = $this->stockLotActualCostExpr('l', 'p');
-
-        $q = DB::table('crm_product_stock_lots as l')
-            ->join($productTable . ' as p', 'p.id', '=', 'l.product_id')
-            ->leftJoin('crm_warehouses as w', 'w.id', '=', 'l.warehouse_id')
-            ->leftJoin('companies as c', 'c.id', '=', 'l.company_id')
-            ->leftJoin('crm_product_categories as cat', 'cat.id', '=', 'p.category_id')
-            ->leftJoin('crm_brands as b', 'b.id', '=', 'p.brand_id')
-            ->where('l.qty_remaining', '>', 0);
-
-        if (Schema::hasColumn($productTable, 'is_active')) {
-            $q->where(function ($activeQuery) {
-                $activeQuery->where('p.is_active', 1)->orWhereNull('p.is_active');
-            });
-        }
-
-        if ($keyword !== '') {
-            $q->where(function ($wq) use ($keyword) {
-                $wq->where('p.name', 'like', "%{$keyword}%")
-                   ->orWhere('p.sku', 'like', "%{$keyword}%")
-                   ->orWhere('l.lot_code', 'like', "%{$keyword}%")
-                   ->orWhere('l.lot_name', 'like', "%{$keyword}%")
-                   ->orWhere('w.name', 'like', "%{$keyword}%");
-            });
-        }
-
-        if ($categoryId) $q->where('p.category_id', $categoryId);
-        if ($brandId) $q->where('p.brand_id', $brandId);
-        if ($warehouseId) $q->where('l.warehouse_id', $warehouseId);
-        elseif ($companyId) $q->where('l.company_id', $companyId);
-
-        $rows = $q->select([
-                'p.name',
-                'p.sku',
-                'p.note',
-                'cat.name as category_name',
-                'b.name as brand_name',
-                'c.name as company_name',
-                'w.name as warehouse_name',
-                'l.lot_code',
-                'l.lot_name',
-                'l.received_at',
-                'l.qty_in',
-                'l.qty_remaining',
-                'l.cost_before_vat',
-                'l.cost_vat_percent',
-                'l.cost_after_vat',
-                'l.extra_cost',
-                DB::raw("{$costAfterExpr} as actual_cost_after_vat"),
-                DB::raw('(l.qty_remaining * ' . $costAfterExpr . ') as total_amount'),
-            ])
-            ->orderBy('p.name')
-            ->orderBy('p.sku')
-            ->orderByRaw('COALESCE(l.received_at, l.created_at) ASC')
-            ->orderBy('l.id')
-            ->get();
-
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $spreadsheet->getProperties()
-            ->setCreator(config('app.name', 'CRM'))
-            ->setTitle('Tồn kho theo dòng nhập');
-
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Ton kho theo dong');
-
-        $sheet->mergeCells('A1:R1');
-        $sheet->setCellValue('A1', 'DANH SÁCH TỒN KHO THEO TỪNG DÒNG NHẬP / SKU / GIÁ VỐN');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-        $sheet->mergeCells('A2:R2');
-        $sheet->setCellValue('A2', 'Xuất lúc: ' . now()->format('d/m/Y H:i') . ' | Tổng dòng tồn: ' . $rows->count());
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-        $headers = [
-            'STT', 'Tên sản phẩm', 'SKU', 'Tên lô', 'Mã lô', 'Công ty', 'Kho', 'Ngày nhập',
-            'SL nhập', 'SL còn', 'Giá vốn trước VAT', 'VAT %', 'Giá vốn sau VAT',
-            'Chi phí riêng', 'Giá vốn thực tế / cái', 'Tổng vốn thực tế', 'Danh mục', 'Thương hiệu'
-        ];
-
-        $sheet->fromArray($headers, null, 'A4');
-        $sheet->getStyle('A4:R4')->getFont()->setBold(true);
-        $sheet->getStyle('A4:R4')->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-            ->getStartColor()->setRGB('EAF6FF');
-
-        $rowNumber = 5;
-        foreach ($rows as $index => $row) {
-            $sheet->fromArray([
-                $index + 1,
-                $row->name,
-                $row->sku,
-                $row->lot_name ?: '-',
-                $row->lot_code ?: '-',
-                $row->company_name ?: '-',
-                $row->warehouse_name ?: '-',
-                $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('d/m/Y') : '-',
-                (int) $row->qty_in,
-                (int) $row->qty_remaining,
-                round((float) $row->cost_before_vat),
-                (float) $row->cost_vat_percent,
-                round((float) $row->cost_after_vat),
-                round((float) $row->extra_cost),
-                round((float) $row->actual_cost_after_vat),
-                round((float) $row->total_amount),
-                $row->category_name ?: '-',
-                $row->brand_name ?: '-',
-            ], null, 'A' . $rowNumber);
-
-            $rowNumber++;
-        }
-
-        $lastRow = max($rowNumber - 1, 4);
-        $sheet->getStyle('A4:R' . $lastRow)->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-        foreach (['K', 'M', 'N', 'O', 'P'] as $column) {
-            $sheet->getStyle($column . '5:' . $column . $lastRow)->getNumberFormat()->setFormatCode('#,##0');
-        }
-        foreach (range('A', 'R') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
-        }
-        $sheet->freezePane('A5');
-
-        $fileName = 'ton-kho-theo-dong-nhap-' . now()->format('Ymd-His') . '.xlsx';
-
-        return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-            $writer->save('php://output');
-        }, $fileName, [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Cache-Control' => 'max-age=0',
-        ]);
-    }
-
     /**
      * LIST
      */
     public function index(Request $request)
     {
-        $keyword     = trim((string) $request->get('search', ''));
-        $companyRaw  = $request->get('company_id', 'all'); // 1|2|all|null
+        $keyword = trim((string) $request->get('search', ''));
+        $companyRaw = $request->get('company_id', 'all'); // 1|2|all|null
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
-        $categoryId  = $request->filled('category_id') ? (int) $request->get('category_id') : null;
+        $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
 
-        $brandId     = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
+        $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
         $companyId = null;
@@ -416,28 +56,27 @@ class ProductController extends Controller
             $companyMode = (string) $companyId;
         }
 
-
         if (Schema::hasTable('crm_product_stock_lots')) {
-            $products = $this->paginateStockLotIndexRows($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+            $products = $this->lotQuery->paginateStockLotIndexRows($keyword, $categoryId, $brandId, $companyId, $warehouseId);
 
-            $companies  = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
-            $categories = $this->buildCategoryOptions();
+            $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+            $categories = $this->catalogOptions->buildCategoryOptions();
 
             $warehousesQ = Warehouse::query()->orderBy('name');
             if ($companyId) {
                 $warehousesQ->whereIn('id', function ($qq) use ($companyId) {
                     $qq->from('company_warehouse')
-                       ->select('warehouse_id')
-                       ->where('company_id', $companyId);
+                        ->select('warehouse_id')
+                        ->where('company_id', $companyId);
                 });
             }
             $warehouses = $warehousesQ->get();
 
             $brands = Brand::query()->orderBy('name')->get();
-            $priceTiers = $this->loadPriceTiers();
-            $this->attachTierPricesToProducts($products);
+            $priceTiers = $this->catalogOptions->loadPriceTiers();
+            $this->catalogOptions->attachTierPricesToProducts($products);
 
-            $totalsAll = $this->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+            $totalsAll = $this->lotQuery->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
             $totalQtyAll = $totalsAll->total_qty;
             $totalAmountAll = $totalsAll->total_amount;
 
@@ -462,25 +101,35 @@ class ProductController extends Controller
 
         $q = Product::query();
 
-        if (Schema::hasColumn((new Product())->getTable(), 'is_active')) {
+        if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
                 $activeQuery->where('is_active', 1)->orWhereNull('is_active');
             });
         }
 
         // load relations an toàn
-        try { $q->with(['mainImage']); } catch (\Throwable $e) {}
-        try { $q->with(['brand', 'category']); } catch (\Throwable $e) {}
+        try {
+            $q->with(['mainImage']);
+        } catch (\Throwable $e) {
+        }
+        try {
+            $q->with(['brand', 'category']);
+        } catch (\Throwable $e) {
+        }
 
         if ($keyword !== '') {
             $q->where(function ($w) use ($keyword) {
                 $w->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('sku', 'like', "%{$keyword}%");
+                    ->orWhere('sku', 'like', "%{$keyword}%");
             });
         }
 
-        if ($categoryId) $q->where('category_id', $categoryId);
-        if ($brandId)    $q->where('brand_id', $brandId);
+        if ($categoryId) {
+            $q->where('category_id', $categoryId);
+        }
+        if ($brandId) {
+            $q->where('brand_id', $brandId);
+        }
 
         $productTable = $q->getModel()->getTable();
 
@@ -497,8 +146,8 @@ class ProductController extends Controller
                 if ($companyId) {
                     $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
                         $qq->from('company_warehouse')
-                           ->select('warehouse_id')
-                           ->where('company_id', $companyId);
+                            ->select('warehouse_id')
+                            ->where('company_id', $companyId);
                     });
                 }
             }
@@ -507,28 +156,28 @@ class ProductController extends Controller
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
         // dropdown data
-        $companies  = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
-        $categories = $this->buildCategoryOptions();
+        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $categories = $this->catalogOptions->buildCategoryOptions();
 
         // ✅ Warehouses theo công ty (pivot company_warehouse)
         $warehousesQ = Warehouse::query()->orderBy('name');
         if ($companyId) {
             $warehousesQ->whereIn('id', function ($qq) use ($companyId) {
                 $qq->from('company_warehouse')
-                   ->select('warehouse_id')
-                   ->where('company_id', $companyId);
+                    ->select('warehouse_id')
+                    ->where('company_id', $companyId);
             });
         }
         $warehouses = $warehousesQ->get();
 
         $brands = Brand::query()->orderBy('name')->get();
-        $priceTiers = $this->loadPriceTiers();
+        $priceTiers = $this->catalogOptions->loadPriceTiers();
 
-        $this->attachTierPricesToProducts($products);
-        $this->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
+        $this->catalogOptions->attachTierPricesToProducts($products);
+        $this->lotQuery->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
 
         // ✅ TOTALS ALL PAGES
-        $totalsAll = $this->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+        $totalsAll = $this->lotQuery->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
         $totalQtyAll = $totalsAll->total_qty;
         $totalAmountAll = $totalsAll->total_amount;
 
@@ -551,14 +200,17 @@ class ProductController extends Controller
         ));
     }
 
+    /**
+     * Trang sản phẩm đầu vào (nhập kho): danh sách sản phẩm từ catalog (kể cả tồn 0) kèm giá theo tier.
+     */
     public function input(Request $request)
     {
         // Dùng đúng logic giống index() để tránh 500
-        $keyword     = trim((string) $request->get('search', ''));
-        $companyRaw  = $request->get('company_id', 'all');
+        $keyword = trim((string) $request->get('search', ''));
+        $companyRaw = $request->get('company_id', 'all');
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
-        $categoryId  = $request->filled('category_id') ? (int) $request->get('category_id') : null;
-        $brandId     = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
+        $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
+        $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
         $companyId = null;
@@ -567,7 +219,6 @@ class ProductController extends Controller
             $companyId = (int) $companyRaw;
             $companyMode = (string) $companyId;
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -580,28 +231,37 @@ class ProductController extends Controller
         | so users can import stock again later.
         */
 
-
         $q = Product::query();
 
-        if (Schema::hasColumn((new Product())->getTable(), 'is_active')) {
+        if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
                 $activeQuery->where('is_active', 1)->orWhereNull('is_active');
             });
         }
 
         // ✅ giữ y như index (an toàn)
-        try { $q->with(['mainImage']); } catch (\Throwable $e) {}
-        try { $q->with(['brand', 'category']); } catch (\Throwable $e) {}
+        try {
+            $q->with(['mainImage']);
+        } catch (\Throwable $e) {
+        }
+        try {
+            $q->with(['brand', 'category']);
+        } catch (\Throwable $e) {
+        }
 
         if ($keyword !== '') {
             $q->where(function ($w) use ($keyword) {
                 $w->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('sku', 'like', "%{$keyword}%");
+                    ->orWhere('sku', 'like', "%{$keyword}%");
             });
         }
 
-        if ($categoryId) $q->where('category_id', $categoryId);
-        if ($brandId)    $q->where('brand_id', $brandId);
+        if ($categoryId) {
+            $q->where('category_id', $categoryId);
+        }
+        if ($brandId) {
+            $q->where('brand_id', $brandId);
+        }
 
         $productTable = $q->getModel()->getTable();
 
@@ -616,8 +276,8 @@ class ProductController extends Controller
                 if ($companyId) {
                     $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
                         $qq->from('company_warehouse')
-                           ->select('warehouse_id')
-                           ->where('company_id', $companyId);
+                            ->select('warehouse_id')
+                            ->where('company_id', $companyId);
                     });
                 }
             }
@@ -626,7 +286,7 @@ class ProductController extends Controller
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
         // dropdown data giống index()
-        $categories = $this->buildCategoryOptions();
+        $categories = $this->catalogOptions->buildCategoryOptions();
 
         /* EGO_FIX_PRODUCTS_INPUT_ALL_WAREHOUSES_START
            Màn Sản phẩm đầu vào phải nhìn được cả Kho EGO_QT và Kho EGO_VN.
@@ -640,22 +300,22 @@ class ProductController extends Controller
         if ($companyId) {
             $warehousesQ->whereIn('id', function ($qq) use ($companyId) {
                 $qq->from('company_warehouse')
-                   ->select('warehouse_id')
-                   ->where('company_id', $companyId);
+                    ->select('warehouse_id')
+                    ->where('company_id', $companyId);
             });
         }
         $warehouses = $warehousesQ->get();
         /* EGO_FIX_PRODUCTS_INPUT_ALL_WAREHOUSES_END */
 
-        $brands     = Brand::query()->orderBy('name')->get();
-        $priceTiers = $this->loadPriceTiers();
+        $brands = Brand::query()->orderBy('name')->get();
+        $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         // input view KHÔNG cần tier prices nhưng không sao nếu có
-        $this->attachTierPricesToProducts($products);
-        $this->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
+        $this->catalogOptions->attachTierPricesToProducts($products);
+        $this->lotQuery->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
 
         // ✅ TOTALS ALL PAGES
-        $totalsAll = $this->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+        $totalsAll = $this->lotQuery->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
         $totalQtyAll = $totalsAll->total_qty;
         $totalAmountAll = $totalsAll->total_amount;
 
@@ -677,17 +337,16 @@ class ProductController extends Controller
         ));
     }
 
-
     /**
      * Xuất Excel sản phẩm đầu vào - 1 sheet tổng hợp.
      */
     public function exportInputExcel(Request $request)
     {
-        $keyword     = trim((string) $request->get('search', ''));
-        $companyRaw  = $request->get('company_id', 'all');
+        $keyword = trim((string) $request->get('search', ''));
+        $companyRaw = $request->get('company_id', 'all');
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
-        $categoryId  = $request->filled('category_id') ? (int) $request->get('category_id') : null;
-        $brandId     = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
+        $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
+        $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
 
         $companyId = null;
 
@@ -696,23 +355,26 @@ class ProductController extends Controller
         }
 
         if (Schema::hasTable('crm_product_stock_lots')) {
-            return $this->exportStockLotInputExcel($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+            return $this->lotExporter->exportStockLotInputExcel($keyword, $categoryId, $brandId, $companyId, $warehouseId);
         }
 
         $q = Product::query();
 
-        if (Schema::hasColumn((new Product())->getTable(), 'is_active')) {
+        if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
                 $activeQuery->where('is_active', 1)->orWhereNull('is_active');
             });
         }
 
-        try { $q->with(['brand', 'category']); } catch (\Throwable $e) {}
+        try {
+            $q->with(['brand', 'category']);
+        } catch (\Throwable $e) {
+        }
 
         if ($keyword !== '') {
             $q->where(function ($w) use ($keyword) {
                 $w->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('sku', 'like', "%{$keyword}%");
+                    ->orWhere('sku', 'like', "%{$keyword}%");
             });
         }
 
@@ -736,14 +398,14 @@ class ProductController extends Controller
             } elseif ($companyId) {
                 $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
                     $qq->from('company_warehouse')
-                       ->select('warehouse_id')
-                       ->where('company_id', $companyId);
+                        ->select('warehouse_id')
+                        ->where('company_id', $companyId);
                 });
             }
         }, 'stocks_sum_qty');
 
         $products = $q->orderByDesc('id')->get();
-        $this->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
+        $this->lotQuery->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
         $productIds = $products->pluck('id')->filter()->values();
 
         $stockRows = collect();
@@ -758,8 +420,8 @@ class ProductController extends Controller
             } elseif ($companyId) {
                 $stockQuery->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
                     $qq->from('company_warehouse')
-                       ->select('warehouse_id')
-                       ->where('company_id', $companyId);
+                        ->select('warehouse_id')
+                        ->where('company_id', $companyId);
                 });
             }
 
@@ -775,7 +437,7 @@ class ProductController extends Controller
                 ->groupBy('product_id');
         }
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Sản phẩm đầu vào');
@@ -819,7 +481,7 @@ class ProductController extends Controller
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $sheet->mergeCells('A2:L2');
-        $sheet->setCellValue('A2', 'Xuất lúc: ' . now()->format('d/m/Y H:i') . ' | Tổng sản phẩm: ' . $products->count());
+        $sheet->setCellValue('A2', 'Xuất lúc: '.now()->format('d/m/Y H:i').' | Tổng sản phẩm: '.$products->count());
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $headers = [
@@ -861,7 +523,7 @@ class ProductController extends Controller
 
             $stockText = collect($stockRows->get($product->id, collect()))
                 ->map(function ($row) {
-                    return ($row->warehouse_name ?? '-') . ': ' . (int) ($row->qty ?? 0);
+                    return ($row->warehouse_name ?? '-').': '.(int) ($row->qty ?? 0);
                 })
                 ->filter()
                 ->implode("\n");
@@ -883,19 +545,19 @@ class ProductController extends Controller
                 round($priceAfterVat),
                 $qty,
                 round($priceAfterVat * $qty),
-            ], null, 'A' . $rowNumber);
+            ], null, 'A'.$rowNumber);
 
             $rowNumber++;
         }
 
         $lastRow = max($rowNumber - 1, 4);
 
-        $sheet->getStyle('A4:L' . $lastRow)->applyFromArray($cellStyle);
-        $sheet->getStyle('E5:E' . $lastRow)->getAlignment()->setWrapText(true);
-        $sheet->getStyle('D5:D' . $lastRow)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A4:L'.$lastRow)->applyFromArray($cellStyle);
+        $sheet->getStyle('E5:E'.$lastRow)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('D5:D'.$lastRow)->getAlignment()->setWrapText(true);
 
         foreach (['H', 'J', 'L'] as $column) {
-            $sheet->getStyle($column . '5:' . $column . $lastRow)
+            $sheet->getStyle($column.'5:'.$column.$lastRow)
                 ->getNumberFormat()
                 ->setFormatCode('#,##0');
         }
@@ -906,18 +568,18 @@ class ProductController extends Controller
 
         if ($lastRow >= 5) {
             $totalRow = $lastRow + 2;
-            $sheet->setCellValue('A' . $totalRow, 'TỔNG');
-            $sheet->mergeCells('A' . $totalRow . ':J' . $totalRow);
-            $sheet->setCellValue('K' . $totalRow, '=SUM(K5:K' . $lastRow . ')');
-            $sheet->setCellValue('L' . $totalRow, '=SUM(L5:L' . $lastRow . ')');
-            $sheet->getStyle('A' . $totalRow . ':L' . $totalRow)->applyFromArray($cellStyle);
-            $sheet->getStyle('A' . $totalRow . ':L' . $totalRow)->getFont()->setBold(true);
-            $sheet->getStyle('L' . $totalRow)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->setCellValue('A'.$totalRow, 'TỔNG');
+            $sheet->mergeCells('A'.$totalRow.':J'.$totalRow);
+            $sheet->setCellValue('K'.$totalRow, '=SUM(K5:K'.$lastRow.')');
+            $sheet->setCellValue('L'.$totalRow, '=SUM(L5:L'.$lastRow.')');
+            $sheet->getStyle('A'.$totalRow.':L'.$totalRow)->applyFromArray($cellStyle);
+            $sheet->getStyle('A'.$totalRow.':L'.$totalRow)->getFont()->setBold(true);
+            $sheet->getStyle('L'.$totalRow)->getNumberFormat()->setFormatCode('#,##0');
         }
 
         $sheet->freezePane('A5');
 
-        $fileName = 'san-pham-dau-vao-' . now()->format('Ymd-His') . '.xlsx';
+        $fileName = 'san-pham-dau-vao-'.now()->format('Ymd-His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -928,14 +590,17 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Trang sản phẩm đầu ra (xuất kho): danh sách theo lô tồn kho kèm giá tier, bộ lọc giống trang input.
+     */
     public function output(Request $request)
     {
         // ✅ output giống input 100% (vì view output cần prices tier)
-        $keyword     = trim((string) $request->get('search', ''));
-        $companyRaw  = $request->get('company_id', 'all');
+        $keyword = trim((string) $request->get('search', ''));
+        $companyRaw = $request->get('company_id', 'all');
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
-        $categoryId  = $request->filled('category_id') ? (int) $request->get('category_id') : null;
-        $brandId     = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
+        $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
+        $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
         $companyId = null;
@@ -945,25 +610,24 @@ class ProductController extends Controller
             $companyMode = (string) $companyId;
         }
 
-
         if (Schema::hasTable('crm_product_stock_lots')) {
-            $products = $this->paginateStockLotIndexRows($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+            $products = $this->lotQuery->paginateStockLotIndexRows($keyword, $categoryId, $brandId, $companyId, $warehouseId);
 
-            $categories = $this->buildCategoryOptions();
+            $categories = $this->catalogOptions->buildCategoryOptions();
             $warehousesQ = Warehouse::query()->orderBy('name');
             if ($companyId) {
                 $warehousesQ->whereIn('id', function ($qq) use ($companyId) {
                     $qq->from('company_warehouse')
-                       ->select('warehouse_id')
-                       ->where('company_id', $companyId);
+                        ->select('warehouse_id')
+                        ->where('company_id', $companyId);
                 });
             }
             $warehouses = $warehousesQ->get();
-            $brands     = Brand::query()->orderBy('name')->get();
-            $priceTiers = $this->loadPriceTiers();
-            $this->attachTierPricesToProducts($products);
+            $brands = Brand::query()->orderBy('name')->get();
+            $priceTiers = $this->catalogOptions->loadPriceTiers();
+            $this->catalogOptions->attachTierPricesToProducts($products);
 
-            $totalsAll = $this->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+            $totalsAll = $this->lotQuery->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
             $totalQtyAll = $totalsAll->total_qty;
             $totalAmountAll = $totalsAll->total_amount;
 
@@ -987,24 +651,34 @@ class ProductController extends Controller
 
         $q = Product::query();
 
-        if (Schema::hasColumn((new Product())->getTable(), 'is_active')) {
+        if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
                 $activeQuery->where('is_active', 1)->orWhereNull('is_active');
             });
         }
 
-        try { $q->with(['mainImage']); } catch (\Throwable $e) {}
-        try { $q->with(['brand', 'category']); } catch (\Throwable $e) {}
+        try {
+            $q->with(['mainImage']);
+        } catch (\Throwable $e) {
+        }
+        try {
+            $q->with(['brand', 'category']);
+        } catch (\Throwable $e) {
+        }
 
         if ($keyword !== '') {
             $q->where(function ($w) use ($keyword) {
                 $w->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('sku', 'like', "%{$keyword}%");
+                    ->orWhere('sku', 'like', "%{$keyword}%");
             });
         }
 
-        if ($categoryId) $q->where('category_id', $categoryId);
-        if ($brandId)    $q->where('brand_id', $brandId);
+        if ($categoryId) {
+            $q->where('category_id', $categoryId);
+        }
+        if ($brandId) {
+            $q->where('brand_id', $brandId);
+        }
 
         $productTable = $q->getModel()->getTable();
 
@@ -1019,8 +693,8 @@ class ProductController extends Controller
                 if ($companyId) {
                     $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
                         $qq->from('company_warehouse')
-                           ->select('warehouse_id')
-                           ->where('company_id', $companyId);
+                            ->select('warehouse_id')
+                            ->where('company_id', $companyId);
                     });
                 }
             }
@@ -1028,27 +702,27 @@ class ProductController extends Controller
 
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
-        $categories = $this->buildCategoryOptions();
+        $categories = $this->catalogOptions->buildCategoryOptions();
 
         $warehousesQ = Warehouse::query()->orderBy('name');
         if ($companyId) {
             $warehousesQ->whereIn('id', function ($qq) use ($companyId) {
                 $qq->from('company_warehouse')
-                   ->select('warehouse_id')
-                   ->where('company_id', $companyId);
+                    ->select('warehouse_id')
+                    ->where('company_id', $companyId);
             });
         }
         $warehouses = $warehousesQ->get();
 
-        $brands     = Brand::query()->orderBy('name')->get();
-        $priceTiers = $this->loadPriceTiers();
+        $brands = Brand::query()->orderBy('name')->get();
+        $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         // ✅ bắt buộc cho view output (dropdown tier dùng $product->prices)
-        $this->attachTierPricesToProducts($products);
-        $this->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
+        $this->catalogOptions->attachTierPricesToProducts($products);
+        $this->lotQuery->attachLotAverageCostsToProducts($products, $companyId, $warehouseId);
 
         // ✅ TOTALS ALL PAGES
-        $totalsAll = $this->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
+        $totalsAll = $this->lotQuery->calcTotalsAllPages($keyword, $categoryId, $brandId, $companyId, $warehouseId);
         $totalQtyAll = $totalsAll->total_qty;
         $totalAmountAll = $totalsAll->total_amount;
 
@@ -1070,312 +744,150 @@ class ProductController extends Controller
         ));
     }
 
-
-    private function attachLotAverageCostsToProducts($products, ?int $companyId = null, ?int $warehouseId = null): void
-    {
-        if (!Schema::hasTable('crm_product_stock_lots')) {
-            return;
-        }
-
-        $items = method_exists($products, 'items') ? $products->items() : (is_iterable($products) ? $products : []);
-        $ids = collect($items)->pluck('id')->filter()->values();
-
-        if ($ids->isEmpty()) {
-            return;
-        }
-
-        $q = DB::table('crm_product_stock_lots as l')
-            ->whereIn('l.product_id', $ids->all())
-            ->where('l.qty_remaining', '>', 0);
-
-        if ($warehouseId) {
-            $q->where('l.warehouse_id', $warehouseId);
-        } elseif ($companyId) {
-            $q->where('l.company_id', $companyId);
-        }
-
-        $costBeforeExpr = 'COALESCE(l.cost_before_vat, 0)';
-        $vatExpr = 'COALESCE(l.cost_vat_percent, 0)';
-        $costAfterExpr = "
-            COALESCE(
-                NULLIF(l.actual_cost_after_vat, 0),
-                NULLIF(l.cost_after_vat, 0),
-                COALESCE(l.cost_before_vat, 0) * (1 + (COALESCE(l.cost_vat_percent, 0) / 100)),
-                0
-            )
-        ";
-
-        $rows = $q->selectRaw("
-                l.product_id,
-                COALESCE(SUM(l.qty_remaining), 0) as lot_qty,
-                COALESCE(SUM(l.qty_remaining * {$costBeforeExpr}) / NULLIF(SUM(l.qty_remaining), 0), 0) as avg_cost_before_vat,
-                COALESCE(SUM(l.qty_remaining * {$vatExpr}) / NULLIF(SUM(l.qty_remaining), 0), 0) as avg_cost_vat_percent,
-                COALESCE(SUM(l.qty_remaining * {$costAfterExpr}) / NULLIF(SUM(l.qty_remaining), 0), 0) as avg_cost_after_vat,
-                COALESCE(SUM(l.qty_remaining * {$costAfterExpr}), 0) as lot_total_amount
-            ")
-            ->groupBy('l.product_id')
-            ->get()
-            ->keyBy('product_id');
-
-        foreach ($items as $product) {
-            $row = $rows->get($product->id);
-
-            if (!$row) {
-                continue;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Ghi đè thuộc tính hiển thị
-            |--------------------------------------------------------------------------
-            | Để view cũ đang dùng price_agent / price_agent_vat tự hiển thị đúng
-            | giá vốn trung bình theo lô mà không cần sửa nhiều blade.
-            */
-            $product->price_agent = (float) $row->avg_cost_before_vat;
-            $product->price_agent_vat = (float) $row->avg_cost_after_vat;
-            $product->cost_vat_percent = (float) $row->avg_cost_vat_percent;
-
-            // Một số view cũ đọc vat_percent cho cột VAT giá vốn.
-            $product->vat_percent = (float) $row->avg_cost_vat_percent;
-
-            $product->lot_avg_cost_before_vat = (float) $row->avg_cost_before_vat;
-            $product->lot_avg_cost_after_vat = (float) $row->avg_cost_after_vat;
-            $product->lot_avg_cost_vat_percent = (float) $row->avg_cost_vat_percent;
-            $product->lot_total_amount = (float) $row->lot_total_amount;
-            $product->lot_qty = (int) $row->lot_qty;
-        }
-    }
-
     /**
-     * ✅ GẮN GIÁ THEO LOẠI GIÁ VÀO $product->prices
-     * để view dùng: $product->prices->firstWhere('price_tier_id', ...)
+     * Trang lịch sử xuất nhập kho: đọc crm_stock_movements kèm thông tin đơn hàng, phiếu vật tư và người thao tác.
      */
-    private function attachTierPricesToProducts($products): void
+    public function history(Request $request)
     {
-        try {
-            $items = method_exists($products, 'items') ? $products->items() : (is_iterable($products) ? $products : []);
-            $ids = collect($items)->pluck('id')->filter()->values();
-            if ($ids->isEmpty()) return;
+        $hasNote = Schema::hasColumn('crm_stock_movements', 'note');
+        $hasReferenceType = Schema::hasColumn('crm_stock_movements', 'reference_type');
+        $hasQtyBefore = Schema::hasColumn('crm_stock_movements', 'qty_before');
+        $hasQtyAfter = Schema::hasColumn('crm_stock_movements', 'qty_after');
 
-            $candidateTables = [
-                'crm_product_prices',
-                'product_prices',
-                'crm_prices',
-            ];
+        $orderTable = Schema::hasTable('crm_orders') ? 'crm_orders' : (Schema::hasTable('orders') ? 'orders' : null);
+        $orderCodeColumn = null;
 
-            $table = null;
-            foreach ($candidateTables as $t) {
-                if (
-                    $this->tableExists($t)
-                    && Schema::hasColumn($t, 'product_id')
-                    && (Schema::hasColumn($t, 'price_tier_id') || Schema::hasColumn($t, 'tier_id'))
-                    && (Schema::hasColumn($t, 'price') || Schema::hasColumn($t, 'value'))
-                ) {
-                    $table = $t;
+        if ($orderTable) {
+            foreach (['order_code', 'code', 'order_no', 'order_number'] as $col) {
+                if (Schema::hasColumn($orderTable, $col)) {
+                    $orderCodeColumn = $col;
                     break;
                 }
             }
+        }
 
-            if (!$table) {
-                foreach ($items as $p) {
-                    try { $p->setRelation('prices', collect()); } catch (\Throwable $e) {}
+        $q = DB::table('crm_stock_movements as m')
+            ->leftJoin('crm_product_catalog as p', 'p.id', '=', 'm.product_id')
+            ->leftJoin('crm_warehouses as w', 'w.id', '=', 'm.warehouse_id')
+            ->leftJoin('users as u', 'u.id', '=', 'm.created_by')
+            ->leftJoin('material_requests as mr', function ($join) use ($hasReferenceType) {
+                $join->on('mr.id', '=', 'm.reference_id');
+
+                if ($hasReferenceType) {
+                    $join->where(function ($j) {
+                        $j->where('m.reference_type', '=', 'material_request')
+                            ->orWhere('m.reason', 'like', '%material%')
+                            ->orWhere('m.reason', 'like', '%vật tư%')
+                            ->orWhere('m.reason', 'like', '%công trình%');
+                    });
+                } else {
+                    $join->where(function ($j) {
+                        $j->where('m.reason', 'like', '%material%')
+                            ->orWhere('m.reason', 'like', '%vật tư%')
+                            ->orWhere('m.reason', 'like', '%công trình%');
+                    });
                 }
-                return;
-            }
-
-            $tierCol  = Schema::hasColumn($table, 'price_tier_id') ? 'price_tier_id' : 'tier_id';
-            $priceCol = Schema::hasColumn($table, 'price') ? 'price' : 'value';
-            $hasVatCol = Schema::hasColumn($table, 'vat_percent');
-            $hasAfterVatCol = Schema::hasColumn($table, 'price_after_vat');
-            $hasEffectiveTo = Schema::hasColumn($table, 'effective_to');
-
-            $rowsQuery = DB::table($table)
-                ->whereIn('product_id', $ids->all());
-
-            if ($hasEffectiveTo) {
-                $rowsQuery->where(function ($q) {
-                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', now());
-                });
-            }
-
-            $rows = $rowsQuery
-                ->orderByDesc('id')
-                ->get();
-
-            $grouped = $rows->groupBy('product_id')->map(function ($col) use ($tierCol, $priceCol, $hasVatCol, $hasAfterVatCol) {
-                return $col
-                    ->unique($tierCol)
-                    ->map(function ($r) use ($tierCol, $priceCol, $hasVatCol, $hasAfterVatCol) {
-                        $price = (float)($r->{$priceCol} ?? 0);
-                        $vatPercent = $hasVatCol ? (float)($r->vat_percent ?? 0) : 0;
-                        $afterVat = $hasAfterVatCol
-                            ? (float)($r->price_after_vat ?? 0)
-                            : round($price * (1 + $vatPercent / 100), 2);
-
-                        if ($afterVat <= 0 && $price > 0) {
-                            $afterVat = round($price * (1 + $vatPercent / 100), 2);
-                        }
-
-                        return (object)[
-                            'price_tier_id' => (int)($r->{$tierCol} ?? 0),
-                            'price' => $price,
-                            'vat_percent' => $vatPercent,
-                            'price_after_vat' => $afterVat,
-                        ];
-                    })
-                    ->values();
+            })
+            ->leftJoin('sites as s', 's.id', '=', 'mr.site_id')
+            ->leftJoin('crm_product_stock as ps', function ($join) {
+                $join->on('ps.product_id', '=', 'm.product_id')
+                    ->on('ps.warehouse_id', '=', 'm.warehouse_id');
             });
 
-            foreach ($items as $p) {
-                $list = $grouped->get($p->id, collect());
-                try { $p->setRelation('prices', collect($list)); } catch (\Throwable $e) {}
-            }
-        } catch (\Throwable $e) {
-            // không làm gì để tránh crash list
+        if ($orderTable) {
+            $q->leftJoin($orderTable.' as o', function ($join) use ($hasReferenceType) {
+                $join->on('o.id', '=', 'm.reference_id');
+
+                if ($hasReferenceType) {
+                    $join->where(function ($j) {
+                        $j->where('m.reference_type', '=', 'order')
+                            ->orWhere('m.reason', 'like', '%đơn hàng%')
+                            ->orWhere('m.reason', 'like', '%order%');
+                    });
+                } else {
+                    $join->where(function ($j) {
+                        $j->where('m.reason', 'like', '%đơn hàng%')
+                            ->orWhere('m.reason', 'like', '%order%');
+                    });
+                }
+            });
         }
-    }
-public function history(Request $request)
-{
-    $hasNote = Schema::hasColumn('crm_stock_movements', 'note');
-    $hasReferenceType = Schema::hasColumn('crm_stock_movements', 'reference_type');
-    $hasQtyBefore = Schema::hasColumn('crm_stock_movements', 'qty_before');
-    $hasQtyAfter = Schema::hasColumn('crm_stock_movements', 'qty_after');
 
-    $orderTable = Schema::hasTable('crm_orders') ? 'crm_orders' : (Schema::hasTable('orders') ? 'orders' : null);
-    $orderCodeColumn = null;
+        if ($request->filled('warehouse_id')) {
+            $q->where('m.warehouse_id', (int) $request->warehouse_id);
+        }
 
-    if ($orderTable) {
-        foreach (['order_code', 'code', 'order_no', 'order_number'] as $col) {
-            if (Schema::hasColumn($orderTable, $col)) {
-                $orderCodeColumn = $col;
-                break;
+        if ($request->filled('type')) {
+            if ($request->type === 'in') {
+                $q->where('m.change_qty', '>', 0);
+            } elseif ($request->type === 'out') {
+                $q->where('m.change_qty', '<', 0);
             }
         }
-    }
 
-    $q = DB::table('crm_stock_movements as m')
-        ->leftJoin('crm_product_catalog as p', 'p.id', '=', 'm.product_id')
-        ->leftJoin('crm_warehouses as w', 'w.id', '=', 'm.warehouse_id')
-        ->leftJoin('users as u', 'u.id', '=', 'm.created_by')
-        ->leftJoin('material_requests as mr', function ($join) use ($hasReferenceType) {
-            $join->on('mr.id', '=', 'm.reference_id');
+        if ($request->filled('q')) {
+            $kw = trim($request->q);
 
-            if ($hasReferenceType) {
-                $join->where(function ($j) {
-                    $j->where('m.reference_type', '=', 'material_request')
-                      ->orWhere('m.reason', 'like', '%material%')
-                      ->orWhere('m.reason', 'like', '%vật tư%')
-                      ->orWhere('m.reason', 'like', '%công trình%');
-                });
-            } else {
-                $join->where(function ($j) {
-                    $j->where('m.reason', 'like', '%material%')
-                      ->orWhere('m.reason', 'like', '%vật tư%')
-                      ->orWhere('m.reason', 'like', '%công trình%');
-                });
-            }
-        })
-        ->leftJoin('sites as s', 's.id', '=', 'mr.site_id')
-        ->leftJoin('crm_product_stock as ps', function ($join) {
-            $join->on('ps.product_id', '=', 'm.product_id')
-                 ->on('ps.warehouse_id', '=', 'm.warehouse_id');
-        });
+            $q->where(function ($sub) use ($kw, $orderTable, $orderCodeColumn, $hasNote) {
+                $sub->where('p.name', 'like', "%{$kw}%")
+                    ->orWhere('p.sku', 'like', "%{$kw}%")
+                    ->orWhere('w.name', 'like', "%{$kw}%")
+                    ->orWhere('s.name', 'like', "%{$kw}%")
+                    ->orWhere('m.reason', 'like', "%{$kw}%");
 
-    if ($orderTable) {
-        $q->leftJoin($orderTable . ' as o', function ($join) use ($hasReferenceType) {
-            $join->on('o.id', '=', 'm.reference_id');
+                if ($hasNote) {
+                    $sub->orWhere('m.note', 'like', "%{$kw}%");
+                }
 
-            if ($hasReferenceType) {
-                $join->where(function ($j) {
-                    $j->where('m.reference_type', '=', 'order')
-                      ->orWhere('m.reason', 'like', '%đơn hàng%')
-                      ->orWhere('m.reason', 'like', '%order%');
-                });
-            } else {
-                $join->where(function ($j) {
-                    $j->where('m.reason', 'like', '%đơn hàng%')
-                      ->orWhere('m.reason', 'like', '%order%');
-                });
-            }
-        });
-    }
-
-    if ($request->filled('warehouse_id')) {
-        $q->where('m.warehouse_id', (int) $request->warehouse_id);
-    }
-
-    if ($request->filled('type')) {
-        if ($request->type === 'in') {
-            $q->where('m.change_qty', '>', 0);
-        } elseif ($request->type === 'out') {
-            $q->where('m.change_qty', '<', 0);
+                if ($orderTable && $orderCodeColumn) {
+                    $sub->orWhere('o.'.$orderCodeColumn, 'like', "%{$kw}%");
+                }
+            });
         }
+
+        $select = [
+            'm.*',
+            'p.name as product_name',
+            'p.sku as product_sku',
+            'w.name as warehouse_name',
+            'u.name as user_name',
+            's.name as site_name',
+            $hasQtyBefore ? DB::raw('m.qty_before as qty_before_safe') : DB::raw('NULL as qty_before_safe'),
+            $hasQtyAfter ? DB::raw('m.qty_after as qty_after_safe') : DB::raw('NULL as qty_after_safe'),
+            DB::raw('COALESCE(ps.qty, 0) as current_qty'),
+        ];
+
+        if ($orderTable && $orderCodeColumn) {
+            $select[] = DB::raw('o.'.$orderCodeColumn.' as order_code');
+        } else {
+            $select[] = DB::raw('NULL as order_code');
+        }
+
+        $logs = $q->select($select)
+            ->orderByDesc('m.created_at')
+            ->orderByDesc('m.id')
+            ->paginate(20)
+            ->withQueryString();
+
+        $warehouses = DB::table('crm_warehouses')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return view('products.history', compact('logs', 'warehouses'));
     }
-
-    if ($request->filled('q')) {
-        $kw = trim($request->q);
-
-        $q->where(function ($sub) use ($kw, $orderTable, $orderCodeColumn, $hasNote) {
-            $sub->where('p.name', 'like', "%{$kw}%")
-                ->orWhere('p.sku', 'like', "%{$kw}%")
-                ->orWhere('w.name', 'like', "%{$kw}%")
-                ->orWhere('s.name', 'like', "%{$kw}%")
-                ->orWhere('m.reason', 'like', "%{$kw}%");
-
-            if ($hasNote) {
-                $sub->orWhere('m.note', 'like', "%{$kw}%");
-            }
-
-            if ($orderTable && $orderCodeColumn) {
-                $sub->orWhere('o.' . $orderCodeColumn, 'like', "%{$kw}%");
-            }
-        });
-    }
-
-    $select = [
-        'm.*',
-        'p.name as product_name',
-        'p.sku as product_sku',
-        'w.name as warehouse_name',
-        'u.name as user_name',
-        's.name as site_name',
-        $hasQtyBefore ? DB::raw('m.qty_before as qty_before_safe') : DB::raw('NULL as qty_before_safe'),
-        $hasQtyAfter ? DB::raw('m.qty_after as qty_after_safe') : DB::raw('NULL as qty_after_safe'),
-        DB::raw('COALESCE(ps.qty, 0) as current_qty'),
-    ];
-
-    if ($orderTable && $orderCodeColumn) {
-        $select[] = DB::raw('o.' . $orderCodeColumn . ' as order_code');
-    } else {
-        $select[] = DB::raw('NULL as order_code');
-    }
-
-    $logs = $q->select($select)
-        ->orderByDesc('m.created_at')
-        ->orderByDesc('m.id')
-        ->paginate(20)
-        ->withQueryString();
-
-    $warehouses = DB::table('crm_warehouses')
-        ->select('id', 'name')
-        ->orderBy('name')
-        ->get();
-
-    return view('products.history', compact('logs', 'warehouses'));
-}
-
 
     /**
      * CREATE
      */
     public function create(Request $request)
     {
-        $companies  = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
         $categories = ProductCategory::query()->orderBy('name')->get();
-        $brands     = Brand::query()->orderBy('name')->get();
+        $brands = Brand::query()->orderBy('name')->get();
 
-        $companyWarehouses = $this->loadCompanyWarehouses([1, 2]);
-        $priceTiers = $this->loadPriceTiers();
+        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([1, 2]);
+        $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         // formData đúng format blade bạn dùng
         $formData = [
@@ -1402,255 +914,259 @@ public function history(Request $request)
     /**
      * STORE
      */
- public function store(Request $request)
-{
-    DB::beginTransaction();
+    public function store(Request $request)
+    {
+        DB::beginTransaction();
 
-    try {
-        $request->validate([
-            'name'              => 'required|string|max:255',
-            'sku'               => 'required|string|max:255',
-            'cost_vat_percent'  => 'nullable|numeric|min:0|max:100',
-        ]);
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'sku' => 'required|string|max:255',
+                'cost_vat_percent' => 'nullable|numeric|min:0|max:100',
+            ]);
 
-                $data = $request->all();
+            $data = $request->all();
 
-        /*
-         * EGO INVENTORY V2:
-         * Mỗi dòng SKU trên giao diện sẽ tạo 1 sản phẩm/dòng tồn riêng.
-         * Không gộp theo tên sản phẩm.
-         */
-        if ($request->has('v2_lines') && !$request->boolean('group_edit_mode')) {
-            $v2Lines = array_values(array_filter((array) $request->input('v2_lines', []), function ($row) {
-                if (!is_array($row)) {
-                    return false;
-                }
-
-                return trim((string) ($row['sku'] ?? '')) !== ''
-                    || (int) ($row['qty_in'] ?? 0) > 0
-                    || (int) ($row['warehouse_id'] ?? 0) > 0;
-            }));
-
-            if (!empty($v2Lines)) {
-                foreach ($v2Lines as $lineIndex => $line) {
-                    $lineSku = trim((string) ($line['sku'] ?? ''));
-                $lineLotName = trim((string) ($line['lot_name'] ?? ''));
-                    $companyId = (int) ($line['company_id'] ?? 0);
-                    $warehouseId = (int) ($line['warehouse_id'] ?? 0);
-                    $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
-                    $serialCodes = $this->egoParseSerialCodes($line['serials'] ?? '');
-
-                    if (!empty($serialCodes)) {
-                        $qtyIn = count($serialCodes);
+            /*
+             * EGO INVENTORY V2:
+             * Mỗi dòng SKU trên giao diện sẽ tạo 1 sản phẩm/dòng tồn riêng.
+             * Không gộp theo tên sản phẩm.
+             */
+            if ($request->has('v2_lines') && ! $request->boolean('group_edit_mode')) {
+                $v2Lines = array_values(array_filter((array) $request->input('v2_lines', []), function ($row) {
+                    if (! is_array($row)) {
+                        return false;
                     }
 
-                    if ($lineSku === '') {
-                        throw new \Exception('Vui lòng nhập SKU cho dòng số ' . ($lineIndex + 1));
-                    }
+                    return trim((string) ($row['sku'] ?? '')) !== ''
+                        || (int) ($row['qty_in'] ?? 0) > 0
+                        || (int) ($row['warehouse_id'] ?? 0) > 0;
+                }));
 
-                    if ($companyId <= 0 || $warehouseId <= 0) {
-                        throw new \Exception('Vui lòng chọn công ty và kho cho SKU ' . $lineSku);
-                    }
+                if (! empty($v2Lines)) {
+                    foreach ($v2Lines as $lineIndex => $line) {
+                        $lineSku = trim((string) ($line['sku'] ?? ''));
+                        $lineLotName = trim((string) ($line['lot_name'] ?? ''));
+                        $companyId = (int) ($line['company_id'] ?? 0);
+                        $warehouseId = (int) ($line['warehouse_id'] ?? 0);
+                        $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
+                        $serialCodes = $this->egoParseSerialCodes($line['serials'] ?? '');
 
-                    $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
-                    $existingLineProduct = Product::where('sku', $finalSku)->first();
+                        if (! empty($serialCodes)) {
+                            $qtyIn = count($serialCodes);
+                        }
 
-                    $costBeforeVat = max(0, (float) ($line['cost_before_vat'] ?? 0));
-                    $costVatPercent = max(0, (float) ($line['cost_vat_percent'] ?? 0));
-                    $costAfterVat = round($costBeforeVat * (1 + $costVatPercent / 100), 2);
+                        if ($lineSku === '') {
+                            throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
+                        }
 
-                    $product = $existingLineProduct ?: new Product();
-                    $product->name = $data['name'] ?? '';
-                    $product->sku = $finalSku;
-                    $product->category_id = $data['category_id'] ?? null;
-                    $product->brand_id = $data['brand_id'] ?? null;
-                    $product->note = $data['note'] ?? null;
+                        if ($companyId <= 0 || $warehouseId <= 0) {
+                            throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$lineSku);
+                        }
 
-                    if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
-                        $product->warehouse_note = $data['warehouse_note'] ?? null;
-                    }
+                        $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
+                        $existingLineProduct = Product::where('sku', $finalSku)->first();
 
-                    $product->price_agent = $costBeforeVat;
+                        $costBeforeVat = max(0, (float) ($line['cost_before_vat'] ?? 0));
+                        $costVatPercent = max(0, (float) ($line['cost_vat_percent'] ?? 0));
+                        $costAfterVat = round($costBeforeVat * (1 + $costVatPercent / 100), 2);
 
-                    if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
-                        $product->cost_vat_percent = $costVatPercent;
-                    }
+                        $product = $existingLineProduct ?: new Product;
+                        $product->name = $data['name'] ?? '';
+                        $product->sku = $finalSku;
+                        $product->category_id = $data['category_id'] ?? null;
+                        $product->brand_id = $data['brand_id'] ?? null;
+                        $product->note = $data['note'] ?? null;
 
-                    if (Schema::hasColumn($product->getTable(), 'price_agent_vat')) {
-                        $product->price_agent_vat = $costAfterVat;
-                    } else {
-                        $product->price_agent_vat = $costAfterVat;
-                    }
+                        if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
+                            $product->warehouse_note = $data['warehouse_note'] ?? null;
+                        }
 
-                    $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
-                    $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
+                        $product->price_agent = $costBeforeVat;
 
-                    if (Schema::hasColumn($product->getTable(), 'price_retail')) {
-                        $product->price_retail = $retailBeforeVat;
-                    }
+                        if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
+                            $product->cost_vat_percent = $costVatPercent;
+                        }
 
-                    if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
-                        $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
-                    }
+                        if (Schema::hasColumn($product->getTable(), 'price_agent_vat')) {
+                            $product->price_agent_vat = $costAfterVat;
+                        } else {
+                            $product->price_agent_vat = $costAfterVat;
+                        }
 
-                    if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
-                        $product->vat_percent = $retailVat;
-                    }
+                        $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
+                        $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
 
-                    $product->is_serialized = (!empty($data['is_serialized']) || !empty($serialCodes)) ? 1 : 0;
-                    $product->is_active = 1;
-                    $product->save();
+                        if (Schema::hasColumn($product->getTable(), 'price_retail')) {
+                            $product->price_retail = $retailBeforeVat;
+                        }
 
-                    $lotRequest = new Request($request->all());
-                    $lotRequest->merge([
-                        'initial_lots' => [
-                            [
-                                'company_id' => $companyId,
-                                'warehouse_id' => $warehouseId,
-                                'qty_in' => $qtyIn,
-                                'cost_before_vat' => $costBeforeVat,
-                                'cost_vat_percent' => $costVatPercent,
-                                'extra_cost' => (float) ($line['extra_cost'] ?? 0),
-                                'received_at' => $line['received_at'] ?? now()->toDateString(),
-                                'lot_name' => 'Dòng tồn V2 - ' . $finalSku,
-                                'lot_code' => '',
-                                'note' => $line['note'] ?? null,
+                        if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
+                            $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
+                        }
+
+                        if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
+                            $product->vat_percent = $retailVat;
+                        }
+
+                        $product->is_serialized = (! empty($data['is_serialized']) || ! empty($serialCodes)) ? 1 : 0;
+                        $product->is_active = 1;
+                        $product->save();
+
+                        $lotRequest = new Request($request->all());
+                        $lotRequest->merge([
+                            'initial_lots' => [
+                                [
+                                    'company_id' => $companyId,
+                                    'warehouse_id' => $warehouseId,
+                                    'qty_in' => $qtyIn,
+                                    'cost_before_vat' => $costBeforeVat,
+                                    'cost_vat_percent' => $costVatPercent,
+                                    'extra_cost' => (float) ($line['extra_cost'] ?? 0),
+                                    'received_at' => $line['received_at'] ?? now()->toDateString(),
+                                    'lot_name' => 'Dòng tồn V2 - '.$finalSku,
+                                    'lot_code' => '',
+                                    'note' => $line['note'] ?? null,
+                                ],
                             ],
-                        ],
-                    ]);
+                        ]);
 
-                    $this->saveTierPricesFromRequest((int) $product->id, $request);
-                    $this->saveInitialLotsFromCreateRequest($product, $lotRequest);
+                        $this->saveTierPricesFromRequest((int) $product->id, $request);
+                        $this->saveInitialLotsFromCreateRequest($product, $lotRequest);
 
-                    if (!empty($serialCodes)) {
-                        $this->egoCreateSerialsForProduct(
-                            (int) $product->id,
-                            $warehouseId,
-                            $companyId,
-                            $serialCodes,
-                            $line['note'] ?? null
-                        );
+                        if (! empty($serialCodes)) {
+                            $this->egoCreateSerialsForProduct(
+                                (int) $product->id,
+                                $warehouseId,
+                                $companyId,
+                                $serialCodes,
+                                $line['note'] ?? null
+                            );
+                        }
                     }
+
+                    DB::commit();
+
+                    return redirect()
+                        ->route('products.input')
+                        ->with('success', 'Đã tạo '.count($v2Lines).' dòng tồn kho V2.');
+                }
+            }
+
+            $sku = trim((string) ($data['sku'] ?? ''));
+
+            /*
+            |--------------------------------------------------------------------------
+            | Quy tắc V2
+            |--------------------------------------------------------------------------
+            | - Tên sản phẩm có thể trùng.
+            | - SKU là khóa phân biệt sản phẩm.
+            | - Nếu nhập lại cùng SKU: không tạo product trùng, không ghi đè giá vốn cũ,
+            |   chỉ tạo dòng tồn/lô mới với giá vốn + chi phí riêng.
+            */
+            $product = Product::where('sku', $sku)->first();
+            $isExistingSku = (bool) $product;
+
+            if (! $product) {
+                $product = new Product;
+                $product->name = $data['name'] ?? '';
+                $product->sku = $sku;
+                $product->category_id = $data['category_id'] ?? null;
+                $product->brand_id = $data['brand_id'] ?? null;
+                $product->note = $data['note'] ?? null;
+
+                if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
+                    $product->warehouse_note = $data['warehouse_note'] ?? null;
                 }
 
-                DB::commit();
+                $costBeforeVat = isset($data['price_agent']) ? (float) $data['price_agent'] : 0;
+                $costVat = isset($data['cost_vat_percent']) ? (float) $data['cost_vat_percent'] : 0;
 
-                return redirect()
-                    ->route('products.input')
-                    ->with('success', 'Đã tạo ' . count($v2Lines) . ' dòng tồn kho V2.');
-            }
-        }
+                $product->price_agent = $costBeforeVat;
 
-        $sku = trim((string) ($data['sku'] ?? ''));
+                if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
+                    $product->cost_vat_percent = $costVat;
+                }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Quy tắc V2
-        |--------------------------------------------------------------------------
-        | - Tên sản phẩm có thể trùng.
-        | - SKU là khóa phân biệt sản phẩm.
-        | - Nếu nhập lại cùng SKU: không tạo product trùng, không ghi đè giá vốn cũ,
-        |   chỉ tạo dòng tồn/lô mới với giá vốn + chi phí riêng.
-        */
-        $product = Product::where('sku', $sku)->first();
-        $isExistingSku = (bool) $product;
+                $product->price_agent_vat = $costBeforeVat * (1 + $costVat / 100);
 
-        if (!$product) {
-            $product = new Product();
-            $product->name        = $data['name'] ?? '';
-            $product->sku         = $sku;
-            $product->category_id = $data['category_id'] ?? null;
-            $product->brand_id    = $data['brand_id'] ?? null;
-            $product->note        = $data['note'] ?? null;
+                $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
+                $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
 
-            if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
-                $product->warehouse_note = $data['warehouse_note'] ?? null;
-            }
+                if (Schema::hasColumn($product->getTable(), 'price_retail')) {
+                    $product->price_retail = $retailBeforeVat;
+                }
 
-            $costBeforeVat = isset($data['price_agent']) ? (float) $data['price_agent'] : 0;
-            $costVat = isset($data['cost_vat_percent']) ? (float) $data['cost_vat_percent'] : 0;
+                if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
+                    $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
+                }
 
-            $product->price_agent = $costBeforeVat;
+                if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
+                    $product->vat_percent = $retailVat;
+                }
 
-            if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
-                $product->cost_vat_percent = $costVat;
-            }
-
-            $product->price_agent_vat = $costBeforeVat * (1 + $costVat / 100);
-
-            $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
-            $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
-
-            if (Schema::hasColumn($product->getTable(), 'price_retail')) {
-                $product->price_retail = $retailBeforeVat;
-            }
-
-            if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
-                $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
-            }
-
-            if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
-                $product->vat_percent = $retailVat;
-            }
-
-            $product->is_serialized = !empty($data['is_serialized']) ? 1 : 0;
-            $product->is_active     = 1;
-            $product->save();
-
-            $this->saveTierPricesFromRequest((int) $product->id, $request);
-        } else {
-            if (Schema::hasColumn($product->getTable(), 'is_active') && (int) ($product->is_active ?? 1) !== 1) {
+                $product->is_serialized = ! empty($data['is_serialized']) ? 1 : 0;
                 $product->is_active = 1;
                 $product->save();
-            }
-        }
 
-        $serialCodes = $this->egoParseSerialCodes($request->input('serials', ''));
-
-        if (!empty($serialCodes)) {
-            $product->is_serialized = 1;
-            $product->save();
-        }
-
-        $this->saveStocksFromRequest((int) $product->id, $request);
-        $this->saveInitialLotsFromCreateRequest($product, $request);
-
-        if (!empty($serialCodes)) {
-            $warehouseId = (int) $request->input('warehouse_id', 0);
-            $companyId = (int) $request->input('company_id', 0);
-
-            if ($warehouseId <= 0) {
-                $firstLot = (array) $request->input('initial_lots.0', []);
-                $warehouseId = (int) ($firstLot['warehouse_id'] ?? 0);
-                $companyId = (int) ($firstLot['company_id'] ?? $companyId);
+                $this->saveTierPricesFromRequest((int) $product->id, $request);
+            } else {
+                if (Schema::hasColumn($product->getTable(), 'is_active') && (int) ($product->is_active ?? 1) !== 1) {
+                    $product->is_active = 1;
+                    $product->save();
+                }
             }
 
-            if ($warehouseId <= 0) {
-                throw new \Exception('Vui lòng chọn kho trước khi nhập serial.');
+            $serialCodes = $this->egoParseSerialCodes($request->input('serials', ''));
+
+            if (! empty($serialCodes)) {
+                $product->is_serialized = 1;
+                $product->save();
             }
 
-            $this->egoCreateSerialsForProduct(
-                (int) $product->id,
-                $warehouseId,
-                $companyId > 0 ? $companyId : null,
-                $serialCodes,
-                $request->input('note')
-            );
+            $this->saveStocksFromRequest((int) $product->id, $request);
+            $this->saveInitialLotsFromCreateRequest($product, $request);
+
+            if (! empty($serialCodes)) {
+                $warehouseId = (int) $request->input('warehouse_id', 0);
+                $companyId = (int) $request->input('company_id', 0);
+
+                if ($warehouseId <= 0) {
+                    $firstLot = (array) $request->input('initial_lots.0', []);
+                    $warehouseId = (int) ($firstLot['warehouse_id'] ?? 0);
+                    $companyId = (int) ($firstLot['company_id'] ?? $companyId);
+                }
+
+                if ($warehouseId <= 0) {
+                    throw new \Exception('Vui lòng chọn kho trước khi nhập serial.');
+                }
+
+                $this->egoCreateSerialsForProduct(
+                    (int) $product->id,
+                    $warehouseId,
+                    $companyId > 0 ? $companyId : null,
+                    $serialCodes,
+                    $request->input('note')
+                );
+            }
+
+            DB::commit();
+
+            $message = $isExistingSku
+                ? 'SKU đã tồn tại nên hệ thống chỉ tạo dòng tồn/lô mới, không ghi đè giá vốn hoặc giá bán cũ.'
+                : 'Đã tạo sản phẩm và dòng tồn theo SKU.';
+
+            return redirect()->route('products.index')->with('success', $message);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return back()->withInput()->with('error', 'Lỗi tạo sản phẩm: '.$e->getMessage());
         }
-
-        DB::commit();
-
-        $message = $isExistingSku
-            ? 'SKU đã tồn tại nên hệ thống chỉ tạo dòng tồn/lô mới, không ghi đè giá vốn hoặc giá bán cũ.'
-            : 'Đã tạo sản phẩm và dòng tồn theo SKU.';
-
-        return redirect()->route('products.index')->with('success', $message);
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->withInput()->with('error', 'Lỗi tạo sản phẩm: ' . $e->getMessage());
     }
-}
 
+    /**
+     * Tách chuỗi serial nhập tay (phân cách bởi xuống dòng, phẩy, chấm phẩy) thành mảng mã duy nhất.
+     */
     private function egoParseSerialCodes($text): array
     {
         $parts = preg_split('/[\r\n,;]+/', (string) $text);
@@ -1666,6 +1182,10 @@ public function history(Request $request)
         return array_values(array_unique($codes));
     }
 
+    /**
+     * Tạo serial mới cho sản phẩm tại kho: sinh unit, identifier, trạng thái in_stock và sự kiện bảo hành "receive".
+     * Ném exception nếu thiếu bảng serial hoặc mã serial đã tồn tại.
+     */
     private function egoCreateSerialsForProduct(int $productId, int $warehouseId, ?int $companyId, array $codes, ?string $note = null): void
     {
         if (empty($codes)) {
@@ -1678,8 +1198,8 @@ public function history(Request $request)
             'crm_serial_unit_identifiers',
             'crm_serial_unit_states',
         ] as $table) {
-            if (!Schema::hasTable($table)) {
-                throw new \Exception('Thiếu bảng serial: ' . $table);
+            if (! Schema::hasTable($table)) {
+                throw new \Exception('Thiếu bảng serial: '.$table);
             }
         }
 
@@ -1688,8 +1208,8 @@ public function history(Request $request)
             ->pluck('code')
             ->all();
 
-        if (!empty($existing)) {
-            throw new \Exception('Serial đã tồn tại: ' . implode(', ', $existing));
+        if (! empty($existing)) {
+            throw new \Exception('Serial đã tồn tại: '.implode(', ', $existing));
         }
 
         foreach ($codes as $code) {
@@ -1753,12 +1273,11 @@ public function history(Request $request)
         }
     }
 
-
     /**
      * UPDATE
      */
- public function update(Request $request, $id)
-{
+    public function update(Request $request, $id)
+    {
 
         /* EGO_FIX_UPDATE_GROUP_QTY_NO_DUPLICATE */
         if ($request->boolean('group_edit_mode')) {
@@ -1791,14 +1310,14 @@ public function history(Request $request)
                     $baseSku = preg_replace('/-(?:LOT|NEW)20[0-9]{12,14}(?:-[0-9]+)?$/', '', $rawSku);
 
                     if ($baseSku === '') {
-                        throw new \Exception('Vui lòng nhập SKU cho dòng số ' . ($lineIndex + 1));
+                        throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
                     }
 
                     $companyId = (int) ($line['company_id'] ?? 0);
                     $warehouseId = (int) ($line['warehouse_id'] ?? 0);
 
                     if ($companyId <= 0 || $warehouseId <= 0) {
-                        throw new \Exception('Vui lòng chọn công ty và kho cho SKU ' . $baseSku);
+                        throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$baseSku);
                     }
 
                     $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
@@ -1817,7 +1336,7 @@ public function history(Request $request)
                         $lineProduct = Product::where('id', $lineProductId)->lockForUpdate()->first();
                     }
 
-                    if (!$lineProduct && $lineLotId > 0 && Schema::hasTable('crm_product_stock_lots')) {
+                    if (! $lineProduct && $lineLotId > 0 && Schema::hasTable('crm_product_stock_lots')) {
                         $lotProductId = DB::table('crm_product_stock_lots')->where('id', $lineLotId)->value('product_id');
 
                         if ($lotProductId) {
@@ -1825,15 +1344,15 @@ public function history(Request $request)
                         }
                     }
 
-                    if (!$lineProduct) {
+                    if (! $lineProduct) {
                         $lineProduct = Product::where('sku', $baseSku)->lockForUpdate()->first();
                     }
 
                     $isNewProduct = false;
 
-                    if (!$lineProduct) {
+                    if (! $lineProduct) {
                         $isNewProduct = true;
-                        $lineProduct = new Product();
+                        $lineProduct = new Product;
                     }
 
                     $finalSku = $baseSku;
@@ -1841,7 +1360,7 @@ public function history(Request $request)
                     if ($isNewProduct) {
                         $suffix = 1;
                         while (Product::where('sku', $finalSku)->exists()) {
-                            $finalSku = $baseSku . '-NEW' . now()->format('YmdHis') . '-' . $suffix;
+                            $finalSku = $baseSku.'-NEW'.now()->format('YmdHis').'-'.$suffix;
                             $suffix++;
                         }
                     }
@@ -1925,7 +1444,7 @@ public function history(Request $request)
                         ];
 
                         if (Schema::hasColumn('crm_product_stock_lots', 'lot_name')) {
-                            $lotData['lot_name'] = $lineLotName !== '' ? $lineLotName : ('Dòng tồn / SKU ' . ($lineIndex + 1));
+                            $lotData['lot_name'] = $lineLotName !== '' ? $lineLotName : ('Dòng tồn / SKU '.($lineIndex + 1));
                         }
 
                         if (Schema::hasColumn('crm_product_stock_lots', 'note')) {
@@ -1950,9 +1469,9 @@ public function history(Request $request)
                         $manualChangeQty = $qtyIn - $oldLotQty;
 
                         if ($manualChangeQty !== 0) {
-                            $stockCacheKey = (int) $lineProduct->id . ':' . $companyId . ':' . $warehouseId;
+                            $stockCacheKey = (int) $lineProduct->id.':'.$companyId.':'.$warehouseId;
 
-                            if (!array_key_exists($stockCacheKey, $egoManualStockRunning)) {
+                            if (! array_key_exists($stockCacheKey, $egoManualStockRunning)) {
                                 $egoManualStockRunning[$stockCacheKey] = $this->egoCurrentStockQtyForHistory((int) $lineProduct->id, $companyId, $warehouseId);
                             }
 
@@ -2021,219 +1540,226 @@ public function history(Request $request)
 
                 return redirect()
                     ->route('products.input')
-                    ->with('success', 'Đã cập nhật số lượng / giá vốn cho ' . count($lines) . ' dòng tồn.');
+                    ->with('success', 'Đã cập nhật số lượng / giá vốn cho '.count($lines).' dòng tồn.');
             } catch (\Throwable $e) {
                 DB::rollBack();
 
                 return back()
                     ->withInput()
-                    ->with('error', 'Lỗi lưu dòng tồn: ' . $e->getMessage());
+                    ->with('error', 'Lỗi lưu dòng tồn: '.$e->getMessage());
             }
         }
 
+        DB::beginTransaction();
+        try {
+            $product = Product::findOrFail($id);
 
-    DB::beginTransaction();
-    try {
-        $product = Product::findOrFail($id);
-
-        if ($request->filled('fifo_action')) {
-            $message = $this->handleFifoLotAction($product, $request);
-
-            DB::commit();
-
-            return back()->with('success', $message);
-        }
-
-        $request->validate([
-            'name'              => 'required|string|max:255',
-            'sku'               => 'required|string|max:255',
-            'cost_vat_percent'  => 'nullable|numeric|min:0|max:100',
-        ]);
-
-                $data = $request->all();
-
-        /*
-         * EGO INVENTORY V2:
-         * Mỗi dòng SKU trên giao diện sẽ tạo 1 sản phẩm/dòng tồn riêng.
-         * Không gộp theo tên sản phẩm.
-         */
-        if ($request->has('v2_lines') && !$request->boolean('group_edit_mode')) {
-            $v2Lines = array_values(array_filter((array) $request->input('v2_lines', []), function ($row) {
-                if (!is_array($row)) {
-                    return false;
-                }
-
-                return trim((string) ($row['sku'] ?? '')) !== ''
-                    || (int) ($row['qty_in'] ?? 0) > 0
-                    || (int) ($row['warehouse_id'] ?? 0) > 0;
-            }));
-
-            if (!empty($v2Lines)) {
-                foreach ($v2Lines as $lineIndex => $line) {
-                    $lineSku = trim((string) ($line['sku'] ?? ''));
-                    $companyId = (int) ($line['company_id'] ?? 0);
-                    $warehouseId = (int) ($line['warehouse_id'] ?? 0);
-                    $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
-
-                    if ($lineSku === '') {
-                        throw new \Exception('Vui lòng nhập SKU cho dòng số ' . ($lineIndex + 1));
-                    }
-
-                    if ($companyId <= 0 || $warehouseId <= 0) {
-                        throw new \Exception('Vui lòng chọn công ty và kho cho SKU ' . $lineSku);
-                    }
-
-                    $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
-                    $existingLineProduct = Product::where('sku', $finalSku)->first();
-
-                    $costBeforeVat = max(0, (float) ($line['cost_before_vat'] ?? 0));
-                    $costVatPercent = max(0, (float) ($line['cost_vat_percent'] ?? 0));
-                    $costAfterVat = round($costBeforeVat * (1 + $costVatPercent / 100), 2);
-
-                    $product = $existingLineProduct ?: new Product();
-                    $product->name = $data['name'] ?? '';
-                    $product->sku = $finalSku;
-                    $product->category_id = $data['category_id'] ?? null;
-                    $product->brand_id = $data['brand_id'] ?? null;
-                    $product->note = $data['note'] ?? null;
-
-                    if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
-                        $product->warehouse_note = $data['warehouse_note'] ?? null;
-                    }
-
-                    $product->price_agent = $costBeforeVat;
-
-                    if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
-                        $product->cost_vat_percent = $costVatPercent;
-                    }
-
-                    if (Schema::hasColumn($product->getTable(), 'price_agent_vat')) {
-                        $product->price_agent_vat = $costAfterVat;
-                    } else {
-                        $product->price_agent_vat = $costAfterVat;
-                    }
-
-                    $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
-                    $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
-
-                    if (Schema::hasColumn($product->getTable(), 'price_retail')) {
-                        $product->price_retail = $retailBeforeVat;
-                    }
-
-                    if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
-                        $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
-                    }
-
-                    if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
-                        $product->vat_percent = $retailVat;
-                    }
-
-                    $product->is_serialized = !empty($data['is_serialized']) ? 1 : 0;
-                    $product->is_active = 1;
-                    $product->save();
-
-                    $lotRequest = new Request($request->all());
-                    $lotRequest->merge([
-                        'initial_lots' => [
-                            [
-                                'company_id' => $companyId,
-                                'warehouse_id' => $warehouseId,
-                                'qty_in' => $qtyIn,
-                                'cost_before_vat' => $costBeforeVat,
-                                'cost_vat_percent' => $costVatPercent,
-                                'extra_cost' => (float) ($line['extra_cost'] ?? 0),
-                                'received_at' => $line['received_at'] ?? now()->toDateString(),
-                                'lot_name' => 'Dòng tồn V2 - ' . $finalSku,
-                                'lot_code' => '',
-                                'note' => $line['note'] ?? null,
-                            ],
-                        ],
-                    ]);
-
-                    $this->saveTierPricesFromRequest((int) $product->id, $request);
-                    $this->saveInitialLotsFromCreateRequest($product, $lotRequest);
-                }
+            if ($request->filled('fifo_action')) {
+                $message = $this->handleFifoLotAction($product, $request);
 
                 DB::commit();
 
-                return redirect()
-                    ->route('products.input')
-                    ->with('success', 'Đã tạo ' . count($v2Lines) . ' dòng tồn kho V2.');
+                return back()->with('success', $message);
             }
-        }
 
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'sku' => 'required|string|max:255',
+                'cost_vat_percent' => 'nullable|numeric|min:0|max:100',
+            ]);
 
-        $product->name        = $data['name'] ?? $product->name;
-        $product->sku         = $data['sku'] ?? $product->sku;
-        $product->category_id = $data['category_id'] ?? $product->category_id;
-        $product->brand_id    = $data['brand_id'] ?? $product->brand_id;
-        $product->note        = $data['note'] ?? $product->note;
+            $data = $request->all();
 
-        if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
-            $product->warehouse_note = $data['warehouse_note'] ?? $product->warehouse_note;
-        }
+            /*
+             * EGO INVENTORY V2:
+             * Mỗi dòng SKU trên giao diện sẽ tạo 1 sản phẩm/dòng tồn riêng.
+             * Không gộp theo tên sản phẩm.
+             */
+            if ($request->has('v2_lines') && ! $request->boolean('group_edit_mode')) {
+                $v2Lines = array_values(array_filter((array) $request->input('v2_lines', []), function ($row) {
+                    if (! is_array($row)) {
+                        return false;
+                    }
 
-        // Giá vốn trước VAT
-        if (isset($data['price_agent'])) {
-            $product->price_agent = (float) $data['price_agent'];
-        }
+                    return trim((string) ($row['sku'] ?? '')) !== ''
+                        || (int) ($row['qty_in'] ?? 0) > 0
+                        || (int) ($row['warehouse_id'] ?? 0) > 0;
+                }));
 
-        // VAT của giá vốn
-        $costVat = 0;
-        if (isset($data['cost_vat_percent'])) {
-            $costVat = (float) $data['cost_vat_percent'];
+                if (! empty($v2Lines)) {
+                    foreach ($v2Lines as $lineIndex => $line) {
+                        $lineSku = trim((string) ($line['sku'] ?? ''));
+                        $companyId = (int) ($line['company_id'] ?? 0);
+                        $warehouseId = (int) ($line['warehouse_id'] ?? 0);
+                        $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
 
-            if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
-                $product->cost_vat_percent = $costVat;
+                        if ($lineSku === '') {
+                            throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
+                        }
+
+                        if ($companyId <= 0 || $warehouseId <= 0) {
+                            throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$lineSku);
+                        }
+
+                        $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
+                        $existingLineProduct = Product::where('sku', $finalSku)->first();
+
+                        $costBeforeVat = max(0, (float) ($line['cost_before_vat'] ?? 0));
+                        $costVatPercent = max(0, (float) ($line['cost_vat_percent'] ?? 0));
+                        $costAfterVat = round($costBeforeVat * (1 + $costVatPercent / 100), 2);
+
+                        $product = $existingLineProduct ?: new Product;
+                        $product->name = $data['name'] ?? '';
+                        $product->sku = $finalSku;
+                        $product->category_id = $data['category_id'] ?? null;
+                        $product->brand_id = $data['brand_id'] ?? null;
+                        $product->note = $data['note'] ?? null;
+
+                        if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
+                            $product->warehouse_note = $data['warehouse_note'] ?? null;
+                        }
+
+                        $product->price_agent = $costBeforeVat;
+
+                        if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
+                            $product->cost_vat_percent = $costVatPercent;
+                        }
+
+                        if (Schema::hasColumn($product->getTable(), 'price_agent_vat')) {
+                            $product->price_agent_vat = $costAfterVat;
+                        } else {
+                            $product->price_agent_vat = $costAfterVat;
+                        }
+
+                        $retailBeforeVat = isset($data['price_retail']) ? (float) $data['price_retail'] : 0;
+                        $retailVat = isset($data['vat_percent']) ? (float) $data['vat_percent'] : 0;
+
+                        if (Schema::hasColumn($product->getTable(), 'price_retail')) {
+                            $product->price_retail = $retailBeforeVat;
+                        }
+
+                        if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
+                            $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
+                        }
+
+                        if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
+                            $product->vat_percent = $retailVat;
+                        }
+
+                        $product->is_serialized = ! empty($data['is_serialized']) ? 1 : 0;
+                        $product->is_active = 1;
+                        $product->save();
+
+                        $lotRequest = new Request($request->all());
+                        $lotRequest->merge([
+                            'initial_lots' => [
+                                [
+                                    'company_id' => $companyId,
+                                    'warehouse_id' => $warehouseId,
+                                    'qty_in' => $qtyIn,
+                                    'cost_before_vat' => $costBeforeVat,
+                                    'cost_vat_percent' => $costVatPercent,
+                                    'extra_cost' => (float) ($line['extra_cost'] ?? 0),
+                                    'received_at' => $line['received_at'] ?? now()->toDateString(),
+                                    'lot_name' => 'Dòng tồn V2 - '.$finalSku,
+                                    'lot_code' => '',
+                                    'note' => $line['note'] ?? null,
+                                ],
+                            ],
+                        ]);
+
+                        $this->saveTierPricesFromRequest((int) $product->id, $request);
+                        $this->saveInitialLotsFromCreateRequest($product, $lotRequest);
+                    }
+
+                    DB::commit();
+
+                    return redirect()
+                        ->route('products.input')
+                        ->with('success', 'Đã tạo '.count($v2Lines).' dòng tồn kho V2.');
+                }
             }
-        } else {
-            if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
-                $costVat = (float) ($product->cost_vat_percent ?? 0);
+
+            $product->name = $data['name'] ?? $product->name;
+            $product->sku = $data['sku'] ?? $product->sku;
+            $product->category_id = $data['category_id'] ?? $product->category_id;
+            $product->brand_id = $data['brand_id'] ?? $product->brand_id;
+            $product->note = $data['note'] ?? $product->note;
+
+            if (Schema::hasColumn($product->getTable(), 'warehouse_note')) {
+                $product->warehouse_note = $data['warehouse_note'] ?? $product->warehouse_note;
             }
+
+            // Giá vốn trước VAT
+            if (isset($data['price_agent'])) {
+                $product->price_agent = (float) $data['price_agent'];
+            }
+
+            // VAT của giá vốn
+            $costVat = 0;
+            if (isset($data['cost_vat_percent'])) {
+                $costVat = (float) $data['cost_vat_percent'];
+
+                if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
+                    $product->cost_vat_percent = $costVat;
+                }
+            } else {
+                if (Schema::hasColumn($product->getTable(), 'cost_vat_percent')) {
+                    $costVat = (float) ($product->cost_vat_percent ?? 0);
+                }
+            }
+
+            // Tính lại giá vốn sau VAT
+            $product->price_agent_vat = (float) ($product->price_agent ?? 0) * (1 + $costVat / 100);
+
+            // Giá bán mặc định
+            $retailBeforeVat = isset($data['price_retail'])
+                ? (float) $data['price_retail']
+                : (float) ($product->price_retail ?? 0);
+
+            $retailVat = isset($data['vat_percent'])
+                ? (float) $data['vat_percent']
+                : (float) ($product->vat_percent ?? 0);
+
+            if (Schema::hasColumn($product->getTable(), 'price_retail')) {
+                $product->price_retail = $retailBeforeVat;
+            }
+
+            if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
+                $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
+            }
+
+            if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
+                $product->vat_percent = $retailVat;
+            }
+            $product->is_serialized = ! empty($data['is_serialized']) ? 1 : 0;
+
+            $product->save();
+
+            $this->saveStocksFromRequest((int) $product->id, $request);
+            $this->saveTierPricesFromRequest((int) $product->id, $request);
+
+            DB::commit();
+
+            return back()->with('success', 'Đã cập nhật sản phẩm');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return back()->withInput()->with('error', 'Lỗi cập nhật sản phẩm: '.$e->getMessage());
         }
-
-        // Tính lại giá vốn sau VAT
-        $product->price_agent_vat = (float) ($product->price_agent ?? 0) * (1 + $costVat / 100);
-
-        // Giá bán mặc định
-$retailBeforeVat = isset($data['price_retail'])
-    ? (float) $data['price_retail']
-    : (float) ($product->price_retail ?? 0);
-
-$retailVat = isset($data['vat_percent'])
-    ? (float) $data['vat_percent']
-    : (float) ($product->vat_percent ?? 0);
-
-if (Schema::hasColumn($product->getTable(), 'price_retail')) {
-    $product->price_retail = $retailBeforeVat;
-}
-
-if (Schema::hasColumn($product->getTable(), 'price_retail_vat')) {
-    $product->price_retail_vat = $retailBeforeVat * (1 + $retailVat / 100);
-}
-
-if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
-    $product->vat_percent = $retailVat;
-}
-        $product->is_serialized = !empty($data['is_serialized']) ? 1 : 0;
-
-        $product->save();
-
-        $this->saveStocksFromRequest((int) $product->id, $request);
-        $this->saveTierPricesFromRequest((int) $product->id, $request);
-
-        DB::commit();
-        return back()->with('success', 'Đã cập nhật sản phẩm');
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->withInput()->with('error', 'Lỗi cập nhật sản phẩm: ' . $e->getMessage());
     }
-}
+
+    /**
+     * Tính giá vốn sau VAT của lô từ giá trước VAT và % VAT.
+     */
     private function lotCostAfterVat(float $beforeVat, float $vatPercent): float
     {
         return round($beforeVat * (1 + max(0, $vatPercent) / 100), 2);
     }
 
+    /**
+     * Cộng/trừ tồn kho tổng (crm_product_stock) theo thay đổi từ lô và ghi stock movement; chặn tồn âm.
+     */
     private function changeProductStockFromLot(
         int $productId,
         int $companyId,
@@ -2247,8 +1773,8 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         }
 
         $stock = ProductStock::where([
-            'product_id'   => $productId,
-            'company_id'   => $companyId,
+            'product_id' => $productId,
+            'company_id' => $companyId,
             'warehouse_id' => $warehouseId,
         ])->lockForUpdate()->first();
 
@@ -2256,17 +1782,17 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         $newQty = $oldQty + $changeQty;
 
         if ($newQty < 0) {
-            throw new \Exception("Không đủ tồn kho tổng để giảm. Tồn hiện tại {$oldQty}, cần giảm " . abs($changeQty));
+            throw new \Exception("Không đủ tồn kho tổng để giảm. Tồn hiện tại {$oldQty}, cần giảm ".abs($changeQty));
         }
 
         ProductStock::updateOrCreate(
             [
-                'product_id'   => $productId,
-                'company_id'   => $companyId,
+                'product_id' => $productId,
+                'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
             ],
             [
-                'qty'          => $newQty,
+                'qty' => $newQty,
                 'last_updated' => now(),
             ]
         );
@@ -2302,12 +1828,15 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
             $addColumn('created_at', now());
             $addColumn('updated_at', now());
 
-            if (!empty($movement)) {
+            if (! empty($movement)) {
                 DB::table('crm_stock_movements')->insert($movement);
             }
         }
     }
 
+    /**
+     * Ghi log audit thay đổi số lượng lô vào crm_stock_movements (chỉ ghi các cột đang tồn tại trong bảng).
+     */
     private function logStockLotAudit(
         int $productId,
         int $companyId,
@@ -2317,7 +1846,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         int $qtyAfter,
         string $reason
     ): void {
-        if (!Schema::hasTable('crm_stock_movements')) {
+        if (! Schema::hasTable('crm_stock_movements')) {
             return;
         }
 
@@ -2325,26 +1854,53 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         $has = fn (string $column): bool => in_array($column, $columns, true);
         $payload = [];
 
-        if ($has('product_id')) $payload['product_id'] = $productId;
-        if ($has('company_id')) $payload['company_id'] = $companyId;
-        if ($has('warehouse_id')) $payload['warehouse_id'] = $warehouseId;
-        if ($has('change_qty')) $payload['change_qty'] = $qtyAfter - $qtyBefore;
-        if ($has('qty_before')) $payload['qty_before'] = $qtyBefore;
-        if ($has('qty_after')) $payload['qty_after'] = $qtyAfter;
-        if ($has('reason')) $payload['reason'] = $reason;
-        if ($has('reference_id')) $payload['reference_id'] = $lotId;
-        if ($has('created_by')) $payload['created_by'] = auth()->id();
-        if ($has('created_at')) $payload['created_at'] = now();
-        if ($has('updated_at')) $payload['updated_at'] = now();
+        if ($has('product_id')) {
+            $payload['product_id'] = $productId;
+        }
+        if ($has('company_id')) {
+            $payload['company_id'] = $companyId;
+        }
+        if ($has('warehouse_id')) {
+            $payload['warehouse_id'] = $warehouseId;
+        }
+        if ($has('change_qty')) {
+            $payload['change_qty'] = $qtyAfter - $qtyBefore;
+        }
+        if ($has('qty_before')) {
+            $payload['qty_before'] = $qtyBefore;
+        }
+        if ($has('qty_after')) {
+            $payload['qty_after'] = $qtyAfter;
+        }
+        if ($has('reason')) {
+            $payload['reason'] = $reason;
+        }
+        if ($has('reference_id')) {
+            $payload['reference_id'] = $lotId;
+        }
+        if ($has('created_by')) {
+            $payload['created_by'] = auth()->id();
+        }
+        if ($has('created_at')) {
+            $payload['created_at'] = now();
+        }
+        if ($has('updated_at')) {
+            $payload['updated_at'] = now();
+        }
 
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             DB::table('crm_stock_movements')->insert($payload);
         }
     }
 
+    /**
+     * Xử lý các hành động lô FIFO từ form sản phẩm (add_lot, adjust_lot_qty, update_lot_cost, delete_lot).
+     *
+     * @return string Thông báo kết quả hiển thị cho người dùng
+     */
     private function handleFifoLotAction(Product $product, Request $request): string
     {
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             throw new \Exception('Chưa có bảng crm_product_stock_lots.');
         }
 
@@ -2371,7 +1927,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
             }
 
             if ($lotCode === '') {
-                $lotCode = 'LOT-P' . $product->id . '-W' . $warehouseId . '-' . now()->format('YmdHis');
+                $lotCode = 'LOT-P'.$product->id.'-W'.$warehouseId.'-'.now()->format('YmdHis');
             }
 
             if ($lotName === '') {
@@ -2445,7 +2001,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 ->lockForUpdate()
                 ->first();
 
-            if (!$lot) {
+            if (! $lot) {
                 throw new \Exception('Không tìm thấy lô cần điều chỉnh.');
             }
 
@@ -2454,7 +2010,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
             $newRemain = $oldRemain + $changeQty;
 
             if ($newRemain < 0) {
-                throw new \Exception("Lô không đủ số lượng để giảm. Còn {$oldRemain}, cần giảm " . abs($changeQty));
+                throw new \Exception("Lô không đủ số lượng để giảm. Còn {$oldRemain}, cần giảm ".abs($changeQty));
             }
 
             $newIn = $oldIn + $changeQty;
@@ -2513,7 +2069,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 ->lockForUpdate()
                 ->first();
 
-            if (!$lot) {
+            if (! $lot) {
                 throw new \Exception('Không tìm thấy lô cần sửa.');
             }
 
@@ -2613,7 +2169,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 ->lockForUpdate()
                 ->first();
 
-            if (!$lot) {
+            if (! $lot) {
                 throw new \Exception('Không tìm thấy lô cần xóa.');
             }
 
@@ -2657,7 +2213,6 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
      *   + Kho nào có serial => qty = count(serial) của kho đó
      *   + Kho nào không có serial => giữ qty input (KHÔNG lock)
      */
-
     private function saveStocksFromRequest(int $productId, Request $request): void
     {
         // Form tạo mới V2 dùng initial_lots. Không đồng bộ lại stocks để tránh tạo/cộng tồn trùng lô.
@@ -2719,7 +2274,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 | - Vẫn cập nhật crm_product_stock.qty để dropdown và báo tồn nhanh.
                 */
                 if ($canUseLots) {
-                    app(\App\Services\StockLotService::class)->syncManualStock(
+                    app(\App\Contracts\Services\StockLotServiceInterface::class)->syncManualStock(
                         $product,
                         $companyId,
                         $warehouseId,
@@ -2730,8 +2285,8 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
 
                     if ($hasSerialCol) {
                         ProductStock::where([
-                            'product_id'   => $productId,
-                            'company_id'   => $companyId,
+                            'product_id' => $productId,
+                            'company_id' => $companyId,
                             'warehouse_id' => $warehouseId,
                         ])->update([
                             'serials_json' => json_encode($serialArr, JSON_UNESCAPED_UNICODE),
@@ -2749,8 +2304,8 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 | Chỉ chạy nếu chưa có bảng lô FIFO.
                 */
                 $existingStock = ProductStock::where([
-                    'product_id'   => $productId,
-                    'company_id'   => $companyId,
+                    'product_id' => $productId,
+                    'company_id' => $companyId,
                     'warehouse_id' => $warehouseId,
                 ])->first();
 
@@ -2768,8 +2323,8 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
 
                 ProductStock::updateOrCreate(
                     [
-                        'product_id'   => $productId,
-                        'company_id'   => $companyId,
+                        'product_id' => $productId,
+                        'company_id' => $companyId,
                         'warehouse_id' => $warehouseId,
                     ],
                     $update
@@ -2809,7 +2364,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                     $addColumn('created_at', now());
                     $addColumn('updated_at', now());
 
-                    if (!empty($movement)) {
+                    if (! empty($movement)) {
                         DB::table('crm_stock_movements')->insert($movement);
                     }
                 }
@@ -2817,48 +2372,9 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         }
     }
 
-
-    /**
-     * ✅ LOAD LOẠI GIÁ (TIER)
-     */
-    private function loadPriceTiers()
-    {
-        $candidates = [
-            'crm_price_tiers',
-            'price_tiers',
-            'crm_price_types',
-            'crm_price_levels',
-            'crm_price_groups',
-            'price_types',
-        ];
-
-        foreach ($candidates as $t) {
-            if ($this->tableExists($t) && Schema::hasColumn($t, 'name')) {
-                $q = DB::table($t);
-
-                if (Schema::hasColumn($t, 'is_active')) {
-                    $q->where(function ($x) {
-                        $x->where('is_active', 1)->orWhereNull('is_active');
-                    });
-                }
-
-                if (Schema::hasColumn($t, 'priority')) {
-                    $q->orderBy('priority');
-                } elseif (Schema::hasColumn($t, 'sort')) {
-                    $q->orderBy('sort');
-                }
-
-                return $q->orderBy('id')->get();
-            }
-        }
-
-        return collect();
-    }
-
     /**
      * ✅ LƯU GIÁ THEO LOẠI GIÁ (prices[tier_id])
      */
-
     private function egoMoneyToFloat($value): ?float
     {
         if ($value === null) {
@@ -2893,252 +2409,102 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         return (float) $value;
     }
 
-   private function saveTierPricesFromRequest(int $productId, Request $request): void
-{
-    $prices = (array) $request->input('prices', []);
-
-    if (empty($prices)) {
-        return;
-    }
-
-    $candidateTables = [
-        'crm_product_prices',
-        'product_prices',
-        'crm_prices',
-    ];
-
-    $table = null;
-    foreach ($candidateTables as $t) {
-        if (
-            $this->tableExists($t)
-            && Schema::hasColumn($t, 'product_id')
-            && (Schema::hasColumn($t, 'price_tier_id') || Schema::hasColumn($t, 'tier_id'))
-            && (Schema::hasColumn($t, 'price') || Schema::hasColumn($t, 'value'))
-        ) {
-            $table = $t;
-            break;
-        }
-    }
-
-    if (!$table) {
-        return;
-    }
-
-    $tierCol  = Schema::hasColumn($table, 'price_tier_id') ? 'price_tier_id' : 'tier_id';
-    $priceCol = Schema::hasColumn($table, 'price') ? 'price' : 'value';
-
-    $columns = Schema::getColumnListing($table);
-    $hasVatCol = in_array('vat_percent', $columns, true);
-    $hasAfterVatCol = in_array('price_after_vat', $columns, true);
-    $hasEffectiveFrom = in_array('effective_from', $columns, true);
-    $hasEffectiveTo = in_array('effective_to', $columns, true);
-    $hasCreatedAt = in_array('created_at', $columns, true);
-    $hasUpdatedAt = in_array('updated_at', $columns, true);
-
-    DB::table($table)->where('product_id', $productId)->delete();
-
-    foreach ($prices as $tierId => $row) {
-        if (!is_array($row)) {
-            continue;
-        }
-
-        $beforeVat = $this->egoMoneyToFloat($row['before_vat'] ?? null);
-        $vatPercent = $this->egoMoneyToFloat($row['vat_percent'] ?? 0);
-
-        if ($beforeVat === null || $beforeVat <= 0) {
-            continue;
-        }
-
-        $insertData = [
-            'product_id' => $productId,
-            $tierCol => (int) $tierId,
-            $priceCol => round($beforeVat, 2),
-        ];
-
-        if ($hasVatCol) {
-            $insertData['vat_percent'] = round((float) ($vatPercent ?? 0), 2);
-        }
-
-        if ($hasAfterVatCol) {
-            $insertData['price_after_vat'] = round($beforeVat * (1 + (float) ($vatPercent ?? 0) / 100), 2);
-        }
-
-        if ($hasEffectiveFrom) {
-            $insertData['effective_from'] = null;
-        }
-
-        if ($hasEffectiveTo) {
-            $insertData['effective_to'] = null;
-        }
-
-        if ($hasCreatedAt) {
-            $insertData['created_at'] = now();
-        }
-
-        if ($hasUpdatedAt) {
-            $insertData['updated_at'] = now();
-        }
-
-        DB::table($table)->insert($insertData);
-    }
-}
-
     /**
-     * ✅ LOAD tier prices để edit
+     * Lưu bảng giá theo tier của sản phẩm từ request: xóa giá cũ rồi ghi lại giá trước/sau VAT theo từng tier.
      */
-    private function loadTierPricesForProduct(int $productId): array
-{
-    $candidateTables = [
-        'crm_product_prices',
-        'product_prices',
-        'crm_prices',
-    ];
-
-    $table = null;
-    foreach ($candidateTables as $t) {
-        if (
-            $this->tableExists($t)
-            && Schema::hasColumn($t, 'product_id')
-            && (Schema::hasColumn($t, 'price_tier_id') || Schema::hasColumn($t, 'tier_id'))
-            && (Schema::hasColumn($t, 'price') || Schema::hasColumn($t, 'value'))
-        ) {
-            $table = $t;
-            break;
-        }
-    }
-
-    if (!$table) {
-        return [];
-    }
-
-    $tierCol  = Schema::hasColumn($table, 'price_tier_id') ? 'price_tier_id' : 'tier_id';
-    $priceCol = Schema::hasColumn($table, 'price') ? 'price' : 'value';
-
-    $hasVatCol = Schema::hasColumn($table, 'vat_percent');
-    $hasAfterVatCol = Schema::hasColumn($table, 'price_after_vat');
-    $hasEffectiveTo = Schema::hasColumn($table, 'effective_to');
-
-    $q = DB::table($table)->where('product_id', $productId);
-
-    if ($hasEffectiveTo) {
-        $q->where(function ($x) {
-            $x->whereNull('effective_to')->orWhere('effective_to', '>=', now());
-        });
-    }
-
-    $rows = $q->orderByDesc('id')->get();
-
-    $out = [];
-
-    foreach ($rows as $r) {
-        $tierId = (int) ($r->{$tierCol} ?? 0);
-
-        if ($tierId <= 0 || isset($out[$tierId])) {
-            continue;
-        }
-
-        $beforeVat = (float) ($r->{$priceCol} ?? 0);
-        $vatPercent = $hasVatCol ? (float) ($r->vat_percent ?? 0) : 0;
-        $afterVat = $hasAfterVatCol
-            ? (float) ($r->price_after_vat ?? 0)
-            : ($beforeVat * (1 + $vatPercent / 100));
-
-        $out[$tierId] = [
-            'before_vat' => $beforeVat,
-            'price' => $beforeVat,
-            'vat_percent' => $vatPercent,
-            'after_vat' => $afterVat,
-        ];
-    }
-
-    return $out;
-}
-    /**
-     * ✅ Load kho theo pivot company_warehouse (kho dùng chung sẽ hiện ở cả 2)
-     */
-    private function loadCompanyWarehouses(array $companyIds): array
+    private function saveTierPricesFromRequest(int $productId, Request $request): void
     {
-        $pivot = 'company_warehouse';
+        $prices = (array) $request->input('prices', []);
 
-        if (!$this->tableExists($pivot)) {
-            $all = Warehouse::query()->orderBy('name')->get();
-            $out = [];
-            foreach ($companyIds as $cid) $out[$cid] = $all;
-            return $out;
+        if (empty($prices)) {
+            return;
         }
 
-        $rows = DB::table($pivot)
-            ->whereIn('company_id', $companyIds)
-            ->get();
+        $candidateTables = [
+            'crm_product_prices',
+            'product_prices',
+            'crm_prices',
+        ];
 
-        $warehouseIds = $rows->pluck('warehouse_id')->unique()->values()->all();
-
-        $warehouses = Warehouse::query()
-            ->whereIn('id', $warehouseIds)
-            ->orderBy('name')
-            ->get()
-            ->keyBy('id');
-
-        $out = [];
-        foreach ($companyIds as $cid) $out[$cid] = collect();
-
-        foreach ($rows as $r) {
-            $cid = (int) $r->company_id;
-            $wid = (int) $r->warehouse_id;
-            if (isset($out[$cid]) && $warehouses->has($wid)) {
-                $out[$cid]->push($warehouses->get($wid));
+        $table = null;
+        foreach ($candidateTables as $t) {
+            if (
+                $this->catalogOptions->tableExists($t)
+                && Schema::hasColumn($t, 'product_id')
+                && (Schema::hasColumn($t, 'price_tier_id') || Schema::hasColumn($t, 'tier_id'))
+                && (Schema::hasColumn($t, 'price') || Schema::hasColumn($t, 'value'))
+            ) {
+                $table = $t;
+                break;
             }
         }
 
-        foreach ($out as $cid => $col) {
-            $out[$cid] = $col->sortBy('name')->values();
+        if (! $table) {
+            return;
         }
 
-        return $out;
-    }
+        $tierCol = Schema::hasColumn($table, 'price_tier_id') ? 'price_tier_id' : 'tier_id';
+        $priceCol = Schema::hasColumn($table, 'price') ? 'price' : 'value';
 
-    /**
-     * ✅ Build danh mục dạng cây (cha -> con) để dropdown thụt lề
-     */
-    private function buildCategoryOptions()
-    {
-        $all = ProductCategory::query()
-            ->select('id', 'name', 'parent_id')
-            ->orderBy('name')
-            ->get();
+        $columns = Schema::getColumnListing($table);
+        $hasVatCol = in_array('vat_percent', $columns, true);
+        $hasAfterVatCol = in_array('price_after_vat', $columns, true);
+        $hasEffectiveFrom = in_array('effective_from', $columns, true);
+        $hasEffectiveTo = in_array('effective_to', $columns, true);
+        $hasCreatedAt = in_array('created_at', $columns, true);
+        $hasUpdatedAt = in_array('updated_at', $columns, true);
 
-        $byParent = $all->groupBy(function ($item) {
-            return (int)($item->parent_id ?? 0);
-        });
+        DB::table($table)->where('product_id', $productId)->delete();
 
-        $out = collect();
-        $walk = function ($parentId, $level) use (&$walk, &$out, $byParent) {
-            $children = $byParent->get((int)$parentId, collect());
-            foreach ($children as $c) {
-                $c->level = $level;
-                $out->push($c);
-                $walk($c->id, $level + 1);
+        foreach ($prices as $tierId => $row) {
+            if (! is_array($row)) {
+                continue;
             }
-        };
 
-        $walk(0, 0);
+            $beforeVat = $this->egoMoneyToFloat($row['before_vat'] ?? null);
+            $vatPercent = $this->egoMoneyToFloat($row['vat_percent'] ?? 0);
 
-        return $out;
-    }
+            if ($beforeVat === null || $beforeVat <= 0) {
+                continue;
+            }
 
-    private function tableExists(string $table): bool
-    {
-        try {
-            return DB::getSchemaBuilder()->hasTable($table);
-        } catch (\Throwable $e) {
-            return false;
+            $insertData = [
+                'product_id' => $productId,
+                $tierCol => (int) $tierId,
+                $priceCol => round($beforeVat, 2),
+            ];
+
+            if ($hasVatCol) {
+                $insertData['vat_percent'] = round((float) ($vatPercent ?? 0), 2);
+            }
+
+            if ($hasAfterVatCol) {
+                $insertData['price_after_vat'] = round($beforeVat * (1 + (float) ($vatPercent ?? 0) / 100), 2);
+            }
+
+            if ($hasEffectiveFrom) {
+                $insertData['effective_from'] = null;
+            }
+
+            if ($hasEffectiveTo) {
+                $insertData['effective_to'] = null;
+            }
+
+            if ($hasCreatedAt) {
+                $insertData['created_at'] = now();
+            }
+
+            if ($hasUpdatedAt) {
+                $insertData['updated_at'] = now();
+            }
+
+            DB::table($table)->insert($insertData);
         }
     }
 
     /**
      * DELETE
      */
-
     public function destroy($id)
     {
         DB::beginTransaction();
@@ -3209,16 +2575,17 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Không thể xóa sản phẩm: ' . $e->getMessage());
+            return back()->with('error', 'Không thể xóa sản phẩm: '.$e->getMessage());
         }
     }
 
-
-
     /* EGO_MANUAL_STOCK_HISTORY_HELPERS_START */
+    /**
+     * Lấy tồn hiện tại (có khóa dòng) của sản phẩm theo công ty/kho để ghi lịch sử nhập tay.
+     */
     private function egoCurrentStockQtyForHistory(int $productId, int $companyId, int $warehouseId): int
     {
-        if (!Schema::hasTable('crm_product_stock')) {
+        if (! Schema::hasTable('crm_product_stock')) {
             return 0;
         }
 
@@ -3233,6 +2600,9 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         return (int) ($query->lockForUpdate()->value('qty') ?? 0);
     }
 
+    /**
+     * Ghi một dòng lịch sử xuất nhập kho thủ công vào crm_stock_movements (chỉ ghi các cột đang tồn tại trong bảng).
+     */
     private function egoInsertManualStockHistory(
         int $productId,
         int $companyId,
@@ -3245,7 +2615,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         ?string $note = null,
         string $referenceType = 'manual_input'
     ): void {
-        if ($changeQty === 0 || !Schema::hasTable('crm_stock_movements')) {
+        if ($changeQty === 0 || ! Schema::hasTable('crm_stock_movements')) {
             return;
         }
 
@@ -3253,34 +2623,69 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         $has = fn (string $column): bool => in_array($column, $columns, true);
         $payload = [];
 
-        if ($has('product_id')) $payload['product_id'] = $productId;
-        if ($has('company_id')) $payload['company_id'] = $companyId;
-        if ($has('warehouse_id')) $payload['warehouse_id'] = $warehouseId;
-        if ($has('change_qty')) $payload['change_qty'] = $changeQty;
-        if ($has('qty_before')) $payload['qty_before'] = $qtyBefore;
-        if ($has('qty_after')) $payload['qty_after'] = $qtyAfter;
+        if ($has('product_id')) {
+            $payload['product_id'] = $productId;
+        }
+        if ($has('company_id')) {
+            $payload['company_id'] = $companyId;
+        }
+        if ($has('warehouse_id')) {
+            $payload['warehouse_id'] = $warehouseId;
+        }
+        if ($has('change_qty')) {
+            $payload['change_qty'] = $changeQty;
+        }
+        if ($has('qty_before')) {
+            $payload['qty_before'] = $qtyBefore;
+        }
+        if ($has('qty_after')) {
+            $payload['qty_after'] = $qtyAfter;
+        }
 
         $movementType = $changeQty > 0 ? 'in' : 'out';
-        if ($has('type')) $payload['type'] = $movementType;
-        if ($has('movement_type')) $payload['movement_type'] = $movementType;
+        if ($has('type')) {
+            $payload['type'] = $movementType;
+        }
+        if ($has('movement_type')) {
+            $payload['movement_type'] = $movementType;
+        }
 
-        if ($has('reason')) $payload['reason'] = $reason;
-        if ($has('note')) $payload['note'] = $note ?: $reason;
-        if ($has('reference_type')) $payload['reference_type'] = $referenceType;
-        if ($has('reference_id') && $referenceId !== null) $payload['reference_id'] = $referenceId;
+        if ($has('reason')) {
+            $payload['reason'] = $reason;
+        }
+        if ($has('note')) {
+            $payload['note'] = $note ?: $reason;
+        }
+        if ($has('reference_type')) {
+            $payload['reference_type'] = $referenceType;
+        }
+        if ($has('reference_id') && $referenceId !== null) {
+            $payload['reference_id'] = $referenceId;
+        }
 
         $userId = auth()->id();
-        if ($has('created_by')) $payload['created_by'] = $userId;
-        if ($has('user_id')) $payload['user_id'] = $userId;
-        if ($has('created_at')) $payload['created_at'] = now();
-        if ($has('updated_at')) $payload['updated_at'] = now();
+        if ($has('created_by')) {
+            $payload['created_by'] = $userId;
+        }
+        if ($has('user_id')) {
+            $payload['user_id'] = $userId;
+        }
+        if ($has('created_at')) {
+            $payload['created_at'] = now();
+        }
+        if ($has('updated_at')) {
+            $payload['updated_at'] = now();
+        }
 
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             DB::table('crm_stock_movements')->insert($payload);
         }
     }
     /* EGO_MANUAL_STOCK_HISTORY_HELPERS_END */
 
+    /**
+     * Lưu các lô tồn đầu kỳ (initial_lots) vào crm_product_stock_lots khi tạo sản phẩm mới.
+     */
     private function saveInitialLotsFromCreateRequest($product, $request): void
     {
         $schema = \Illuminate\Support\Facades\Schema::class;
@@ -3297,16 +2702,16 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         }
 
         $lotColumns = $schema::getColumnListing('crm_product_stock_lots');
-        $hasLotCol = fn(string $column): bool => in_array($column, $lotColumns, true);
+        $hasLotCol = fn (string $column): bool => in_array($column, $lotColumns, true);
 
         foreach ($initialLots as $index => $row) {
-            if (!is_array($row)) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $companyId = (int)($row['company_id'] ?? 0);
-            $warehouseId = (int)($row['warehouse_id'] ?? 0);
-            $qtyIn = max(0, (int)($row['qty_in'] ?? 0));
+            $companyId = (int) ($row['company_id'] ?? 0);
+            $warehouseId = (int) ($row['warehouse_id'] ?? 0);
+            $qtyIn = max(0, (int) ($row['qty_in'] ?? 0));
 
             if ($companyId <= 0 && $warehouseId <= 0 && $qtyIn <= 0) {
                 continue;
@@ -3320,19 +2725,19 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 throw new \Exception('Số lượng lô nhập ban đầu phải lớn hơn 0.');
             }
 
-            $costBeforeVat = max(0, (float)($row['cost_before_vat'] ?? 0));
-            $vatPercent = max(0, (float)($row['cost_vat_percent'] ?? 0));
+            $costBeforeVat = max(0, (float) ($row['cost_before_vat'] ?? 0));
+            $vatPercent = max(0, (float) ($row['cost_vat_percent'] ?? 0));
             $costAfterVat = round($costBeforeVat * (1 + $vatPercent / 100), 2);
-            $extraCost = (float)($row['extra_cost'] ?? 0);
+            $extraCost = (float) ($row['extra_cost'] ?? 0);
             $extraCostPerUnit = $qtyIn > 0 ? round($extraCost / $qtyIn, 2) : 0;
             $actualCostAfterVat = round($costAfterVat + $extraCostPerUnit, 2);
             $receivedAt = $row['received_at'] ?? null;
-            $lotName = trim((string)($row['lot_name'] ?? ''));
-            $lotCode = trim((string)($row['lot_code'] ?? ''));
-            $note = trim((string)($row['note'] ?? ''));
+            $lotName = trim((string) ($row['lot_name'] ?? ''));
+            $lotCode = trim((string) ($row['lot_code'] ?? ''));
+            $note = trim((string) ($row['note'] ?? ''));
 
             if ($lotCode === '') {
-                $lotCode = 'LOT-P' . $product->id . '-W' . $warehouseId . '-' . now()->format('YmdHis') . '-' . ($index + 1);
+                $lotCode = 'LOT-P'.$product->id.'-W'.$warehouseId.'-'.now()->format('YmdHis').'-'.($index + 1);
             }
 
             if ($lotName === '') {
@@ -3347,7 +2752,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 }
             };
 
-            $putLot('product_id', (int)$product->id);
+            $putLot('product_id', (int) $product->id);
             $putLot('company_id', $companyId);
             $putLot('warehouse_id', $warehouseId);
             $putLot('lot_name', $lotName);
@@ -3361,23 +2766,23 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
             $putLot('extra_cost', $extraCost);
             $putLot('actual_cost_after_vat', $actualCostAfterVat);
             $putLot('source_type', 'manual_input');
-            $putLot('source_id', (int)$product->id);
+            $putLot('source_id', (int) $product->id);
             $putLot('note', $note);
             $putLot('created_by', auth()->id());
             $putLot('created_at', now());
             $putLot('updated_at', now());
 
-            $qtyBefore = $this->egoCurrentStockQtyForHistory((int)$product->id, $companyId, $warehouseId);
+            $qtyBefore = $this->egoCurrentStockQtyForHistory((int) $product->id, $companyId, $warehouseId);
             $qtyAfter = $qtyBefore + $qtyIn;
 
-            $lotId = (int)$db::table('crm_product_stock_lots')->insertGetId($lotInsert);
+            $lotId = (int) $db::table('crm_product_stock_lots')->insertGetId($lotInsert);
 
             if ($schema::hasTable('crm_product_stock')) {
                 $stockColumns = $schema::getColumnListing('crm_product_stock');
-                $hasStockCol = fn(string $column): bool => in_array($column, $stockColumns, true);
+                $hasStockCol = fn (string $column): bool => in_array($column, $stockColumns, true);
 
                 $query = $db::table('crm_product_stock')
-                    ->where('product_id', (int)$product->id)
+                    ->where('product_id', (int) $product->id)
                     ->where('warehouse_id', $warehouseId);
 
                 if ($hasStockCol('company_id')) {
@@ -3388,32 +2793,54 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
 
                 if ($stock) {
                     $update = [];
-                    if ($hasStockCol('qty')) $update['qty'] = $qtyAfter;
-                    if ($hasStockCol('last_updated')) $update['last_updated'] = now();
-                    if ($hasStockCol('updated_at')) $update['updated_at'] = now();
+                    if ($hasStockCol('qty')) {
+                        $update['qty'] = $qtyAfter;
+                    }
+                    if ($hasStockCol('last_updated')) {
+                        $update['last_updated'] = now();
+                    }
+                    if ($hasStockCol('updated_at')) {
+                        $update['updated_at'] = now();
+                    }
 
-                    if (!empty($update)) {
+                    if (! empty($update)) {
                         $db::table('crm_product_stock')->where('id', $stock->id)->update($update);
                     }
                 } else {
                     $stockInsert = [];
-                    if ($hasStockCol('product_id')) $stockInsert['product_id'] = (int)$product->id;
-                    if ($hasStockCol('company_id')) $stockInsert['company_id'] = $companyId;
-                    if ($hasStockCol('warehouse_id')) $stockInsert['warehouse_id'] = $warehouseId;
-                    if ($hasStockCol('qty')) $stockInsert['qty'] = $qtyAfter;
-                    if ($hasStockCol('serials_json')) $stockInsert['serials_json'] = json_encode([]);
-                    if ($hasStockCol('last_updated')) $stockInsert['last_updated'] = now();
-                    if ($hasStockCol('created_at')) $stockInsert['created_at'] = now();
-                    if ($hasStockCol('updated_at')) $stockInsert['updated_at'] = now();
+                    if ($hasStockCol('product_id')) {
+                        $stockInsert['product_id'] = (int) $product->id;
+                    }
+                    if ($hasStockCol('company_id')) {
+                        $stockInsert['company_id'] = $companyId;
+                    }
+                    if ($hasStockCol('warehouse_id')) {
+                        $stockInsert['warehouse_id'] = $warehouseId;
+                    }
+                    if ($hasStockCol('qty')) {
+                        $stockInsert['qty'] = $qtyAfter;
+                    }
+                    if ($hasStockCol('serials_json')) {
+                        $stockInsert['serials_json'] = json_encode([]);
+                    }
+                    if ($hasStockCol('last_updated')) {
+                        $stockInsert['last_updated'] = now();
+                    }
+                    if ($hasStockCol('created_at')) {
+                        $stockInsert['created_at'] = now();
+                    }
+                    if ($hasStockCol('updated_at')) {
+                        $stockInsert['updated_at'] = now();
+                    }
 
-                    if (!empty($stockInsert)) {
+                    if (! empty($stockInsert)) {
                         $db::table('crm_product_stock')->insert($stockInsert);
                     }
                 }
             }
 
             $this->egoInsertManualStockHistory(
-                (int)$product->id,
+                (int) $product->id,
                 $companyId,
                 $warehouseId,
                 $qtyIn,
@@ -3427,19 +2854,20 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
         }
     }
 
-
-
     /* EGO_HOTFIX_RESTORE_EDIT_START */
+    /**
+     * Form sửa sản phẩm: nạp tồn theo công ty/kho, serial, giá tier và lịch sử xuất nhập kho của sản phẩm.
+     */
     public function edit($id)
     {
         $product = Product::findOrFail($id);
 
-        $companies  = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
         $categories = ProductCategory::query()->orderBy('name')->get();
-        $brands     = Brand::query()->orderBy('name')->get();
+        $brands = Brand::query()->orderBy('name')->get();
 
-        $companyWarehouses = $this->loadCompanyWarehouses([1, 2]);
-        $priceTiers = $this->loadPriceTiers();
+        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([1, 2]);
+        $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         $rows = DB::table('crm_product_stock')
             ->where('product_id', $product->id)
@@ -3468,13 +2896,15 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 $arr = [];
                 if ($json !== '') {
                     $tmp = json_decode($json, true);
-                    if (is_array($tmp)) $arr = $tmp;
+                    if (is_array($tmp)) {
+                        $arr = $tmp;
+                    }
                 }
                 $serialsByWarehouse[$cid][$wid] = array_values(array_filter(array_map('strval', $arr)));
             }
         }
 
-        $tierPrices = $this->loadTierPricesForProduct((int)$product->id);
+        $tierPrices = $this->catalogOptions->loadTierPricesForProduct((int) $product->id);
 
         $productStockLogs = collect();
 
@@ -3524,7 +2954,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 ->where('m.product_id', $product->id);
 
             if ($orderTable) {
-                $productStockLogsQuery->leftJoin($orderTable . ' as o', function ($join) use ($hasReferenceType) {
+                $productStockLogsQuery->leftJoin($orderTable.' as o', function ($join) use ($hasReferenceType) {
                     $join->on('o.id', '=', 'm.reference_id');
 
                     if ($hasReferenceType) {
@@ -3554,7 +2984,7 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
             ];
 
             if ($orderTable && $orderCodeColumn) {
-                $stockLogSelect[] = DB::raw('o.' . $orderCodeColumn . ' as order_code');
+                $stockLogSelect[] = DB::raw('o.'.$orderCodeColumn.' as order_code');
             } else {
                 $stockLogSelect[] = DB::raw('NULL as order_code');
             }
@@ -3566,7 +2996,6 @@ if (Schema::hasColumn($product->getTable(), 'vat_percent')) {
                 ->limit(80)
                 ->get();
         }
-
 
         $productStockLots = collect();
 

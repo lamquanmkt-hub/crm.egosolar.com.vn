@@ -8,8 +8,14 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Service xử lý quy trình phê duyệt lịch bảo trì điện mặt trời (gửi duyệt, duyệt, yêu cầu sửa, từ chối, mở lại).
+ */
 class SolarMaintenanceApprovalService
 {
+    /**
+     * Gửi lịch bảo trì cho Trưởng phòng kỹ thuật phê duyệt (yêu cầu đã có kết quả xử lý).
+     */
     public function submit(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
@@ -44,6 +50,9 @@ class SolarMaintenanceApprovalService
         });
     }
 
+    /**
+     * Phê duyệt lịch bảo trì đang chờ duyệt (người thực hiện không được tự duyệt).
+     */
     public function approve(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
@@ -65,6 +74,9 @@ class SolarMaintenanceApprovalService
         });
     }
 
+    /**
+     * Yêu cầu chỉnh sửa lịch bảo trì đang chờ duyệt (bắt buộc có nội dung cần sửa).
+     */
     public function requestRevision(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
@@ -90,6 +102,9 @@ class SolarMaintenanceApprovalService
         });
     }
 
+    /**
+     * Từ chối lịch bảo trì đang chờ duyệt và chuyển về trạng thái yêu cầu chỉnh sửa.
+     */
     public function reject(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
@@ -115,6 +130,9 @@ class SolarMaintenanceApprovalService
         });
     }
 
+    /**
+     * Mở lại lịch đã duyệt/hoàn thành về trạng thái đang thực hiện, reset thông tin phê duyệt.
+     */
     public function reopen(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
@@ -149,6 +167,9 @@ class SolarMaintenanceApprovalService
         });
     }
 
+    /**
+     * Kiểm tra lịch phải đang ở trạng thái chờ phê duyệt.
+     */
     private function assertPending(SolarMaintenanceSchedule $schedule): void
     {
         if ($schedule->status !== 'pending_approval' || $schedule->approval_status !== 'pending') {
@@ -156,6 +177,9 @@ class SolarMaintenanceApprovalService
         }
     }
 
+    /**
+     * Chặn người trực tiếp thực hiện tự phê duyệt công việc của mình.
+     */
     private function assertNotExecutor(SolarMaintenanceSchedule $schedule, User $actor): void
     {
         if ((int) $schedule->assigned_to === (int) $actor->id
@@ -166,6 +190,9 @@ class SolarMaintenanceApprovalService
         }
     }
 
+    /**
+     * Ghi bản ghi phê duyệt (SolarMaintenanceApproval) cho hành động vừa thực hiện.
+     */
     private function approval(
         SolarMaintenanceSchedule $schedule,
         User $actor,
@@ -191,6 +218,9 @@ class SolarMaintenanceApprovalService
         ]);
     }
 
+    /**
+     * Ghi lịch sử chuyển trạng thái của lịch bảo trì.
+     */
     private function history(
         SolarMaintenanceSchedule $schedule,
         User $actor,
@@ -208,6 +238,9 @@ class SolarMaintenanceApprovalService
         ]);
     }
 
+    /**
+     * Ghi audit log (kèm IP, user agent) cho hành động phê duyệt.
+     */
     private function audit(SolarMaintenanceSchedule $schedule, User $actor, string $action): void
     {
         $schedule->auditLogs()->create([

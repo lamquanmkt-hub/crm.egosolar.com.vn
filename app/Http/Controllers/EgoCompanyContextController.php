@@ -6,8 +6,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Chọn công ty làm việc cho phiên đăng nhập (context công ty của CRM).
+ */
 class EgoCompanyContextController extends Controller
 {
+    /**
+     * Trang chọn công ty: tự chọn nếu chỉ có 1, render HTML fallback nếu thiếu view.
+     */
     public function select(Request $request)
     {
         $companies = collect();
@@ -25,11 +31,12 @@ class EgoCompanyContextController extends Controller
         // Nếu chỉ có 1 công ty thì tự chọn luôn, tránh vòng lặp
         if ($companies->count() === 1) {
             $this->putCompanySession($request, $companies->first()->id);
+
             return redirect('/');
         }
 
         // Nếu chưa có view thì render thẳng HTML, không redirect vòng lặp
-        if (!view()->exists('company-context.select')) {
+        if (! view()->exists('company-context.select')) {
             $html = '<!doctype html><html><head><meta charset="utf-8"><title>Chọn công ty</title>
             <style>
                 body{font-family:Arial;background:#f4f7fb;padding:40px}
@@ -41,11 +48,11 @@ class EgoCompanyContextController extends Controller
             </style></head><body><div class="box"><h2>Chọn công ty làm việc</h2><p>Vui lòng chọn công ty để tiếp tục vào CRM.</p>';
 
             foreach ($companies as $company) {
-                $name = $company->name ?? $company->company_name ?? ('Công ty #' . $company->id);
+                $name = $company->name ?? $company->company_name ?? ('Công ty #'.$company->id);
                 $html .= '<form method="POST" action="/chon-cong-ty">'
-                    . csrf_field()
-                    . '<input type="hidden" name="company_id" value="' . (int) $company->id . '">'
-                    . '<button type="submit">' . e($name) . '</button></form>';
+                    .csrf_field()
+                    .'<input type="hidden" name="company_id" value="'.(int) $company->id.'">'
+                    .'<button type="submit">'.e($name).'</button></form>';
             }
 
             if ($companies->isEmpty()) {
@@ -61,6 +68,9 @@ class EgoCompanyContextController extends Controller
         return view('company-context.select', compact('companies'));
     }
 
+    /**
+     * Lưu công ty được chọn vào session rồi chuyển về trang chủ.
+     */
     public function store(Request $request)
     {
         $companyId = (int) $request->input('company_id');
@@ -76,6 +86,9 @@ class EgoCompanyContextController extends Controller
         return redirect('/');
     }
 
+    /**
+     * Xóa công ty đang chọn khỏi session và quay lại trang chọn công ty.
+     */
     public function reset(Request $request)
     {
         foreach ($this->sessionKeys() as $key) {
@@ -85,6 +98,9 @@ class EgoCompanyContextController extends Controller
         return redirect('/chon-cong-ty');
     }
 
+    /**
+     * Ghi id công ty vào tất cả các khóa session tương thích và lưu ngay.
+     */
     private function putCompanySession(Request $request, int $companyId): void
     {
         foreach ($this->sessionKeys() as $key) {
@@ -94,6 +110,9 @@ class EgoCompanyContextController extends Controller
         $request->session()->save();
     }
 
+    /**
+     * Danh sách các khóa session dùng để lưu công ty đang chọn.
+     */
     private function sessionKeys(): array
     {
         return [

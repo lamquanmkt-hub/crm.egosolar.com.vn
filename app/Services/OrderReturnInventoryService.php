@@ -11,10 +11,19 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Service xử lý kho cho hàng đổi/trả: nhập hoàn, tạo sự kiện tồn kho, cập nhật serial.
+ */
 class OrderReturnInventoryService
 {
+    /**
+     * Khởi tạo service với service quản lý lô tồn kho.
+     */
     public function __construct(private readonly StockLotService $stockLotService) {}
 
+    /**
+     * Nhập kho hàng hoàn: chỉ hàng đạt điều kiện bán lại được cộng tồn, cập nhật serial.
+     */
     public function stockIn(OrderReturn $return, User $user): OrderReturn
     {
         return DB::transaction(function () use ($return, $user) {
@@ -105,6 +114,9 @@ class OrderReturnInventoryService
         });
     }
 
+    /**
+     * Tính giá vốn gốc bình quân (trước/sau VAT) của dòng đơn từ phân bổ lô.
+     */
     private function resolveOriginalCost(int $orderItemId): array
     {
         if (!Schema::hasTable('crm_order_item_stock_allocations')) return [0.0, 0.0];
@@ -116,6 +128,9 @@ class OrderReturnInventoryService
         ];
     }
 
+    /**
+     * Tạo sự kiện tồn kho loại return_in kèm tham chiếu phiếu trả.
+     */
     private function createInventoryEvent(OrderReturn $return, User $user): ?int
     {
         if (!Schema::hasTable('crm_inventory_events')) return null;
@@ -139,6 +154,9 @@ class OrderReturnInventoryService
         return $eventId;
     }
 
+    /**
+     * Cập nhật trạng thái từng serial hoàn về kho và ghi lịch sử bảo hành.
+     */
     private function postSerials($return, $item, string $condition, ?int $eventId, int $companyId, User $user): void
     {
         foreach ($item->serials as $serial) {

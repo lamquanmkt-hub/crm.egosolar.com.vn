@@ -10,8 +10,14 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Service quản lý công trình điện mặt trời (Site): CRUD, đợt thanh toán, thiết bị, vật tư, tài chính.
+ */
 class SiteService
 {
+    /**
+     * Tìm công trình theo ID kèm vật tư dự kiến và đợt thanh toán.
+     */
     public function find(int $id): Site
     {
         return Site::query()
@@ -19,6 +25,9 @@ class SiteService
             ->findOrFail($id);
     }
 
+    /**
+     * Phân trang danh sách công trình, chỉ select các cột thực có trong bảng.
+     */
     public function paginate(int $perPage = 20): LengthAwarePaginator
     {
         $want = [
@@ -67,11 +76,17 @@ class SiteService
             ->paginate($perPage);
     }
 
+    /**
+     * Tạo công trình mới.
+     */
     public function create(array $data): Site
     {
         return Site::create($data);
     }
 
+    /**
+     * Cập nhật công trình và trả về bản ghi mới nhất.
+     */
     public function update(Site $site, array $data): Site
     {
         $site->update($data);
@@ -79,6 +94,9 @@ class SiteService
         return $site->refresh();
     }
 
+    /**
+     * Xoá công trình cùng các bản ghi con (thiết bị, vật tư dự kiến, đợt thanh toán).
+     */
     public function delete(Site $site): void
     {
         DB::transaction(function () use ($site) {
@@ -107,6 +125,9 @@ class SiteService
     // PAYMENT TERMS - ĐỢT THANH TOÁN
     // =========================================================
 
+    /**
+     * Đồng bộ các đợt thanh toán: cập nhật/thêm mới, tính trạng thái theo tiền đã thu, archive đợt có phiếu thu.
+     */
     public function syncPaymentTerms(
         Site $site,
         array $rows
@@ -299,6 +320,9 @@ class SiteService
         });
     }
 
+    /**
+     * Lấy danh sách đợt thanh toán (trừ archived) kèm số tiền đã thu, còn lại và trạng thái tính toán.
+     */
     public function getPaymentTerms(Site $site): array
     {
         if (!Schema::hasTable('site_payment_terms')) {
@@ -356,6 +380,9 @@ class SiteService
             ->toArray();
     }
 
+    /**
+     * Lấy danh sách phiếu thu của công trình (tối đa 100, mới nhất trước).
+     */
     public function getPaymentReceipts(Site $site): array
     {
         if (!Schema::hasTable('receipts')) {
@@ -442,6 +469,9 @@ class SiteService
             ->toArray();
     }
 
+    /**
+     * Tổng hợp tài chính công trình: đã thu, còn phải thu, chi phí vật tư/khác, lợi nhuận gộp.
+     */
     public function getFinanceSummary(Site $site): array
     {
         $siteId = (int) $site->id;
@@ -521,6 +551,9 @@ class SiteService
     // SYSTEM SUMMARY
     // =========================================================
 
+    /**
+     * Tổng hợp thông số hệ thống (kWp, kW inverter, kWh pin lưu trữ) từ danh sách thiết bị.
+     */
     public function getSystemSummary(Site $site, array $devices = []): array
     {
         $siteKwp = (float) ($site->system_kwp ?? 0);
@@ -597,6 +630,9 @@ class SiteService
     // PLANNED MATERIALS
     // =========================================================
 
+    /**
+     * Đồng bộ vật tư dự kiến: xoá toàn bộ và insert lại các dòng hợp lệ.
+     */
     public function syncPlannedMaterials(Site $site, array $plannedRows): void
     {
         if (!Schema::hasTable('site_planned_materials')) {
@@ -636,6 +672,9 @@ class SiteService
         });
     }
 
+    /**
+     * Lấy danh sách vật tư dự kiến của công trình.
+     */
     public function getPlannedMaterials(Site $site): array
     {
         if (!Schema::hasTable('site_planned_materials')) {
@@ -654,6 +693,9 @@ class SiteService
             ->toArray();
     }
 
+    /**
+     * Lấy vật tư dự kiến cho trang sửa; fallback từ vật tư thực xuất (bỏ thiết bị chính) nếu chưa có.
+     */
     public function getEditPlannedMaterials(Site $site): array
     {
         $savedPlanned = $this->getPlannedMaterials($site);
@@ -679,6 +721,9 @@ class SiteService
     // DEVICES
     // =========================================================
 
+    /**
+     * Lấy danh sách thiết bị của công trình.
+     */
     public function getDevices(Site $site): array
     {
         if (!Schema::hasTable('site_devices')) {
@@ -702,6 +747,9 @@ class SiteService
             ->toArray();
     }
 
+    /**
+     * Lấy thiết bị cho trang sửa; fallback từ thiết bị chính trong vật tư thực xuất nếu chưa lưu.
+     */
     public function getEditDevices(Site $site): array
     {
         $savedDevices = collect($this->getDevices($site))
@@ -746,6 +794,9 @@ class SiteService
             ->toArray();
     }
 
+    /**
+     * Đồng bộ thiết bị công trình: xoá toàn bộ và insert lại, bỏ qua dòng rỗng.
+     */
     public function syncDevices(Site $site, array $deviceRows): void
     {
         if (!Schema::hasTable('site_devices')) {
@@ -815,6 +866,9 @@ class SiteService
     // ACTUAL MATERIALS FALLBACK FOR EDIT PAGE
     // =========================================================
 
+    /**
+     * Lấy vật tư thực đã xuất kho của công trình (dùng làm fallback cho trang sửa).
+     */
     private function getActualMaterialsForEdit(Site $site)
     {
         if (
@@ -884,6 +938,9 @@ class SiteService
             ->get();
     }
 
+    /**
+     * Loại bỏ các tag phân loại ([Thiết bị chính/Vật tư phụ...]) khỏi ghi chú vật tư.
+     */
     private function cleanActualMaterialNote(?string $note): string
     {
         $note = (string) $note;
@@ -897,6 +954,9 @@ class SiteService
         return trim((string) $note);
     }
 
+    /**
+     * Xác định tên vật tư: ưu tiên tên sản phẩm, fallback từ ghi chú.
+     */
     private function actualMaterialName(object $item): string
     {
         if (!empty($item->product_id) && !empty($item->product_name)) {
@@ -912,6 +972,9 @@ class SiteService
         return $parts[0] ?? 'Vật tư ngoài kho';
     }
 
+    /**
+     * Xác định đơn vị tính vật tư: từ dòng item, sản phẩm, hoặc ghi chú (ĐVT:...).
+     */
     private function actualMaterialUnit(object $item): string
     {
         if (!empty($item->unit)) {
@@ -937,6 +1000,9 @@ class SiteService
         return '';
     }
 
+    /**
+     * Kiểm tra vật tư có phải thiết bị chính hay không (dựa vào tag trong ghi chú).
+     */
     private function isMainActualMaterial(object $item): bool
     {
         $note = (string) ($item->note ?? '');
@@ -960,6 +1026,9 @@ class SiteService
         return !empty($item->product_id);
     }
 
+    /**
+     * Suy đoán loại thiết bị (inverter, battery, solar_panel...) từ tên và ghi chú.
+     */
     private function detectDeviceType(string $name, string $note = ''): string
     {
         $text = mb_strtolower($name . ' ' . $note, 'UTF-8');

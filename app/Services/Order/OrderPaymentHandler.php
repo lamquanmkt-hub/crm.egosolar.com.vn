@@ -26,15 +26,13 @@ class OrderPaymentHandler
     /**
      * Ghi nhận thanh toán cho đơn hàng.
      *
-     * @param int|string               $id
-     * @param array                    $data {payment_date, amount, method_id, note?}
-     * @param OrderRepositoryInterface $orderRepo
-     * @param NotificationService      $notificationService
+     * @param  int|string  $id
+     * @param  array  $data  {payment_date, amount, method_id, note?}
      */
     public function recordPayment($id, array $data, OrderRepositoryInterface $orderRepo, NotificationService $notificationService): void
     {
         DB::transaction(function () use ($id, $data, $orderRepo, $notificationService) {
-            $order  = $orderRepo->find($id);
+            $order = $orderRepo->find($id);
             $amount = (float) $data['amount'];
 
             $this->createPaymentRecord($order, $data);
@@ -45,40 +43,36 @@ class OrderPaymentHandler
                 $order->created_by,
                 $order,
                 'payment_received',
-                'Đã thu ' . number_format($amount) . "đ cho đơn #{$order->order_code}"
+                'Đã thu '.number_format($amount)."đ cho đơn #{$order->order_code}"
             );
         });
     }
 
     /**
      * Tạo bản ghi thanh toán.
-     *
-     * @param Order $order
-     * @param array $data
      */
     private function createPaymentRecord(Order $order, array $data): void
     {
         Payment::create([
-            'order_id'     => $order->id,
+            'order_id' => $order->id,
             'payment_date' => $data['payment_date'],
-            'amount'       => $data['amount'],
-            'method_id'    => $data['method_id'],
-            'recorded_by'  => Auth::id(),
-            'note'         => $data['note'] ?? null,
+            'amount' => $data['amount'],
+            'method_id' => $data['method_id'],
+            'recorded_by' => Auth::id(),
+            'note' => $data['note'] ?? null,
         ]);
     }
 
     /**
      * Cập nhật công nợ sau khi thanh toán.
      *
-     * @param Order $order
-     * @param float $amount Số tiền vừa thanh toán
+     * @param  float  $amount  Số tiền vừa thanh toán
      */
     private function updateDebtRecord(Order $order, float $amount): void
     {
         $debt = CustomerDebt::where('order_id', $order->id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             return;
         }
 
@@ -89,8 +83,6 @@ class OrderPaymentHandler
 
     /**
      * Kiểm tra và đánh dấu đơn đã thanh toán đủ.
-     *
-     * @param Order $order
      */
     private function checkPaymentCompletion(Order $order): void
     {

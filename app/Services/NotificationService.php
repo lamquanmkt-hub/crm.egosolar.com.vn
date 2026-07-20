@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Exceptions\RoleDoesNotExist;
 
+/**
+ * Service gửi và quản lý thông báo đơn hàng cho sales và các bộ phận.
+ */
 class NotificationService
 {
 	/**
@@ -165,6 +168,9 @@ class NotificationService
 //            return new Collection();
 //        }
 //    }
+    /**
+     * Lấy danh sách user theo bộ phận (map sang role Spatie tương ứng).
+     */
     protected function getUsersByDepartment(string $department): Collection
     {
         $roleMap = [
@@ -185,6 +191,9 @@ class NotificationService
         }
     }
 
+    /**
+     * Chuyển mã bộ phận sang tên hiển thị tiếng Việt.
+     */
     protected function getDepartmentName(string $dept): string
     {
         $names = [

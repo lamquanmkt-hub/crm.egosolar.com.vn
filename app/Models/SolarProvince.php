@@ -21,11 +21,11 @@ class SolarProvince extends Model
 
     public function getEffectiveIrradiationAttribute()
     {
-        if (!is_null($this->irradiation_override)) {
+        if (! is_null($this->irradiation_override)) {
             return (float) $this->irradiation_override;
         }
 
-        if ($this->regionProfile && !is_null($this->regionProfile->irradiation_default)) {
+        if ($this->regionProfile && ! is_null($this->regionProfile->irradiation_default)) {
             return (float) $this->regionProfile->irradiation_default;
         }
 

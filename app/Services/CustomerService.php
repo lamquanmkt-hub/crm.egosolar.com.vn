@@ -1,26 +1,41 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
+use App\Contracts\Services\CustomerServiceInterface;
 use App\Models\CRM\Customers\Customer;
 use App\Models\CRM\Leads\Lead;
 use App\Repositories\Interfaces\CustomerRepositoryInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-class CustomerService
+/**
+ * Service xử lý nghiệp vụ khách hàng (Customer).
+ */
+class CustomerService implements CustomerServiceInterface
 {
     protected CustomerRepositoryInterface $customerRepo;
 
+    /**
+     * Khởi tạo service với repository khách hàng.
+     */
     public function __construct(CustomerRepositoryInterface $customerRepo)
     {
         $this->customerRepo = $customerRepo;
     }
 
+    /**
+     * Lấy tất cả khách hàng kèm quan hệ.
+     */
     public function getAll(): mixed {
         return $this->customerRepo->getAllWithRelations();
     }
 
+    /**
+     * Tạo khách hàng mới kèm lead đầu tiên, tự gán người phụ trách và tags.
+     */
     public function create(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -61,6 +76,9 @@ class CustomerService
         });
     }
 
+    /**
+     * Cập nhật thông tin khách hàng trong transaction.
+     */
     public function update($id, array $data)
     {
         return DB::transaction(function () use ($id, $data) {
@@ -74,24 +92,42 @@ class CustomerService
         });
     }
 
+    /**
+     * Xóa khách hàng theo ID.
+     */
     public function delete($id)
     {
         return DB::transaction(fn() => $this->customerRepo->delete($id));
     }
 
+    /**
+     * Tìm kiếm khách hàng theo bộ lọc.
+     */
     public function search(array $filters = [])
     {
         return $this->customerRepo->search($filters);
     }
 
+    /**
+     * Lấy chi tiết khách hàng kèm quan hệ.
+     */
     public function findWithDetails($id)
     {
         return $this->customerRepo->findWithDetails($id);
     }
 
     // Các hàm count giữ nguyên
+    /**
+     * Đếm tổng số khách hàng.
+     */
     public function count() { return $this->customerRepo->count(); }
+    /**
+     * Đếm số khách hàng đã mua hàng.
+     */
     public function countPurchased() { return $this->customerRepo->countPurchased(); }
+    /**
+     * Tìm khách hàng theo ID.
+     */
     public function find($id) { return $this->customerRepo->find($id); }
 
     /* * Đã xóa hàm getBirthdaysThisMonth() vì DB không có cột birthday.
@@ -100,6 +136,9 @@ class CustomerService
 
     // --- BUSINESS LOGIC ---
 
+    /**
+     * Chuyển khách hàng thành thành viên, tạo membership nếu có dữ liệu.
+     */
     public function convertToMember($customerId, array $membershipData = [])
     {
         return DB::transaction(function () use ($customerId, $membershipData) {
@@ -116,6 +155,9 @@ class CustomerService
         });
     }
 
+    /**
+     * Lấy danh sách khách hàng rút gọn cho dropdown, giới hạn theo quyền sales.
+     */
     public function getCustomersForSelect(): Collection
     {
         // Lấy danh sách khách hàng gọn nhẹ cho Dropdown
@@ -152,6 +194,9 @@ class CustomerService
                 ];
             });
     }
+    /**
+     * Tìm khách hàng theo tên/SĐT cho ô chọn khi tạo đơn, giới hạn theo quyền.
+     */
     public function searchCustomersForOrderSelect(string $term, int $limit = 30): array
 {
     $user = auth()->user();
@@ -192,6 +237,9 @@ class CustomerService
     })->values()->all();
 }
 
+/**
+ * Lấy thông tin một khách hàng cho ô chọn đơn hàng, có kiểm tra quyền sở hữu.
+ */
 public function getCustomerOptionForOrderSelect(int $customerId): ?array
 {
     $user = auth()->user();
@@ -220,6 +268,9 @@ public function getCustomerOptionForOrderSelect(int $customerId): ?array
     ];
 }
 
+    /**
+     * Kiểm tra user có quyền xem toàn bộ khách hàng (admin/kho/customer.view_all).
+     */
     private function hasFullCustomerAccess($user): bool
     {
         if (!$user) {

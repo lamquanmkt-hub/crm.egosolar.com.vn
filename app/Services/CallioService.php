@@ -6,13 +6,24 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
+/**
+ * Service tích hợp tổng đài Callio: lấy lịch sử cuộc gọi và link ghi âm.
+ */
 class CallioService
 {
+    /**
+     * Kiểm tra Callio đã được cấu hình (base_url + token) hay chưa.
+     */
     public function enabled(): bool
     {
         return filled(config('services.callio.base_url')) && filled(config('services.callio.token'));
     }
 
+    /**
+     * Lấy danh sách cuộc gọi từ Callio theo ngày (phân trang, tìm kiếm từ khóa).
+     *
+     * @return array Kết quả gồm ok, message, docs và meta.
+     */
     public function fetchCallsForDate(Carbon $date, int $page = 1, int $pageSize = 15, ?string $keyword = null): array
     {
         if (!$this->enabled()) {
@@ -135,6 +146,9 @@ class CallioService
         ];
     }
 
+    /**
+     * Lấy link ghi âm của một cuộc gọi theo ID.
+     */
     public function fetchRecordingUrl(string $callId): array
     {
         if (!$this->enabled()) {

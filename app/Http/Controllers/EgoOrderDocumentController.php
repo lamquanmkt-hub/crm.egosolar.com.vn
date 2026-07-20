@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * Giấy tờ đính kèm đơn hàng: upload, tải xuống, xem trước, xóa; tự liên kết hồ sơ đại lý.
+ */
 class EgoOrderDocumentController extends Controller
 {
     private array $types = [
@@ -25,9 +28,12 @@ class EgoOrderDocumentController extends Controller
     private array $allowedExt = [
         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv',
         'jpg', 'jpeg', 'png', 'webp', 'gif', 'txt',
-        'zip', 'rar', '7z'
+        'zip', 'rar', '7z',
     ];
 
+    /**
+     * Upload nhiều giấy tờ vào đơn hàng (kiểm tra định dạng, tự gắn customer/profile liên quan).
+     */
     public function store(Request $request, $order)
     {
         $orderId = (int) $order;
@@ -46,7 +52,7 @@ class EgoOrderDocumentController extends Controller
 
         $files = $request->file('documents', []);
 
-        if (!is_array($files)) {
+        if (! is_array($files)) {
             $files = [$files];
         }
 
@@ -55,15 +61,15 @@ class EgoOrderDocumentController extends Controller
         $count = 0;
 
         foreach ($files as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
             $original = $file->getClientOriginalName();
             $ext = strtolower((string) $file->getClientOriginalExtension());
 
-            if (!in_array($ext, $this->allowedExt, true)) {
-                return back()->withErrors(['documents' => 'Định dạng .' . $ext . ' chưa được hỗ trợ.']);
+            if (! in_array($ext, $this->allowedExt, true)) {
+                return back()->withErrors(['documents' => 'Định dạng .'.$ext.' chưa được hỗ trợ.']);
             }
 
             $base = pathinfo($original, PATHINFO_FILENAME);
@@ -73,8 +79,8 @@ class EgoOrderDocumentController extends Controller
                 $safeBase = 'file';
             }
 
-            $storedName = now()->format('Ymd_His') . '_' . Str::random(8) . '_' . $safeBase . '.' . $ext;
-            $storedPath = $file->storeAs('order-documents/' . $orderId, $storedName, 'public');
+            $storedName = now()->format('Ymd_His').'_'.Str::random(8).'_'.$safeBase.'.'.$ext;
+            $storedPath = $file->storeAs('order-documents/'.$orderId, $storedName, 'public');
 
             DB::table('crm_order_documents')->insert([
                 'order_id' => $orderId,
@@ -95,9 +101,12 @@ class EgoOrderDocumentController extends Controller
             $count++;
         }
 
-        return back()->with('success', 'Đã upload ' . $count . ' file vào đơn hàng. Hồ sơ đại lý liên quan sẽ tự hiện file này.');
+        return back()->with('success', 'Đã upload '.$count.' file vào đơn hàng. Hồ sơ đại lý liên quan sẽ tự hiện file này.');
     }
 
+    /**
+     * Tải xuống một giấy tờ của đơn hàng với tên gốc.
+     */
     public function download($order, $document)
     {
         $doc = $this->getDocument((int) $order, (int) $document);
@@ -107,6 +116,9 @@ class EgoOrderDocumentController extends Controller
         return Storage::disk('public')->download($doc->file_path, $doc->original_name ?: basename($doc->file_path));
     }
 
+    /**
+     * Xem trước giấy tờ đơn hàng: ảnh, PDF, TXT, CSV, Office (convert PDF qua LibreOffice).
+     */
     public function preview($order, $document)
     {
         ini_set('memory_limit', '1024M');
@@ -116,7 +128,7 @@ class EgoOrderDocumentController extends Controller
         $documentId = (int) $document;
         $doc = $this->getDocument($orderId, $documentId);
 
-        if (empty($doc->file_path) || !Storage::disk('public')->exists($doc->file_path)) {
+        if (empty($doc->file_path) || ! Storage::disk('public')->exists($doc->file_path)) {
             return $this->page('Không tìm thấy file', $this->notice('Không tìm thấy file gốc trong storage.'));
         }
 
@@ -127,26 +139,26 @@ class EgoOrderDocumentController extends Controller
         $header = $this->previewHeader($name, $orderId, $documentId);
 
         if (str_starts_with((string) $mime, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true)) {
-            $mime = $mime ?: 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
+            $mime = $mime ?: 'image/'.($ext === 'jpg' ? 'jpeg' : $ext);
             $data = base64_encode(file_get_contents($real));
 
-            return $this->page($name, $header . '<div class="preview-body image-body"><img class="preview-image" src="data:' . e($mime) . ';base64,' . $data . '"></div>');
+            return $this->page($name, $header.'<div class="preview-body image-body"><img class="preview-image" src="data:'.e($mime).';base64,'.$data.'"></div>');
         }
 
         if ($ext === 'pdf' || $mime === 'application/pdf') {
             $data = base64_encode(file_get_contents($real));
 
-            return $this->page($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>');
+            return $this->page($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>');
         }
 
         if (in_array($ext, ['txt', 'log'], true)) {
             $text = htmlspecialchars((string) file_get_contents($real), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-            return $this->page($name, $header . '<div class="preview-body"><pre class="text-preview">' . $text . '</pre></div>');
+            return $this->page($name, $header.'<div class="preview-body"><pre class="text-preview">'.$text.'</pre></div>');
         }
 
         if ($ext === 'csv') {
-            return $this->page($name, $header . '<div class="preview-body"><div class="table-wrap">' . $this->csvTable($real) . '</div></div>');
+            return $this->page($name, $header.'<div class="preview-body"><div class="table-wrap">'.$this->csvTable($real).'</div></div>');
         }
 
         if (in_array($ext, ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'], true)) {
@@ -155,20 +167,23 @@ class EgoOrderDocumentController extends Controller
             if ($pdf && is_file($pdf)) {
                 $data = base64_encode(file_get_contents($pdf));
 
-                return $this->page($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>');
+                return $this->page($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>');
             }
 
-            return $this->page($name, $header . $this->notice('File Word/Excel cần LibreOffice trên server để xem trước. Anh vẫn có thể bấm Tải xuống để mở file.'));
+            return $this->page($name, $header.$this->notice('File Word/Excel cần LibreOffice trên server để xem trước. Anh vẫn có thể bấm Tải xuống để mở file.'));
         }
 
-        return $this->page($name, $header . $this->notice('Định dạng này chưa hỗ trợ xem trước: .' . e($ext)));
+        return $this->page($name, $header.$this->notice('Định dạng này chưa hỗ trợ xem trước: .'.e($ext)));
     }
 
+    /**
+     * Xóa giấy tờ khỏi đơn hàng (cả file vật lý và bản ghi).
+     */
     public function destroy($order, $document)
     {
         $doc = $this->getDocument((int) $order, (int) $document);
 
-        if (!empty($doc->file_path) && Storage::disk('public')->exists($doc->file_path)) {
+        if (! empty($doc->file_path) && Storage::disk('public')->exists($doc->file_path)) {
             Storage::disk('public')->delete($doc->file_path);
         }
 
@@ -177,6 +192,9 @@ class EgoOrderDocumentController extends Controller
         return back()->with('success', 'Đã xóa giấy tờ khỏi đơn hàng.');
     }
 
+    /**
+     * Lấy đơn hàng theo id, kiểm tra các bảng cần thiết tồn tại (404/500 nếu thiếu).
+     */
     private function getOrder(int $orderId)
     {
         abort_unless(Schema::hasTable('crm_orders'), 404, 'Không thấy bảng crm_orders.');
@@ -189,6 +207,9 @@ class EgoOrderDocumentController extends Controller
         return $order;
     }
 
+    /**
+     * Lấy bản ghi giấy tờ thuộc đúng đơn hàng (404 nếu không có).
+     */
     private function getDocument(int $orderId, int $documentId)
     {
         $this->getOrder($orderId);
@@ -203,17 +224,22 @@ class EgoOrderDocumentController extends Controller
         return $doc;
     }
 
+    /**
+     * Suy ra customer_id và customer_profile_id của đơn hàng (qua order, lead, SĐT, tên đại lý).
+     *
+     * @return array{0: int|null, 1: int|null}
+     */
     private function resolveCustomerProfile(int $orderId): array
     {
         $order = DB::table('crm_orders')->where('id', $orderId)->first();
 
         $customerId = null;
 
-        if ($order && Schema::hasColumn('crm_orders', 'customer_id') && !empty($order->customer_id)) {
+        if ($order && Schema::hasColumn('crm_orders', 'customer_id') && ! empty($order->customer_id)) {
             $customerId = (int) $order->customer_id;
         }
 
-        if (!$customerId && $order && !empty($order->lead_id) && Schema::hasTable('crm_leads') && Schema::hasColumn('crm_leads', 'customer_id')) {
+        if (! $customerId && $order && ! empty($order->lead_id) && Schema::hasTable('crm_leads') && Schema::hasColumn('crm_leads', 'customer_id')) {
             $customerId = DB::table('crm_leads')->where('id', (int) $order->lead_id)->value('customer_id');
             $customerId = $customerId ? (int) $customerId : null;
         }
@@ -226,15 +252,15 @@ class EgoOrderDocumentController extends Controller
                 $profileId = $profileId ? (int) $profileId : null;
             }
 
-            if (!$profileId && $customerId && Schema::hasTable('crm_customers')) {
+            if (! $profileId && $customerId && Schema::hasTable('crm_customers')) {
                 $customer = DB::table('crm_customers')->where('id', $customerId)->first();
 
-                if ($customer && !empty($customer->phone) && Schema::hasColumn('customer_profiles', 'phone')) {
+                if ($customer && ! empty($customer->phone) && Schema::hasColumn('customer_profiles', 'phone')) {
                     $profileId = DB::table('customer_profiles')->where('phone', $customer->phone)->value('id');
                     $profileId = $profileId ? (int) $profileId : null;
                 }
 
-                if (!$profileId && $customer && !empty($customer->name) && Schema::hasColumn('customer_profiles', 'agent_name')) {
+                if (! $profileId && $customer && ! empty($customer->name) && Schema::hasColumn('customer_profiles', 'agent_name')) {
                     $profileId = DB::table('customer_profiles')->where('agent_name', $customer->name)->value('id');
                     $profileId = $profileId ? (int) $profileId : null;
                 }
@@ -244,9 +270,12 @@ class EgoOrderDocumentController extends Controller
         return [$customerId, $profileId];
     }
 
+    /**
+     * Convert file Office sang PDF bằng LibreOffice headless, có cache theo hash file.
+     */
     private function convertOfficeToPdf(string $real): ?string
     {
-        if (!function_exists('shell_exec') || !function_exists('exec')) {
+        if (! function_exists('shell_exec') || ! function_exists('exec')) {
             return null;
         }
 
@@ -258,49 +287,49 @@ class EgoOrderDocumentController extends Controller
 
         $cacheDir = storage_path('app/preview-cache/order-documents');
 
-        if (!is_dir($cacheDir)) {
+        if (! is_dir($cacheDir)) {
             @mkdir($cacheDir, 0775, true);
         }
 
-        $hash = md5($real . '|' . @filemtime($real) . '|' . @filesize($real));
-        $pdfPath = $cacheDir . '/' . $hash . '.pdf';
+        $hash = md5($real.'|'.@filemtime($real).'|'.@filesize($real));
+        $pdfPath = $cacheDir.'/'.$hash.'.pdf';
 
         if (is_file($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
         }
 
-        $workDir = $cacheDir . '/work-' . $hash;
-        $profileDir = $cacheDir . '/lo-profile';
+        $workDir = $cacheDir.'/work-'.$hash;
+        $profileDir = $cacheDir.'/lo-profile';
 
         @mkdir($workDir, 0775, true);
         @mkdir($profileDir, 0775, true);
 
         $ext = strtolower(pathinfo($real, PATHINFO_EXTENSION)) ?: 'bin';
-        $tmpInput = $workDir . '/input.' . $ext;
+        $tmpInput = $workDir.'/input.'.$ext;
 
-        if (!@copy($real, $tmpInput)) {
+        if (! @copy($real, $tmpInput)) {
             return null;
         }
 
-        $profileUrl = 'file://' . str_replace('%2F', '/', rawurlencode($profileDir));
+        $profileUrl = 'file://'.str_replace('%2F', '/', rawurlencode($profileDir));
 
-        $cmd = 'HOME=' . escapeshellarg($profileDir) . ' '
-            . escapeshellarg($bin)
-            . ' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
-            . escapeshellarg('--env:UserInstallation=' . $profileUrl)
-            . ' --convert-to pdf --outdir '
-            . escapeshellarg($workDir) . ' '
-            . escapeshellarg($tmpInput)
-            . ' 2>&1';
+        $cmd = 'HOME='.escapeshellarg($profileDir).' '
+            .escapeshellarg($bin)
+            .' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
+            .escapeshellarg('--env:UserInstallation='.$profileUrl)
+            .' --convert-to pdf --outdir '
+            .escapeshellarg($workDir).' '
+            .escapeshellarg($tmpInput)
+            .' 2>&1';
 
         @exec($cmd, $out, $code);
 
-        $generated = glob($workDir . '/*.pdf') ?: [];
+        $generated = glob($workDir.'/*.pdf') ?: [];
 
-        if (!empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
+        if (! empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
             @rename($generated[0], $pdfPath);
 
-            foreach (glob($workDir . '/*') ?: [] as $file) {
+            foreach (glob($workDir.'/*') ?: [] as $file) {
                 if (is_file($file)) {
                     @unlink($file);
                 }
@@ -314,11 +343,14 @@ class EgoOrderDocumentController extends Controller
         return null;
     }
 
+    /**
+     * Đọc file CSV và dựng bảng HTML (dòng đầu làm header).
+     */
     private function csvTable(string $real): string
     {
         $handle = fopen($real, 'r');
 
-        if (!$handle) {
+        if (! $handle) {
             return '<div class="notice">Không đọc được CSV.</div>';
         }
 
@@ -330,7 +362,7 @@ class EgoOrderDocumentController extends Controller
 
             foreach ($row as $cell) {
                 $tag = $rowIndex === 0 ? 'th' : 'td';
-                $html .= '<' . $tag . '>' . htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</' . $tag . '>';
+                $html .= '<'.$tag.'>'.htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</'.$tag.'>';
             }
 
             $html .= '</tr>';
@@ -339,21 +371,30 @@ class EgoOrderDocumentController extends Controller
 
         fclose($handle);
 
-        return $html . '</table>';
+        return $html.'</table>';
     }
 
+    /**
+     * Thanh tiêu đề trang xem trước kèm nút tải xuống.
+     */
     private function previewHeader(string $name, int $orderId, int $documentId): string
     {
-        $download = url('/orders/' . $orderId . '/documents-ego/' . $documentId . '/download');
+        $download = url('/orders/'.$orderId.'/documents-ego/'.$documentId.'/download');
 
-        return '<div class="preview-top"><div class="preview-title">' . e($name) . '</div><a class="preview-download" href="' . e($download) . '">Tải xuống</a></div>';
+        return '<div class="preview-top"><div class="preview-title">'.e($name).'</div><a class="preview-download" href="'.e($download).'">Tải xuống</a></div>';
     }
 
+    /**
+     * Dựng khối thông báo (lỗi/không hỗ trợ) trong trang xem trước.
+     */
     private function notice(string $message): string
     {
-        return '<div class="preview-body"><div class="notice">' . e($message) . '</div></div>';
+        return '<div class="preview-body"><div class="notice">'.e($message).'</div></div>';
     }
 
+    /**
+     * Bọc nội dung xem trước vào trang HTML hoàn chỉnh kèm CSS chung.
+     */
     private function page(string $title, string $body)
     {
         $css = '<style>
@@ -373,6 +414,6 @@ class EgoOrderDocumentController extends Controller
             .preview-table td,.preview-table th{border:1px solid #d7dee8;padding:7px 9px;font-size:13px;vertical-align:top}
         </style>';
 
-        return response('<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title>' . $css . '</head><body>' . $body . '</body></html>');
+        return response('<!doctype html><html><head><meta charset="utf-8"><title>'.e($title).'</title>'.$css.'</head><body>'.$body.'</body></html>');
     }
 }

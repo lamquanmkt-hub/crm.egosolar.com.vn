@@ -8,8 +8,14 @@ use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Quản lý phiếu chi và cập nhật số dư tài khoản.
+ */
 class PaymentController extends Controller
 {
+    /**
+     * Danh sách phiếu chi theo khoảng ngày kèm bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
         $dateFrom = $request->filled('date_from')
@@ -78,6 +84,9 @@ class PaymentController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form tạo phiếu chi.
+     */
     public function create()
 {
     $accounts = Account::where('is_active', true)->orderBy('name')->get();
@@ -89,6 +98,9 @@ class PaymentController extends Controller
     ]);
 }
 
+    /**
+     * Tạo phiếu chi và trừ số dư tài khoản (chặn khi không đủ số dư).
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -140,6 +152,9 @@ class PaymentController extends Controller
             ->with('success', 'Tạo phiếu chi thành công.');
     }
 
+    /**
+     * Sinh mã phiếu chi dạng PCYYYYMMDD-XXX.
+     */
     private function generatePaymentCode(): string
     {
         $prefix = 'PC' . now()->format('Ymd');
@@ -158,6 +173,9 @@ class PaymentController extends Controller
         return $prefix . '-' . str_pad((string) $number, 3, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Xóa phiếu chi và hoàn lại số dư tài khoản.
+     */
     public function destroy(Payment $payment)
     {
         DB::transaction(function () use ($payment) {

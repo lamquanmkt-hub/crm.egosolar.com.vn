@@ -5,8 +5,14 @@ namespace App\Services\Marketing;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Service tính KPI kế hoạch marketing: so sánh mục tiêu với số liệu thực tế theo tháng.
+ */
 class PlanKpiService
 {
+    /**
+     * Tổng hợp KPI kế hoạch: mục tiêu, thực tế (spend/leads/revenue), ROAS, CPL và tiến độ.
+     */
     public function build(int $planId): array
     {
         $plan = DB::table('mkt_plans')->where('id', $planId)->first();
@@ -51,6 +57,9 @@ class PlanKpiService
         ];
     }
 
+    /**
+     * Tính phần trăm a/b (làm tròn 1 chữ số), trả 0 nếu mẫu số rỗng.
+     */
     private function percent($a, $b)
     {
         if (!$b || $b == 0) return 0;

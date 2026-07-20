@@ -8,58 +8,96 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 
+/**
+ * Controller quản lý toàn bộ quy trình tuyển dụng: yêu cầu, sàng lọc, phỏng vấn, thư mời và tiếp nhận.
+ */
 class RecruitmentController extends Controller
 {
+    /**
+     * Trang mặc định của module tuyển dụng (tab báo cáo).
+     */
     public function index()
     {
         return $this->page('reports');
     }
 
+    /**
+     * Hiển thị tab yêu cầu tuyển dụng.
+     */
     public function requests()
     {
         return $this->page('requests');
     }
 
+    /**
+     * Hiển thị tab sàng lọc ứng viên.
+     */
     public function screening()
     {
         return $this->page('screening');
     }
 
+    /**
+     * Hiển thị tab ứng viên (dùng chung tab sàng lọc).
+     */
     public function candidates()
     {
         return $this->page('screening');
     }
 
+    /**
+     * Hiển thị tab lịch phỏng vấn.
+     */
     public function interviews()
     {
         return $this->page('interviews');
     }
 
+    /**
+     * Hiển thị tab đánh giá phỏng vấn.
+     */
     public function evaluations()
     {
         return $this->page('evaluations');
     }
 
+    /**
+     * Hiển thị tab thư mời nhận việc.
+     */
     public function offers()
     {
         return $this->page('offers');
     }
 
+    /**
+     * Hiển thị tab tiếp nhận nhân sự mới.
+     */
     public function onboarding()
     {
         return $this->page('onboarding');
     }
 
+    /**
+     * Hiển thị tab lưu trữ hồ sơ ứng viên.
+     */
     public function archives()
     {
         return $this->page('archives');
     }
 
+    /**
+     * Hiển thị tab báo cáo tuyển dụng.
+     */
     public function reports()
     {
         return $this->page('reports');
     }
 
+    /**
+     * Dựng dữ liệu chung cho trang tuyển dụng (yêu cầu, ứng viên, phỏng vấn, offer, thống kê) theo tab đang chọn.
+     *
+     * @param string $active Tab đang hiển thị
+     */
     private function page($active)
     {
         $this->ensureTablesReady();
@@ -143,6 +181,9 @@ class RecruitmentController extends Controller
         ));
     }
 
+    /**
+     * Tạo yêu cầu tuyển dụng mới.
+     */
     public function storeRequest(Request $request)
     {
         $data = $request->validate([
@@ -167,6 +208,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã tạo yêu cầu tuyển dụng.');
     }
 
+    /**
+     * Cập nhật yêu cầu tuyển dụng theo ID.
+     *
+     * @param int|string $id ID yêu cầu
+     */
     public function updateRequest(Request $request, $id)
     {
         $data = $request->validate([
@@ -189,6 +235,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã cập nhật yêu cầu tuyển dụng.');
     }
 
+    /**
+     * Xoá yêu cầu tuyển dụng theo ID.
+     *
+     * @param int|string $id ID yêu cầu
+     */
     public function destroyRequest($id)
     {
         DB::table('hr_recruitment_requests')->where('id', (int) $id)->delete();
@@ -196,6 +247,9 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã xoá yêu cầu tuyển dụng.');
     }
 
+    /**
+     * Thêm ứng viên mới vào kho sàng lọc.
+     */
     public function storeCandidate(Request $request)
     {
         $data = $request->validate([
@@ -228,6 +282,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã thêm ứng viên vào kho sàng lọc.');
     }
 
+    /**
+     * Cập nhật thông tin ứng viên theo ID.
+     *
+     * @param int|string $id ID ứng viên
+     */
     public function updateCandidate(Request $request, $id)
     {
         $data = $request->validate([
@@ -260,6 +319,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã cập nhật ứng viên.');
     }
 
+    /**
+     * Xoá ứng viên theo ID.
+     *
+     * @param int|string $id ID ứng viên
+     */
     public function destroyCandidate($id)
     {
         DB::table('hr_recruitment_candidates')->where('id', (int) $id)->delete();
@@ -267,6 +331,9 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã xoá ứng viên.');
     }
 
+    /**
+     * Tạo lịch phỏng vấn mới và đồng bộ trạng thái ứng viên.
+     */
     public function storeInterview(Request $request)
     {
         $data = $request->validate([
@@ -297,6 +364,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã đặt lịch phỏng vấn.');
     }
 
+    /**
+     * Cập nhật lịch / đánh giá phỏng vấn và đồng bộ trạng thái ứng viên.
+     *
+     * @param int|string $id ID lịch phỏng vấn
+     */
     public function updateInterview(Request $request, $id)
     {
         $data = $request->validate([
@@ -327,6 +399,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã cập nhật lịch / đánh giá phỏng vấn.');
     }
 
+    /**
+     * Xoá lịch phỏng vấn theo ID.
+     *
+     * @param int|string $id ID lịch phỏng vấn
+     */
     public function destroyInterview($id)
     {
         DB::table('hr_recruitment_interviews')->where('id', (int) $id)->delete();
@@ -334,6 +411,9 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã xoá lịch phỏng vấn.');
     }
 
+    /**
+     * Tạo thư mời / đề nghị nhận việc và đồng bộ trạng thái ứng viên.
+     */
     public function storeOffer(Request $request)
     {
         $data = $request->validate([
@@ -359,6 +439,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã tạo thư mời / đề nghị nhận việc.');
     }
 
+    /**
+     * Cập nhật thư mời / tiếp nhận nhân sự và đồng bộ trạng thái ứng viên.
+     *
+     * @param int|string $id ID thư mời
+     */
     public function updateOffer(Request $request, $id)
     {
         $data = $request->validate([
@@ -384,6 +469,11 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã cập nhật thư mời / tiếp nhận nhân sự.');
     }
 
+    /**
+     * Xoá đề nghị nhận việc theo ID.
+     *
+     * @param int|string $id ID thư mời
+     */
     public function destroyOffer($id)
     {
         DB::table('hr_recruitment_offers')->where('id', (int) $id)->delete();
@@ -391,6 +481,9 @@ class RecruitmentController extends Controller
         return back()->with('success', 'Đã xoá đề nghị nhận việc.');
     }
 
+    /**
+     * Suy ra và cập nhật trạng thái ứng viên dựa trên trạng thái / kết quả phỏng vấn.
+     */
     private function syncCandidateFromInterview(int $candidateId, array $data): void
     {
         $status = $data['status'] ?? 'scheduled';
@@ -423,6 +516,9 @@ class RecruitmentController extends Controller
             ]));
     }
 
+    /**
+     * Suy ra và cập nhật trạng thái ứng viên dựa trên trạng thái thư mời.
+     */
     private function syncCandidateFromOffer(int $candidateId, array $data): void
     {
         $offerStatus = $data['status'] ?? 'draft';
@@ -443,6 +539,9 @@ class RecruitmentController extends Controller
             ]));
     }
 
+    /**
+     * Danh sách trạng thái ứng viên (key => nhãn tiếng Việt).
+     */
     private function candidateStatuses()
     {
         return [
@@ -462,6 +561,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái duyệt yêu cầu tuyển dụng.
+     */
     private function approvalStatuses()
     {
         return [
@@ -472,6 +574,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách nguồn ứng viên.
+     */
     private function sources()
     {
         return [
@@ -486,6 +591,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách kênh liên hệ ứng viên.
+     */
     private function contactChannels()
     {
         return [
@@ -497,6 +605,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách mức độ phù hợp của ứng viên.
+     */
     private function suitabilityLevels()
     {
         return [
@@ -506,6 +617,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái lịch phỏng vấn.
+     */
     private function interviewStatuses()
     {
         return [
@@ -518,6 +632,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách kết quả đánh giá phỏng vấn.
+     */
     private function evaluationResults()
     {
         return [
@@ -528,6 +645,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái thư mời nhận việc.
+     */
     private function offerStatuses()
     {
         return [
@@ -540,6 +660,9 @@ class RecruitmentController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái tiếp nhận nhân sự mới.
+     */
     private function onboardingStatuses()
     {
         return [
@@ -551,6 +674,9 @@ class RecruitmentController extends Controller
     }
 
 
+    /**
+     * Chuẩn hoá các trường datetime dạng HTML (thay chữ T bằng khoảng trắng) ngay trên mảng dữ liệu.
+     */
     private function normalizeDateTimes(array &$data, array $fields): void
     {
         foreach ($fields as $field) {
@@ -560,6 +686,9 @@ class RecruitmentController extends Controller
         }
     }
 
+    /**
+     * Lọc mảng dữ liệu chỉ giữ các key trùng với cột đang tồn tại của bảng.
+     */
     private function onlyExistingColumns(string $table, array $data): array
     {
         if (!Schema::hasTable($table)) {
@@ -573,6 +702,9 @@ class RecruitmentController extends Controller
             ->all();
     }
 
+    /**
+     * Bổ sung các cột còn thiếu cho các bảng tuyển dụng nếu bảng đã tồn tại.
+     */
     private function ensureTablesReady(): void
     {
         foreach ([
@@ -606,6 +738,9 @@ class RecruitmentController extends Controller
         $this->addColumnIfMissing('hr_recruitment_offers', 'onboarding_date', fn (Blueprint $table) => $table->date('onboarding_date')->nullable()->after('onboarding_status'));
     }
 
+    /**
+     * Thêm cột vào bảng nếu bảng tồn tại và cột chưa có.
+     */
     private function addColumnIfMissing(string $table, string $column, callable $definition): void
     {
         if (Schema::hasTable($table) && !Schema::hasColumn($table, $column)) {

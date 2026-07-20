@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Department;
 
+/**
+ * Controller quản lý phòng ban (Department) trong module HR.
+ */
 class DepartmentController extends Controller
 {
+    /**
+     * Hiển thị danh sách phòng ban có phân trang.
+     */
     public function index()
     {
         $departments = Department::query()->latest()->paginate(10);
@@ -15,11 +21,17 @@ class DepartmentController extends Controller
         return view('hr.departments.index', compact('departments'));
     }
 
+    /**
+     * Hiển thị form tạo phòng ban mới.
+     */
     public function create()
     {
         return view('hr.departments.create');
     }
 
+    /**
+     * Lưu phòng ban mới sau khi validate.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -39,6 +51,11 @@ class DepartmentController extends Controller
             ->with('success', 'Tạo phòng ban thành công.');
     }
 
+    /**
+     * Hiển thị form chỉnh sửa phòng ban.
+     *
+     * @param int $id ID phòng ban
+     */
     public function edit($id)
     {
         $department = Department::findOrFail($id);
@@ -46,6 +63,11 @@ class DepartmentController extends Controller
         return view('hr.departments.edit', compact('department'));
     }
 
+    /**
+     * Cập nhật thông tin phòng ban.
+     *
+     * @param int $id ID phòng ban
+     */
     public function update(Request $request, $id)
     {
         $department = Department::findOrFail($id);
@@ -67,6 +89,11 @@ class DepartmentController extends Controller
             ->with('success', 'Cập nhật phòng ban thành công.');
     }
 
+    /**
+     * Xoá phòng ban theo ID.
+     *
+     * @param int $id ID phòng ban
+     */
     public function destroy($id)
     {
         $department = Department::findOrFail($id);

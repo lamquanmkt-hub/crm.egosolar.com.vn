@@ -1,54 +1,61 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
+/**
+ * Seeder tạo các tài khoản nhóm mặc định (Admin, Marketing, Sales, Kế toán...).
+ *
+ * Bảo mật: KHÔNG hardcode mật khẩu. Mật khẩu lấy từ env SEED_USER_PASSWORD;
+ * nếu thiếu sẽ sinh ngẫu nhiên cho từng tài khoản và in ra console một lần.
+ * Seeder này chỉ dành cho môi trường local/staging — bị chặn trên production.
+ */
 class UsersTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Chạy seed dữ liệu người dùng mặc định.
      */
     public function run(): void
     {
-//	    DB::table('users')->truncate();
+        if (app()->environment('production')) {
+            $this->command?->warn('UsersTableSeeder bị bỏ qua trên production (tài khoản do admin tạo thủ công).');
 
-	    DB::table('users')->insert([
-		    [
-			    'name' => 'Admin System',
-			    'email' => 'admin@egosolar.vn',
-			    'password' => Hash::make('admin123'),
-			    'email_verified_at' => now(),
-			    'created_at' => now(),
-			    'updated_at' => now(),
-		    ],
-		    [
-			    'name' => 'Marketing Team',
-			    'email' => 'marketing@egosolar.vn',
-			    'password' => Hash::make('marketing123'),
-			    'email_verified_at' => now(),
-			    'created_at' => now(),
-			    'updated_at' => now(),
-		    ],
-		    [
-			    'name' => 'Sales Team',
-			    'email' => 'sales@egosolar.vn',
-			    'password' => Hash::make('sales123'),
-			    'email_verified_at' => now(),
-			    'created_at' => now(),
-			    'updated_at' => now(),
-		    ],
-		    [
-			    'name' => 'Ketoan Team',
-			    'email' => 'ketoan@egosolar.vn',
-			    'password' => Hash::make('ketoan123'),
-			    'email_verified_at' => now(),
-			    'created_at' => now(),
-			    'updated_at' => now(),
-		    ],
-	    ]);
+            return;
+        }
+
+        $accounts = [
+            ['name' => 'Admin System', 'email' => 'admin@egosolar.vn'],
+            ['name' => 'Marketing Team', 'email' => 'marketing@egosolar.vn'],
+            ['name' => 'Sales Team', 'email' => 'sales@egosolar.vn'],
+            ['name' => 'Ketoan Team', 'email' => 'ketoan@egosolar.vn'],
+        ];
+
+        foreach ($accounts as $account) {
+            $password = env('SEED_USER_PASSWORD') ?: Str::random(16);
+
+            $exists = DB::table('users')->where('email', $account['email'])->exists();
+            if ($exists) {
+                continue;
+            }
+
+            DB::table('users')->insert([
+                'name' => $account['name'],
+                'email' => $account['email'],
+                'password' => Hash::make($password),
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            if (! env('SEED_USER_PASSWORD')) {
+                $this->command?->warn("Mật khẩu tạm cho {$account['email']}: {$password} — đổi ngay sau khi đăng nhập.");
+            }
+        }
     }
 }

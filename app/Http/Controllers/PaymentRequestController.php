@@ -11,21 +11,30 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * Controller quản lý phiếu đề nghị thanh toán: CRUD, duyệt và xuất Excel/PDF.
+ */
 class PaymentRequestController extends Controller
 {
     /* =========================
      * Helpers: role check
      * ========================= */
+    /**
+     * Kiểm tra người dùng có phải Admin (role column / is_admin / spatie).
+     */
     private function isAdmin($user): bool
     {
         return (method_exists($user, 'hasRole') && $user->hasRole('admin'))
             || (($user->role ?? null) === 'admin')
-            || ((int)($user->is_admin ?? 0) === 1);
+            || ((int) ($user->is_admin ?? 0) === 1);
     }
 
+    /**
+     * Kiểm tra người dùng có phải Kế toán.
+     */
     private function isAccounting($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -49,6 +58,9 @@ class PaymentRequestController extends Controller
         return in_array($rawRole, $roles, true) || str_contains($email, 'ketoan');
     }
 
+    /**
+     * Danh sách công ty dùng cho form.
+     */
     private function companyOptions(): array
     {
         return [
@@ -57,6 +69,9 @@ class PaymentRequestController extends Controller
         ];
     }
 
+    /**
+     * Bản đồ trạng thái phiếu sang nhãn tiếng Việt.
+     */
     private function statusLabels(): array
     {
         return [
@@ -69,15 +84,24 @@ class PaymentRequestController extends Controller
         ];
     }
 
+    /**
+     * Lấy nhãn tiếng Việt của một trạng thái phiếu.
+     */
     private function statusLabel(?string $status): string
     {
         $map = $this->statusLabels();
+
         return $map[$status ?? ''] ?? ($status ?? '-');
     }
 
     /* =========================
      * Date filter
      * ========================= */
+    /**
+     * Xác định khoảng ngày lọc theo preset hoặc ngày tùy chỉnh.
+     *
+     * @return array [preset, dateFrom, dateTo]
+     */
     private function resolveDateFilter(Request $request): array
     {
         $preset = trim((string) $request->input('date_preset', ''));
@@ -206,9 +230,12 @@ class PaymentRequestController extends Controller
         return [$preset, $dateFrom, $dateTo];
     }
 
+    /**
+     * Áp dụng các bộ lọc chung (quyền xem, công ty, người tạo, ngày, từ khóa) vào query.
+     */
     private function applyCommonFilters($query, Request $request, bool $canViewAll, $user, ?string $dateFrom, ?string $dateTo)
     {
-        if (!$canViewAll) {
+        if (! $canViewAll) {
             $query->where('created_by', $user->id);
         }
 
@@ -243,6 +270,9 @@ class PaymentRequestController extends Controller
         return $query;
     }
 
+    /**
+     * Dựng HTML danh sách đề nghị thanh toán dùng cho xuất Excel/PDF.
+     */
     private function buildExportHtml($items, array $filters, array $statusLabels, int $totalAmount, int $totalPaid, string $title = 'DANH SÁCH ĐỀ NGHỊ THANH TOÁN'): string
     {
         $rows = '';
@@ -252,7 +282,7 @@ class PaymentRequestController extends Controller
             $reasonText = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($it->reason ?? '-'))));
 
             $dueDateText = '-';
-            if (!empty($it->payment_due_date)) {
+            if (! empty($it->payment_due_date)) {
                 try {
                     $dueDateText = Carbon::parse($it->payment_due_date)->format('d/m/Y');
                 } catch (\Throwable $e) {
@@ -270,17 +300,17 @@ class PaymentRequestController extends Controller
 
             $rows .= '
                 <tr>
-                    <td style="text-align:center;">' . ($index + 1) . '</td>
-                    <td>' . e($it->code) . '</td>
-                    <td style="text-align:center;">' . e(optional($it->created_at)->format('d/m/Y H:i')) . '</td>
-                    <td style="text-align:center;">' . e($dueDateText) . '</td>
-                    <td>' . e($it->receiver_name) . '</td>
-                    <td style="text-align:right;">' . number_format((int) $it->amount) . ' đ</td>
-                    <td style="text-align:center;">' . e($statusLabels[$it->status] ?? $it->status) . '</td>
-                    <td>' . e($it->company ?? '-') . '</td>
-                    <td>' . e(optional($it->creator)->name ?? ($it->created_by ?? '-')) . '</td>
-                    <td>' . e($paymentContent) . '</td>
-                    <td>' . e($reasonText) . '</td>
+                    <td style="text-align:center;">'.($index + 1).'</td>
+                    <td>'.e($it->code).'</td>
+                    <td style="text-align:center;">'.e(optional($it->created_at)->format('d/m/Y H:i')).'</td>
+                    <td style="text-align:center;">'.e($dueDateText).'</td>
+                    <td>'.e($it->receiver_name).'</td>
+                    <td style="text-align:right;">'.number_format((int) $it->amount).' đ</td>
+                    <td style="text-align:center;">'.e($statusLabels[$it->status] ?? $it->status).'</td>
+                    <td>'.e($it->company ?? '-').'</td>
+                    <td>'.e(optional($it->creator)->name ?? ($it->created_by ?? '-')).'</td>
+                    <td>'.e($paymentContent).'</td>
+                    <td>'.e($reasonText).'</td>
                 </tr>
             ';
         }
@@ -294,7 +324,7 @@ class PaymentRequestController extends Controller
         <html lang="vi">
         <head>
             <meta charset="UTF-8">
-            <title>' . e($title) . '</title>
+            <title>'.e($title).'</title>
             <style>
                 body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #111827; }
                 h2 { margin: 0 0 10px 0; font-size: 18px; }
@@ -318,41 +348,41 @@ class PaymentRequestController extends Controller
             </style>
         </head>
         <body>
-            <h2>' . e($title) . '</h2>
+            <h2>'.e($title).'</h2>
 
             <div class="meta">
                 <table>
                     <tr>
                         <td><strong>Ngày xuất</strong></td>
-                        <td>' . e(now()->format('d/m/Y H:i')) . '</td>
+                        <td>'.e(now()->format('d/m/Y H:i')).'</td>
                         <td><strong>Trạng thái</strong></td>
-                        <td>' . e($filters['status'] ?? 'Tất cả') . '</td>
+                        <td>'.e($filters['status'] ?? 'Tất cả').'</td>
                     </tr>
                     <tr>
                         <td><strong>Công ty</strong></td>
-                        <td>' . e($filters['company'] ?? 'Tất cả') . '</td>
+                        <td>'.e($filters['company'] ?? 'Tất cả').'</td>
                         <td><strong>Người tạo</strong></td>
-                        <td>' . e($filters['created_by'] ?? 'Tất cả') . '</td>
+                        <td>'.e($filters['created_by'] ?? 'Tất cả').'</td>
                     </tr>
                     <tr>
                         <td><strong>Từ ngày</strong></td>
-                        <td>' . e($filters['date_from'] ?? '-') . '</td>
+                        <td>'.e($filters['date_from'] ?? '-').'</td>
                         <td><strong>Đến ngày</strong></td>
-                        <td>' . e($filters['date_to'] ?? '-') . '</td>
+                        <td>'.e($filters['date_to'] ?? '-').'</td>
                     </tr>
                     <tr>
                         <td><strong>Preset</strong></td>
-                        <td>' . e($filters['date_preset'] ?? '-') . '</td>
+                        <td>'.e($filters['date_preset'] ?? '-').'</td>
                         <td><strong>Từ khóa</strong></td>
-                        <td>' . e($filters['q'] ?? '-') . '</td>
+                        <td>'.e($filters['q'] ?? '-').'</td>
                     </tr>
                 </table>
             </div>
 
             <div class="summary">
-                <span>Tổng phiếu: ' . count($items) . '</span>
-                <span>Tổng tiền: ' . number_format((int) $totalAmount) . ' đ</span>
-                <span>Tổng đã chi: ' . number_format((int) $totalPaid) . ' đ</span>
+                <span>Tổng phiếu: '.count($items).'</span>
+                <span>Tổng tiền: '.number_format((int) $totalAmount).' đ</span>
+                <span>Tổng đã chi: '.number_format((int) $totalPaid).' đ</span>
             </div>
 
             <table class="list">
@@ -372,13 +402,16 @@ class PaymentRequestController extends Controller
                     </tr>
                 </thead>
                 <tbody>
-                    ' . $rows . '
+                    '.$rows.'
                 </tbody>
             </table>
         </body>
         </html>';
     }
 
+    /**
+     * Nhãn tiếng Việt của preset khoảng ngày.
+     */
     private function datePresetLabel(?string $preset): string
     {
         return match ($preset) {
@@ -394,6 +427,9 @@ class PaymentRequestController extends Controller
         };
     }
 
+    /**
+     * Hiển thị danh sách đề nghị thanh toán kèm bộ lọc và tổng đã chi.
+     */
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -456,16 +492,25 @@ class PaymentRequestController extends Controller
         ));
     }
 
+    /**
+     * Chuyển hướng về trang danh sách (tạo phiếu ngay trên trang danh sách).
+     */
     public function create()
     {
         return redirect()->route('payment_requests.index');
     }
 
+    /**
+     * Chuyển hướng về trang danh sách.
+     */
     public function demoCreate()
     {
         return redirect()->route('payment_requests.index');
     }
 
+    /**
+     * Xuất danh sách đề nghị thanh toán theo bộ lọc ra file Excel.
+     */
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
@@ -514,14 +559,17 @@ class PaymentRequestController extends Controller
             'DANH SÁCH ĐỀ NGHỊ THANH TOÁN'
         );
 
-        $fileName = 'danh_sach_de_nghi_thanh_toan_' . now()->format('Ymd_His') . '.xls';
+        $fileName = 'danh_sach_de_nghi_thanh_toan_'.now()->format('Ymd_His').'.xls';
 
-        return response("\xEF\xBB\xBF" . $html, 200, [
+        return response("\xEF\xBB\xBF".$html, 200, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
         ]);
     }
 
+    /**
+     * Xuất danh sách đề nghị thanh toán theo bộ lọc ra file PDF.
+     */
     public function exportPdf(Request $request)
     {
         $user = auth()->user();
@@ -575,10 +623,13 @@ class PaymentRequestController extends Controller
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
 
-        return $pdf->download('danh_sach_de_nghi_thanh_toan_' . now()->format('Ymd_His') . '.pdf');
+        return $pdf->download('danh_sach_de_nghi_thanh_toan_'.now()->format('Ymd_His').'.pdf');
     }
 
-        public function store(Request $request)
+    /**
+     * Tạo phiếu đề nghị thanh toán mới, sinh mã và lưu chứng từ đính kèm.
+     */
+    public function store(Request $request)
     {
         $user = auth()->user();
         abort_unless($user, 403);
@@ -591,7 +642,7 @@ class PaymentRequestController extends Controller
                 ? mb_strtolower($rawDocType, 'UTF-8')
                 : strtolower($rawDocType);
 
-            if (!in_array($rawDocType, $allowedDocTypes, true)) {
+            if (! in_array($rawDocType, $allowedDocTypes, true)) {
                 if (str_contains($lowerDocType, 'hoàn tiền') || str_contains($lowerDocType, 'hoan tien') || str_contains($lowerDocType, 'refund')) {
                     $rawDocType = 'refund_request';
                 } elseif (str_contains($lowerDocType, 'phiếu chi') || str_contains($lowerDocType, 'phieu chi') || str_contains($lowerDocType, 'voucher')) {
@@ -611,7 +662,7 @@ class PaymentRequestController extends Controller
 
             $request->merge(['doc_type' => $rawDocType]);
 
-            if (!$request->filled('company')) {
+            if (! $request->filled('company')) {
                 $fallbackCompany = (string) session('active_company_name', '');
                 if ($fallbackCompany === '') {
                     $fallbackCompany = $this->companyOptions()[0] ?? 'Công ty TNHH Ego Việt Nam';
@@ -619,7 +670,7 @@ class PaymentRequestController extends Controller
                 $request->merge(['company' => $fallbackCompany]);
             }
 
-            if (!$request->filled('reason')) {
+            if (! $request->filled('reason')) {
                 $fallbackReason = trim((string) $request->input('payment_content', ''));
                 if ($fallbackReason === '') {
                     $fallbackReason = 'Thanh toán theo đề nghị';
@@ -627,22 +678,22 @@ class PaymentRequestController extends Controller
                 $request->merge(['reason' => $fallbackReason]);
             }
 
-            if (!$request->filled('payment_content')) {
+            if (! $request->filled('payment_content')) {
                 $request->merge(['payment_content' => trim((string) $request->input('reason', 'Thanh toán theo đề nghị'))]);
             }
 
             $data = $request->validate([
-                'doc_type'         => 'required|in:payment_request,payment_voucher,advance,refund_request',
-                'company'          => 'required|string|max:5000',
-                'receiver_name'    => 'required|string|max:5000',
-                'department'       => 'nullable|string|max:5000',
-                'payment_content'  => 'nullable|string|max:10000',
-                'reason'           => 'required|string|max:50000',
-                'amount'           => 'required|integer|min:1',
+                'doc_type' => 'required|in:payment_request,payment_voucher,advance,refund_request',
+                'company' => 'required|string|max:5000',
+                'receiver_name' => 'required|string|max:5000',
+                'department' => 'nullable|string|max:5000',
+                'payment_content' => 'nullable|string|max:10000',
+                'reason' => 'required|string|max:50000',
+                'amount' => 'required|integer|min:1',
                 'payment_due_date' => 'nullable|date',
-                'bank_info'        => 'nullable|string|max:10000',
-                'attachments'      => ['nullable', 'array'],
-                'attachments.*'    => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
+                'bank_info' => 'nullable|string|max:10000',
+                'attachments' => ['nullable', 'array'],
+                'attachments.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
             ], [
                 'company.required' => 'Vui lòng chọn công ty.',
                 'receiver_name.required' => 'Vui lòng nhập người nhận.',
@@ -660,7 +711,7 @@ class PaymentRequestController extends Controller
 
             $data['created_by'] = (int) $user->id;
             $data['status'] = 'draft';
-            $data['code'] = 'TMP-' . (string) Str::uuid();
+            $data['code'] = 'TMP-'.(string) Str::uuid();
 
             if (in_array('created_at', $columns, true)) {
                 $data['created_at'] = $now;
@@ -678,7 +729,7 @@ class PaymentRequestController extends Controller
                         ->where('name', $data['company'])
                         ->value('id');
 
-                    if (!$companyId) {
+                    if (! $companyId) {
                         if (stripos($data['company'], 'Quốc') !== false || stripos($data['company'], 'Quoc') !== false || stripos($data['company'], 'TMKT') !== false || stripos($data['company'], 'QT') !== false) {
                             $companyId = (int) DB::table('companies')
                                 ->where('name', 'like', '%Quốc%')
@@ -695,7 +746,7 @@ class PaymentRequestController extends Controller
                     }
                 }
 
-                if (!$companyId) {
+                if (! $companyId) {
                     $companyId = (int) $request->input('company_id', session('active_company_id', 0));
                 }
 
@@ -709,7 +760,7 @@ class PaymentRequestController extends Controller
 
                 $id = DB::table('payment_requests')->insertGetId($insert);
 
-                $code = 'PR-' . now()->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT);
+                $code = 'PR-'.now()->format('Y').'-'.str_pad((string) $id, 5, '0', STR_PAD_LEFT);
                 $update = ['code' => $code];
 
                 if (in_array('updated_at', $columns, true)) {
@@ -722,7 +773,7 @@ class PaymentRequestController extends Controller
                     $attachmentColumns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_attachments');
 
                     foreach ($request->file('attachments') as $file) {
-                        if (!$file || !$file->isValid()) {
+                        if (! $file || ! $file->isValid()) {
                             continue;
                         }
 
@@ -770,17 +821,19 @@ class PaymentRequestController extends Controller
 
             return back()
                 ->withInput()
-                ->with('error', 'Không lưu được đề nghị thanh toán: ' . $e->getMessage());
+                ->with('error', 'Không lưu được đề nghị thanh toán: '.$e->getMessage());
         }
     }
 
-
+    /**
+     * Hiển thị chi tiết phiếu đề nghị thanh toán.
+     */
     public function show($id)
     {
         $item = PaymentRequest::with(['creator', 'attachments'])->findOrFail($id);
         $user = auth()->user();
 
-        if (!($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
+        if (! ($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
@@ -789,17 +842,20 @@ class PaymentRequestController extends Controller
         return view('payment_requests.show', compact('item'));
     }
 
+    /**
+     * Hiển thị form sửa phiếu khi còn được phép chỉnh sửa.
+     */
     public function edit($id)
     {
         $item = PaymentRequest::with('attachments')->findOrFail($id);
         $user = auth()->user();
         $canEditCompleted = $this->canEditCompletedFinanceRecord();
 
-        if (!$canEditCompleted && (int) $item->created_by !== (int) $user->id) {
+        if (! $canEditCompleted && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
-        if (!$canEditCompleted && !in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
+        if (! $canEditCompleted && ! in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
             return redirect()->route('payment_requests.show', $item->id)
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không sửa được.');
         }
@@ -809,6 +865,9 @@ class PaymentRequestController extends Controller
         return view('payment_requests.edit', compact('item', 'companyOptions'));
     }
 
+    /**
+     * Cập nhật phiếu đề nghị thanh toán.
+     */
     public function update(Request $request, $id)
     {
         $item = PaymentRequest::findOrFail($id);
@@ -816,24 +875,24 @@ class PaymentRequestController extends Controller
 
         $canEditCompleted = $this->canEditCompletedFinanceRecord();
 
-        if (!$canEditCompleted && (int) $item->created_by !== (int) $user->id) {
+        if (! $canEditCompleted && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
-        if (!$canEditCompleted && !in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
+        if (! $canEditCompleted && ! in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
             return redirect()->route('payment_requests.show', $item->id)
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không sửa được.');
         }
 
         $data = $request->validate([
-            'company'          => 'required|string|max:255',
-            'receiver_name'    => 'required|string|max:255',
-            'department'       => 'nullable|string|max:255',
-            'payment_content'  => 'nullable|string|max:255',
-            'reason'           => 'required|string',
-            'amount'           => 'required|integer|min:1',
+            'company' => 'required|string|max:255',
+            'receiver_name' => 'required|string|max:255',
+            'department' => 'nullable|string|max:255',
+            'payment_content' => 'nullable|string|max:255',
+            'reason' => 'required|string',
+            'amount' => 'required|integer|min:1',
             'payment_due_date' => 'nullable|date',
-            'bank_info'        => 'nullable|string|max:255',
+            'bank_info' => 'nullable|string|max:255',
         ]);
 
         $item->update($data);
@@ -842,17 +901,20 @@ class PaymentRequestController extends Controller
             ->with('success', 'Đã cập nhật phiếu.');
     }
 
+    /**
+     * Xóa phiếu và chứng từ; mở lại đợt công nợ liên kết nếu có.
+     */
     public function destroy($id)
     {
         $item = PaymentRequest::with('attachments')->findOrFail($id);
         $user = auth()->user();
         $canEditCompleted = $this->canEditCompletedFinanceRecord();
 
-        if (!$canEditCompleted && (int) $item->created_by !== (int) $user->id) {
+        if (! $canEditCompleted && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
-        if (!$canEditCompleted && !in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
+        if (! $canEditCompleted && ! in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
             return redirect()->route('payment_requests.index')
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không xoá được.');
         }
@@ -880,6 +942,9 @@ class PaymentRequestController extends Controller
             ->with('success', 'Đã xoá phiếu. Nếu phiếu có liên kết công nợ, đợt liên quan đã mở lại để tạo ĐNTT mới.');
     }
 
+    /**
+     * Chủ phiếu gửi phiếu đi duyệt.
+     */
     public function submit($id)
     {
         $item = PaymentRequest::findOrFail($id);
@@ -889,7 +954,7 @@ class PaymentRequestController extends Controller
             abort(403);
         }
 
-        if (!in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
+        if (! in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
             return redirect()->route('payment_requests.show', $item->id)
                 ->with('error', 'Phiếu không ở trạng thái có thể gửi duyệt.');
         }
@@ -901,12 +966,15 @@ class PaymentRequestController extends Controller
             ->with('success', 'Đã gửi Quản lý tài chính duyệt.');
     }
 
+    /**
+     * Quản lý tài chính duyệt phiếu.
+     */
     public function adminApprove(Request $request, $id)
     {
         $item = PaymentRequest::findOrFail($id);
         $user = auth()->user();
 
-        if (!$this->isAdmin($user)) {
+        if (! $this->isAdmin($user)) {
             abort(403);
         }
 
@@ -925,12 +993,15 @@ class PaymentRequestController extends Controller
             ->with('success', 'Quản lý tài chính đã duyệt.');
     }
 
+    /**
+     * Quản lý tài chính từ chối phiếu.
+     */
     public function adminReject(Request $request, $id)
     {
         $item = PaymentRequest::findOrFail($id);
         $user = auth()->user();
 
-        if (!$this->isAdmin($user)) {
+        if (! $this->isAdmin($user)) {
             abort(403);
         }
 
@@ -949,12 +1020,15 @@ class PaymentRequestController extends Controller
             ->with('success', 'Quản lý tài chính đã từ chối.');
     }
 
+    /**
+     * Kế toán xác nhận đã chi phiếu.
+     */
     public function accApprove(Request $request, $id)
     {
         $item = PaymentRequest::findOrFail($id);
         $user = auth()->user();
 
-        if (!$this->isAccounting($user)) {
+        if (! $this->isAccounting($user)) {
             abort(403);
         }
 
@@ -973,12 +1047,15 @@ class PaymentRequestController extends Controller
             ->with('success', 'Kế toán đã chi.');
     }
 
+    /**
+     * Kế toán từ chối phiếu.
+     */
     public function accReject(Request $request, $id)
     {
         $item = PaymentRequest::findOrFail($id);
         $user = auth()->user();
 
-        if (!$this->isAccounting($user)) {
+        if (! $this->isAccounting($user)) {
             abort(403);
         }
 
@@ -997,12 +1074,15 @@ class PaymentRequestController extends Controller
             ->with('success', 'Kế toán đã từ chối.');
     }
 
+    /**
+     * Tải PDF phiếu đề nghị thanh toán đã được kế toán chi.
+     */
     public function invoice($id)
     {
         $item = PaymentRequest::with(['creator'])->findOrFail($id);
         $user = auth()->user();
 
-        if (!($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
+        if (! ($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
@@ -1018,13 +1098,13 @@ class PaymentRequestController extends Controller
 
         $companyKey = $isEGP ? 'egp' : 'ego';
 
-        $logoAbs       = public_path("assets/logos/{$companyKey}.png");
+        $logoAbs = public_path("assets/logos/{$companyKey}.png");
         $financeSigAbs = public_path("assets/signatures/{$companyKey}_finance.png");
-        $accSigAbs     = public_path("assets/signatures/{$companyKey}_accounting.png");
+        $accSigAbs = public_path("assets/signatures/{$companyKey}_accounting.png");
 
-        $logoDataUri       = $this->fileToDataUri($logoAbs);
+        $logoDataUri = $this->fileToDataUri($logoAbs);
         $financeSigDataUri = $this->fileToDataUri($financeSigAbs);
-        $accSigDataUri     = $this->fileToDataUri($accSigAbs);
+        $accSigDataUri = $this->fileToDataUri($accSigAbs);
 
         $amountText = $this->vnNumberToWords((int) $item->amount);
         $statusLabel = $this->statusLabel($item->status);
@@ -1041,12 +1121,15 @@ class PaymentRequestController extends Controller
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
 
-        return $pdf->download('DNTT_' . $item->code . '.pdf');
+        return $pdf->download('DNTT_'.$item->code.'.pdf');
     }
 
+    /**
+     * Chuyển file ảnh sang chuỗi data URI base64.
+     */
     private function fileToDataUri(?string $absPath): ?string
     {
-        if (!$absPath || !is_file($absPath)) {
+        if (! $absPath || ! is_file($absPath)) {
             return null;
         }
 
@@ -1056,10 +1139,17 @@ class PaymentRequestController extends Controller
         return "data:$mime;base64,$data";
     }
 
+    /**
+     * Đọc số tiền thành chữ tiếng Việt.
+     */
     private function vnNumberToWords(int $number): string
     {
-        if ($number === 0) return 'Không đồng';
-        if ($number < 0) return 'Âm ' . $this->vnNumberToWords(abs($number));
+        if ($number === 0) {
+            return 'Không đồng';
+        }
+        if ($number < 0) {
+            return 'Âm '.$this->vnNumberToWords(abs($number));
+        }
 
         $units = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
         $scales = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
@@ -1072,19 +1162,28 @@ class PaymentRequestController extends Controller
             $out = [];
 
             if ($full || $hundreds > 0) {
-                $out[] = $units[$hundreds] . ' trăm';
-                if ($tens === 0 && $ones > 0) $out[] = 'lẻ';
+                $out[] = $units[$hundreds].' trăm';
+                if ($tens === 0 && $ones > 0) {
+                    $out[] = 'lẻ';
+                }
             }
 
             if ($tens > 1) {
-                $out[] = $units[$tens] . ' mươi';
-                if ($ones === 1) $out[] = 'mốt';
-                elseif ($ones === 5) $out[] = 'lăm';
-                elseif ($ones > 0) $out[] = $units[$ones];
+                $out[] = $units[$tens].' mươi';
+                if ($ones === 1) {
+                    $out[] = 'mốt';
+                } elseif ($ones === 5) {
+                    $out[] = 'lăm';
+                } elseif ($ones > 0) {
+                    $out[] = $units[$ones];
+                }
             } elseif ($tens === 1) {
                 $out[] = 'mười';
-                if ($ones === 5) $out[] = 'lăm';
-                elseif ($ones > 0) $out[] = $units[$ones];
+                if ($ones === 5) {
+                    $out[] = 'lăm';
+                } elseif ($ones > 0) {
+                    $out[] = $units[$ones];
+                }
             } else {
                 if ($ones > 0) {
                     $out[] = $units[$ones];
@@ -1103,7 +1202,7 @@ class PaymentRequestController extends Controller
             if ($triple > 0) {
                 $text = $readTriple($triple, $full);
                 $suffix = $scales[$scaleIndex] ?? '';
-                $parts[] = trim($text . ' ' . $suffix);
+                $parts[] = trim($text.' '.$suffix);
                 $full = true;
             }
             $number = intdiv($number, 1000);
@@ -1111,19 +1210,23 @@ class PaymentRequestController extends Controller
         }
 
         $result = trim(implode(' ', array_reverse($parts)));
-        $result = mb_strtoupper(mb_substr($result, 0, 1)) . mb_substr($result, 1);
+        $result = mb_strtoupper(mb_substr($result, 0, 1)).mb_substr($result, 1);
 
-        return $result . ' đồng';
+        return $result.' đồng';
     }
+
+    /**
+     * Kiểm tra tài khoản đặc biệt được sửa/xóa phiếu đã hoàn thành.
+     */
     private function canEditCompletedFinanceRecord(): bool
     {
         return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
     }
 
-
-
-
     /* EGO_THAO_PAYMENT_REQUEST_HELPER_START */
+    /**
+     * Kiểm tra tài khoản chỉ định có toàn quyền thao tác phiếu.
+     */
     private function egoThaoCanFullPaymentRequest(): bool
     {
         return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';

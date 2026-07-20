@@ -9,7 +9,7 @@ class SolarMaintenanceAccess
 {
     public static function roles(?User $user): array
     {
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -22,7 +22,7 @@ class SolarMaintenanceAccess
         }
 
         foreach (['role', 'type'] as $field) {
-            if (!empty($user->{$field})) {
+            if (! empty($user->{$field})) {
                 $roles[] = self::normalize((string) $user->{$field});
             }
         }
@@ -40,7 +40,7 @@ class SolarMaintenanceAccess
 
     public static function hasPermission(?User $user, string $permission): bool
     {
-        if (!$user || !method_exists($user, 'hasPermissionTo')) {
+        if (! $user || ! method_exists($user, 'hasPermissionTo')) {
             return false;
         }
 
@@ -53,7 +53,7 @@ class SolarMaintenanceAccess
 
     public static function isAdmin(?User $user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -94,7 +94,7 @@ class SolarMaintenanceAccess
 
     public static function isSelectableTechnician(?User $user): bool
     {
-        if (!$user || ($user->getAttribute('is_active') !== null && !(bool) $user->getAttribute('is_active'))) {
+        if (! $user || ($user->getAttribute('is_active') !== null && ! (bool) $user->getAttribute('is_active'))) {
             return false;
         }
 
@@ -142,13 +142,13 @@ class SolarMaintenanceAccess
     public static function isTechnicianOnly(?User $user): bool
     {
         return self::isTechnician($user)
-            && !self::isManager($user)
-            && !self::isAdmin($user);
+            && ! self::isManager($user)
+            && ! self::isAdmin($user);
     }
 
     private static function hasTechnicalOrganization(?User $user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

@@ -8,8 +8,14 @@ use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Quản lý phiếu thu và cập nhật số dư tài khoản.
+ */
 class ReceiptController extends Controller
 {
+    /**
+     * Danh sách phiếu thu theo khoảng ngày kèm bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
         $dateFrom = $request->filled('date_from')
@@ -78,6 +84,9 @@ class ReceiptController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form tạo phiếu thu.
+     */
     public function create()
     {
         $accounts = Account::where('is_active', true)->orderBy('name')->get();
@@ -89,6 +98,9 @@ class ReceiptController extends Controller
         ]);
     }
 
+    /**
+     * Tạo phiếu thu và cộng số dư vào tài khoản.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -126,6 +138,9 @@ class ReceiptController extends Controller
             ->with('success', 'Tạo phiếu thu thành công.');
     }
 
+    /**
+     * Sinh mã phiếu thu dạng PTYYYYMMDD-XXX.
+     */
     private function generateReceiptCode(): string
     {
         $prefix = 'PT' . now()->format('Ymd');
@@ -144,6 +159,9 @@ class ReceiptController extends Controller
         return $prefix . '-' . str_pad((string) $number, 3, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Xóa phiếu thu và trừ lại số dư tài khoản.
+     */
     public function destroy(Receipt $receipt)
     {
         DB::transaction(function () use ($receipt) {

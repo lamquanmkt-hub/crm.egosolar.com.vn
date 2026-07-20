@@ -17,8 +17,14 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Quản lý file đính kèm của lịch bảo trì điện mặt trời và hồ sơ công trình.
+ */
 class SolarMaintenanceAttachmentController extends Controller
 {
+    /**
+     * Tải lên các file đính kèm cho một đợt bảo trì và ghi audit log.
+     */
     public function storeSchedule(
         SolarMaintenanceAttachmentRequest $request,
         SolarMaintenanceSchedule $schedule
@@ -60,6 +66,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return back()->with('success', 'Đã tải hồ sơ của đợt bảo trì lên hệ thống.');
     }
 
+    /**
+     * Tải lên hồ sơ (tài liệu) gắn trực tiếp với công trình điện mặt trời.
+     */
     public function storeSite(SolarMaintenanceAttachmentRequest $request, int $site): RedirectResponse
     {
         abort_unless(SolarMaintenanceAccess::isTechnician($request->user())
@@ -93,6 +102,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return back()->with('success', 'Đã tải hồ sơ công trình lên hệ thống.');
     }
 
+    /**
+     * Xem trước (inline) file đính kèm của đợt bảo trì.
+     */
     public function previewSchedule(Request $request, SolarMaintenanceAttachment $attachment): BinaryFileResponse|StreamedResponse
     {
         $attachment->load('schedule');
@@ -100,6 +112,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return $this->serve($attachment->disk, $attachment->file_path, $attachment->original_name, true);
     }
 
+    /**
+     * Tải xuống file đính kèm của đợt bảo trì.
+     */
     public function downloadSchedule(Request $request, SolarMaintenanceAttachment $attachment): StreamedResponse
     {
         $attachment->load('schedule');
@@ -107,6 +122,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return Storage::disk($attachment->disk)->download($attachment->file_path, $attachment->original_name);
     }
 
+    /**
+     * Xóa file đính kèm của đợt bảo trì (lịch đã hoàn thành chỉ Trưởng phòng/Admin được xóa).
+     */
     public function destroySchedule(Request $request, SolarMaintenanceAttachment $attachment): RedirectResponse
     {
         $attachment->load('schedule');
@@ -122,6 +140,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return back()->with('success', 'Đã xóa file khỏi hồ sơ đợt bảo trì.');
     }
 
+    /**
+     * Xem trước (inline) hồ sơ công trình.
+     */
     public function previewSite(Request $request, SolarSiteDocument $document): BinaryFileResponse|StreamedResponse
     {
         abort_unless(SolarMaintenanceAccess::canViewAny($request->user()), 403);
@@ -129,6 +150,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return $this->serve($document->disk, $document->file_path, $document->original_name, true);
     }
 
+    /**
+     * Tải xuống hồ sơ công trình.
+     */
     public function downloadSite(Request $request, SolarSiteDocument $document): StreamedResponse
     {
         abort_unless(SolarMaintenanceAccess::canViewAny($request->user()), 403);
@@ -136,6 +160,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return Storage::disk($document->disk)->download($document->file_path, $document->original_name);
     }
 
+    /**
+     * Xóa hồ sơ công trình (chỉ quản lý hoặc chính người tải lên).
+     */
     public function destroySite(Request $request, SolarSiteDocument $document): RedirectResponse
     {
         abort_unless(SolarMaintenanceAccess::isManager($request->user())
@@ -148,6 +175,9 @@ class SolarMaintenanceAttachmentController extends Controller
         return back()->with('success', 'Đã xóa hồ sơ công trình.');
     }
 
+    /**
+     * Trả file về trình duyệt: inline với ảnh/PDF, ngược lại buộc tải xuống.
+     */
     private function serve(string $disk, string $path, string $name, bool $inline): BinaryFileResponse|StreamedResponse
     {
         abort_unless(Storage::disk($disk)->exists($path), 404, 'File không còn tồn tại trên máy chủ.');
@@ -166,6 +196,9 @@ class SolarMaintenanceAttachmentController extends Controller
         ]);
     }
 
+    /**
+     * Chặn truy cập nếu công trình không thuộc công ty đang làm việc.
+     */
     private function assertSiteCompany(Site $site): void
     {
         $user = request()->user();
@@ -187,6 +220,9 @@ class SolarMaintenanceAttachmentController extends Controller
         abort_unless($siteCompanyId === $companyId, 403, 'Công trình không thuộc công ty đang làm việc.');
     }
 
+    /**
+     * Chặn truy cập nếu hồ sơ thuộc công ty khác với công ty đang làm việc.
+     */
     private function assertDocumentCompany(SolarSiteDocument $document): void
     {
         $user = request()->user();

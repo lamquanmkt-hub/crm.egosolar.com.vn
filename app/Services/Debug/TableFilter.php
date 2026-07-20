@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 namespace App\Services\Debug;
+/**
+ * Service debug: lọc danh sách tên bảng theo từ khoá.
+ */
 final class TableFilter
 {
     /** @param array<int,string> $tables @param array<int,string> $keywords */

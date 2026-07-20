@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,9 +10,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-	    Schema::dropIfExists('media_metadata');
-	    Schema::dropIfExists('media_files');
-	    Schema::dropIfExists('media_relations');
+        // media_relations có FK trỏ vào media_files — phải tắt kiểm tra FK
+        // để migration replay được trên DB dựng mới từ đầu.
+        Schema::disableForeignKeyConstraints();
+
+        try {
+            Schema::dropIfExists('media_metadata');
+            Schema::dropIfExists('media_files');
+            Schema::dropIfExists('media_relations');
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
     }
 
     /**

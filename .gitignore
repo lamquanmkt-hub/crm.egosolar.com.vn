@@ -9,6 +9,10 @@
 .env
 .env.backup
 .env.production
+# Dump schema production dùng dựng DB test local — KHÔNG commit:
+# repo này công khai, và Laravel tự nạp file này khi migrate trên DB rỗng.
+# Cách tạo lại: xem README mục "Dựng DB test".
+/database/schema
 .phpactor.json
 .phpunit.result.cache
 Homestead.json

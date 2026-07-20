@@ -13,8 +13,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Chat nội bộ đầy đủ: hội thoại 1-1, nhóm, phòng ban, file đính kèm, tạo công việc nhanh.
+ */
 class ChatController extends Controller
 {
+    /**
+     * Tự tạo/bổ sung các bảng và cột chat (conversations, conversation_user, messages) nếu còn thiếu.
+     */
     private function ensureChatSchema(): void
     {
         DB::statement("
@@ -35,7 +41,7 @@ class ChatController extends Controller
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
-        DB::statement("
+        DB::statement('
             CREATE TABLE IF NOT EXISTS conversation_user (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 conversation_id BIGINT UNSIGNED NOT NULL,
@@ -46,9 +52,9 @@ class ChatController extends Controller
                 UNIQUE KEY conversation_user_unique (conversation_id, user_id),
                 INDEX conversation_user_user_id_index (user_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        ');
 
-        DB::statement("
+        DB::statement('
             CREATE TABLE IF NOT EXISTS messages (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 conversation_id BIGINT UNSIGNED NOT NULL,
@@ -63,37 +69,40 @@ class ChatController extends Controller
                 INDEX messages_conversation_id_index (conversation_id),
                 INDEX messages_user_id_index (user_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        ');
 
-        $this->trySql("ALTER TABLE messages MODIFY body TEXT NULL");
+        $this->trySql('ALTER TABLE messages MODIFY body TEXT NULL');
 
         foreach ([
-            'name' => "ALTER TABLE conversations ADD COLUMN name VARCHAR(255) NULL AFTER type",
-            'is_internal' => "ALTER TABLE conversations ADD COLUMN is_internal TINYINT(1) NOT NULL DEFAULT 1 AFTER name",
-            'department_id' => "ALTER TABLE conversations ADD COLUMN department_id BIGINT UNSIGNED NULL AFTER is_internal",
-            'task_id' => "ALTER TABLE conversations ADD COLUMN task_id BIGINT UNSIGNED NULL AFTER department_id",
+            'name' => 'ALTER TABLE conversations ADD COLUMN name VARCHAR(255) NULL AFTER type',
+            'is_internal' => 'ALTER TABLE conversations ADD COLUMN is_internal TINYINT(1) NOT NULL DEFAULT 1 AFTER name',
+            'department_id' => 'ALTER TABLE conversations ADD COLUMN department_id BIGINT UNSIGNED NULL AFTER is_internal',
+            'task_id' => 'ALTER TABLE conversations ADD COLUMN task_id BIGINT UNSIGNED NULL AFTER department_id',
         ] as $column => $sql) {
-            if (!Schema::hasColumn('conversations', $column)) {
+            if (! Schema::hasColumn('conversations', $column)) {
                 $this->trySql($sql);
             }
         }
 
         foreach ([
-            'attachment_path' => "ALTER TABLE messages ADD COLUMN attachment_path VARCHAR(500) NULL AFTER body",
-            'attachment_name' => "ALTER TABLE messages ADD COLUMN attachment_name VARCHAR(255) NULL AFTER attachment_path",
-            'attachment_mime' => "ALTER TABLE messages ADD COLUMN attachment_mime VARCHAR(150) NULL AFTER attachment_name",
-            'attachment_size' => "ALTER TABLE messages ADD COLUMN attachment_size BIGINT UNSIGNED NULL AFTER attachment_mime",
+            'attachment_path' => 'ALTER TABLE messages ADD COLUMN attachment_path VARCHAR(500) NULL AFTER body',
+            'attachment_name' => 'ALTER TABLE messages ADD COLUMN attachment_name VARCHAR(255) NULL AFTER attachment_path',
+            'attachment_mime' => 'ALTER TABLE messages ADD COLUMN attachment_mime VARCHAR(150) NULL AFTER attachment_name',
+            'attachment_size' => 'ALTER TABLE messages ADD COLUMN attachment_size BIGINT UNSIGNED NULL AFTER attachment_mime',
         ] as $column => $sql) {
-            if (!Schema::hasColumn('messages', $column)) {
+            if (! Schema::hasColumn('messages', $column)) {
                 $this->trySql($sql);
             }
         }
 
-        if (!Schema::hasColumn('conversation_user', 'last_read_at')) {
-            $this->trySql("ALTER TABLE conversation_user ADD COLUMN last_read_at TIMESTAMP NULL DEFAULT NULL AFTER user_id");
+        if (! Schema::hasColumn('conversation_user', 'last_read_at')) {
+            $this->trySql('ALTER TABLE conversation_user ADD COLUMN last_read_at TIMESTAMP NULL DEFAULT NULL AFTER user_id');
         }
     }
 
+    /**
+     * Chạy một câu SQL và bỏ qua lỗi (dùng cho các lệnh ALTER có thể trùng).
+     */
     private function trySql(string $sql): void
     {
         try {
@@ -103,6 +112,9 @@ class ChatController extends Controller
         }
     }
 
+    /**
+     * Trang hộp thư chat (chưa chọn hội thoại nào).
+     */
     public function inbox()
     {
         $this->ensureChatSchema();
@@ -112,6 +124,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Trang danh sách nhân sự đang hoạt động để bắt đầu chat.
+     */
     public function users()
     {
         $this->ensureChatSchema();
@@ -126,6 +141,9 @@ class ChatController extends Controller
         return view('chat.users', compact('users'));
     }
 
+    /**
+     * Mở (hoặc tạo) hội thoại 1-1 với người dùng rồi chuyển tới trang hội thoại.
+     */
     public function direct(Request $request)
     {
         $this->ensureChatSchema();
@@ -139,6 +157,9 @@ class ChatController extends Controller
         return redirect()->route('chat.show', $conversation->id);
     }
 
+    /**
+     * Mở hộp thư với hội thoại được chọn và đánh dấu đã đọc.
+     */
     public function show(Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -153,6 +174,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Gửi tin nhắn (kèm file nếu có) vào hội thoại rồi quay lại trang hội thoại.
+     */
     public function send(Request $request, Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -165,6 +189,9 @@ class ChatController extends Controller
         return redirect()->route('chat.show', $conversation->id);
     }
 
+    /**
+     * Danh sách nhân sự (kèm phòng ban, avatar) dạng JSON cho giao diện chat.
+     */
     public function usersJson()
     {
         $this->ensureChatSchema();
@@ -186,17 +213,21 @@ class ChatController extends Controller
 
         $users = $users->map(function ($user) {
             $user->avatar_url = $this->userAvatarUrl($user);
+
             return $user;
         });
 
         return response()->json(['users' => $users]);
     }
 
+    /**
+     * Danh sách phòng ban kèm số lượng nhân sự dạng JSON.
+     */
     public function departmentsJson()
     {
         $this->ensureChatSchema();
 
-        if (!Schema::hasTable('departments')) {
+        if (! Schema::hasTable('departments')) {
             return response()->json(['departments' => []]);
         }
 
@@ -215,6 +246,9 @@ class ChatController extends Controller
         return response()->json(['departments' => $departments]);
     }
 
+    /**
+     * Mở (hoặc tạo) hội thoại 1-1 và trả về conversation_id dạng JSON.
+     */
     public function directJson(Request $request)
     {
         $this->ensureChatSchema();
@@ -231,6 +265,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Mở (hoặc tạo) hội thoại chung của phòng ban và tự thêm toàn bộ thành viên.
+     */
     public function departmentJson(Request $request)
     {
         $this->ensureChatSchema();
@@ -246,7 +283,7 @@ class ChatController extends Controller
             ->where('department_id', $department->id)
             ->first();
 
-        if (!$conversation) {
+        if (! $conversation) {
             $conversation = Conversation::create([
                 'type' => 'department',
                 'name' => $department->name,
@@ -273,6 +310,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Tạo nhóm chat mới với danh sách thành viên được chọn, trả conversation_id JSON.
+     */
     public function groupJson(Request $request)
     {
         $this->ensureChatSchema();
@@ -306,6 +346,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Danh sách hội thoại của tôi (kèm tin nhắn cuối, số chưa đọc, avatar) dạng JSON.
+     */
     public function conversationsJson()
     {
         $this->ensureChatSchema();
@@ -329,7 +372,7 @@ class ChatController extends Controller
 
                 $other = $c->users->firstWhere('id', '!=', $meId);
 
-                if (!$other) {
+                if (! $other) {
                     return true;
                 }
 
@@ -350,8 +393,8 @@ class ChatController extends Controller
             $title = $this->conversationTitle($c, $meId);
 
             $preview = $lastMsg?->body ?: '';
-            if (!$preview && $lastMsg?->attachment_name) {
-                $preview = '📎 ' . $lastMsg->attachment_name;
+            if (! $preview && $lastMsg?->attachment_name) {
+                $preview = '📎 '.$lastMsg->attachment_name;
             }
 
             return [
@@ -371,6 +414,9 @@ class ChatController extends Controller
         return response()->json(['conversations' => $data]);
     }
 
+    /**
+     * Lấy tin nhắn mới của hội thoại (sau after_id, tối đa 200) dạng JSON và đánh dấu đã đọc.
+     */
     public function messagesJson(Request $request, Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -403,6 +449,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Gửi tin nhắn (kèm file nếu có) qua AJAX, trả về các tin nhắn vừa tạo dạng JSON.
+     */
     public function sendJson(Request $request, Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -418,6 +467,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Đánh dấu hội thoại đã đọc cho người dùng hiện tại (AJAX).
+     */
     public function markReadJson(Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -430,6 +482,9 @@ class ChatController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /**
+     * Tải xuống (hoặc xem inline với ảnh) file đính kèm của tin nhắn.
+     */
     public function downloadAttachment(Request $request, Message $message)
     {
         $this->ensureChatSchema();
@@ -439,7 +494,7 @@ class ChatController extends Controller
 
         abort_unless($message->attachment_path, 404);
 
-        $fullPath = storage_path('app/public/' . ltrim($message->attachment_path, '/'));
+        $fullPath = storage_path('app/public/'.ltrim($message->attachment_path, '/'));
 
         abort_unless(is_file($fullPath), 404);
 
@@ -449,7 +504,7 @@ class ChatController extends Controller
         if ($request->boolean('inline') && strpos($mime, 'image/') === 0) {
             return response()->file($fullPath, [
                 'Content-Type' => $mime,
-                'Content-Disposition' => 'inline; filename="' . addslashes($fileName) . '"',
+                'Content-Disposition' => 'inline; filename="'.addslashes($fileName).'"',
             ]);
         }
 
@@ -458,6 +513,9 @@ class ChatController extends Controller
         ]);
     }
 
+    /**
+     * Tạo công việc nhanh từ hội thoại chat: ghi vào bảng tasks và đăng tin nhắn thông báo.
+     */
     public function quickTaskStore(Request $request, Conversation $conversation)
     {
         $this->ensureChatSchema();
@@ -491,9 +549,9 @@ class ChatController extends Controller
 
         $taskId = DB::table('tasks')->insertGetId($payload);
 
-        $taskText = "📌 Công việc mới: " . $data['title'];
-        if (!empty($data['due_at'])) {
-            $taskText .= "\nHạn: " . Carbon::parse($data['due_at'])->format('d/m/Y');
+        $taskText = '📌 Công việc mới: '.$data['title'];
+        if (! empty($data['due_at'])) {
+            $taskText .= "\nHạn: ".Carbon::parse($data['due_at'])->format('d/m/Y');
         }
 
         $conversation->messages()->create([
@@ -516,6 +574,9 @@ class ChatController extends Controller
         return back()->with('success', 'Đã tạo công việc nhanh.');
     }
 
+    /**
+     * Tìm hội thoại 1-1 giữa hai người, chưa có thì tạo mới (chặn user ngừng hoạt động).
+     */
     private function findOrCreateDirect(int $myId, int $otherId): Conversation
     {
         $conversation = Conversation::query()
@@ -524,7 +585,7 @@ class ChatController extends Controller
             ->whereHas('users', fn ($q) => $q->where('users.id', $otherId))
             ->first();
 
-        if (!$conversation) {
+        if (! $conversation) {
             $other = User::query()
                 ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', 1))
                 ->find($otherId);
@@ -545,6 +606,9 @@ class ChatController extends Controller
         return $conversation;
     }
 
+    /**
+     * Thêm các thành viên vào hội thoại (bỏ qua người đã có trong hội thoại).
+     */
     private function attachUsers(Conversation $conversation, array $userIds): void
     {
         $now = now();
@@ -559,7 +623,7 @@ class ChatController extends Controller
                 ->where('user_id', $userId)
                 ->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 DB::table('conversation_user')->insert([
                     'conversation_id' => $conversation->id,
                     'user_id' => $userId,
@@ -571,6 +635,9 @@ class ChatController extends Controller
         }
     }
 
+    /**
+     * Chặn 403 nếu người dùng hiện tại không phải thành viên hội thoại.
+     */
     private function abortUnlessMember(Conversation $conversation): void
     {
         abort_unless(
@@ -582,6 +649,9 @@ class ChatController extends Controller
         );
     }
 
+    /**
+     * Tạo tin nhắn từ request: mỗi file đính kèm là một tin nhắn, không file thì một tin nhắn text.
+     */
     private function createMessagesFromRequest(Request $request, Conversation $conversation)
     {
         $data = $request->validate([
@@ -593,7 +663,7 @@ class ChatController extends Controller
         $body = trim((string) ($data['body'] ?? ''));
         $files = $request->file('attachments', []);
 
-        if ($files && !is_array($files)) {
+        if ($files && ! is_array($files)) {
             $files = [$files];
         }
 
@@ -605,13 +675,13 @@ class ChatController extends Controller
 
         $created = collect();
 
-        if (!empty($files)) {
+        if (! empty($files)) {
             foreach ($files as $index => $file) {
-                if (!$file || !$file->isValid()) {
+                if (! $file || ! $file->isValid()) {
                     continue;
                 }
 
-                $path = $file->store('chat/' . $conversation->id, 'public');
+                $path = $file->store('chat/'.$conversation->id, 'public');
 
                 $created->push($conversation->messages()->create([
                     'user_id' => auth()->id(),
@@ -632,6 +702,9 @@ class ChatController extends Controller
         return $created;
     }
 
+    /**
+     * Chuyển tin nhắn thành mảng payload JSON (người gửi, avatar, file đính kèm, thời gian).
+     */
     private function messagePayload(Message $m): array
     {
         $mime = (string) ($m->attachment_mime ?? '');
@@ -653,10 +726,12 @@ class ChatController extends Controller
         ];
     }
 
-
+    /**
+     * Suy ra URL avatar của người dùng từ nhiều dạng lưu trữ (URL đầy đủ, /storage, disk public).
+     */
     private function userAvatarUrl($user): ?string
     {
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
@@ -670,7 +745,7 @@ class ChatController extends Controller
             }
         }
 
-        if (!$avatarPath) {
+        if (! $avatarPath) {
             return null;
         }
 
@@ -683,7 +758,7 @@ class ChatController extends Controller
         }
 
         if (str_starts_with($avatarPath, 'storage/')) {
-            return url('/' . $avatarPath);
+            return url('/'.$avatarPath);
         }
 
         if (str_starts_with($avatarPath, '/')) {
@@ -693,19 +768,28 @@ class ChatController extends Controller
         return Storage::disk('public')->url($avatarPath);
     }
 
+    /**
+     * Avatar của hội thoại: với chat 1-1 lấy avatar của đối phương, nhóm thì không có.
+     */
     private function conversationAvatarUrl(Conversation $conversation, int $meId): ?string
     {
         if ($conversation->type === 'direct') {
             $other = $conversation->users->firstWhere('id', '!=', $meId);
+
             return $this->userAvatarUrl($other);
         }
 
         return null;
     }
+
+    /**
+     * Tiêu đề hiển thị của hội thoại: tên đối phương (1-1), tên nhóm hoặc nhãn mặc định.
+     */
     private function conversationTitle(Conversation $conversation, int $meId): string
     {
         if ($conversation->type === 'direct') {
             $other = $conversation->users->firstWhere('id', '!=', $meId);
+
             return $other?->name ?: ($conversation->name ?: 'Chat cá nhân');
         }
 

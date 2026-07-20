@@ -8,8 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller quản lý thông tin mở rộng của nhân viên (hồ sơ chi tiết và file đính kèm).
+ */
 class EmployeeExtraController extends Controller
 {
+    /**
+     * Kiểm tra quyền truy cập: chỉ cho phép admin / HR / kế toán, ngược lại abort 403.
+     */
     private function allow()
     {
         $user = auth()->user();
@@ -35,6 +41,11 @@ class EmployeeExtraController extends Controller
         abort_unless(in_array($role, $roles, true), 403);
     }
 
+    /**
+     * Cập nhật (hoặc tạo mới) hồ sơ chi tiết của nhân viên trong bảng hr_employee_profiles.
+     *
+     * @param int|string $employee ID nhân viên
+     */
     public function update(Request $request, $employee)
     {
         $this->allow();
@@ -92,6 +103,11 @@ class EmployeeExtraController extends Controller
         return back()->with('success', 'Đã cập nhật thông tin chi tiết nhân viên.');
     }
 
+    /**
+     * Upload file hồ sơ cho nhân viên và lưu thông tin vào bảng hr_employee_files.
+     *
+     * @param int|string $employee ID nhân viên
+     */
     public function uploadFile(Request $request, $employee)
     {
         $this->allow();
@@ -123,6 +139,11 @@ class EmployeeExtraController extends Controller
         return back()->with('success', 'Đã upload hồ sơ nhân viên.');
     }
 
+    /**
+     * Tải xuống file hồ sơ nhân viên theo ID file.
+     *
+     * @param int|string $file ID bản ghi file
+     */
     public function downloadFile($file)
     {
         $this->allow();
@@ -135,6 +156,11 @@ class EmployeeExtraController extends Controller
         return Storage::disk('public')->download($row->file_path, $row->original_name ?: basename($row->file_path));
     }
 
+    /**
+     * Xoá file hồ sơ nhân viên (cả file vật lý và bản ghi DB).
+     *
+     * @param int|string $file ID bản ghi file
+     */
     public function deleteFile($file)
     {
         $this->allow();

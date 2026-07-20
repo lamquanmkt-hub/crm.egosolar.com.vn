@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
@@ -8,12 +10,65 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * Lịch / đợt bảo trì hệ thống điện mặt trời — trạng thái, phân công, phê duyệt và kết quả.
+ */
 class SolarMaintenanceSchedule extends Model
 {
     use SoftDeletes;
 
     protected $table = 'solar_maintenance_schedules';
-    protected $guarded = [];
+
+    protected $fillable = [
+        // Thông tin chung / Core
+        'schedule_code',
+        'site_id',
+        'company_id',
+        'customer_name',
+        'site_name',
+        'address',
+        'type',
+        'status',
+        'priority',
+        'round_no',
+        'total_rounds',
+        'round_group',
+
+        // Lịch & tiến độ / Schedule & progress
+        'scheduled_date',
+        'completed_date',
+        'started_at',
+        'completed_at',
+        'cancelled_at',
+        'cancellation_reason',
+        'reopened_at',
+        'reopened_by',
+
+        // Phân công / Assignment
+        'assigned_to',
+        'assigned_name',
+        'assigned_user_ids',
+
+        // Kỹ thuật / Technical
+        'system_kwp',
+        'inverter_info',
+        'issue_note',
+        'technical_note',
+        'result_note',
+
+        // Phê duyệt / Approval
+        'approval_status',
+        'submitted_at',
+        'submitted_by',
+        'approved_at',
+        'approved_by',
+        'revision_requested_at',
+        'revision_requested_by',
+        'approval_note',
+
+        'created_by',
+        'deleted_at',
+    ];
 
     protected $casts = [
         'scheduled_date' => 'date',
@@ -169,7 +224,7 @@ class SolarMaintenanceSchedule extends Model
 
     public function getLeaderAttribute(): ?SolarMaintenanceAssignee
     {
-        if (!$this->relationLoaded('assignees')) {
+        if (! $this->relationLoaded('assignees')) {
             return null;
         }
 
@@ -178,7 +233,7 @@ class SolarMaintenanceSchedule extends Model
 
     public function isOverdue(): bool
     {
-        return !in_array($this->status, ['completed', 'cancelled'], true)
+        return ! in_array($this->status, ['completed', 'cancelled'], true)
             && $this->scheduled_date
             && $this->scheduled_date->isBefore(today());
     }

@@ -7,8 +7,14 @@ namespace App\Http\Requests\Site;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * FormRequest validate dữ liệu cập nhật công trình.
+ */
 class UpdateSiteRequest extends FormRequest
 {
+    /**
+     * Chỉ cho phép các vai trò nội bộ (sales, kỹ thuật, admin, kế toán, kho...).
+     */
     public function authorize(): bool
     {
         return (bool) optional($this->user())->hasAnyRole([
@@ -22,6 +28,9 @@ class UpdateSiteRequest extends FormRequest
         ]);
     }
 
+    /**
+     * Quy tắc validate dữ liệu công trình.
+     */
     public function rules(): array
     {
         $siteId = $this->route('id');
@@ -88,10 +97,13 @@ class UpdateSiteRequest extends FormRequest
             'planned' => ['nullable', 'array'],
             'planned.*.name' => ['nullable', 'string', 'max:255'],
             'planned.*.unit' => ['nullable', 'string', 'max:50'],
-            'planned.*.qty'  => ['nullable', 'numeric', 'min:0'],
+            'planned.*.qty' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
+    /**
+     * Thông báo lỗi validate tuỳ chỉnh bằng tiếng Việt.
+     */
     public function messages(): array
     {
         return [
@@ -139,6 +151,9 @@ class UpdateSiteRequest extends FormRequest
         ];
     }
 
+    /**
+     * Tên hiển thị tiếng Việt của các trường dùng trong thông báo lỗi.
+     */
     public function attributes(): array
     {
         return [
@@ -175,20 +190,26 @@ class UpdateSiteRequest extends FormRequest
         ];
     }
 
+    /**
+     * Trim chuỗi và chuẩn hoá số điện thoại, dữ liệu đầu vào trước khi validate.
+     */
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'name' => trim((string)($this->name ?? '')),
-            'address' => $this->address !== null ? trim((string)$this->address) : null,
-            'contact_name' => $this->contact_name !== null ? trim((string)$this->contact_name) : null,
+            'name' => trim((string) ($this->name ?? '')),
+            'address' => $this->address !== null ? trim((string) $this->address) : null,
+            'contact_name' => $this->contact_name !== null ? trim((string) $this->contact_name) : null,
             'contact_phone' => $this->contact_phone !== null
-                ? preg_replace('/\s+/', '', (string)$this->contact_phone)
+                ? preg_replace('/\s+/', '', (string) $this->contact_phone)
                 : null,
-            'note' => $this->note !== null ? trim((string)$this->note) : null,
-            'finance_note' => $this->finance_note !== null ? trim((string)$this->finance_note) : null,
+            'note' => $this->note !== null ? trim((string) $this->note) : null,
+            'finance_note' => $this->finance_note !== null ? trim((string) $this->finance_note) : null,
         ]);
     }
 
+    /**
+     * Lấy dữ liệu đã validate, giữ nguyên các trường dạng mảng (devices, planned, payment_terms).
+     */
     public function validated($key = null, $default = null): mixed
     {
         $validated = parent::validated($key, $default);
@@ -206,7 +227,7 @@ class UpdateSiteRequest extends FormRequest
                 unset($scalar[$arrKey]);
             }
 
-            $scalar = array_filter($scalar, fn($v) => !($v === null || $v === ''));
+            $scalar = array_filter($scalar, fn ($v) => ! ($v === null || $v === ''));
 
             foreach (['devices', 'planned', 'payment_terms'] as $arrKey) {
                 if (array_key_exists($arrKey, $validated)) {

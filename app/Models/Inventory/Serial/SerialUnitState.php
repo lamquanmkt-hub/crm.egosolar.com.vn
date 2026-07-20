@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Models\Inventory\Serial;
+
 use App\Models\Core\Warehouse;
 use App\Models\Inventory\Stock\InventoryEvent;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,7 +19,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $state Trạng thái: in_stock, reserved, sold, returned, damaged, scrap, unknown
  * @property int|null $last_event_id FK to crm_inventory_events (event cuối cập nhật)
  * @property \Carbon\Carbon $synced_at Thời điểm sync cache
- *
  * @property-read SerialUnit $serialUnit
  * @property-read Warehouse|null $warehouse
  * @property-read InventoryEvent|null $lastEvent
@@ -32,19 +33,23 @@ class SerialUnitState extends Model
      * Table name
      */
     protected $table = 'crm_serial_unit_states';
+
     /**
      * Primary key là serial_unit_id (không phải id)
      */
     protected $primaryKey = 'serial_unit_id';
+
     /**
      * PK không auto-increment vì là FK
      */
     public $incrementing = false;
+
     /**
      * Không dùng timestamps mặc định (created_at, updated_at)
      * Bảng này chỉ có synced_at
      */
     public $timestamps = false;
+
     /**
      * Fillable fields
      */
@@ -55,6 +60,7 @@ class SerialUnitState extends Model
         'last_event_id',
         'synced_at',
     ];
+
     /**
      * Casts
      */
@@ -64,17 +70,25 @@ class SerialUnitState extends Model
         'last_event_id' => 'integer',
         'synced_at' => 'datetime',
     ];
+
     // ==================== CONSTANTS ====================
     /**
      * Các trạng thái hợp lệ
      */
     public const STATE_IN_STOCK = 'in_stock';      // Trong kho, sẵn bán
+
     public const STATE_RESERVED = 'reserved';      // Đã giữ cho đơn hàng
+
     public const STATE_SOLD = 'sold';              // Đã bán
+
     public const STATE_RETURNED = 'returned';      // Khách trả lại
+
     public const STATE_DAMAGED = 'damaged';        // Hư hỏng
+
     public const STATE_SCRAP = 'scrap';            // Thanh lý
+
     public const STATE_UNKNOWN = 'unknown';        // Chưa xác định
+
     /**
      * Map state => tên tiếng Việt
      */
@@ -87,6 +101,7 @@ class SerialUnitState extends Model
         self::STATE_SCRAP => 'Thanh lý',
         self::STATE_UNKNOWN => 'Chưa xác định',
     ];
+
     /**
      * Các state còn trong kho (có warehouse_id)
      */
@@ -96,12 +111,14 @@ class SerialUnitState extends Model
         self::STATE_RETURNED,
         self::STATE_DAMAGED,
     ];
+
     /**
      * Các state có thể bán
      */
     public const STATES_AVAILABLE = [
         self::STATE_IN_STOCK,
     ];
+
     // ==================== RELATIONSHIPS ====================
     /**
      * Serial Unit sở hữu state này
@@ -110,6 +127,7 @@ class SerialUnitState extends Model
     {
         return $this->belongsTo(SerialUnit::class, 'serial_unit_id');
     }
+
     /**
      * Kho hiện tại (nullable)
      */
@@ -117,6 +135,7 @@ class SerialUnitState extends Model
     {
         return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
+
     /**
      * Event cuối cùng đã cập nhật state
      */
@@ -124,6 +143,7 @@ class SerialUnitState extends Model
     {
         return $this->belongsTo(InventoryEvent::class, 'last_event_id');
     }
+
     // ==================== SCOPES ====================
     /**
      * Lọc theo kho
@@ -132,6 +152,7 @@ class SerialUnitState extends Model
     {
         return $query->where('warehouse_id', $warehouseId);
     }
+
     /**
      * Lọc theo state
      */
@@ -139,6 +160,7 @@ class SerialUnitState extends Model
     {
         return $query->where('state', $state);
     }
+
     /**
      * Lọc theo nhiều state
      */
@@ -146,6 +168,7 @@ class SerialUnitState extends Model
     {
         return $query->whereIn('state', $states);
     }
+
     /**
      * Serial còn trong kho (có warehouse_id)
      */
@@ -153,6 +176,7 @@ class SerialUnitState extends Model
     {
         return $query->whereNotNull('warehouse_id');
     }
+
     /**
      * Serial không còn trong kho
      */
@@ -160,6 +184,7 @@ class SerialUnitState extends Model
     {
         return $query->whereNull('warehouse_id');
     }
+
     /**
      * Serial có thể bán (in_stock)
      */
@@ -168,6 +193,7 @@ class SerialUnitState extends Model
         return $query->whereIn('state', self::STATES_AVAILABLE)
             ->whereNotNull('warehouse_id');
     }
+
     /**
      * Lọc theo sản phẩm (thông qua serial_unit)
      */
@@ -177,6 +203,7 @@ class SerialUnitState extends Model
             $q->where('product_id', $productId);
         });
     }
+
     /**
      * Lọc sản phẩm + kho
      */
@@ -184,6 +211,7 @@ class SerialUnitState extends Model
     {
         return $query->forProduct($productId)->inWarehouse($warehouseId);
     }
+
     // ==================== ACCESSORS ====================
     /**
      * Tên trạng thái tiếng Việt
@@ -192,6 +220,7 @@ class SerialUnitState extends Model
     {
         return self::STATES[$this->state] ?? $this->state;
     }
+
     /**
      * Màu badge theo state (Bootstrap)
      */
@@ -207,6 +236,7 @@ class SerialUnitState extends Model
             default => 'bg-light text-dark',
         };
     }
+
     /**
      * Icon theo state (Bootstrap Icons)
      */
@@ -222,6 +252,7 @@ class SerialUnitState extends Model
             default => 'bi-question-circle',
         };
     }
+
     /**
      * Kiểm tra còn trong kho không
      */
@@ -229,6 +260,7 @@ class SerialUnitState extends Model
     {
         return $this->warehouse_id !== null;
     }
+
     /**
      * Kiểm tra có thể bán không
      */
@@ -236,6 +268,7 @@ class SerialUnitState extends Model
     {
         return $this->state === self::STATE_IN_STOCK && $this->warehouse_id !== null;
     }
+
     // ==================== INSTANCE METHODS ====================
     /**
      * Cập nhật state từ inventory event
@@ -248,8 +281,10 @@ class SerialUnitState extends Model
             'last_event_id' => $event->id,
             'synced_at' => now(),
         ]);
+
         return $this;
     }
+
     /**
      * Đánh dấu đã bán
      */
@@ -257,6 +292,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_SOLD, null, $eventId);
     }
+
     /**
      * Đánh dấu đã giữ (reserve cho đơn hàng)
      */
@@ -264,6 +300,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_RESERVED, $this->warehouse_id, $eventId);
     }
+
     /**
      * Đánh dấu trả về kho
      */
@@ -271,6 +308,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_RETURNED, $warehouseId, $eventId);
     }
+
     /**
      * Đánh dấu hư hỏng
      */
@@ -278,6 +316,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_DAMAGED, $this->warehouse_id, $eventId);
     }
+
     /**
      * Đánh dấu thanh lý
      */
@@ -285,6 +324,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_SCRAP, null, $eventId);
     }
+
     /**
      * Khôi phục về in_stock
      */
@@ -292,6 +332,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState(self::STATE_IN_STOCK, $warehouseId, $eventId);
     }
+
     /**
      * Chuyển kho
      */
@@ -299,6 +340,7 @@ class SerialUnitState extends Model
     {
         return $this->updateState($this->state, $newWarehouseId, $eventId);
     }
+
     /**
      * Helper cập nhật state
      */
@@ -310,8 +352,10 @@ class SerialUnitState extends Model
             'last_event_id' => $eventId,
             'synced_at' => now(),
         ]);
+
         return $this;
     }
+
     // ==================== STATIC METHODS ====================
     /**
      * Tạo hoặc cập nhật state cho serial unit
@@ -332,6 +376,7 @@ class SerialUnitState extends Model
             ]
         );
     }
+
     /**
      * Đếm serial theo state trong kho
      */
@@ -344,6 +389,7 @@ class SerialUnitState extends Model
             ->pluck('count', 'state')
             ->toArray();
     }
+
     /**
      * Đếm serial available của sản phẩm trong kho
      */
@@ -354,6 +400,7 @@ class SerialUnitState extends Model
             ->available()
             ->count();
     }
+
     /**
      * Lấy danh sách serial available của sản phẩm trong kho
      */
@@ -366,17 +413,19 @@ class SerialUnitState extends Model
             ->limit($limit)
             ->get();
     }
+
     /**
      * Lấy danh sách serial codes (chỉ trả về mảng codes)
      */
     public static function getAvailableSerialCodes(int $productId, int $warehouseId): array
     {
         return static::getAvailableSerials($productId, $warehouseId)
-            ->map(fn($state) => $state->serialUnit?->primary_code)
+            ->map(fn ($state) => $state->serialUnit?->primary_code)
             ->filter()
             ->values()
             ->toArray();
     }
+
     /**
      * Kiểm tra serial có available không
      */
@@ -387,6 +436,7 @@ class SerialUnitState extends Model
             ->available()
             ->exists();
     }
+
     /**
      * Batch reserve nhiều serial cho đơn hàng
      */
@@ -401,6 +451,7 @@ class SerialUnitState extends Model
                 'synced_at' => now(),
             ]);
     }
+
     /**
      * Batch release nhiều serial (hủy reserve)
      */
@@ -415,6 +466,7 @@ class SerialUnitState extends Model
                 'synced_at' => now(),
             ]);
     }
+
     /**
      * Batch mark as sold nhiều serial
      */
@@ -430,6 +482,7 @@ class SerialUnitState extends Model
                 'synced_at' => now(),
             ]);
     }
+
     /**
      * Rebuild cache từ event history cho 1 serial
      */
@@ -440,7 +493,7 @@ class SerialUnitState extends Model
             ->orderByDesc('id')
             ->with('event')
             ->first();
-        if (!$lastLine || !$lastLine->event) {
+        if (! $lastLine || ! $lastLine->event) {
             return null;
         }
         $warehouseId = match ($lastLine->event->event_type) {
@@ -459,8 +512,10 @@ class SerialUnitState extends Model
             'transfer' => self::STATE_IN_STOCK,
             default => self::STATE_UNKNOWN,
         };
+
         return static::syncState($serialUnitId, $state, $warehouseId, $lastLine->event->id);
     }
+
     /**
      * Rebuild tất cả cache (batch job)
      */
@@ -476,6 +531,7 @@ class SerialUnitState extends Model
                     }
                 }
             });
+
         return $count;
     }
 }

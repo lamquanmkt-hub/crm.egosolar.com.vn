@@ -13,8 +13,16 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Service nghiệp vụ lịch bảo trì điện mặt trời: tạo chuỗi lịch, cập nhật, đổi trạng thái, phân công.
+ */
 class SolarMaintenanceService
 {
+    /**
+     * Tạo chuỗi lịch bảo trì định kỳ theo số đợt và chu kỳ tháng, gán người phụ trách từng đợt.
+     *
+     * @return Collection Danh sách các lịch vừa tạo
+     */
     public function createSeries(array $data, User $actor): Collection
     {
         return DB::transaction(function () use ($data, $actor) {
@@ -87,6 +95,9 @@ class SolarMaintenanceService
         });
     }
 
+    /**
+     * Cập nhật lịch bảo trì: thông tin, trạng thái (có kiểm tra chuyển đổi) và phân công.
+     */
     public function update(SolarMaintenanceSchedule $schedule, array $data, User $actor): SolarMaintenanceSchedule
     {
         return DB::transaction(function () use ($schedule, $data, $actor) {
@@ -148,6 +159,9 @@ class SolarMaintenanceService
         });
     }
 
+    /**
+     * Đổi trạng thái lịch bảo trì (chặn các trạng thái thuộc luồng phê duyệt), ghi lịch sử và audit.
+     */
     public function changeStatus(SolarMaintenanceSchedule $schedule, array $data, User $actor): SolarMaintenanceSchedule
     {
         return DB::transaction(function () use ($schedule, $data, $actor) {
@@ -184,6 +198,9 @@ class SolarMaintenanceService
         });
     }
 
+    /**
+     * Xoá mềm lịch bảo trì kèm ghi audit log.
+     */
     public function softDelete(SolarMaintenanceSchedule $schedule, User $actor): void
     {
         DB::transaction(function () use ($schedule, $actor) {
@@ -192,6 +209,9 @@ class SolarMaintenanceService
         });
     }
 
+    /**
+     * Đồng bộ danh sách người phụ trách (người đầu là leader), chỉ chấp nhận nhân sự kỹ thuật hợp lệ.
+     */
     private function syncAssignees(SolarMaintenanceSchedule $schedule, array $ids, User $actor): void
     {
         $ids = $this->cleanIds($ids);
@@ -239,6 +259,9 @@ class SolarMaintenanceService
         ])->saveQuietly();
     }
 
+    /**
+     * Kiểm tra việc chuyển trạng thái có hợp lệ theo bảng TRANSITIONS; mở lại lịch kết thúc cần quyền quản lý và lý do.
+     */
     private function assertTransition(
         SolarMaintenanceSchedule $schedule,
         string $newStatus,
@@ -278,6 +301,9 @@ class SolarMaintenanceService
         }
     }
 
+    /**
+     * Cập nhật các mốc thời gian (bắt đầu, hoàn thành, huỷ, mở lại) theo trạng thái mới.
+     */
     private function applyStatusTimestamps(
         SolarMaintenanceSchedule $schedule,
         string $oldStatus,
@@ -322,6 +348,9 @@ class SolarMaintenanceService
         }
     }
 
+    /**
+     * Ghi lịch sử chuyển trạng thái của lịch bảo trì.
+     */
     private function recordStatus(
         SolarMaintenanceSchedule $schedule,
         ?string $from,
@@ -344,6 +373,9 @@ class SolarMaintenanceService
         ]);
     }
 
+    /**
+     * Ghi audit log (giá trị cũ/mới, IP, user agent) cho lịch bảo trì.
+     */
     private function recordAudit(
         SolarMaintenanceSchedule $schedule,
         string $action,
@@ -362,6 +394,9 @@ class SolarMaintenanceService
         ]);
     }
 
+    /**
+     * Chuẩn hoá danh sách ID: ép int, loại giá trị rỗng/không dương, bỏ trùng.
+     */
     private function cleanIds($ids): array
     {
         if (!is_array($ids)) {
@@ -377,6 +412,9 @@ class SolarMaintenanceService
             ->all();
     }
 
+    /**
+     * Trả về chuỗi đã trim nếu có nội dung, ngược lại trả về null.
+     */
     private function filled($value): ?string
     {
         $value = trim((string) ($value ?? ''));

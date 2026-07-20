@@ -24,15 +24,13 @@ class OrderApprovalHandler
 {
     /**
      * Tạo approval ban đầu khi Sales tạo đơn.
-     *
-     * @param Order $order
      */
     public function createInitialApproval(Order $order): void
     {
         OrderApproval::create([
-            'order_id'    => $order->id,
-            'level'       => OrderDepartment::SALES->value,
-            'status'      => 'approved',
+            'order_id' => $order->id,
+            'level' => OrderDepartment::SALES->value,
+            'status' => 'approved',
             'approved_by' => Auth::id(),
             'approved_at' => now(),
         ]);
@@ -41,8 +39,7 @@ class OrderApprovalHandler
     /**
      * Tạo bản ghi approval cho bước tiếp theo.
      *
-     * @param Order  $order
-     * @param string $level Tên department
+     * @param  string  $level  Tên department
      */
     public function createApprovalRecord(Order $order, string $level): void
     {
@@ -54,10 +51,9 @@ class OrderApprovalHandler
     /**
      * Chuyển đơn hàng sang department khác.
      *
-     * @param Order                $order
-     * @param OrderDepartment|null $dept       Department đích (null nếu cancelled)
-     * @param OrderStatusCode|null $statusCode Status code tùy chỉnh (null = lấy từ dept)
-     * @param string|null          $rawDept    Department string raw (cho trường hợp 'cancelled')
+     * @param  OrderDepartment|null  $dept  Department đích (null nếu cancelled)
+     * @param  OrderStatusCode|null  $statusCode  Status code tùy chỉnh (null = lấy từ dept)
+     * @param  string|null  $rawDept  Department string raw (cho trường hợp 'cancelled')
      */
     public function transitionToDepartment(
         Order $order,
@@ -65,12 +61,12 @@ class OrderApprovalHandler
         ?OrderStatusCode $statusCode = null,
         ?string $rawDept = null,
     ): void {
-        $deptValue  = $rawDept ?? $dept?->value ?? 'cancelled';
-        $codeValue  = $statusCode?->value ?? $dept?->statusCode()->value ?? 'CANCELLED';
-        $status     = OrderStatusType::where('code', $codeValue)->first();
+        $deptValue = $rawDept ?? $dept?->value ?? 'cancelled';
+        $codeValue = $statusCode?->value ?? $dept?->statusCode()->value ?? 'CANCELLED';
+        $status = OrderStatusType::where('code', $codeValue)->first();
 
         $order->update([
-            'current_department'     => $deptValue,
+            'current_department' => $deptValue,
             'current_status_type_id' => $status?->id ?? $order->current_status_type_id,
         ]);
     }
@@ -78,10 +74,9 @@ class OrderApprovalHandler
     /**
      * Cập nhật approval hiện tại khi được duyệt.
      *
-     * @param Order           $order
-     * @param OrderDepartment $dept Department đang duyệt
-     * @param mixed           $user User duyệt
-     * @param array           $data Dữ liệu bổ sung (note, debt_checked, ...)
+     * @param  OrderDepartment  $dept  Department đang duyệt
+     * @param  mixed  $user  User duyệt
+     * @param  array  $data  Dữ liệu bổ sung (note, debt_checked, ...)
      */
     public function updateCurrentApproval(Order $order, OrderDepartment $dept, $user, array $data): void
     {
@@ -90,27 +85,27 @@ class OrderApprovalHandler
             ->where('status', 'pending')
             ->first();
 
-        if (!$approval) {
+        if (! $approval) {
             $approval = new OrderApproval([
                 'order_id' => $order->id,
-                'level'    => $dept->value,
-                'status'   => 'pending',
+                'level' => $dept->value,
+                'status' => 'pending',
             ]);
         }
 
         $updateData = [
-            'status'      => 'approved',
+            'status' => 'approved',
             'approved_by' => $user->id,
             'approved_at' => now(),
-            'note'        => $data['note'] ?? null,
+            'note' => $data['note'] ?? null,
         ];
 
         // Xử lý đặc biệt cho Kế toán
         if ($dept === OrderDepartment::ACCOUNTING) {
             $updateData['debt_checked'] = isset($data['debt_checked']);
-            $updateData['debt_note']    = $data['debt_note'] ?? null;
+            $updateData['debt_note'] = $data['debt_note'] ?? null;
 
-            if (!empty($data['is_paid'])) {
+            if (! empty($data['is_paid'])) {
                 $order->update(['payment_recorded' => true]);
             }
         }
@@ -121,21 +116,20 @@ class OrderApprovalHandler
     /**
      * Cập nhật approval khi bị từ chối.
      *
-     * @param Order  $order
-     * @param string $dept   Department từ chối
-     * @param mixed  $user   User từ chối
-     * @param array  $data   {rejection_reason, note?}
+     * @param  string  $dept  Department từ chối
+     * @param  mixed  $user  User từ chối
+     * @param  array  $data  {rejection_reason, note?}
      */
     public function updateRejectedApproval(Order $order, string $dept, $user, array $data): void
     {
         OrderApproval::updateOrCreate(
             ['order_id' => $order->id, 'level' => $dept, 'status' => 'pending'],
             [
-                'status'           => 'rejected',
-                'approved_by'      => $user->id,
-                'approved_at'      => now(),
+                'status' => 'rejected',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
                 'rejection_reason' => $data['rejection_reason'],
-                'note'             => $data['note'] ?? null,
+                'note' => $data['note'] ?? null,
             ]
         );
     }
@@ -143,14 +137,13 @@ class OrderApprovalHandler
     /**
      * Chốt đơn khi Giám đốc duyệt xong.
      *
-     * @param Order $order
-     * @param mixed $user
+     * @param  mixed  $user
      */
     public function finalizeApproval(Order $order, $user): void
     {
         $order->update([
-            'approved_by'        => $user->id,
-            'approved_at'        => now(),
+            'approved_by' => $user->id,
+            'approved_at' => now(),
             'estimated_delivery' => Carbon::now()->addDays(3),
         ]);
     }

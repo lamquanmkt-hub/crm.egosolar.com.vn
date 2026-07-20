@@ -7,8 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Quản lý ngân sách tài chính theo tháng và so sánh với chi phí đã duyệt.
+ */
 class BudgetController extends Controller
 {
+    /**
+     * Tổng quan ngân sách tháng: so sánh ngân sách với chi phí đã duyệt theo hạng mục.
+     */
     public function index(Request $request)
     {
         /*
@@ -306,6 +312,9 @@ class BudgetController extends Controller
         ));
     }
 
+    /**
+     * Thêm dòng ngân sách mới cho tháng.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -330,6 +339,9 @@ class BudgetController extends Controller
             ->with('success', 'Đã thêm ngân sách thành công.');
     }
 
+    /**
+     * Cập nhật dòng ngân sách.
+     */
     public function update(Request $request, $id)
     {
         $data = $request->validate([
@@ -354,6 +366,9 @@ class BudgetController extends Controller
             ->with('success', 'Đã cập nhật ngân sách thành công.');
     }
 
+    /**
+     * Xóa dòng ngân sách và quay về tháng tương ứng.
+     */
     public function destroy($id)
     {
         $budget = DB::table('finance_budgets')->where('id', $id)->first();

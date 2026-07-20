@@ -25,8 +25,7 @@ trait HandleException
     /**
      * Log lỗi và throw lại exception.
      *
-     * @param \Exception $exception
-     * @param string     $context   Tên method/action đang thực hiện
+     * @param  string  $context  Tên method/action đang thực hiện
      *
      * @throws \Exception
      */
@@ -41,18 +40,17 @@ trait HandleException
      *
      * Ghi đầy đủ thông tin: class, message, file, line, trace, user_id.
      *
-     * @param Throwable $exception
-     * @param string    $context   Tên method/action đang thực hiện
+     * @param  string  $context  Tên method/action đang thực hiện
      */
     public function logError(Throwable $exception, string $context = ''): void
     {
         Log::error("Application error [{$context}]", [
             'context' => $context,
-            'type'    => get_class($exception),
+            'type' => get_class($exception),
             'message' => $exception->getMessage(),
-            'file'    => $exception->getFile(),
-            'line'    => $exception->getLine(),
-            'trace'   => $exception->getTraceAsString(),
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'trace' => $exception->getTraceAsString(),
             'user_id' => auth()->id(),
         ]);
     }
@@ -65,9 +63,6 @@ trait HandleException
      * - ValidationException → "Dữ liệu đầu vào không hợp lệ"
      * - Exception có message ngắn (< 200 chars) → hiển thị trực tiếp
      * - Còn lại → "Có lỗi hệ thống xảy ra"
-     *
-     * @param Throwable $exception
-     * @return string
      */
     protected function getUserFriendlyMessage(Throwable $exception): string
     {
@@ -76,14 +71,10 @@ trait HandleException
         }
 
         return match (true) {
-            $exception instanceof ModelNotFoundException
-                => 'Không tìm thấy bản ghi yêu cầu.',
-            $exception instanceof ValidationException
-                => 'Dữ liệu đầu vào không hợp lệ.',
-            mb_strlen($exception->getMessage()) < 200
-                => $exception->getMessage(),
-            default
-                => 'Có lỗi hệ thống xảy ra. Vui lòng thử lại.',
+            $exception instanceof ModelNotFoundException => 'Không tìm thấy bản ghi yêu cầu.',
+            $exception instanceof ValidationException => 'Dữ liệu đầu vào không hợp lệ.',
+            mb_strlen($exception->getMessage()) < 200 => $exception->getMessage(),
+            default => 'Có lỗi hệ thống xảy ra. Vui lòng thử lại.',
         };
     }
 }

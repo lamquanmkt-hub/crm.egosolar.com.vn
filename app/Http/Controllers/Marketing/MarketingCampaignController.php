@@ -7,8 +7,14 @@ use App\Models\Marketing\MarketingCampaign;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
+/**
+ * Controller quản lý chiến dịch marketing.
+ */
 class MarketingCampaignController extends Controller
 {
+    /**
+     * Tạo mới chiến dịch marketing.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([

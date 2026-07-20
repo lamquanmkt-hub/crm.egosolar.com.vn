@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Models\Inventory\Serial;
+
 use App\Models\Core\Warehouse;
 use App\Models\Inventory\Stock\InventoryEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,13 +11,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SerialEventLine extends Model
 {
     use HasFactory;
+
     protected $table = 'crm_serial_event_lines';
+
     protected $fillable = [
         'event_id',
         'serial_unit_id',
         'from_warehouse_id',
         'to_warehouse_id',
     ];
+
     /**
      * Sự kiện kho
      */
@@ -23,6 +28,7 @@ class SerialEventLine extends Model
     {
         return $this->belongsTo(InventoryEvent::class, 'event_id');
     }
+
     /**
      * Serial unit được di chuyển
      */
@@ -30,6 +36,7 @@ class SerialEventLine extends Model
     {
         return $this->belongsTo(SerialUnit::class, 'serial_unit_id');
     }
+
     /**
      * Kho xuất
      */
@@ -37,6 +44,7 @@ class SerialEventLine extends Model
     {
         return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
     }
+
     /**
      * Kho nhập
      */
@@ -44,6 +52,7 @@ class SerialEventLine extends Model
     {
         return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
     }
+
     /**
      * Kiểm tra đây là nhập kho
      */
@@ -51,6 +60,7 @@ class SerialEventLine extends Model
     {
         return $this->to_warehouse_id !== null && $this->from_warehouse_id === null;
     }
+
     /**
      * Kiểm tra đây là xuất kho
      */
@@ -58,6 +68,7 @@ class SerialEventLine extends Model
     {
         return $this->from_warehouse_id !== null && $this->to_warehouse_id === null;
     }
+
     /**
      * Kiểm tra đây là chuyển kho
      */
@@ -65,6 +76,7 @@ class SerialEventLine extends Model
     {
         return $this->from_warehouse_id !== null && $this->to_warehouse_id !== null;
     }
+
     /**
      * Lấy mô tả hành động
      */
@@ -79,8 +91,10 @@ class SerialEventLine extends Model
         if ($this->isTransfer()) {
             return "Chuyển từ {$this->fromWarehouse?->name} đến {$this->toWarehouse?->name}";
         }
+
         return 'Không xác định';
     }
+
     /**
      * Scope: Lọc theo event
      */
@@ -88,6 +102,7 @@ class SerialEventLine extends Model
     {
         return $query->where('event_id', $eventId);
     }
+
     /**
      * Scope: Lọc theo serial unit
      */
@@ -95,6 +110,7 @@ class SerialEventLine extends Model
     {
         return $query->where('serial_unit_id', $serialUnitId);
     }
+
     /**
      * Scope: Lọc theo kho xuất
      */
@@ -102,6 +118,7 @@ class SerialEventLine extends Model
     {
         return $query->where('from_warehouse_id', $warehouseId);
     }
+
     /**
      * Scope: Lọc theo kho nhập
      */
@@ -109,6 +126,7 @@ class SerialEventLine extends Model
     {
         return $query->where('to_warehouse_id', $warehouseId);
     }
+
     /**
      * Scope: Chỉ lấy nhập kho
      */
@@ -117,6 +135,7 @@ class SerialEventLine extends Model
         return $query->whereNotNull('to_warehouse_id')
             ->whereNull('from_warehouse_id');
     }
+
     /**
      * Scope: Chỉ lấy xuất kho
      */
@@ -125,6 +144,7 @@ class SerialEventLine extends Model
         return $query->whereNotNull('from_warehouse_id')
             ->whereNull('to_warehouse_id');
     }
+
     /**
      * Scope: Chỉ lấy chuyển kho
      */
@@ -133,6 +153,7 @@ class SerialEventLine extends Model
         return $query->whereNotNull('from_warehouse_id')
             ->whereNotNull('to_warehouse_id');
     }
+
     /**
      * Scope: Liên quan đến kho (nhập hoặc xuất)
      */

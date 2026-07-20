@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Models\Inventory\Serial;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -8,19 +10,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SerialIdentifier extends Model
 {
     use HasFactory;
+
     protected $table = 'crm_serial_identifiers';
+
     protected $fillable = [
         'type',
         'code',
     ];
+
     /**
      * Các loại identifier phổ biến
      */
     public const TYPE_SERIAL = 'serial';
+
     public const TYPE_IMEI = 'imei';
+
     public const TYPE_MAC = 'mac';
+
     public const TYPE_BARCODE = 'barcode';
+
     public const TYPE_QR = 'qr';
+
     public const TYPES = [
         self::TYPE_SERIAL => 'Serial Number',
         self::TYPE_IMEI => 'IMEI',
@@ -28,6 +38,7 @@ class SerialIdentifier extends Model
         self::TYPE_BARCODE => 'Barcode',
         self::TYPE_QR => 'QR Code',
     ];
+
     /**
      * Các serial unit sử dụng identifier này
      */
@@ -41,6 +52,7 @@ class SerialIdentifier extends Model
         )->withPivot('is_primary')
             ->withTimestamps();
     }
+
     /**
      * Chi tiết liên kết với serial units
      */
@@ -48,6 +60,7 @@ class SerialIdentifier extends Model
     {
         return $this->hasMany(SerialUnitIdentifier::class, 'serial_identifier_id');
     }
+
     /**
      * Lấy tên loại identifier
      */
@@ -55,6 +68,7 @@ class SerialIdentifier extends Model
     {
         return self::TYPES[$this->type] ?? $this->type;
     }
+
     /**
      * Scope: Lọc theo loại
      */
@@ -62,6 +76,7 @@ class SerialIdentifier extends Model
     {
         return $query->where('type', $type);
     }
+
     /**
      * Scope: Tìm theo mã
      */
@@ -69,6 +84,7 @@ class SerialIdentifier extends Model
     {
         return $query->where('code', $code);
     }
+
     /**
      * Scope: Tìm kiếm mã (like)
      */
@@ -76,15 +92,17 @@ class SerialIdentifier extends Model
     {
         return $query->where('code', 'like', "%{$search}%");
     }
+
     /**
      * Kiểm tra mã đã tồn tại chưa
      */
-    public static function codeExists(string $code, string $type = null): bool
+    public static function codeExists(string $code, ?string $type = null): bool
     {
         $query = static::where('code', $code);
         if ($type) {
             $query->where('type', $type);
         }
+
         return $query->exists();
     }
 }

@@ -10,8 +10,8 @@ class EgoSupplierDebtSync
     public static function syncAll(): array
     {
         if (
-            !Schema::hasTable('finance_supplier_debts') ||
-            !Schema::hasTable('finance_supplier_debt_payments')
+            ! Schema::hasTable('finance_supplier_debts') ||
+            ! Schema::hasTable('finance_supplier_debt_payments')
         ) {
             return [
                 'ok' => false,
@@ -37,7 +37,7 @@ class EgoSupplierDebtSync
     {
         $debt = DB::table('finance_supplier_debts')->where('id', $debtId)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             return [
                 'id' => $debtId,
                 'found' => false,
@@ -61,7 +61,7 @@ class EgoSupplierDebtSync
             $isPaid = self::isPaidRoundStatus($roundStatus);
             $isWaiting = self::isWaitingRoundStatus($roundStatus);
 
-            if (!empty($round->payment_request_id) && Schema::hasTable('payment_requests')) {
+            if (! empty($round->payment_request_id) && Schema::hasTable('payment_requests')) {
                 $paymentRequest = DB::table('payment_requests')
                     ->where('id', (int) $round->payment_request_id)
                     ->first();
@@ -84,7 +84,7 @@ class EgoSupplierDebtSync
                     } elseif (self::isWaitingPaymentRequestStatus($prStatus)) {
                         $isWaiting = true;
 
-                        if (!in_array($roundStatus, ['requested', 'submitted', 'admin_approved'], true)) {
+                        if (! in_array($roundStatus, ['requested', 'submitted', 'admin_approved'], true)) {
                             DB::table('finance_supplier_debt_payments')
                                 ->where('id', $roundId)
                                 ->update([

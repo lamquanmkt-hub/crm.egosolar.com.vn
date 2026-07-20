@@ -19,13 +19,22 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Quản lý đơn vật tư công trình: CRUD, luồng duyệt (admin/kho), tra cứu tồn kho, xuất Excel.
+ */
 class MaterialRequestController extends Controller
 {
+    /**
+     * Khởi tạo controller với service tồn kho và service đơn vật tư.
+     */
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly MaterialRequestService $materialRequestService
     ) {}
 
+    /**
+     * Danh sách đơn vật tư với bộ lọc từ khóa, trạng thái, công trình.
+     */
     public function index(): View
     {
         $columns = [
@@ -73,6 +82,9 @@ class MaterialRequestController extends Controller
         return view('material_requests.index', compact('requests'));
     }
 
+    /**
+     * Trang chi tiết đơn vật tư, làm tươi lại giá vốn trước khi hiển thị.
+     */
     public function show(MaterialRequest $materialRequest): View
     {
         $mr = $materialRequest->loadMissing([
@@ -92,6 +104,9 @@ class MaterialRequestController extends Controller
         return view('material_requests.show', compact('mr'));
     }
 
+    /**
+     * Form tạo đơn vật tư mới kèm danh sách công trình, kho và tồn kho.
+     */
     public function create(): View
     {
         return view('material_requests.create', [
@@ -102,6 +117,9 @@ class MaterialRequestController extends Controller
         ]);
     }
 
+    /**
+     * Tạo đơn vật tư mới ở trạng thái nháp.
+     */
     public function store(StoreMaterialRequestRequest $request): RedirectResponse
     {
         $this->materialRequestService->createDraft($request->validated());
@@ -111,6 +129,9 @@ class MaterialRequestController extends Controller
             ->with('success', 'Đã lưu đơn vật tư ở trạng thái nháp!');
     }
 
+    /**
+     * Form chỉnh sửa đơn vật tư kèm dữ liệu tồn kho và giá vốn đã lưu.
+     */
     public function edit(MaterialRequest $materialRequest): View
     {
         $materialRequest->load('items.product');
@@ -122,8 +143,7 @@ class MaterialRequestController extends Controller
         return view('material_requests.edit', [
             'materialRequest' => $materialRequest,
             'sites' => $this->siteDropdown(),
-            'products' => Cache::remember('products.dropdown', 3600, fn () =>
-                Product::select('id', 'name')->orderBy('name')->get()
+            'products' => Cache::remember('products.dropdown', 3600, fn () => Product::select('id', 'name')->orderBy('name')->get()
             ),
             'warehouses' => $this->warehouseDropdown(),
             'productsInventories' => $this->inventoryRowsForEdit($materialRequest),
@@ -131,6 +151,9 @@ class MaterialRequestController extends Controller
         ]);
     }
 
+    /**
+     * Cập nhật đơn vật tư nháp và khôi phục lại giá vốn đã gửi để tránh lệch giá.
+     */
     public function update(UpdateMaterialRequestRequest $request, MaterialRequest $materialRequest): RedirectResponse
     {
         $this->materialRequestService->updateDraft($materialRequest, $request->validated());
@@ -144,6 +167,10 @@ class MaterialRequestController extends Controller
             ->with('success', 'Đã cập nhật đơn vật tư!');
     }
 
+    /**
+     * Xóa đơn vật tư: admin xóa được mọi trạng thái trừ đã xuất kho (dọn kèm dữ liệu liên quan);
+     * người khác chỉ xóa được đơn nháp.
+     */
     public function destroy(MaterialRequest $materialRequest): RedirectResponse
     {
         /* EGO_MR_ADMIN_DESTROY_ANY_STATUS_START */
@@ -169,11 +196,11 @@ class MaterialRequestController extends Controller
                     : (int) $materialRequest;
             }
 
-            if (!$__egoMrId && isset($id)) {
+            if (! $__egoMrId && isset($id)) {
                 $__egoMrId = (int) $id;
             }
 
-            if (!$__egoMrId) {
+            if (! $__egoMrId) {
                 $__routeMr = request()->route('materialRequest');
                 $__egoMrId = is_object($__routeMr)
                     ? (int) ($__routeMr->id ?? 0)
@@ -225,7 +252,7 @@ class MaterialRequestController extends Controller
                     $__eventIds = $__db::table('crm_inventory_event_refs')
                         ->where(function ($q) use ($__egoMrId) {
                             $q->where('ref_id', $__egoMrId)
-                              ->whereIn('ref_type', ['material_request', 'material_request_export']);
+                                ->whereIn('ref_type', ['material_request', 'material_request_export']);
                         })
                         ->pluck('event_id')
                         ->filter()
@@ -236,11 +263,11 @@ class MaterialRequestController extends Controller
                     $__db::table('crm_inventory_event_refs')
                         ->where(function ($q) use ($__egoMrId) {
                             $q->where('ref_id', $__egoMrId)
-                              ->whereIn('ref_type', ['material_request', 'material_request_export']);
+                                ->whereIn('ref_type', ['material_request', 'material_request_export']);
                         })
                         ->delete();
 
-                    if (!empty($__eventIds) && $__schema::hasTable('crm_inventory_events')) {
+                    if (! empty($__eventIds) && $__schema::hasTable('crm_inventory_events')) {
                         $__db::table('crm_inventory_events')
                             ->whereIn('id', $__eventIds)
                             ->delete();
@@ -252,7 +279,7 @@ class MaterialRequestController extends Controller
                     ->delete();
             });
 
-            return redirect('/don-vat-tu')->with('success', 'Admin đã xóa đơn vật tư #' . $__egoMrId . '.');
+            return redirect('/don-vat-tu')->with('success', 'Admin đã xóa đơn vật tư #'.$__egoMrId.'.');
         }
         /* EGO_MR_ADMIN_DESTROY_ANY_STATUS_END */
 
@@ -270,6 +297,9 @@ class MaterialRequestController extends Controller
             ->with('success', 'Đã xoá đơn vật tư!');
     }
 
+    /**
+     * Gửi đơn vật tư cho admin duyệt.
+     */
     public function submit(MaterialRequest $materialRequest): RedirectResponse
     {
         $this->authorize('submit', $materialRequest);
@@ -281,6 +311,9 @@ class MaterialRequestController extends Controller
             ->with('success', 'Đã gửi admin duyệt đơn vật tư!');
     }
 
+    /**
+     * Admin duyệt đơn vật tư.
+     */
     public function adminApprove(MaterialRequest $materialRequest): RedirectResponse
     {
         $this->materialRequestService->adminApprove($materialRequest);
@@ -290,18 +323,24 @@ class MaterialRequestController extends Controller
             ->with('success', 'Admin đã duyệt đơn vật tư!');
     }
 
+    /**
+     * Kho duyệt / xuất kho đơn vật tư và ghi giá vốn vào công trình.
+     */
     public function warehouseApprove(Request $request, MaterialRequest $materialRequest): RedirectResponse
-{
-    $this->materialRequestService->warehouseApprove(
-        $materialRequest,
-        $request->input('costs', [])
-    );
+    {
+        $this->materialRequestService->warehouseApprove(
+            $materialRequest,
+            $request->input('costs', [])
+        );
 
-    return redirect()
-        ->route('material-requests.show', $materialRequest->id)
-        ->with('success', 'Kho đã duyệt / xuất kho thành công và đã ghi giá vốn vào công trình!');
-}
+        return redirect()
+            ->route('material-requests.show', $materialRequest->id)
+            ->with('success', 'Kho đã duyệt / xuất kho thành công và đã ghi giá vốn vào công trình!');
+    }
 
+    /**
+     * Trả JSON thông tin công trình: hợp đồng, đã thu, còn phải thu, chi phí vật tư.
+     */
     public function siteInfo(Request $request)
     {
         $siteId = (int) $request->query('site_id');
@@ -310,7 +349,7 @@ class MaterialRequestController extends Controller
             ->select($this->siteSelectColumns())
             ->find($siteId);
 
-        if (!$site) {
+        if (! $site) {
             return response()->json([
                 'ok' => false,
                 'message' => 'Không tìm thấy công trình.',
@@ -357,6 +396,9 @@ class MaterialRequestController extends Controller
         ]);
     }
 
+    /**
+     * Danh sách công trình cho ô chọn (chỉ lấy các cột đang tồn tại).
+     */
     private function siteDropdown()
     {
         return Site::query()
@@ -365,16 +407,21 @@ class MaterialRequestController extends Controller
             ->get();
     }
 
+    /**
+     * Danh sách kho cho ô chọn, cache 1 giờ.
+     */
     private function warehouseDropdown()
     {
-        return Cache::remember('warehouses.dropdown', 3600, fn () =>
-            DB::table('crm_warehouses')
-                ->select('id', 'name')
-                ->orderBy('name')
-                ->get()
+        return Cache::remember('warehouses.dropdown', 3600, fn () => DB::table('crm_warehouses')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get()
         );
     }
 
+    /**
+     * Dữ liệu tồn kho theo kho/sản phẩm kèm đơn vị, giá vốn, VAT cho UI tạo đơn.
+     */
     private function inventoryRows()
     {
         $stockRows = $this->inventoryService
@@ -425,11 +472,15 @@ class MaterialRequestController extends Controller
                     'unit' => (string) $unit,
                     'unit_cost' => (float) $unitCost,
                     'vat_percent' => $vatPercent,
-                    'cost_label' => number_format((float) $unitCost, 0, ',', '.') . ' đ',
+                    'cost_label' => number_format((float) $unitCost, 0, ',', '.').' đ',
                 ];
             })
             ->values();
     }
+
+    /**
+     * Dữ liệu tồn kho cho màn sửa đơn: ưu tiên giá vốn đã lưu, bổ sung dòng cho sản phẩm thiếu.
+     */
     private function inventoryRowsForEdit(MaterialRequest $materialRequest)
     {
         $rows = collect($this->inventoryRows())->values();
@@ -489,7 +540,7 @@ class MaterialRequestController extends Controller
                 if ($savedItem && (float) ($savedItem->unit_cost ?? 0) > 0) {
                     $savedUnitCost = (float) ($savedItem->unit_cost ?? 0);
                     $row['unit_cost'] = $savedUnitCost;
-                    $row['cost_label'] = number_format($savedUnitCost, 0, ',', '.') . ' đ';
+                    $row['cost_label'] = number_format($savedUnitCost, 0, ',', '.').' đ';
 
                     if (isset($savedItem->unit) && (string) $savedItem->unit !== '') {
                         $row['unit'] = (string) $savedItem->unit;
@@ -506,13 +557,13 @@ class MaterialRequestController extends Controller
 
         $existingKeys = $rows
             ->mapWithKeys(function ($row) {
-                return [((string) ($row['warehouse_id'] ?? '')) . '|' . ((int) ($row['product_id'] ?? 0)) => true];
+                return [((string) ($row['warehouse_id'] ?? '')).'|'.((int) ($row['product_id'] ?? 0)) => true];
             })
             ->all();
 
         foreach ($warehouseIds as $warehouseId) {
             foreach ($productIds as $productId) {
-                $key = (string) $warehouseId . '|' . (int) $productId;
+                $key = (string) $warehouseId.'|'.(int) $productId;
 
                 if (isset($existingKeys[$key])) {
                     continue;
@@ -546,12 +597,12 @@ class MaterialRequestController extends Controller
                 $rows->push([
                     'warehouse_id' => (string) $warehouseId,
                     'product_id' => (int) $productId,
-                    'product_name' => $productName !== '' ? $productName : ('Sản phẩm #' . $productId),
+                    'product_name' => $productName !== '' ? $productName : ('Sản phẩm #'.$productId),
                     'quantity' => 0,
                     'unit' => $unit,
                     'unit_cost' => (float) $unitCost,
                     'vat_percent' => $vatPercent,
-                    'cost_label' => number_format((float) $unitCost, 0, ',', '.') . ' đ',
+                    'cost_label' => number_format((float) $unitCost, 0, ',', '.').' đ',
                 ]);
 
                 $existingKeys[$key] = true;
@@ -561,7 +612,9 @@ class MaterialRequestController extends Controller
         return $rows->values();
     }
 
-
+    /**
+     * Tính giá vốn vật tư: ưu tiên price_agent_vat, rồi price_agent, cuối cùng là price.
+     */
     private function stockUnitCost(?object $product, object $stockRow): float
     {
         /*
@@ -589,6 +642,9 @@ class MaterialRequestController extends Controller
         return $price;
     }
 
+    /**
+     * Danh sách cột của bảng sites cần select, lọc theo cột thực tế đang tồn tại.
+     */
     private function siteSelectColumns(): array
     {
         $want = [
@@ -605,8 +661,10 @@ class MaterialRequestController extends Controller
         }));
     }
 
-
     /* EGO_MR_EDIT_HELPERS_START */
+    /**
+     * Kiểm tra quyền sửa đơn vật tư theo role và trạng thái (admin/kho/kỹ thuật).
+     */
     private function canEditMaterialRequest(MaterialRequest $materialRequest, $user): bool
     {
         if (! $user || ! method_exists($user, 'hasRole')) {
@@ -634,6 +692,9 @@ class MaterialRequestController extends Controller
         return false;
     }
 
+    /**
+     * Chụp trạng thái đơn vật tư (thông tin đơn + các dòng vật tư) để ghi lịch sử chỉnh sửa.
+     */
     private function materialRequestAuditSnapshot(MaterialRequest $materialRequest): array
     {
         $materialRequest->refresh()->loadMissing(['site', 'items.product']);
@@ -667,6 +728,9 @@ class MaterialRequestController extends Controller
         ];
     }
 
+    /**
+     * Ghi lịch sử chỉnh sửa đơn vật tư (trước/sau, người sửa, trạng thái) nếu có thay đổi.
+     */
     private function recordMaterialRequestEditHistory(
         MaterialRequest $materialRequest,
         array $before,
@@ -721,6 +785,9 @@ class MaterialRequestController extends Controller
     }
     /* EGO_MR_EDIT_HELPERS_END */
 
+    /**
+     * Khôi phục giá vốn/VAT theo dữ liệu form gửi lên cho các dòng vật tư và tính lại tổng chi phí.
+     */
     private function restoreSubmittedMaterialRequestCosts(MaterialRequest $materialRequest, array $submittedItems): void
     {
         try {
@@ -807,6 +874,9 @@ class MaterialRequestController extends Controller
         }
     }
 
+    /**
+     * Xuất đơn vật tư ra file Excel (.xls dạng HTML) với đầy đủ nhóm vật tư và tổng kết.
+     */
     public function exportExcel(MaterialRequest $materialRequest)
     {
         $mr = $materialRequest->loadMissing([
@@ -815,14 +885,14 @@ class MaterialRequestController extends Controller
             'creator',
         ]);
 
-        $fileName = 'don-vat-tu-' . $mr->id . '-' . now()->format('Ymd-His') . '.xls';
+        $fileName = 'don-vat-tu-'.$mr->id.'-'.now()->format('Ymd-His').'.xls';
 
         $e = function ($value) {
             return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         };
 
         $money = function ($value) {
-            return number_format((float) ($value ?? 0), 0, ',', '.') . ' đ';
+            return number_format((float) ($value ?? 0), 0, ',', '.').' đ';
         };
 
         $qtyFormat = function ($value) {
@@ -838,13 +908,14 @@ class MaterialRequestController extends Controller
         $stripPrefix = function ($note) {
             $note = (string) $note;
             $note = preg_replace('/^\[(Thiết bị chính - Trong kho|Vật tư phụ - Trong kho|Thiết bị chính - Ngoài kho|Vật tư phụ - Ngoài kho)\]\s*/u', '', $note);
+
             return trim($note);
         };
 
         $detectGroup = function ($item) {
             $note = (string) ($item->note ?? '');
 
-            if (!empty($item->product_id)) {
+            if (! empty($item->product_id)) {
                 if (str_contains($note, '[Vật tư phụ - Trong kho]')) {
                     return 'Vật tư phụ - Trong kho';
                 }
@@ -917,7 +988,7 @@ class MaterialRequestController extends Controller
 
             $rawNote = (string) ($item->note ?? '');
             $cleanNote = $stripPrefix($rawNote);
-            $isInStock = !empty($item->product_id);
+            $isInStock = ! empty($item->product_id);
 
             if ($isInStock) {
                 $inStockCount++;
@@ -935,16 +1006,16 @@ class MaterialRequestController extends Controller
             $totalAmount += $lineTotal;
 
             $rowsHtml .= '<tr>';
-            $rowsHtml .= '<td class="center">' . ($index + 1) . '</td>';
-            $rowsHtml .= '<td class="text-bold">' . $e($name) . '</td>';
-            $rowsHtml .= '<td class="center">' . $e($item->product_id ?? '') . '</td>';
-            $rowsHtml .= '<td class="right">' . $e($qtyFormat($qty)) . '</td>';
-            $rowsHtml .= '<td class="center">' . $e($unit) . '</td>';
-            $rowsHtml .= '<td class="right money">' . $e($money($unitCost)) . '</td>';
-            $rowsHtml .= '<td class="right">' . $e($qtyFormat($vatPercent)) . '%</td>';
-            $rowsHtml .= '<td class="right money total">' . $e($money($lineTotal)) . '</td>';
-            $rowsHtml .= '<td class="' . $typeClass . '">' . $e($detectGroup($item)) . '</td>';
-            $rowsHtml .= '<td>' . $e($cleanNote) . '</td>';
+            $rowsHtml .= '<td class="center">'.($index + 1).'</td>';
+            $rowsHtml .= '<td class="text-bold">'.$e($name).'</td>';
+            $rowsHtml .= '<td class="center">'.$e($item->product_id ?? '').'</td>';
+            $rowsHtml .= '<td class="right">'.$e($qtyFormat($qty)).'</td>';
+            $rowsHtml .= '<td class="center">'.$e($unit).'</td>';
+            $rowsHtml .= '<td class="right money">'.$e($money($unitCost)).'</td>';
+            $rowsHtml .= '<td class="right">'.$e($qtyFormat($vatPercent)).'%</td>';
+            $rowsHtml .= '<td class="right money total">'.$e($money($lineTotal)).'</td>';
+            $rowsHtml .= '<td class="'.$typeClass.'">'.$e($detectGroup($item)).'</td>';
+            $rowsHtml .= '<td>'.$e($cleanNote).'</td>';
             $rowsHtml .= '</tr>';
         }
 
@@ -1110,32 +1181,32 @@ class MaterialRequestController extends Controller
         </colgroup>
 
         <tr>
-            <td colspan="10" class="title">ĐƠN VẬT TƯ #' . $e($mr->id) . '</td>
+            <td colspan="10" class="title">ĐƠN VẬT TƯ #'.$e($mr->id).'</td>
         </tr>
 
         <tr>
-            <td colspan="10" class="subtitle">Công trình: ' . $e($mr->site->name ?? '') . '</td>
+            <td colspan="10" class="subtitle">Công trình: '.$e($mr->site->name ?? '').'</td>
         </tr>
 
         <tr>
             <td colspan="2" class="label">Mã công trình</td>
-            <td colspan="3" class="value">' . $e($mr->site_id ?? '') . '</td>
+            <td colspan="3" class="value">'.$e($mr->site_id ?? '').'</td>
             <td colspan="2" class="label">Trạng thái</td>
-            <td colspan="3" class="value">' . $e($statusText) . '</td>
+            <td colspan="3" class="value">'.$e($statusText).'</td>
         </tr>
 
         <tr>
             <td colspan="2" class="label">Raw</td>
-            <td colspan="3" class="value">' . $e((string) $mr->status) . '</td>
+            <td colspan="3" class="value">'.$e((string) $mr->status).'</td>
             <td colspan="2" class="label">Ngày tạo</td>
-            <td colspan="3" class="value">' . $e($createdAt) . '</td>
+            <td colspan="3" class="value">'.$e($createdAt).'</td>
         </tr>
 
         <tr>
             <td colspan="2" class="label">Người tạo</td>
-            <td colspan="3" class="value">' . $e($mr->creator->name ?? '') . '</td>
+            <td colspan="3" class="value">'.$e($mr->creator->name ?? '').'</td>
             <td colspan="2" class="label">Ghi chú</td>
-            <td colspan="3" class="value">' . $e($mr->note ?? '') . '</td>
+            <td colspan="3" class="value">'.$e($mr->note ?? '').'</td>
         </tr>
 
         <tr>
@@ -1155,7 +1226,7 @@ class MaterialRequestController extends Controller
             <th>Ghi chú</th>
         </tr>
 
-        ' . $rowsHtml . '
+        '.$rowsHtml.'
 
         <tr>
             <td colspan="10" class="section">TÓM TẮT</td>
@@ -1163,27 +1234,27 @@ class MaterialRequestController extends Controller
 
         <tr>
             <td colspan="8" class="summary-label">Tổng số dòng</td>
-            <td colspan="2" class="summary-value">' . $e($mr->items->count()) . '</td>
+            <td colspan="2" class="summary-value">'.$e($mr->items->count()).'</td>
         </tr>
 
         <tr>
             <td colspan="8" class="summary-label">Trong kho</td>
-            <td colspan="2" class="summary-value">' . $e($inStockCount) . '</td>
+            <td colspan="2" class="summary-value">'.$e($inStockCount).'</td>
         </tr>
 
         <tr>
             <td colspan="8" class="summary-label">Ngoài kho</td>
-            <td colspan="2" class="summary-value">' . $e($outStockCount) . '</td>
+            <td colspan="2" class="summary-value">'.$e($outStockCount).'</td>
         </tr>
 
         <tr>
             <td colspan="8" class="summary-label">Tổng số lượng</td>
-            <td colspan="2" class="summary-value">' . $e($qtyFormat($totalQty)) . '</td>
+            <td colspan="2" class="summary-value">'.$e($qtyFormat($totalQty)).'</td>
         </tr>
 
         <tr>
             <td colspan="8" class="grand-total-label">Tổng thành tiền</td>
-            <td colspan="2" class="grand-total-value">' . $e($money($totalAmount)) . '</td>
+            <td colspan="2" class="grand-total-value">'.$e($money($totalAmount)).'</td>
         </tr>
     </table>
 </body>
@@ -1191,14 +1262,10 @@ class MaterialRequestController extends Controller
 
         return response($html, 200, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
             'Cache-Control' => 'no-store, no-cache, must-revalidate',
             'Pragma' => 'no-cache',
             'Expires' => '0',
         ]);
     }
-
-
-
-
 }

@@ -5,6 +5,9 @@ namespace App\Policies;
 use App\Models\Core\Warehouse;
 use App\Models\User;
 
+/**
+ * Policy phân quyền các thao tác trên kho.
+ */
 class WarehousePolicy
 {
     /**
@@ -45,7 +48,7 @@ class WarehousePolicy
     public function delete(User $user, Warehouse $warehouse): bool
     {
         return $user->can('warehouse.manage')
-            && !$warehouse->hasInventory();
+            && ! $warehouse->hasInventory();
     }
 
     /**

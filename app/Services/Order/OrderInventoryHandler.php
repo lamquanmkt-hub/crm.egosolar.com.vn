@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Order;
 
 use App\Enums\OrderDepartment;
-use App\Enums\OrderStatusCode;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderApproval;
@@ -36,10 +35,9 @@ class OrderInventoryHandler
     /**
      * Xuất kho: trừ tồn kho, đánh dấu serial, tạo công nợ, hoàn tất đơn.
      *
-     * @param int|string               $id
-     * @param array                    $data        {shipping_note?, serials?}
-     * @param OrderRepositoryInterface $orderRepo
-     * @param OrderService             $orderService Để ghi lịch sử
+     * @param  int|string  $id
+     * @param  array  $data  {shipping_note?, serials?}
+     * @param  OrderService  $orderService  Để ghi lịch sử
      *
      * @throws \Exception Khi không đủ tồn kho hoặc đã xuất rồi
      */
@@ -61,18 +59,18 @@ class OrderInventoryHandler
             $this->adjustInventory($order);
 
             $order->update([
-    'inventory_issued'    => true,
-    'inventory_issued_at' => now(),
-    'inventory_issued_by' => Auth::id(),
-    'shipping_status'     => 'ready',
-]);
+                'inventory_issued' => true,
+                'inventory_issued_at' => now(),
+                'inventory_issued_by' => Auth::id(),
+                'shipping_status' => 'ready',
+            ]);
             $approvalHandler = app(OrderApprovalHandler::class);
             $approvalHandler->transitionToDepartment($order, OrderDepartment::COMPLETED);
 
             OrderApproval::where('order_id', $order->id)
                 ->where('level', OrderDepartment::WAREHOUSE->value)
                 ->update([
-                    'status'      => 'approved',
+                    'status' => 'approved',
                     'approved_by' => Auth::id(),
                     'approved_at' => now(),
                 ]);
@@ -94,7 +92,6 @@ class OrderInventoryHandler
      *
      * Chỉ trả serial cho sản phẩm có is_serialized = 1.
      *
-     * @param Order $order
      * @return array{order_id: int, items: array}
      */
     public function getShipSerialsPayload(Order $order): array
@@ -105,31 +102,31 @@ class OrderInventoryHandler
         foreach ($order->items as $item) {
             $product = $item->product;
 
-            if (!(int) ($product->is_serialized ?? 0)) {
+            if (! (int) ($product->is_serialized ?? 0)) {
                 continue;
             }
 
             $warehouseId = $item->warehouse_id ?: $order->warehouse_id;
-            if (!$warehouseId) {
+            if (! $warehouseId) {
                 continue;
             }
 
             $serials = $this->getAvailableSerials($product->id, $warehouseId);
 
             $items[] = [
-                'item_id'         => $item->id,
-                'product_id'      => $product->id,
-                'product_name'    => $product->name,
-                'sku'             => $product->sku ?? '',
-                'qty'             => (int) $item->quantity,
+                'item_id' => $item->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'sku' => $product->sku ?? '',
+                'qty' => (int) $item->quantity,
                 'requires_serial' => true,
-                'serials'         => $serials,
+                'serials' => $serials,
             ];
         }
 
         return [
             'order_id' => $order->id,
-            'items'    => $items,
+            'items' => $items,
         ];
     }
 
@@ -138,7 +135,6 @@ class OrderInventoryHandler
      *
      * Sử dụng lockForUpdate để tránh race condition.
      *
-     * @param Order $order
      *
      * @throws \Exception Khi không đủ tồn hoặc không tìm thấy bản ghi stock
      */
@@ -154,8 +150,7 @@ class OrderInventoryHandler
     /**
      * Đánh dấu serial đã xuất (state = removed).
      *
-     * @param Order $order
-     * @param array $serialsByItem Map [itemId => [serial1, serial2, ...]]
+     * @param  array  $serialsByItem  Map [itemId => [serial1, serial2, ...]]
      */
     private function markSerialsRemoved(Order $order, array $serialsByItem): void
     {
@@ -168,12 +163,12 @@ class OrderInventoryHandler
         foreach ($order->items as $item) {
             $picked = $serialsByItem[(string) $item->id] ?? [];
 
-            if (!is_array($picked) || empty($picked)) {
+            if (! is_array($picked) || empty($picked)) {
                 continue;
             }
 
             $warehouseId = $item->warehouse_id ?: $order->warehouse_id;
-            if (!$warehouseId) {
+            if (! $warehouseId) {
                 continue;
             }
 
@@ -204,7 +199,7 @@ class OrderInventoryHandler
                 ->whereIn('serial_unit_id', $serialUnitIds)
                 ->where('warehouse_id', $warehouseId)
                 ->update([
-                    'state'     => 'removed',
+                    'state' => 'removed',
                     'synced_at' => now(),
                 ]);
         }
@@ -212,8 +207,6 @@ class OrderInventoryHandler
 
     /**
      * Tạo công nợ nếu khách chưa thanh toán đủ.
-     *
-     * @param Order $order
      */
     private function createDebtIfNeeded(Order $order): void
     {
@@ -221,22 +214,18 @@ class OrderInventoryHandler
 
         if ($totalPaid < $order->total_amount) {
             CustomerDebt::create([
-                'customer_id'  => $order->lead->customer_id,
-                'order_id'     => $order->id,
+                'customer_id' => $order->lead->customer_id,
+                'order_id' => $order->id,
                 'total_amount' => $order->total_amount,
-                'paid_amount'  => $totalPaid,
-                'due_date'     => Carbon::now()->addDays(30),
-                'status'       => $totalPaid > 0 ? 'partial' : 'unpaid',
+                'paid_amount' => $totalPaid,
+                'due_date' => Carbon::now()->addDays(30),
+                'status' => $totalPaid > 0 ? 'partial' : 'unpaid',
             ]);
         }
     }
 
     /**
      * Lấy danh sách serial còn trong kho cho 1 sản phẩm.
-     *
-     * @param int $productId
-     * @param int $warehouseId
-     * @return array
      */
     private function getAvailableSerials(int $productId, int $warehouseId): array
     {
@@ -258,14 +247,10 @@ class OrderInventoryHandler
 
     /**
      * Ghi lịch sử xuất kho kèm thông tin serial.
-     *
-     * @param Order        $order
-     * @param array        $data
-     * @param OrderService $orderService
      */
     private function recordShippingHistory(Order $order, array $data, OrderService $orderService): void
     {
-        $lines    = [];
+        $lines = [];
         $noteText = trim((string) ($data['shipping_note'] ?? ''));
 
         if ($noteText !== '') {
@@ -273,27 +258,27 @@ class OrderInventoryHandler
         }
 
         $serialsByItem = $data['serials'] ?? [];
-        if (is_array($serialsByItem) && !empty($serialsByItem)) {
+        if (is_array($serialsByItem) && ! empty($serialsByItem)) {
             $lines[] = 'Serial/IMEI đã xuất:';
 
             foreach ($order->items as $item) {
                 $picked = $serialsByItem[(string) $item->id] ?? [];
-                if (!is_array($picked) || empty($picked)) {
+                if (! is_array($picked) || empty($picked)) {
                     continue;
                 }
 
-                $productName = $item->product->name ?? ('SP#' . $item->product_id);
-                $sku         = $item->product->sku ?? '';
-                $label       = $sku ? "{$productName} ({$sku})" : $productName;
-                $picked      = array_values(array_unique(array_filter(array_map('trim', $picked))));
+                $productName = $item->product->name ?? ('SP#'.$item->product_id);
+                $sku = $item->product->sku ?? '';
+                $label = $sku ? "{$productName} ({$sku})" : $productName;
+                $picked = array_values(array_unique(array_filter(array_map('trim', $picked))));
 
-                $lines[] = "- {$label}: " . implode(', ', $picked);
+                $lines[] = "- {$label}: ".implode(', ', $picked);
             }
         }
 
         $finalNote = 'Xuất kho';
-        if (!empty($lines)) {
-            $finalNote .= "\n" . implode("\n", $lines);
+        if (! empty($lines)) {
+            $finalNote .= "\n".implode("\n", $lines);
         }
 
         $orderService->recordStatusHistory($order, OrderDepartment::WAREHOUSE->value, OrderDepartment::COMPLETED->value, $finalNote);

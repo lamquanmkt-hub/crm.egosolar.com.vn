@@ -2,8 +2,8 @@
 
 namespace App\Models\Marketing;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class MarketingLead extends Model
 {
@@ -27,9 +27,13 @@ class MarketingLead extends Model
     ];
 
     public const STATUS_NEW = 'new';
+
     public const STATUS_CONTACTED = 'contacted';
+
     public const STATUS_QUALIFIED = 'qualified';
+
     public const STATUS_WON = 'won';
+
     public const STATUS_LOST = 'lost';
 
     public static function statusOptions(): array

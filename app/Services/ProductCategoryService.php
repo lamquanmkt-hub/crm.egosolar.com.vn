@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
+use App\Contracts\Services\ProductCategoryServiceInterface;
 use App\Models\Inventory\Catalog\ProductCategory;
 use App\Repositories\Interfaces\ProductCategoryRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -13,7 +16,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
  * - Single Responsibility: Chỉ xử lý business logic cho ProductCategory
  * - Dependency Inversion: Phụ thuộc vào interface, không phụ thuộc vào implementation
  */
-class ProductCategoryService
+class ProductCategoryService implements ProductCategoryServiceInterface
 {
     protected ProductCategoryRepositoryInterface $repository;
 

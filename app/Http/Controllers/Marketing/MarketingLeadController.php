@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Marketing\MarketingLead;
 use Illuminate\Http\Request;
 
+/**
+ * Controller quản lý và import lead marketing.
+ */
 class MarketingLeadController extends Controller
 {
+    /**
+     * Danh sách lead marketing có phân trang.
+     */
     public function index(Request $request)
     {
         $leads = MarketingLead::query()
@@ -19,11 +25,17 @@ class MarketingLeadController extends Controller
         return view('marketing.leads.index', compact('leads'));
     }
 
+    /**
+     * Hiển thị form upload file CSV lead.
+     */
     public function upload()
     {
         return view('marketing.leads.upload');
     }
 
+    /**
+     * Import lead từ file CSV (tự nhận diện header VN/EN, bỏ qua bản ghi trùng SĐT/email).
+     */
     public function import(Request $request)
     {
         $request->validate([

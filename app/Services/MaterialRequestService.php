@@ -13,8 +13,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
+/**
+ * Service quản lý đơn vật tư công trình: tạo nháp, duyệt, xuất kho, tính giá vốn.
+ */
 class MaterialRequestService
 {
+    /**
+     * Tạo đơn vật tư nháp kèm các dòng vật tư trong kho và ngoài kho.
+     */
     public function createDraft(array $data): MaterialRequest
     {
         return DB::transaction(function () use ($data) {
@@ -46,6 +52,9 @@ class MaterialRequestService
         });
     }
 
+    /**
+     * Cập nhật đơn vật tư còn ở trạng thái được phép sửa, tạo lại các dòng item.
+     */
     public function updateDraft(MaterialRequest $materialRequest, array $data): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest, $data) {
@@ -87,6 +96,9 @@ class MaterialRequestService
         });
     }
 
+    /**
+     * Gửi đơn vật tư nháp cho admin duyệt.
+     */
     public function submit(MaterialRequest $materialRequest): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest) {
@@ -105,6 +117,9 @@ class MaterialRequestService
         });
     }
 
+    /**
+     * Admin duyệt đơn vật tư đang ở trạng thái chờ duyệt.
+     */
     public function adminApprove(MaterialRequest $materialRequest): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest) {
@@ -128,6 +143,9 @@ class MaterialRequestService
         });
     }
 
+    /**
+     * Kho duyệt và xuất kho đơn vật tư: cập nhật giá vốn, trừ tồn, xử lý vật tư ngoài kho.
+     */
     public function warehouseApprove(MaterialRequest $materialRequest, array $costs = []): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest, $costs) {
@@ -220,6 +238,11 @@ class MaterialRequestService
         });
     }
 
+    /**
+     * Tính lại giá vốn từng dòng và tổng chi phí đơn, đồng bộ chi phí sang công trình.
+     *
+     * @return float Tổng chi phí của đơn vật tư.
+     */
     public function refreshCosts(MaterialRequest $materialRequest): float
     {
         $items = DB::table('material_request_items')
@@ -287,6 +310,9 @@ class MaterialRequestService
         return $total;
     }
 
+    /**
+     * Thêm các dòng vật tư trong kho và ngoài kho vào đơn.
+     */
     private function insertRequestItems(int $materialRequestId, int $defaultWarehouseId, array $items, array $extraItems): void
     {
         foreach ($items as $row) {
@@ -362,6 +388,9 @@ class MaterialRequestService
         }
     }
 
+    /**
+     * Cập nhật lại giá vốn dòng vật tư trong kho theo giá sản phẩm hiện tại.
+     */
     private function refreshStockItemCost(int $itemId, int $productId, float $qty): void
     {
         $product = DB::table('crm_product_catalog')
@@ -384,6 +413,9 @@ class MaterialRequestService
             ]));
     }
 
+    /**
+     * Tạo hoặc cập nhật sản phẩm catalog cho vật tư ngoài kho.
+     */
     private function createOrUpdateExternalProduct(
         int $materialRequestId,
         int $itemId,
@@ -442,6 +474,9 @@ class MaterialRequestService
         ]));
     }
 
+    /**
+     * Nhập vật tư ngoài kho vào lô rồi xuất ra ngay để lưu đủ lịch sử nhập/xuất.
+     */
     private function importThenExportExternalProduct(
         MaterialRequest $materialRequest,
         int $productId,
@@ -586,6 +621,9 @@ class MaterialRequestService
     }
 
 
+    /**
+     * Xuất kho vật tư theo FIFO lô, fallback trừ thẳng tồn nếu chưa có bảng lô.
+     */
     private function exportStockProduct(MaterialRequest $materialRequest, int $productId, float $qty): void
     {
         $warehouseId = (int)($materialRequest->warehouse_id ?? 0);
@@ -666,6 +704,9 @@ class MaterialRequestService
     }
 
 
+    /**
+     * Ghi bản ghi biến động tồn kho nếu bảng movements tồn tại.
+     */
     private function insertStockMovement(
         int $productId,
         int $warehouseId,
@@ -702,6 +743,9 @@ class MaterialRequestService
         DB::table('crm_stock_movements')->insert($payload);
     }
 
+    /**
+     * Đồng bộ lại tổng tồn của sản phẩm vào bảng catalog.
+     */
     private function refreshProductTotalQty(int $productId): void
     {
         if (!Schema::hasTable('crm_product_stock') || !Schema::hasTable('crm_product_catalog')) {
@@ -724,6 +768,9 @@ class MaterialRequestService
             ]));
     }
 
+    /**
+     * Đồng bộ tổng chi phí vật tư đã xuất kho sang các cột chi phí của công trình.
+     */
     private function syncSiteMaterialCost(int $siteId): void
     {
         if ($siteId <= 0 || !Schema::hasTable('sites')) {
@@ -752,6 +799,9 @@ class MaterialRequestService
         }
     }
 
+    /**
+     * Chọn kho cho đơn: ưu tiên kho trong các dòng, fallback kho mặc định.
+     */
     private function pickWarehouseId(array $items, array $extraItems, int $fallback = 0): int
     {
         foreach ($items as $row) {
@@ -787,6 +837,9 @@ class MaterialRequestService
         return 1;
     }
 
+    /**
+     * Lấy company_id của kho nếu có.
+     */
     private function warehouseCompanyId(int $warehouseId): ?int
     {
         if (!Schema::hasTable('crm_warehouses')) {
@@ -804,6 +857,9 @@ class MaterialRequestService
         return $companyId ? (int)$companyId : null;
     }
 
+    /**
+     * Tính đơn giá vốn sau VAT của sản phẩm theo thứ tự ưu tiên cột giá.
+     */
     private function productUnitCostAfterVat(?object $product): float
     {
         if (!$product) {
@@ -830,16 +886,25 @@ class MaterialRequestService
         return 0.0;
     }
 
+    /**
+     * Quy đổi đơn giá trước VAT sang sau VAT.
+     */
     private function unitCostAfterVat(float $unitCostBeforeVat, float $vatPercent): float
     {
         return round($unitCostBeforeVat * (1 + ($vatPercent / 100)), 2);
     }
 
+    /**
+     * Tính thành tiền dòng gồm VAT theo số lượng và đơn giá trước VAT.
+     */
     private function lineTotalWithVat(float $qty, float $unitCostBeforeVat, float $vatPercent): float
     {
         return round($qty * $this->unitCostAfterVat($unitCostBeforeVat, $vatPercent), 2);
     }
 
+    /**
+     * Tách tên vật tư ngoài kho từ chuỗi ghi chú.
+     */
     private function externalName(string $note): string
     {
         $clean = $this->stripKnownPrefix($note);
@@ -851,6 +916,9 @@ class MaterialRequestService
         return $parts[0] ?? 'Vật tư ngoài kho';
     }
 
+    /**
+     * Tách đơn vị tính (ĐVT) của vật tư ngoài kho từ ghi chú.
+     */
     private function externalUnitFromNote(string $note): string
     {
         $clean = $this->stripKnownPrefix($note);
@@ -868,6 +936,9 @@ class MaterialRequestService
         return '';
     }
 
+    /**
+     * Bỏ tiền tố phân loại đã biết ở đầu ghi chú.
+     */
     private function stripKnownPrefix(string $note): string
     {
         $note = preg_replace('/^\[(Thiết bị chính - Trong kho|Vật tư phụ - Trong kho|Thiết bị chính - Ngoài kho|Vật tư phụ - Ngoài kho)\]\s*/u', '', $note);
@@ -875,6 +946,9 @@ class MaterialRequestService
         return trim((string)$note);
     }
 
+    /**
+     * Sinh SKU duy nhất cho sản phẩm vật tư ngoài kho.
+     */
     private function makeUniqueSku(string $name, int $materialRequestId, int $itemId): string
     {
         $base = strtoupper(Str::slug(Str::ascii($name), '-'));
@@ -897,6 +971,9 @@ class MaterialRequestService
         return $sku;
     }
 
+    /**
+     * Chọn danh mục sản phẩm mặc định cho vật tư ngoài kho.
+     */
     private function defaultProductCategoryId(): ?int
     {
         if (!Schema::hasTable('crm_product_categories')) {
@@ -921,6 +998,9 @@ class MaterialRequestService
         return $firstCategoryId ? (int)$firstCategoryId : null;
     }
 
+    /**
+     * Lọc mảng dữ liệu, chỉ giữ các key trùng với cột thực tế của bảng.
+     */
     private function filterColumns(string $table, array $data): array
     {
         if (!Schema::hasTable($table)) {
@@ -936,6 +1016,9 @@ class MaterialRequestService
             ->all();
     }
 
+    /**
+     * Chuyển giá trị bất kỳ (kể cả chuỗi có định dạng) về float an toàn.
+     */
     private function toFloat(mixed $value): float
     {
         if (is_numeric($value)) {

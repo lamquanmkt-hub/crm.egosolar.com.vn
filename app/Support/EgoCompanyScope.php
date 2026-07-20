@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -76,17 +75,20 @@ class EgoCompanyScope
 
         try {
             if (Schema::hasColumn($table, 'company_id')) {
-                $query->where($prefix . '.company_id', $companyId);
+                $query->where($prefix.'.company_id', $companyId);
+
                 return $query;
             }
 
             if (Schema::hasColumn($table, 'company')) {
-                $query->whereIn($prefix . '.company', $names);
+                $query->whereIn($prefix.'.company', $names);
+
                 return $query;
             }
 
             if (Schema::hasColumn($table, 'company_name')) {
-                $query->whereIn($prefix . '.company_name', $names);
+                $query->whereIn($prefix.'.company_name', $names);
+
                 return $query;
             }
         } catch (\Throwable $e) {

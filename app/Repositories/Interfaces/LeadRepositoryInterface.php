@@ -2,8 +2,23 @@
 
 namespace App\Repositories\Interfaces;
 
+/**
+ * Interface khai báo các thao tác repository cho lead.
+ */
 interface LeadRepositoryInterface
 {
-	public function count();
-	public function getRecent($limit = 5);
+    /**
+     * Đếm tổng số lead.
+     *
+     * @return mixed
+     */
+    public function count();
+
+    /**
+     * Lấy danh sách lead mới nhất.
+     *
+     * @param  int  $limit
+     * @return mixed
+     */
+    public function getRecent($limit = 5);
 }

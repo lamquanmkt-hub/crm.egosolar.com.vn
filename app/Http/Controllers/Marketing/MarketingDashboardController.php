@@ -7,8 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controller dashboard marketing với các tab Ads/SEO/Content/Email.
+ */
 class MarketingDashboardController extends Controller
 {
+    /**
+     * Điều phối render dashboard theo tab và khoảng ngày lọc.
+     */
     public function index(Request $request)
     {
         // TAB cấp 1: ads|seo|content|email
@@ -57,6 +63,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // ADS TAB (Facebook/Google/Tiktok...)
     // =========================================================
+    /**
+     * Render tab Ads: KPI, trend theo ngày, tổng hợp theo tháng/kênh, top chiến dịch và demographics.
+     */
     private function renderAds(Request $request, Carbon $startDate, Carbon $endDate, string $from, string $to, string $tab, ?string $platform, ?string $platformDb)
     {
         $platformMap = [
@@ -298,6 +307,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // SEO TAB (wireframe ready)
     // =========================================================
+    /**
+     * Render tab SEO (wireframe, dữ liệu placeholder).
+     */
     private function renderSeo(Request $request, Carbon $startDate, Carbon $endDate, string $from, string $to, string $tab)
     {
         $seoTab = $request->input('seo_tab', 'report');
@@ -345,6 +357,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // CONTENT TAB (placeholder)
     // =========================================================
+    /**
+     * Render tab Content (placeholder).
+     */
     private function renderContent(Request $request, Carbon $startDate, Carbon $endDate, string $from, string $to, string $tab)
     {
         return view('marketing.dashboard', [
@@ -388,6 +403,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // EMAIL TAB (placeholder)
     // =========================================================
+    /**
+     * Render tab Email (placeholder).
+     */
     private function renderEmail(Request $request, Carbon $startDate, Carbon $endDate, string $from, string $to, string $tab)
     {
         return view('marketing.dashboard', [
@@ -431,6 +449,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // Helpers: Overlap filter
     // =========================================================
+    /**
+     * Thêm điều kiện lọc bản ghi có khoảng ngày giao với range đã chọn.
+     */
     private function applyOverlapRange($query, Carbon $start, Carbon $end, string $fromCol, string $toCol)
     {
         $query->whereDate($fromCol, '<=', $end->toDateString())
@@ -440,6 +461,11 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // Build daily trend (SAFE VERSION - không dùng clicks)
     // =========================================================
+    /**
+     * Dựng trend theo ngày từ marketing_metrics (chia đều spend/leads theo số ngày của bản ghi).
+     *
+     * @return array labels/spend/leads/cpl/clicks/cpc cho chart
+     */
     private function buildDailyTrendFromMetrics(Carbon $startDate, Carbon $endDate, ?string $platformDb = null): array
     {
         $rows = DB::table('marketing_metrics')
@@ -513,6 +539,9 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // Aggregate JSON breakdown
     // =========================================================
+    /**
+     * Cộng dồn breakdown dạng JSON (giới tính/tuổi/khu vực) và lấy top N nhãn.
+     */
     private function aggregateJsonBreakdown($rows, string $field, int $limit = 10)
     {
         $sum = [];
@@ -553,6 +582,11 @@ class MarketingDashboardController extends Controller
     // =========================================================
     // Date parsing
     // =========================================================
+    /**
+     * Parse ngày từ UI, hỗ trợ Y-m, Y-m-d và d/m/Y.
+     *
+     * @return Carbon|null
+     */
     private function parseUiDate(?string $value): ?Carbon
     {
         $value = trim((string)$value);
@@ -583,6 +617,11 @@ class MarketingDashboardController extends Controller
         catch (\Throwable $e) { return null; }
     }
 
+    /**
+     * Xác định khoảng ngày lọc, mặc định là cả tháng hiện tại.
+     *
+     * @return array [$start, $end, $fromStr, $toStr]
+     */
     private function resolveDateRange(?string $fromRaw, ?string $toRaw): array
     {
         $from = $this->parseUiDate($fromRaw);

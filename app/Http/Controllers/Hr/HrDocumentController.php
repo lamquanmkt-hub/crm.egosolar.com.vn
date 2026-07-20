@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * Controller quản lý dữ liệu vận hành HC (nhóm, trạng thái, item) và kho tài liệu / hồ sơ theo folder.
+ */
 class HrDocumentController extends Controller
 {
+    /**
+     * Hiển thị trang dữ liệu vận hành: item theo nhóm, trạng thái và tổng tiền.
+     */
     public function operations()
     {
         $this->ensureOperationItemsTable();
@@ -39,6 +45,9 @@ class HrDocumentController extends Controller
         ]);
     }
 
+    /**
+     * Thêm mới một dòng dữ liệu vận hành sau khi kiểm tra nhóm / trạng thái hợp lệ.
+     */
     public function storeOperationItem(Request $request)
     {
         $this->ensureOperationItemsTable();
@@ -76,6 +85,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã thêm dữ liệu vận hành.');
     }
 
+    /**
+     * Cập nhật một dòng dữ liệu vận hành theo ID.
+     *
+     * @param int $item ID dòng dữ liệu
+     */
     public function updateOperationItem(Request $request, int $item)
     {
         $this->ensureOperationItemsTable();
@@ -113,6 +127,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã cập nhật dữ liệu vận hành.');
     }
 
+    /**
+     * Xoá một dòng dữ liệu vận hành theo ID.
+     *
+     * @param int $item ID dòng dữ liệu
+     */
     public function deleteOperationItem(int $item)
     {
         $this->ensureOperationItemsTable();
@@ -122,6 +141,9 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã xóa dữ liệu vận hành.');
     }
 
+    /**
+     * Hiển thị trang kho hồ sơ nhân sự (category records) theo folder.
+     */
     public function records()
     {
         return view('hr.records.index', [
@@ -131,6 +153,9 @@ class HrDocumentController extends Controller
         ]);
     }
 
+    /**
+     * Tạo folder tài liệu mới trong một category (operations / records).
+     */
     public function storeFolder(Request $request, string $category)
     {
         $this->checkCategory($category);
@@ -150,6 +175,9 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã tạo folder.');
     }
 
+    /**
+     * Upload file vào folder tài liệu của category, lưu với tên an toàn.
+     */
     public function uploadFile(Request $request, string $category)
     {
         $this->checkCategory($category);
@@ -188,6 +216,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã upload file.');
     }
 
+    /**
+     * Tải xuống file tài liệu theo ID.
+     *
+     * @param int $file ID file
+     */
     public function downloadFile(int $file)
     {
         $row = DB::table('hr_document_files')->where('id', $file)->first();
@@ -198,6 +231,11 @@ class HrDocumentController extends Controller
         return Storage::download($row->stored_path, $row->original_name);
     }
 
+    /**
+     * Xoá file tài liệu (cả file vật lý và bản ghi DB).
+     *
+     * @param int $file ID file
+     */
     public function deleteFile(int $file)
     {
         $row = DB::table('hr_document_files')->where('id', $file)->first();
@@ -213,6 +251,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã xóa file.');
     }
 
+    /**
+     * Xoá folder tài liệu cùng toàn bộ file bên trong.
+     *
+     * @param int $folder ID folder
+     */
     public function deleteFolder(int $folder)
     {
         $files = DB::table('hr_document_files')->where('folder_id', $folder)->get();
@@ -229,6 +272,9 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã xóa folder.');
     }
 
+    /**
+     * Lấy danh sách folder của category kèm file bên trong mỗi folder.
+     */
     private function folders(string $category)
     {
         if (!Schema::hasTable('hr_document_folders') || !Schema::hasTable('hr_document_files')) {
@@ -252,6 +298,11 @@ class HrDocumentController extends Controller
         });
     }
 
+    /**
+     * Tính thống kê chung (số nhân viên, phòng ban, chức vụ, chấm công hôm nay) cho các trang tài liệu.
+     *
+     * @param bool $attendance Có tính số liệu chấm công hôm nay hay không
+     */
     private function stats(bool $attendance = false): array
     {
         $stats = [
@@ -297,6 +348,9 @@ class HrDocumentController extends Controller
 
 
 
+    /**
+     * Thêm nhóm dữ liệu vận hành mới với group_key duy nhất.
+     */
     public function storeOperationGroup(Request $request)
     {
         $this->ensureOperationGroupsTable();
@@ -328,6 +382,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã thêm nhóm dữ liệu.');
     }
 
+    /**
+     * Cập nhật tên / thứ tự nhóm dữ liệu vận hành.
+     *
+     * @param int $group ID nhóm
+     */
     public function updateOperationGroup(Request $request, int $group)
     {
         $this->ensureOperationGroupsTable();
@@ -348,6 +407,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã cập nhật nhóm dữ liệu.');
     }
 
+    /**
+     * Xoá nhóm dữ liệu vận hành nếu không còn dữ liệu sử dụng.
+     *
+     * @param int $group ID nhóm
+     */
     public function deleteOperationGroup(int $group)
     {
         $this->ensureOperationGroupsTable();
@@ -370,6 +434,9 @@ class HrDocumentController extends Controller
     }
 
 
+    /**
+     * Thêm trạng thái dữ liệu vận hành mới với status_key duy nhất và màu hợp lệ.
+     */
     public function storeOperationStatus(Request $request)
     {
         $this->ensureOperationStatusesTable();
@@ -403,6 +470,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã thêm trạng thái dữ liệu.');
     }
 
+    /**
+     * Cập nhật tên / màu / thứ tự trạng thái dữ liệu vận hành.
+     *
+     * @param int $status ID trạng thái
+     */
     public function updateOperationStatus(Request $request, int $status)
     {
         $this->ensureOperationStatusesTable();
@@ -425,6 +497,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã cập nhật trạng thái dữ liệu.');
     }
 
+    /**
+     * Xoá trạng thái dữ liệu vận hành nếu không còn dữ liệu sử dụng.
+     *
+     * @param int $status ID trạng thái
+     */
     public function deleteOperationStatus(int $status)
     {
         $this->ensureOperationStatusesTable();
@@ -446,6 +523,11 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã xóa trạng thái dữ liệu.');
     }
 
+    /**
+     * Lấy danh sách nhóm dữ liệu vận hành (group_key => tên), tự seed mặc định nếu trống.
+     *
+     * @return array<string, string>
+     */
     private function operationGroups(): array
     {
         $this->ensureOperationGroupsTable();
@@ -468,6 +550,11 @@ class HrDocumentController extends Controller
     }
 
 
+    /**
+     * Lấy danh sách trạng thái dữ liệu vận hành (status_key => tên), tự seed mặc định nếu trống.
+     *
+     * @return array<string, string>
+     */
     private function operationStatuses(): array
     {
         $this->ensureOperationStatusesTable();
@@ -489,6 +576,9 @@ class HrDocumentController extends Controller
         return $rows->pluck('name', 'status_key')->toArray();
     }
 
+    /**
+     * Tạo bảng hr_operation_items nếu chưa tồn tại.
+     */
     private function ensureOperationItemsTable(): void
     {
         if (Schema::hasTable('hr_operation_items')) {
@@ -510,6 +600,9 @@ class HrDocumentController extends Controller
     }
 
 
+    /**
+     * Tạo bảng hr_operation_groups nếu chưa có và seed nhóm mặc định khi trống.
+     */
     private function ensureOperationGroupsTable(): void
     {
         if (!Schema::hasTable('hr_operation_groups')) {
@@ -528,6 +621,9 @@ class HrDocumentController extends Controller
     }
 
 
+    /**
+     * Tạo bảng hr_operation_statuses nếu chưa có, bổ sung cột color và seed trạng thái mặc định khi trống.
+     */
     private function ensureOperationStatusesTable(): void
     {
         if (!Schema::hasTable('hr_operation_statuses')) {
@@ -552,6 +648,9 @@ class HrDocumentController extends Controller
         }
     }
 
+    /**
+     * Seed các trạng thái vận hành mặc định (Mới, Đang xử lý, Hoàn thành, Hủy).
+     */
     private function seedOperationStatuses(): void
     {
         $defaults = [
@@ -575,6 +674,9 @@ class HrDocumentController extends Controller
         }
     }
 
+    /**
+     * Seed các nhóm dữ liệu vận hành mặc định (chi phí, tài sản, NCC, công việc HC).
+     */
     private function seedOperationGroups(): void
     {
         $defaults = [
@@ -597,6 +699,9 @@ class HrDocumentController extends Controller
         }
     }
 
+    /**
+     * Sinh key dạng slug (a-z0-9_) từ tên nhóm / trạng thái.
+     */
     private function makeGroupKey(string $name): string
     {
         $key = \Illuminate\Support\Str::slug($name, '_');
@@ -606,6 +711,11 @@ class HrDocumentController extends Controller
         return $key !== '' ? substr($key, 0, 70) : 'group_' . time();
     }
 
+    /**
+     * Chuyển chuỗi tiền tệ (có đ, dấu phẩy, khoảng trắng) về số float.
+     *
+     * @param mixed $value Giá trị tiền nhập vào
+     */
     private function moneyToNumber($value): float
     {
         if (is_numeric($value)) {
@@ -620,6 +730,9 @@ class HrDocumentController extends Controller
     }
 
 
+    /**
+     * Chuẩn hoá màu trạng thái về danh sách cho phép, mặc định 'slate'.
+     */
     private function safeStatusColor(?string $color): string
     {
         $color = trim((string) $color);
@@ -628,6 +741,9 @@ class HrDocumentController extends Controller
         return in_array($color, $allowed, true) ? $color : 'slate';
     }
 
+    /**
+     * Kiểm tra category hợp lệ (operations / records), abort 404 nếu sai.
+     */
     private function checkCategory(string $category): void
     {
         abort_unless(in_array($category, ['operations', 'records'], true), 404);

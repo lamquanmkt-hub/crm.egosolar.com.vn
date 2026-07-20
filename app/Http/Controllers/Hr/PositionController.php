@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Position;
 
+/**
+ * Controller quản lý chức vụ (Position) trong module HR.
+ */
 class PositionController extends Controller
 {
+    /**
+     * Hiển thị danh sách chức vụ có phân trang.
+     */
     public function index()
     {
         $positions = Position::latest()->paginate(10);
@@ -15,11 +21,17 @@ class PositionController extends Controller
         return view('hr.positions.index', compact('positions'));
     }
 
+    /**
+     * Hiển thị form tạo chức vụ mới.
+     */
     public function create()
     {
         return view('hr.positions.create');
     }
 
+    /**
+     * Lưu chức vụ mới sau khi validate.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -36,6 +48,11 @@ class PositionController extends Controller
             ->with('success', 'Tạo chức vụ thành công');
     }
 
+    /**
+     * Hiển thị form chỉnh sửa chức vụ.
+     *
+     * @param int $id ID chức vụ
+     */
     public function edit($id)
     {
         $position = Position::findOrFail($id);
@@ -43,6 +60,11 @@ class PositionController extends Controller
         return view('hr.positions.edit', compact('position'));
     }
 
+    /**
+     * Cập nhật thông tin chức vụ.
+     *
+     * @param int $id ID chức vụ
+     */
     public function update(Request $request, $id)
     {
         $position = Position::findOrFail($id);
@@ -61,6 +83,11 @@ class PositionController extends Controller
             ->with('success', 'Cập nhật thành công');
     }
 
+    /**
+     * Xoá chức vụ theo ID.
+     *
+     * @param int $id ID chức vụ
+     */
     public function destroy($id)
     {
         Position::findOrFail($id)->delete();

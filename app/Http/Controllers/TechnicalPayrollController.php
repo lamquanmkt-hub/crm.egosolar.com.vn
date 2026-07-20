@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+/**
+ * Controller tính lương KPI cho nhân viên kỹ thuật (cài đặt, bảng lương, duyệt).
+ */
 class TechnicalPayrollController extends Controller
 {
     /*
@@ -15,19 +18,28 @@ class TechnicalPayrollController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Kiểm tra bảng có tồn tại trong database không.
+     */
     private function tableExists(string $table): bool
     {
         return Schema::hasTable($table);
     }
 
+    /**
+     * Kiểm tra bảng có cột chỉ định không.
+     */
     private function hasColumn(string $table, string $column): bool
     {
         return Schema::hasTable($table) && Schema::hasColumn($table, $column);
     }
 
+    /**
+     * Lọc mảng dữ liệu chỉ giữ các key trùng với cột của bảng.
+     */
     private function filterColumns(string $table, array $data): array
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return $data;
         }
 
@@ -38,6 +50,9 @@ class TechnicalPayrollController extends Controller
             ->toArray();
     }
 
+    /**
+     * Giá trị mặc định của các hệ số tính lương KPI kỹ thuật.
+     */
     private function settingDefaults(): array
     {
         return [
@@ -54,6 +69,9 @@ class TechnicalPayrollController extends Controller
         ];
     }
 
+    /**
+     * Danh sách dòng cài đặt KPI mặc định để seed vào bảng.
+     */
     private function settingSeedRows(): array
     {
         return [
@@ -130,9 +148,12 @@ class TechnicalPayrollController extends Controller
         ];
     }
 
+    /**
+     * Seed các cài đặt KPI mặc định vào bảng technical_kpi_settings nếu có.
+     */
     private function ensureDefaultSettings(): void
     {
-        if (!$this->tableExists('technical_kpi_settings')) {
+        if (! $this->tableExists('technical_kpi_settings')) {
             return;
         }
 
@@ -151,11 +172,14 @@ class TechnicalPayrollController extends Controller
         }
     }
 
+    /**
+     * Lấy map cài đặt KPI (giá trị trong DB đè lên giá trị mặc định).
+     */
     private function settingsMap(): array
     {
         $defaults = $this->settingDefaults();
 
-        if (!$this->tableExists('technical_kpi_settings')) {
+        if (! $this->tableExists('technical_kpi_settings')) {
             return $defaults;
         }
 
@@ -167,9 +191,12 @@ class TechnicalPayrollController extends Controller
         return array_merge($defaults, $dbSettings);
     }
 
+    /**
+     * Danh sách nhân viên kỹ thuật đang hoạt động kèm tên chức vụ.
+     */
     private function employees()
     {
-        if (!$this->tableExists('users')) {
+        if (! $this->tableExists('users')) {
             return collect();
         }
 
@@ -214,9 +241,12 @@ class TechnicalPayrollController extends Controller
             ->get();
     }
 
+    /**
+     * Lấy thông tin một nhân viên kỹ thuật theo id kèm tên chức vụ.
+     */
     private function employeeById($userId)
     {
-        if (!$this->tableExists('users')) {
+        if (! $this->tableExists('users')) {
             return null;
         }
 
@@ -245,6 +275,9 @@ class TechnicalPayrollController extends Controller
             ->first();
     }
 
+    /**
+     * Bộ khung 9 chỉ tiêu KPI kỹ thuật (tên, trọng số, cách tính, nguồn dữ liệu).
+     */
     private function kpiTemplate(): array
     {
         return [
@@ -332,6 +365,9 @@ class TechnicalPayrollController extends Controller
         ];
     }
 
+    /**
+     * Tính tỷ lệ đạt của một chỉ tiêu KPI theo loại công thức.
+     */
     private function calculateRate(string $type, float $plan, float $actual, array $settings, float $customerFeedbackRate): float
     {
         if ($type === 'plan_div_actual') {
@@ -380,6 +416,9 @@ class TechnicalPayrollController extends Controller
         return 0;
     }
 
+    /**
+     * Tính toàn bộ bảng lương KPI: điểm từng chỉ tiêu, tổng KPI, lương cứng và lương KPI thực nhận.
+     */
     private function calculate(Request $request, $employee): array
     {
         $settings = $this->settingsMap();
@@ -412,8 +451,8 @@ class TechnicalPayrollController extends Controller
         $items = [];
 
         foreach ($kpis as $index => $kpi) {
-            $plan = (float) data_get($itemsInput, $index . '.plan', 0);
-            $actual = (float) data_get($itemsInput, $index . '.actual', 0);
+            $plan = (float) data_get($itemsInput, $index.'.plan', 0);
+            $actual = (float) data_get($itemsInput, $index.'.actual', 0);
 
             if ($kpi['type'] === 'customer_feedback') {
                 $plan = $badFeedback + $neutralFeedback + $goodFeedback;
@@ -493,6 +532,9 @@ class TechnicalPayrollController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Trang tổng quan lương KPI kỹ thuật: cài đặt, nhân viên, danh sách bảng lương.
+     */
     public function index(Request $request)
     {
         $this->ensureDefaultSettings();
@@ -533,6 +575,9 @@ class TechnicalPayrollController extends Controller
         ));
     }
 
+    /**
+     * Trang cài đặt hệ số KPI kỹ thuật.
+     */
     public function settings()
     {
         $this->ensureDefaultSettings();
@@ -544,9 +589,12 @@ class TechnicalPayrollController extends Controller
         return view('kythuat.luong_settings', compact('settings'));
     }
 
+    /**
+     * Lưu cài đặt KPI: cập nhật, xóa và thêm dòng cài đặt mới.
+     */
     public function saveSettings(Request $request)
     {
-        if (!$this->tableExists('technical_kpi_settings')) {
+        if (! $this->tableExists('technical_kpi_settings')) {
             return back()->with('error', 'Chưa có bảng technical_kpi_settings trong database.');
         }
 
@@ -583,13 +631,13 @@ class TechnicalPayrollController extends Controller
             }
 
             if ($key === '') {
-                $key = 'custom_' . Str::slug($label, '_');
+                $key = 'custom_'.Str::slug($label, '_');
             }
 
             $key = Str::slug($key, '_');
 
             if ($key === '') {
-                $key = 'custom_setting_' . time();
+                $key = 'custom_setting_'.time();
             }
 
             DB::table('technical_kpi_settings')->updateOrInsert(
@@ -616,6 +664,9 @@ class TechnicalPayrollController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Tạo bảng lương KPI mới cho nhân viên kỹ thuật kèm chi tiết từng chỉ tiêu.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -624,13 +675,13 @@ class TechnicalPayrollController extends Controller
             'gross_salary' => 'required|numeric|min:0',
         ]);
 
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             return back()->with('error', 'Chưa có bảng technical_kpi_payrolls trong database.');
         }
 
         $employee = $this->employeeById($request->user_id);
 
-        if (!$employee) {
+        if (! $employee) {
             return back()->with('error', 'Không tìm thấy nhân viên kỹ thuật.');
         }
 
@@ -680,6 +731,9 @@ class TechnicalPayrollController extends Controller
             ->with('success', 'Đã lưu bảng lương KPI kỹ thuật.');
     }
 
+    /**
+     * Tính lại và cập nhật bảng lương KPI, thay toàn bộ dòng chi tiết.
+     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -688,13 +742,13 @@ class TechnicalPayrollController extends Controller
             'gross_salary' => 'required|numeric|min:0',
         ]);
 
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             return back()->with('error', 'Chưa có bảng technical_kpi_payrolls trong database.');
         }
 
         $employee = $this->employeeById($request->user_id);
 
-        if (!$employee) {
+        if (! $employee) {
             return back()->with('error', 'Không tìm thấy nhân viên kỹ thuật.');
         }
 
@@ -752,9 +806,12 @@ class TechnicalPayrollController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Xem chi tiết một bảng lương KPI.
+     */
     public function show($id)
     {
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             abort(404);
         }
 
@@ -762,7 +819,7 @@ class TechnicalPayrollController extends Controller
             ->where('id', $id)
             ->first();
 
-        abort_if(!$payroll, 404);
+        abort_if(! $payroll, 404);
 
         $items = $this->tableExists('technical_kpi_payroll_items')
             ? DB::table('technical_kpi_payroll_items')
@@ -774,9 +831,12 @@ class TechnicalPayrollController extends Controller
         return view('kythuat.luong_show', compact('payroll', 'items'));
     }
 
+    /**
+     * Form sửa bảng lương KPI kèm cài đặt và danh sách nhân viên.
+     */
     public function edit($id)
     {
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             abort(404);
         }
 
@@ -784,7 +844,7 @@ class TechnicalPayrollController extends Controller
             ->where('id', $id)
             ->first();
 
-        abort_if(!$payroll, 404);
+        abort_if(! $payroll, 404);
 
         $items = $this->tableExists('technical_kpi_payroll_items')
             ? DB::table('technical_kpi_payroll_items')
@@ -804,9 +864,12 @@ class TechnicalPayrollController extends Controller
         ));
     }
 
+    /**
+     * Duyệt bảng lương KPI (chuyển trạng thái approved).
+     */
     public function approve($id)
     {
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             abort(404);
         }
 
@@ -824,9 +887,12 @@ class TechnicalPayrollController extends Controller
         return back()->with('success', 'Đã duyệt bảng lương KPI.');
     }
 
+    /**
+     * Xóa một bảng lương KPI.
+     */
     public function destroy($id)
     {
-        if (!$this->tableExists('technical_kpi_payrolls')) {
+        if (! $this->tableExists('technical_kpi_payrolls')) {
             abort(404);
         }
 
@@ -838,11 +904,15 @@ class TechnicalPayrollController extends Controller
             ->route('ky-thuat.luong.index')
             ->with('success', 'Đã xóa bảng lương KPI.');
     }
+
+    /**
+     * Lưu danh sách dòng KPI chi tiết tùy chỉnh (thêm/sửa/xóa), chỉ cho admin/kế toán/manager.
+     */
     public function saveKpiItems(\Illuminate\Http\Request $request)
     {
         abort_unless(auth()->user()->hasAnyRole(['admin', 'accounting', 'manager']), 403);
 
-        if (!\Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
             return back()->with('error', 'Chưa có bảng technical_payroll_kpi_items. Hãy chạy migration trước.');
         }
 
@@ -851,16 +921,17 @@ class TechnicalPayrollController extends Controller
 
         foreach ($items as $row) {
             $id = isset($row['id']) ? (int) $row['id'] : null;
-            $delete = (int)($row['delete'] ?? 0) === 1;
+            $delete = (int) ($row['delete'] ?? 0) === 1;
 
             if ($delete && $id) {
                 \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
                     ->where('id', $id)
                     ->delete();
+
                 continue;
             }
 
-            $name = trim((string)($row['name'] ?? ''));
+            $name = trim((string) ($row['name'] ?? ''));
 
             if ($name === '') {
                 continue;
@@ -868,14 +939,14 @@ class TechnicalPayrollController extends Controller
 
             $payload = [
                 'name' => $name,
-                'unit' => trim((string)($row['unit'] ?? '')),
-                'plan_value' => (float)($row['plan_value'] ?? 0),
-                'actual_value' => (float)($row['actual_value'] ?? 0),
-                'weight' => max(0, (float)($row['weight_percent'] ?? 0) / 100),
-                'calc_type' => trim((string)($row['calc_type'] ?? 'actual_div_plan')),
-                'note' => trim((string)($row['note'] ?? '')),
-                'sort_order' => max(1, (int)($row['sort_order'] ?? 1)),
-                'is_enabled' => (int)($row['is_enabled'] ?? 0) === 1,
+                'unit' => trim((string) ($row['unit'] ?? '')),
+                'plan_value' => (float) ($row['plan_value'] ?? 0),
+                'actual_value' => (float) ($row['actual_value'] ?? 0),
+                'weight' => max(0, (float) ($row['weight_percent'] ?? 0) / 100),
+                'calc_type' => trim((string) ($row['calc_type'] ?? 'actual_div_plan')),
+                'note' => trim((string) ($row['note'] ?? '')),
+                'sort_order' => max(1, (int) ($row['sort_order'] ?? 1)),
+                'is_enabled' => (int) ($row['is_enabled'] ?? 0) === 1,
                 'updated_at' => $now,
             ];
 
@@ -893,11 +964,14 @@ class TechnicalPayrollController extends Controller
         return back()->with('success', 'Đã cập nhật danh sách dòng KPI chi tiết.');
     }
 
+    /**
+     * Xóa một dòng KPI chi tiết, hỗ trợ trả JSON cho request AJAX.
+     */
     public function destroyKpiItem($id)
     {
         abort_unless(auth()->user()->hasAnyRole(['admin', 'accounting', 'manager']), 403);
 
-        if (!\Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
             if (request()->expectsJson()) {
                 return response()->json([
                     'ok' => false,
@@ -912,7 +986,7 @@ class TechnicalPayrollController extends Controller
             ->where('id', (int) $id)
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             if (request()->expectsJson()) {
                 return response()->json([
                     'ok' => false,
@@ -936,5 +1010,4 @@ class TechnicalPayrollController extends Controller
 
         return back()->with('success', 'Đã xóa dòng KPI.');
     }
-
 }

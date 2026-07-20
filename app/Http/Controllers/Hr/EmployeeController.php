@@ -10,9 +10,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Controller quản lý nhân viên: CRUD, lương, sơ đồ tổ chức và nhóm phòng ban.
+ */
 class EmployeeController extends Controller
 {
 
+    /**
+     * Tự thêm các cột lương (official/probation/internship) vào bảng users nếu chưa có.
+     */
     private function ensureEmployeeSalaryColumns(): void
     {
         try {
@@ -38,6 +44,11 @@ class EmployeeController extends Controller
         }
     }
 
+    /**
+     * Chuẩn hoá chuỗi lương nhập vào (bỏ đ, dấu chấm, phẩy, khoảng trắng) về số float không âm.
+     *
+     * @param mixed $value Giá trị lương đầu vào
+     */
     private function normalizeSalaryInput($value): ?float
     {
         if ($value === null || $value === '') {
@@ -55,6 +66,9 @@ class EmployeeController extends Controller
         return max(0, (float) $value);
     }
 
+    /**
+     * Trả về rule validate cho các trường lương.
+     */
     private function salaryValidationRules(): array
     {
         return [
@@ -64,6 +78,9 @@ class EmployeeController extends Controller
         ];
     }
 
+    /**
+     * Gán các mức lương đã chuẩn hoá từ request vào model nhân viên.
+     */
     private function fillEmployeeSalary(User $employee, Request $request): void
     {
         $employee->official_salary = $this->normalizeSalaryInput($request->input('official_salary'));
@@ -72,6 +89,9 @@ class EmployeeController extends Controller
     }
 
 
+    /**
+     * Hiển thị danh sách nhân viên với bộ lọc, thống kê và nhóm theo ban giám đốc / phòng ban.
+     */
     public function index(Request $request)
     {
         $this->ensureEmployeeSalaryColumns();
@@ -147,6 +167,9 @@ class EmployeeController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form thêm nhân viên mới.
+     */
     public function create()
     {
         $this->ensureEmployeeSalaryColumns();
@@ -157,6 +180,9 @@ class EmployeeController extends Controller
         return view('hr.employees.create', compact('departments', 'positions', 'roles'));
     }
 
+    /**
+     * Tạo nhân viên mới kèm lương và gán vai trò nếu có.
+     */
     public function store(Request $request)
     {
         $this->ensureEmployeeSalaryColumns();
@@ -200,6 +226,11 @@ class EmployeeController extends Controller
             ->with('success', 'Thêm nhân viên thành công.');
     }
 
+    /**
+     * Hiển thị chi tiết một nhân viên.
+     *
+     * @param string $id ID nhân viên
+     */
     public function show(string $id)
     {
         $this->ensureEmployeeSalaryColumns();
@@ -208,6 +239,11 @@ class EmployeeController extends Controller
         return view('hr.employees.show', compact('employee'));
     }
 
+    /**
+     * Hiển thị form chỉnh sửa nhân viên.
+     *
+     * @param string $id ID nhân viên
+     */
     public function edit(string $id)
     {
         $this->ensureEmployeeSalaryColumns();
@@ -219,6 +255,11 @@ class EmployeeController extends Controller
         return view('hr.employees.edit', compact('employee', 'departments', 'positions', 'roles'));
     }
 
+    /**
+     * Cập nhật thông tin nhân viên, lương và vai trò.
+     *
+     * @param string $id ID nhân viên
+     */
     public function update(Request $request, string $id)
     {
         $this->ensureEmployeeSalaryColumns();
@@ -252,6 +293,11 @@ class EmployeeController extends Controller
             ->with('success', 'Cập nhật nhân viên thành công.');
     }
 
+    /**
+     * Xoá nhân viên: xoá cứng nếu không còn ràng buộc dữ liệu quan trọng, ngược lại xoá mềm (ẩn + khoá tài khoản).
+     *
+     * @param int|string|object $employee ID hoặc model nhân viên
+     */
     public function destroy($employee)
     {
         try {
@@ -438,11 +484,20 @@ class EmployeeController extends Controller
 
 
 
+    /**
+     * Hiển thị sơ đồ tổ chức (dùng chung dữ liệu với trang danh sách nhân viên).
+     */
     public function orgChart(Request $request)
     {
         return $this->index($request);
     }
 
+    /**
+     * Gom nhân viên đang hoạt động thành các nhóm phòng ban (gộp Marketing & Sales, Kế toán & Kho) kèm leader.
+     *
+     * @param \Illuminate\Support\Collection $employees Danh sách nhân viên
+     * @param \Illuminate\Support\Collection|null $boardUsers Danh sách ban giám đốc
+     */
     private function buildDepartmentGroups($employees, $boardUsers = null)
     {
         $grouped = [];
@@ -534,6 +589,9 @@ class EmployeeController extends Controller
         return $collection;
     }
 
+    /**
+     * Suy ra danh sách tên phòng ban của user từ department, position và role.
+     */
     private function extractDepartmentNames(User $user): array
     {
         $names = [];
@@ -565,6 +623,9 @@ class EmployeeController extends Controller
         return array_values(array_unique(array_filter($names)));
     }
 
+    /**
+     * Kiểm tra user có thuộc ban giám đốc (theo role, chức vụ hoặc phòng ban).
+     */
     private function isBoardMember(User $user): bool
     {
         $role = mb_strtolower((string) optional($user->roles->first())->name);
@@ -579,6 +640,9 @@ class EmployeeController extends Controller
             || str_contains($department, 'ban giám đốc');
     }
 
+    /**
+     * Kiểm tra user có khả năng là trưởng nhóm / quản lý (theo role hoặc tên chức vụ).
+     */
     private function isLikelyLeader(User $user): bool
     {
         $role = mb_strtolower((string) optional($user->roles->first())->name);
@@ -593,6 +657,9 @@ class EmployeeController extends Controller
             || str_contains($position, 'giám đốc');
     }
 
+    /**
+     * Kiểm tra chuỗi có thuộc nhóm Marketing / Sales / kinh doanh.
+     */
     private function isMarketingSales(string $text): bool
     {
         return str_contains($text, 'marketing')
@@ -601,6 +668,9 @@ class EmployeeController extends Controller
             || str_contains($text, 'kinh doanh');
     }
 
+    /**
+     * Kiểm tra chuỗi có thuộc nhóm Kế toán / Kho.
+     */
     private function isAccountingWarehouse(string $text): bool
     {
         return str_contains($text, 'kế toán')

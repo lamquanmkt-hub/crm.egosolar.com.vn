@@ -6,8 +6,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Xem trước tài liệu công ty đa định dạng: ảnh, PDF, TXT/CSV, Excel, DOCX (kể cả convert qua LibreOffice).
+ */
 class CompanyDocumentPreviewController extends Controller
 {
+    /**
+     * Tìm file theo id/tên rồi render trang xem trước phù hợp với từng định dạng.
+     */
     public function __invoke(Request $request, $file)
     {
         ini_set('memory_limit', '1024M');
@@ -99,6 +105,9 @@ class CompanyDocumentPreviewController extends Controller
         return $this->page($name, $header . $this->notice('Định dạng này chưa hỗ trợ xem trước: .' . e($ext)));
     }
 
+    /**
+     * Dò tìm bản ghi file theo id trên nhiều bảng khả dĩ, chấm điểm để chọn kết quả khớp nhất.
+     */
     protected function findFile(int $id, string $desiredName = ''): ?array
     {
         $tables = [];
@@ -222,6 +231,9 @@ class CompanyDocumentPreviewController extends Controller
         return $found[0] ?? null;
     }
 
+    /**
+     * Chọn tên hiển thị của file từ các cột tên trong bản ghi hoặc từ đường dẫn.
+     */
     protected function pickName(array $values, string $path, string $desiredName = ''): string
     {
         $name = $desiredName ?: basename(parse_url($path, PHP_URL_PATH) ?: $path);
@@ -240,6 +252,9 @@ class CompanyDocumentPreviewController extends Controller
         return $name;
     }
 
+    /**
+     * Quy đổi đường dẫn lưu trong DB thành URL hoặc đường dẫn thật trên đĩa (thử nhiều vị trí).
+     */
     protected function resolvePath(string $path): ?array
     {
         $path = trim(str_replace('\\', '/', $path));
@@ -294,6 +309,9 @@ class CompanyDocumentPreviewController extends Controller
         return null;
     }
 
+    /**
+     * Đọc file DOCX (zip XML) và dựng HTML xem trước: đoạn văn, bảng, hình ảnh.
+     */
     protected function docxToHtml(string $real): ?string
     {
         if (!class_exists(\ZipArchive::class)) {
@@ -354,6 +372,9 @@ class CompanyDocumentPreviewController extends Controller
         return $html;
     }
 
+    /**
+     * Đọc bảng ánh xạ relationship (rId => target) của file DOCX để lấy ảnh nhúng.
+     */
     protected function docxRelationships(\ZipArchive $zip): array
     {
         $relsXml = $zip->getFromName('word/_rels/document.xml.rels');
@@ -381,6 +402,9 @@ class CompanyDocumentPreviewController extends Controller
         return $rels;
     }
 
+    /**
+     * Đăng ký các namespace XML của DOCX cho DOMXPath.
+     */
     protected function registerDocxNamespaces(\DOMXPath $xp): void
     {
         $xp->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
@@ -389,6 +413,9 @@ class CompanyDocumentPreviewController extends Controller
         $xp->registerNamespace('wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing');
     }
 
+    /**
+     * Dựng HTML cho một đoạn văn DOCX (heading, căn lề, các run bên trong).
+     */
     protected function renderDocxParagraph(\DOMElement $p, \DOMXPath $xp, \ZipArchive $zip, array $rels): string
     {
         $styleVal = '';
@@ -429,6 +456,9 @@ class CompanyDocumentPreviewController extends Controller
         return '<' . $tag . ' style="' . e($align) . '">' . $inner . '</' . $tag . '>';
     }
 
+    /**
+     * Dựng HTML cho một run DOCX: text, tab, xuống dòng, ảnh, kèm định dạng đậm/nghiêng/màu/cỡ chữ.
+     */
     protected function renderDocxRun(\DOMElement $run, \DOMXPath $xp, \ZipArchive $zip, array $rels): string
     {
         $content = '';
@@ -488,6 +518,9 @@ class CompanyDocumentPreviewController extends Controller
         return $style ? '<span style="' . e($style) . '">' . $content . '</span>' : $content;
     }
 
+    /**
+     * Trích ảnh nhúng trong DOCX và trả thẻ img dạng base64 (hoặc URL ngoài).
+     */
     protected function docxImageHtml(\ZipArchive $zip, string $target): string
     {
         $target = str_replace('\\', '/', $target);
@@ -529,6 +562,9 @@ class CompanyDocumentPreviewController extends Controller
         return '<img class="docx-img" src="data:' . e($mime) . ';base64,' . base64_encode($data) . '">';
     }
 
+    /**
+     * Dựng HTML cho bảng trong DOCX (hỗ trợ bảng lồng nhau).
+     */
     protected function renderDocxTable(\DOMElement $tbl, \DOMXPath $xp, \ZipArchive $zip, array $rels): string
     {
         $html = '<table class="docx-table">';
@@ -571,6 +607,9 @@ class CompanyDocumentPreviewController extends Controller
     }
 
 
+    /**
+     * Convert file Office sang PDF bằng LibreOffice headless, có cache theo hash file.
+     */
     protected function convertOfficeToPdf(string $real): ?string
     {
         $bin = trim((string) shell_exec('command -v libreoffice 2>/dev/null || command -v soffice 2>/dev/null'));
@@ -659,6 +698,9 @@ class CompanyDocumentPreviewController extends Controller
 
 
 
+    /**
+     * Xem trước Excel bằng PhpSpreadsheet (chọn sheet, render HTML), lỗi thì fallback PDF LibreOffice.
+     */
     protected function excelPreview(string $name, string $real, string $header)
     {
         if (!class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
@@ -875,6 +917,9 @@ class CompanyDocumentPreviewController extends Controller
 
 
 
+    /**
+     * Đọc file CSV và dựng bảng HTML (dòng đầu làm header).
+     */
     protected function csvToTable(string $real): string
     {
         $handle = fopen($real, 'r');
@@ -904,6 +949,9 @@ class CompanyDocumentPreviewController extends Controller
     }
 
 
+    /**
+     * Header trang xem trước (hiện trả rỗng vì modal bên ngoài đã có tiêu đề).
+     */
     protected function header(string $name, int $id): string
     {
         // Modal bên ngoài đã có tiêu đề + nút tải xuống, tránh hiện trùng header trong iframe.
@@ -911,11 +959,17 @@ class CompanyDocumentPreviewController extends Controller
     }
 
 
+    /**
+     * Dựng khối thông báo (lỗi/không hỗ trợ) trong trang xem trước.
+     */
     protected function notice(string $message): string
     {
         return '<div class="preview-body"><div class="notice">' . e($message) . '</div></div>';
     }
 
+    /**
+     * Bọc nội dung xem trước vào trang HTML hoàn chỉnh kèm CSS chung.
+     */
     protected function page(string $title, string $body)
     {
         $css = '<style>

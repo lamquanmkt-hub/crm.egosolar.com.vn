@@ -27,7 +27,7 @@ class LockCompletedFinanceRecords
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (!$this->isWriteRequest($request)) {
+        if (! $this->isWriteRequest($request)) {
             return $next($request);
         }
 
@@ -73,7 +73,7 @@ class LockCompletedFinanceRecords
     {
         $path = trim($request->path(), '/');
 
-        if (!preg_match('#^payment-requests/([0-9]+)(?:/|$)#', $path, $m)) {
+        if (! preg_match('#^payment-requests/([0-9]+)(?:/|$)#', $path, $m)) {
             return false;
         }
 
@@ -97,7 +97,7 @@ class LockCompletedFinanceRecords
 
     private function isPaymentRequestCompleted(int $id): bool
     {
-        if ($id <= 0 || !Schema::hasTable('payment_requests')) {
+        if ($id <= 0 || ! Schema::hasTable('payment_requests')) {
             return false;
         }
 
@@ -109,7 +109,7 @@ class LockCompletedFinanceRecords
 
         $row = $query->first();
 
-        if (!$row) {
+        if (! $row) {
             return false;
         }
 
@@ -120,13 +120,13 @@ class LockCompletedFinanceRecords
 
     private function isSupplierPaymentRoundCompleted(int $roundId): bool
     {
-        if ($roundId <= 0 || !Schema::hasTable('finance_supplier_debt_payments')) {
+        if ($roundId <= 0 || ! Schema::hasTable('finance_supplier_debt_payments')) {
             return false;
         }
 
         $round = DB::table('finance_supplier_debt_payments')->where('id', $roundId)->first();
 
-        if (!$round) {
+        if (! $round) {
             return false;
         }
 
@@ -136,11 +136,11 @@ class LockCompletedFinanceRecords
             return true;
         }
 
-        if (!empty($round->payment_request_id) && $this->isPaymentRequestCompleted((int) $round->payment_request_id)) {
+        if (! empty($round->payment_request_id) && $this->isPaymentRequestCompleted((int) $round->payment_request_id)) {
             return true;
         }
 
-        if (!empty($round->supplier_debt_id) && $this->isSupplierDebtCompleted((int) $round->supplier_debt_id)) {
+        if (! empty($round->supplier_debt_id) && $this->isSupplierDebtCompleted((int) $round->supplier_debt_id)) {
             return true;
         }
 
@@ -149,13 +149,13 @@ class LockCompletedFinanceRecords
 
     private function isSupplierDebtCompleted(int $debtId): bool
     {
-        if ($debtId <= 0 || !Schema::hasTable('finance_supplier_debts')) {
+        if ($debtId <= 0 || ! Schema::hasTable('finance_supplier_debts')) {
             return false;
         }
 
         $debt = DB::table('finance_supplier_debts')->where('id', $debtId)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             return false;
         }
 
@@ -203,7 +203,7 @@ class LockCompletedFinanceRecords
 
     private function sumPaidSupplierDebtRounds(int $debtId): float
     {
-        if (!Schema::hasTable('finance_supplier_debt_payments')) {
+        if (! Schema::hasTable('finance_supplier_debt_payments')) {
             return 0.0;
         }
 

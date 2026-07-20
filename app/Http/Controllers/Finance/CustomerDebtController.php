@@ -8,8 +8,14 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
+/**
+ * Theo dõi công nợ khách hàng dựa trên đơn hàng CRM.
+ */
 class CustomerDebtController extends Controller
 {
+    /**
+     * Danh sách công nợ gom theo khách hàng kèm chi tiết từng đơn và tổng hợp.
+     */
     public function index(Request $request)
     {
         $query = Order::query()
@@ -129,6 +135,9 @@ class CustomerDebtController extends Controller
         return view('finance.debt-customers', compact('customers', 'fullSummary'));
     }
 
+    /**
+     * Tổng hợp công nợ theo từng khách hàng (không kèm chi tiết đơn).
+     */
     public function byCustomer(Request $request)
     {
         $query = Order::query()
@@ -228,6 +237,9 @@ class CustomerDebtController extends Controller
         return view('finance.debt-customers-by-user', compact('debts'));
     }
 
+    /**
+     * Lịch sử thanh toán theo từng đơn hàng có phân trang.
+     */
     public function paymentHistory(Request $request)
     {
         $query = Order::query()
@@ -289,6 +301,9 @@ class CustomerDebtController extends Controller
         return view('finance.payment-history', compact('orders'));
     }
 
+    /**
+     * Xác định tên khách hàng của đơn: khách CRM, người nhận hoặc khách lẻ.
+     */
     private function resolveCustomerName($order): string
     {
         $customer = optional(optional($order->lead)->customer);
@@ -304,6 +319,11 @@ class CustomerDebtController extends Controller
         return 'Khách lẻ / Chưa xác định';
     }
 
+        /**
+         * Tính tổng tiền, đã trả và còn nợ của một đơn hàng.
+         *
+         * @return array{total: float, paid: float, debt: float}
+         */
         private function mapMoney($order): array
     {
         $total = (float) ($order->total_amount ?? 0);

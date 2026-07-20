@@ -19,6 +19,9 @@ class OrderPaymentService
 {
     use HandleException;
 
+    /**
+     * Khởi tạo service với service thông báo.
+     */
     public function __construct(
         protected NotificationService $notificationService
     ) {}

@@ -10,8 +10,14 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý đơn nghỉ phép / làm online (WFH) của nhân viên.
+ */
 class LeaveRequestController extends Controller
 {
+    /**
+     * Hiển thị danh sách đơn nghỉ phép theo bộ lọc; nhân viên thường chỉ thấy đơn của mình hoặc đơn mình duyệt.
+     */
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -79,6 +85,9 @@ class LeaveRequestController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form tạo đơn nghỉ phép kèm danh sách người duyệt.
+     */
     public function create()
     {
         $approvers = User::query()
@@ -89,6 +98,9 @@ class LeaveRequestController extends Controller
         return view('hr.leave.create', compact('approvers'));
     }
 
+    /**
+     * Tạo đơn nghỉ phép / WFH mới sau khi kiểm tra trùng thời gian.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -150,6 +162,9 @@ class LeaveRequestController extends Controller
                 : 'Tạo đơn nghỉ phép thành công, đang chờ duyệt.');
     }
 
+    /**
+     * Duyệt đơn nghỉ phép và đồng bộ ghi chú vào bảng chấm công.
+     */
     public function approve(Request $request, LeaveRequest $leave)
     {
         $user = auth()->user();
@@ -178,6 +193,9 @@ class LeaveRequestController extends Controller
         return back()->with('success', 'Duyệt đơn thành công. Đã note đơn vào bảng chấm công.');
     }
 
+    /**
+     * Từ chối đơn nghỉ phép đang chờ duyệt.
+     */
     public function reject(Request $request, LeaveRequest $leave)
     {
         $user = auth()->user();
@@ -204,6 +222,9 @@ class LeaveRequestController extends Controller
         return back()->with('success', 'Đã từ chối đơn.');
     }
 
+    /**
+     * Kiểm tra user có quyền quản lý đơn (admin / sales_manager / marketing_manager) hay không.
+     */
     private function canManageRequests($user): bool
     {
         return $user->hasRole('admin')
@@ -211,6 +232,9 @@ class LeaveRequestController extends Controller
             || $user->hasRole('marketing_manager');
     }
 
+    /**
+     * Kiểm tra user có quyền duyệt đơn này (quản lý hoặc đúng người được chọn duyệt).
+     */
     private function canApprove($user, LeaveRequest $leave): bool
     {
         if ($user->hasRole('admin') || $user->hasRole('sales_manager') || $user->hasRole('marketing_manager')) {
@@ -219,6 +243,9 @@ class LeaveRequestController extends Controller
 
         return (int) $leave->approver_id === (int) $user->id;
     }
+    /**
+     * Kiểm tra user thuộc nhóm quản lý HR (admin / accounting / hr) qua nhiều cơ chế role khác nhau.
+     */
     private function egoCanManageHr($user): bool
     {
         if (!$user) {

@@ -1,8 +1,11 @@
 <?php
+
 namespace App\Models\Payments;
+
 use App\Models\Payments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
 class PaymentAttachment extends Model
 {
     protected $fillable = [
@@ -12,6 +15,7 @@ class PaymentAttachment extends Model
         'mime_type',
         'size',
     ];
+
     public function paymentRequest(): BelongsTo
     {
         return $this->belongsTo(Payments\PaymentRequest::class);

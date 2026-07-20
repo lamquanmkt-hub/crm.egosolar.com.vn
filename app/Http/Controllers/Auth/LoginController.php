@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -27,14 +27,14 @@ class LoginController extends Controller
         $this->ensureIsNotRateLimited($request);
 
         $credentials = $request->validate([
-            'email'    => 'required|string|email|max:255',
+            'email' => 'required|string|email|max:255',
             'password' => 'required|string|max:255',
         ]);
 
         $remember = $request->boolean('remember');
 
         if (! Auth::attempt([
-            'email'    => $credentials['email'],
+            'email' => $credentials['email'],
             'password' => $credentials['password'],
         ], $remember)) {
 
@@ -49,25 +49,25 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-//        $user = Auth::user();
+        //        $user = Auth::user();
 
         // BẮT BUỘC cho CRM: email phải được xác thực
-//        if (! $user->hasVerifiedEmail()) {
-//            Auth::logout();
-//
-//            throw ValidationException::withMessages([
-//                'email' => 'Tài khoản chưa xác thực email.',
-//            ]);
-//        }
-//
-//        // (Tuỳ chọn) Check trạng thái tài khoản
-//        if ($user->is_active === false) {
-//            Auth::logout();
-//
-//            throw ValidationException::withMessages([
-//                'email' => 'Tài khoản đã bị vô hiệu hoá.',
-//            ]);
-//        }
+        //        if (! $user->hasVerifiedEmail()) {
+        //            Auth::logout();
+        //
+        //            throw ValidationException::withMessages([
+        //                'email' => 'Tài khoản chưa xác thực email.',
+        //            ]);
+        //        }
+        //
+        //        // (Tuỳ chọn) Check trạng thái tài khoản
+        //        if ($user->is_active === false) {
+        //            Auth::logout();
+        //
+        //            throw ValidationException::withMessages([
+        //                'email' => 'Tài khoản đã bị vô hiệu hoá.',
+        //            ]);
+        //        }
 
         return redirect()->intended('/');
     }

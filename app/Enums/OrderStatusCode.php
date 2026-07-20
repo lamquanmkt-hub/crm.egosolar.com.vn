@@ -12,14 +12,14 @@ namespace App\Enums;
  */
 enum OrderStatusCode: string
 {
-    case PENDING_APPROVAL      = 'PENDING_APPROVAL';
+    case PENDING_APPROVAL = 'PENDING_APPROVAL';
     case PENDING_SALES_MANAGER = 'PENDING_SALES_MANAGER';
-    case PENDING_ACCOUNTING    = 'PENDING_ACCOUNTING';
-    case PENDING_MANAGEMENT    = 'PENDING_MANAGEMENT';
-    case READY_TO_SHIP         = 'READY_TO_SHIP';
-    case COMPLETED             = 'COMPLETED';
-    case REJECTED              = 'REJECTED';
-    case CANCELLED             = 'CANCELLED';
+    case PENDING_ACCOUNTING = 'PENDING_ACCOUNTING';
+    case PENDING_MANAGEMENT = 'PENDING_MANAGEMENT';
+    case READY_TO_SHIP = 'READY_TO_SHIP';
+    case COMPLETED = 'COMPLETED';
+    case REJECTED = 'REJECTED';
+    case CANCELLED = 'CANCELLED';
 
     /**
      * Tên hiển thị tiếng Việt.
@@ -27,14 +27,14 @@ enum OrderStatusCode: string
     public function label(): string
     {
         return match ($this) {
-            self::PENDING_APPROVAL      => 'Chờ gửi duyệt',
+            self::PENDING_APPROVAL => 'Chờ gửi duyệt',
             self::PENDING_SALES_MANAGER => 'Chờ duyệt - Sales Manager',
-            self::PENDING_ACCOUNTING    => 'Chờ duyệt - Kế toán',
-            self::PENDING_MANAGEMENT    => 'Chờ duyệt - Ban Giám đốc',
-            self::READY_TO_SHIP         => 'Sẵn sàng xuất kho',
-            self::COMPLETED             => 'Hoàn thành',
-            self::REJECTED              => 'Bị từ chối',
-            self::CANCELLED             => 'Đã hủy',
+            self::PENDING_ACCOUNTING => 'Chờ duyệt - Kế toán',
+            self::PENDING_MANAGEMENT => 'Chờ duyệt - Ban Giám đốc',
+            self::READY_TO_SHIP => 'Sẵn sàng xuất kho',
+            self::COMPLETED => 'Hoàn thành',
+            self::REJECTED => 'Bị từ chối',
+            self::CANCELLED => 'Đã hủy',
         };
     }
 

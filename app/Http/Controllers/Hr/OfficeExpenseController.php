@@ -8,8 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
+/**
+ * Controller quản lý chi phí văn phòng và các hạng mục chi phí.
+ */
 class OfficeExpenseController extends Controller
 {
+    /**
+     * Hiển thị danh sách chi phí văn phòng theo tháng / hạng mục kèm thống kê tổng hợp.
+     */
     public function index(Request $request)
     {
         $this->ensureDefaultCategories();
@@ -57,6 +63,9 @@ class OfficeExpenseController extends Controller
         ));
     }
 
+    /**
+     * Thêm mới một khoản chi phí văn phòng.
+     */
     public function store(Request $request)
     {
         $this->ensureDefaultCategories();
@@ -85,6 +94,9 @@ class OfficeExpenseController extends Controller
         return back()->with('success', 'Đã thêm chi phí văn phòng.');
     }
 
+    /**
+     * Thêm hạng mục chi phí mới với slug duy nhất.
+     */
     public function storeCategory(Request $request)
     {
         $data = $request->validate([
@@ -112,6 +124,11 @@ class OfficeExpenseController extends Controller
         return back()->with('success', 'Đã thêm hạng mục chi phí.');
     }
 
+    /**
+     * Xoá hạng mục chi phí nếu chưa có khoản chi nào sử dụng.
+     *
+     * @param int|string $id ID hạng mục
+     */
     public function destroyCategory($id)
     {
         $category = DB::table('hr_office_expense_categories')->where('id', (int) $id)->first();
@@ -129,6 +146,11 @@ class OfficeExpenseController extends Controller
         return back()->with('success', 'Đã xóa hạng mục chi phí.');
     }
 
+    /**
+     * Xoá một khoản chi phí văn phòng theo ID.
+     *
+     * @param int|string $id ID khoản chi
+     */
     public function destroy($id)
     {
         DB::table('hr_office_expenses')->where('id', (int) $id)->delete();
@@ -136,6 +158,11 @@ class OfficeExpenseController extends Controller
         return back()->with('success', 'Đã xóa chi phí văn phòng.');
     }
 
+    /**
+     * Lấy danh sách hạng mục chi phí (slug => tên); dùng danh sách mặc định nếu chưa có bảng.
+     *
+     * @return array<string, string>
+     */
     private function categories(): array
     {
         if (!Schema::hasTable('hr_office_expense_categories')) {
@@ -156,6 +183,9 @@ class OfficeExpenseController extends Controller
             ->toArray();
     }
 
+    /**
+     * Tạo sẵn các hạng mục chi phí mặc định nếu bảng đang trống.
+     */
     private function ensureDefaultCategories(): void
     {
         if (!Schema::hasTable('hr_office_expense_categories')) {
@@ -184,6 +214,11 @@ class OfficeExpenseController extends Controller
         }
     }
 
+    /**
+     * Chuyển chuỗi tiền tệ (có đ, dấu phẩy, khoảng trắng) về số float.
+     *
+     * @param mixed $value Giá trị tiền nhập vào
+     */
     private function moneyToNumber($value): float
     {
         if (is_numeric($value)) {

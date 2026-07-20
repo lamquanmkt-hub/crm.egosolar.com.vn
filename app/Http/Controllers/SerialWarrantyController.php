@@ -7,8 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý serial sản phẩm và bảo hành (nhập/xuất kho, chuyển kho, tra cứu, claim).
+ */
 class SerialWarrantyController extends Controller
 {
+    /**
+     * Trang danh sách serial đã bán/giao kèm bộ lọc, thống kê, sự kiện và claim gần đây.
+     */
     public function index(Request $request)
     {
         $this->ensureBaseTables();
@@ -140,6 +146,9 @@ class SerialWarrantyController extends Controller
         ));
     }
 
+    /**
+     * Nhập kho danh sách serial mới cho một sản phẩm.
+     */
     public function receive(Request $request)
     {
         $this->ensureBaseTables();
@@ -222,6 +231,9 @@ class SerialWarrantyController extends Controller
         return redirect()->route('serial-warranty.index')->with('success', 'Đã nhập kho ' . count($codes) . ' serial.');
     }
 
+    /**
+     * Xuất bán serial: đổi trạng thái sold, gán đơn hàng và kích hoạt bảo hành.
+     */
     public function issue(Request $request)
     {
         $this->ensureBaseTables();
@@ -338,6 +350,9 @@ class SerialWarrantyController extends Controller
         return redirect()->route('serial-warranty.index')->with('success', 'Đã xuất ' . count($codes) . ' serial và kích hoạt bảo hành.');
     }
 
+    /**
+     * Chuyển kho các serial đang tồn kho sang kho khác.
+     */
     public function transfer(Request $request)
     {
         $data = $request->validate([
@@ -385,6 +400,9 @@ class SerialWarrantyController extends Controller
         return back()->with('success', 'Đã chuyển kho ' . count($codes) . ' serial.');
     }
 
+    /**
+     * Nhận trả hàng: đưa serial về kho với trạng thái returned.
+     */
     public function returnStock(Request $request)
     {
         $data = $request->validate([
@@ -432,6 +450,9 @@ class SerialWarrantyController extends Controller
         return back()->with('success', 'Đã nhận trả hàng ' . count($codes) . ' serial.');
     }
 
+    /**
+     * Tiếp nhận yêu cầu bảo hành (claim) cho một serial.
+     */
     public function claim(Request $request)
     {
         $data = $request->validate([
@@ -463,11 +484,17 @@ class SerialWarrantyController extends Controller
         return back()->with('success', 'Đã tiếp nhận bảo hành cho serial ' . $row->serial_code . '.');
     }
 
+    /**
+     * Chuyển hướng tra cứu serial về trang danh sách với từ khóa.
+     */
     public function lookup(Request $request)
     {
         return redirect()->route('serial-warranty.index', ['q' => trim((string) $request->input('code', ''))]);
     }
 
+    /**
+     * Truy vấn thông tin serial (trạng thái, kho, bảo hành) theo danh sách mã.
+     */
     private function serialRows(array $codes)
     {
         $primaryCodes = DB::table('crm_serial_unit_identifiers as sui')
@@ -484,6 +511,11 @@ class SerialWarrantyController extends Controller
             ->get();
     }
 
+    /**
+     * Kiểm tra serial xuất có khớp sản phẩm và số lượng của đơn hàng không.
+     *
+     * @return true|string true nếu hợp lệ, chuỗi thông báo lỗi nếu không.
+     */
     private function validateSerialsAgainstOrder(int $orderId, $rows)
     {
         if (!Schema::hasTable('crm_order_items')) {
@@ -520,6 +552,9 @@ class SerialWarrantyController extends Controller
         return true;
     }
 
+    /**
+     * Tách chuỗi nhập thành mảng mã serial duy nhất (phân tách bởi xuống dòng, phẩy, chấm phẩy).
+     */
     private function parseSerials(string $text): array
     {
         $parts = preg_split('/[\r\n,;]+/', $text);
@@ -533,6 +568,9 @@ class SerialWarrantyController extends Controller
         return array_values(array_unique($codes));
     }
 
+    /**
+     * Lấy customer_id từ đơn hàng (trực tiếp hoặc qua lead).
+     */
     private function customerIdFromOrder(int $orderId): int
     {
         $order = DB::table('crm_orders')->where('id', $orderId)->first();
@@ -551,6 +589,9 @@ class SerialWarrantyController extends Controller
         return 0;
     }
 
+    /**
+     * Ghi log sự kiện serial vào bảng crm_serial_warranty_events nếu bảng tồn tại.
+     */
     private function logEvent($unitId, $code, $type, $fromState, $toState, $fromWh, $toWh, $customerId, $orderId, $note): void
     {
         if (!Schema::hasTable('crm_serial_warranty_events')) {
@@ -574,6 +615,9 @@ class SerialWarrantyController extends Controller
         ]);
     }
 
+    /**
+     * Đảm bảo các bảng serial/bảo hành cốt lõi tồn tại, thiếu thì abort 500.
+     */
     private function ensureBaseTables(): void
     {
         foreach (['crm_product_catalog', 'crm_warehouses', 'crm_serial_units', 'crm_serial_identifiers', 'crm_serial_unit_identifiers', 'crm_serial_unit_states', 'crm_serial_warranties'] as $table) {
@@ -582,6 +626,9 @@ class SerialWarrantyController extends Controller
     }
 
 
+    /**
+     * API thêm serial mới cho sản phẩm từ màn sửa sản phẩm (trả JSON).
+     */
     public function productAddSerials(\Illuminate\Http\Request $request, $product)
     {
         $data = $request->validate([
@@ -683,6 +730,9 @@ class SerialWarrantyController extends Controller
     }
 
 
+    /**
+     * API cập nhật mã serial và kho (nếu chưa bán) từ màn sản phẩm.
+     */
     public function productUpdateSerial(\Illuminate\Http\Request $request, $serialUnit)
     {
         $data = $request->validate([
@@ -765,6 +815,9 @@ class SerialWarrantyController extends Controller
     }
 
 
+    /**
+     * API xóa serial chưa bán cùng toàn bộ dữ liệu liên quan.
+     */
     public function productDeleteSerial(\Illuminate\Http\Request $request, $serialUnit)
     {
         $unitId = (int) $serialUnit;
@@ -818,6 +871,9 @@ class SerialWarrantyController extends Controller
         return response()->json(['ok' => true, 'message' => 'Đã xóa serial.']);
     }
 
+    /**
+     * Tách chuỗi thành mảng mã serial duy nhất (bản dùng cho API sản phẩm).
+     */
     private function egoSerialParseCodes($text): array
     {
         $parts = preg_split('/[\r\n,;]+/', (string) $text);
@@ -833,6 +889,9 @@ class SerialWarrantyController extends Controller
         return array_values(array_unique($codes));
     }
 
+    /**
+     * Trả kết quả JSON hoặc redirect kèm flash message tùy loại request.
+     */
     private function egoSerialApiResponse(bool $ok, string $message)
     {
         if (request()->expectsJson() || request()->ajax()) {
@@ -845,6 +904,9 @@ class SerialWarrantyController extends Controller
         return back()->with($ok ? 'success' : 'error', $message);
     }
 
+    /**
+     * Ghi log sự kiện serial (bản dùng cho API sản phẩm).
+     */
     private function egoSerialLogEvent($unitId, $code, $type, $fromState, $toState, $fromWh, $toWh, $customerId, $orderId, $note): void
     {
         if (!Schema::hasTable('crm_serial_warranty_events')) {
@@ -871,6 +933,9 @@ class SerialWarrantyController extends Controller
 
 
 
+    /**
+     * Bổ sung serial bảo hành thủ công (quên nhập kho): tạo/cập nhật serial và kích hoạt bảo hành.
+     */
     public function manualAddSerialWarranty(\Illuminate\Http\Request $request)
     {
         $user = auth()->user();
@@ -1094,6 +1159,9 @@ class SerialWarrantyController extends Controller
 
 
 
+    /**
+     * Cập nhật đầy đủ thông tin bảo hành của một serial (sản phẩm, khách, thời hạn).
+     */
     public function updateSerialWarranty(\Illuminate\Http\Request $request, $serialUnit)
     {
         $user = auth()->user();
@@ -1253,6 +1321,9 @@ class SerialWarrantyController extends Controller
     }
 
 
+    /**
+     * Ẩn serial khỏi trang tra cứu bảo hành (chuyển trạng thái removed).
+     */
     public function removeSerialFromLookup(\Illuminate\Http\Request $request, $serialUnit)
     {
         $user = auth()->user();

@@ -18,14 +18,23 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
+/**
+ * Controller quản lý quy trình hoàn trả, đổi hàng, thu hồi và hủy đơn.
+ */
 class OrderReturnController extends Controller
 {
+    /**
+     * Khởi tạo controller với các service xử lý hoàn trả.
+     */
     public function __construct(
         private readonly OrderReturnService $service,
         private readonly OrderReturnInventoryService $inventoryService,
         private readonly OrderReturnFinancialService $financialService,
     ) {}
 
+    /**
+     * Hiển thị dashboard phiếu hoàn trả kèm thống kê theo quyền người dùng.
+     */
     public function dashboard(Request $request): View
     {
         $this->ensureAny(['orders.return.view'], ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager', 'sales']);
@@ -54,6 +63,9 @@ class OrderReturnController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị danh sách phiếu hoàn trả của một đơn hàng.
+     */
     public function index(Order $order): View
     {
         $this->ensureCanViewOrder($order);
@@ -63,6 +75,9 @@ class OrderReturnController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form tạo phiếu hoàn trả với số lượng khả dụng và serial từng dòng hàng.
+     */
     public function create(Order $order): View
     {
         $this->ensureCanViewOrder($order);
@@ -98,6 +113,9 @@ class OrderReturnController extends Controller
         ]);
     }
 
+    /**
+     * Tạo phiếu hoàn trả mới; loại trả hàng chỉ áp dụng cho đơn đã hoàn thành và đã xuất kho.
+     */
     public function store(Request $request, Order $order): RedirectResponse
     {
         $this->ensureAny(['orders.return.create'], ['admin', 'management', 'sales_manager', 'sales']);
@@ -156,6 +174,9 @@ class OrderReturnController extends Controller
         return redirect()->route('order-returns.show', $return)->with('success', 'Đã tạo yêu cầu ' . $return->return_code . '.');
     }
 
+    /**
+     * Hiển thị chi tiết phiếu hoàn trả.
+     */
     public function show(OrderReturn $orderReturn): View
     {
         $this->ensureCanViewReturn($orderReturn);
@@ -169,6 +190,9 @@ class OrderReturnController extends Controller
         ]);
     }
 
+    /**
+     * Gửi phiếu hoàn trả đi phê duyệt.
+     */
     public function submit(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureCanEdit($orderReturn);
@@ -176,6 +200,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã gửi yêu cầu phê duyệt.');
     }
 
+    /**
+     * Phê duyệt phiếu; nếu là loại hủy đơn chưa xuất kho thì hủy đơn và hoàn tất luôn.
+     */
     public function approve(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureApprovalRole($orderReturn, $request->user());
@@ -196,6 +223,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã phê duyệt.');
     }
 
+    /**
+     * Từ chối phiếu hoàn trả kèm lý do.
+     */
     public function reject(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureApprovalRole($orderReturn, $request->user());
@@ -204,6 +234,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã từ chối yêu cầu.');
     }
 
+    /**
+     * Yêu cầu chỉnh sửa phiếu hoàn trả kèm ghi chú.
+     */
     public function requestRevision(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureApprovalRole($orderReturn, $request->user());
@@ -212,6 +245,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã yêu cầu chỉnh sửa.');
     }
 
+    /**
+     * Đánh dấu hàng hoàn đang vận chuyển về kho.
+     */
     public function markInTransit(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.return.update'], ['admin', 'sales', 'sales_manager', 'warehouse', 'kho']);
@@ -219,6 +255,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã cập nhật hàng đang vận chuyển về.');
     }
 
+    /**
+     * Kho xác nhận đã nhận hàng hoàn về theo số lượng thực nhận.
+     */
     public function receive(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.return.receive'], ['admin', 'warehouse', 'kho']);
@@ -232,6 +271,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Kho đã xác nhận nhận hàng.');
     }
 
+    /**
+     * Lưu kết quả kiểm tra chất lượng hàng hoàn.
+     */
     public function inspect(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.return.inspect'], ['admin', 'warehouse', 'kho']);
@@ -247,6 +289,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã lưu kết quả kiểm tra hàng hoàn.');
     }
 
+    /**
+     * Xử lý nhập kho hàng hoàn; chỉ hàng đạt chuẩn bán lại được cộng tồn.
+     */
     public function stockIn(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.return.stock_in'], ['admin', 'warehouse', 'kho']);
@@ -254,6 +299,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã xử lý kho. Chỉ hàng đạt chuẩn bán lại được cộng tồn.');
     }
 
+    /**
+     * Tạo phiếu hoàn tiền/cấn trừ cho phiếu hoàn trả.
+     */
     public function createRefund(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.refund.create'], ['admin', 'accounting', 'sales_manager']);
@@ -267,6 +315,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã tạo phiếu hoàn tiền/cấn trừ.');
     }
 
+    /**
+     * Duyệt phiếu hoàn tiền.
+     */
     public function approveRefund(Request $request, OrderRefund $refund): RedirectResponse
     {
         $this->ensureAny(['orders.refund.approve'], ['admin', 'management', 'accounting']);
@@ -274,6 +325,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã duyệt phiếu hoàn tiền.');
     }
 
+    /**
+     * Ghi nhận đã hoàn tiền/cấn trừ thành công, kèm chứng từ nếu có.
+     */
     public function processRefund(Request $request, OrderRefund $refund): RedirectResponse
     {
         $this->ensureAny(['orders.refund.process'], ['admin', 'accounting']);
@@ -283,6 +337,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã ghi nhận hoàn tiền/cấn trừ thành công.');
     }
 
+    /**
+     * Tải hồ sơ đính kèm cho phiếu hoàn trả.
+     */
     public function upload(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureCanEdit($orderReturn);
@@ -295,6 +352,9 @@ class OrderReturnController extends Controller
         return back()->with('success', 'Đã tải hồ sơ lên.');
     }
 
+    /**
+     * Tải về file đính kèm của phiếu hoàn trả.
+     */
     public function download(OrderReturnAttachment $attachment)
     {
         $this->ensureCanViewReturn($attachment->orderReturn()->firstOrFail());
@@ -302,6 +362,9 @@ class OrderReturnController extends Controller
         return Storage::disk('local')->download($attachment->file_path, $attachment->original_name);
     }
 
+    /**
+     * Lưu các file đính kèm của phiếu hoàn trả vào storage.
+     */
     private function storeAttachments(Request $request, OrderReturn $return): void
     {
         foreach ($request->file('attachments', $request->file('files', [])) as $file) {
@@ -319,6 +382,9 @@ class OrderReturnController extends Controller
         }
     }
 
+    /**
+     * Chặn 403 nếu người dùng không có quyền xem đơn hàng.
+     */
     private function ensureCanViewOrder(Order $order): void
     {
         $user = request()->user();
@@ -326,11 +392,17 @@ class OrderReturnController extends Controller
         abort_unless($this->hasAnyRole($user, ['sales']) && (int) $order->created_by === (int) $user->id, 403);
     }
 
+    /**
+     * Chặn 403 nếu người dùng không có quyền xem phiếu hoàn trả.
+     */
     private function ensureCanViewReturn(OrderReturn $return): void
     {
         $this->ensureCanViewOrder($return->order()->firstOrFail());
     }
 
+    /**
+     * Chặn 403 nếu người dùng không có quyền chỉnh sửa phiếu hoàn trả.
+     */
     private function ensureCanEdit(OrderReturn $return): void
     {
         $user = request()->user();
@@ -338,6 +410,9 @@ class OrderReturnController extends Controller
         abort_unless((int) $return->requested_by === (int) $user->id && in_array($return->status, ['draft', 'revision_requested'], true), 403);
     }
 
+    /**
+     * Kiểm tra vai trò phê duyệt tương ứng với trạng thái phiếu.
+     */
     private function ensureApprovalRole(OrderReturn $return, User $user): void
     {
         $roles = match ($return->status) {
@@ -349,6 +424,9 @@ class OrderReturnController extends Controller
         abort_unless($this->hasAnyRole($user, $roles), 403);
     }
 
+    /**
+     * Chặn 403 nếu người dùng không có bất kỳ quyền hoặc vai trò nào được yêu cầu.
+     */
     private function ensureAny(array $permissions, array $roles): void
     {
         $user = request()->user();
@@ -360,6 +438,9 @@ class OrderReturnController extends Controller
         abort_unless($allowed, 403);
     }
 
+    /**
+     * Kiểm tra người dùng có một trong các vai trò cho trước.
+     */
     private function hasAnyRole(User $user, array $roles): bool
     {
         if (empty($roles)) return false;
@@ -368,6 +449,9 @@ class OrderReturnController extends Controller
         return in_array((string) ($user->role ?? ''), $roles, true);
     }
 
+    /**
+     * Giới hạn query theo đơn do sales tạo, trừ các vai trò quản lý.
+     */
     private function scopeForUser($query, User $user): void
     {
         if ($this->hasAnyRole($user, ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager'])) return;

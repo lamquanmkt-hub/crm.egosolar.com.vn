@@ -22,8 +22,8 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        Order::class           => OrderPolicy::class,
-        Task::class            => TaskPolicy::class,
+        Order::class => OrderPolicy::class,
+        Task::class => TaskPolicy::class,
         MaterialRequest::class => MaterialRequestPolicy::class,
     ];
 

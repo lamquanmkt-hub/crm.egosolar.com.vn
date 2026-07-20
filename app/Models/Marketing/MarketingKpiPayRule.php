@@ -9,21 +9,21 @@ class MarketingKpiPayRule extends Model
     protected $table = 'marketing_kpi_pay_rules';
 
     protected $fillable = [
-    'period',
-    'weight_review', 'weight_ai', 'weight_post',
-    'bonus_over_review', 'bonus_over_ai', 'bonus_over_post',
-    'bonus_config', // ✅ thêm dòng này
-];
+        'period',
+        'weight_review', 'weight_ai', 'weight_post',
+        'bonus_over_review', 'bonus_over_ai', 'bonus_over_post',
+        'bonus_config', // ✅ thêm dòng này
+    ];
 
-protected $casts = [
-    'weight_review' => 'float',
-    'weight_ai' => 'float',
-    'weight_post' => 'float',
-    'bonus_over_review' => 'float',
-    'bonus_over_ai' => 'float',
-    'bonus_over_post' => 'float',
-    'bonus_config' => 'array', // ✅ thêm dòng này
-];
+    protected $casts = [
+        'weight_review' => 'float',
+        'weight_ai' => 'float',
+        'weight_post' => 'float',
+        'bonus_over_review' => 'float',
+        'bonus_over_ai' => 'float',
+        'bonus_over_post' => 'float',
+        'bonus_config' => 'array', // ✅ thêm dòng này
+    ];
 
     public static function defaults(): array
     {

@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Controller báo cáo công việc Sales: CRUD, thống kê, xuất CSV.
+ */
 class SalesWorkReportController extends Controller
 {
+    /**
+     * Hiển thị danh sách báo cáo công việc Sales kèm bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
         $reports = $this->baseQuery($request)
@@ -35,11 +41,17 @@ class SalesWorkReportController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form tạo báo cáo mới.
+     */
     public function create()
     {
-        return view('sales.work_reports.create', $this->formData(new SalesWorkReport()));
+        return view('sales.work_reports.create', $this->formData(new SalesWorkReport));
     }
 
+    /**
+     * Lưu báo cáo công việc Sales mới.
+     */
     public function store(Request $request)
     {
         $data = $this->validated($request);
@@ -62,14 +74,17 @@ class SalesWorkReportController extends Controller
             ->with('success', 'Đã lưu báo cáo công việc Sales.');
     }
 
+    /**
+     * Hiển thị chi tiết báo cáo kèm lịch sử cùng khách hàng.
+     */
     public function show(int $id)
     {
-        $report = $this->baseQuery(new Request())->where('r.id', $id)->firstOrFail();
+        $report = $this->baseQuery(new Request)->where('r.id', $id)->firstOrFail();
         $this->authorizeReport($report);
 
-        $history = $this->baseQuery(new Request())
+        $history = $this->baseQuery(new Request)
             ->where(function ($q) use ($report) {
-                if (!empty($report->customer_phone)) {
+                if (! empty($report->customer_phone)) {
                     $q->where('r.customer_phone', $report->customer_phone);
                 } else {
                     $q->where('r.customer_name', $report->customer_name);
@@ -94,6 +109,9 @@ class SalesWorkReportController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form sửa báo cáo.
+     */
     public function edit(int $id)
     {
         $report = SalesWorkReport::findOrFail($id);
@@ -102,6 +120,9 @@ class SalesWorkReportController extends Controller
         return view('sales.work_reports.edit', $this->formData($report));
     }
 
+    /**
+     * Cập nhật báo cáo công việc Sales.
+     */
     public function update(Request $request, int $id)
     {
         $report = SalesWorkReport::findOrFail($id);
@@ -109,7 +130,7 @@ class SalesWorkReportController extends Controller
 
         $data = $this->validated($request);
 
-        if (!$this->canManage()) {
+        if (! $this->canManage()) {
             unset($data['assigned_to']);
         }
 
@@ -124,6 +145,9 @@ class SalesWorkReportController extends Controller
             ->with('success', 'Đã cập nhật báo cáo Sales.');
     }
 
+    /**
+     * Quản lý lưu ghi chú và xác nhận báo cáo.
+     */
     public function approve(Request $request, int $id)
     {
         abort_unless($this->canManage(), 403);
@@ -138,6 +162,9 @@ class SalesWorkReportController extends Controller
         return back()->with('success', 'Đã lưu ghi chú quản lý.');
     }
 
+    /**
+     * Xóa báo cáo (quản lý hoặc người tạo).
+     */
     public function destroy(int $id)
     {
         $report = SalesWorkReport::findOrFail($id);
@@ -150,14 +177,17 @@ class SalesWorkReportController extends Controller
             ->with('success', 'Đã xoá báo cáo.');
     }
 
+    /**
+     * Xuất danh sách báo cáo theo bộ lọc ra file CSV.
+     */
     public function exportCsv(Request $request): StreamedResponse
     {
         $rows = $this->baseQuery($request)->orderByDesc('r.updated_at')->get();
-        $fileName = 'bao-cao-cong-viec-sales-' . now()->format('Ymd-His') . '.csv';
+        $fileName = 'bao-cao-cong-viec-sales-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
             fputcsv($out, [
                 'Ngày nhận data',
@@ -209,6 +239,9 @@ class SalesWorkReportController extends Controller
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
+    /**
+     * Dựng query gốc join nguồn data, người phụ trách và áp dụng bộ lọc.
+     */
     private function baseQuery(Request $request)
     {
         $select = ['r.*'];
@@ -233,7 +266,7 @@ class SalesWorkReportController extends Controller
 
         $q->select($select);
 
-        if (!$this->canManage()) {
+        if (! $this->canManage()) {
             $q->where('r.assigned_to', Auth::id());
         }
 
@@ -257,7 +290,7 @@ class SalesWorkReportController extends Controller
             $q->whereDate('r.data_received_at', '<=', $request->input('to'));
         }
 
-        if (!$request->filled('from') && !$request->filled('to') && $request->filled('period')) {
+        if (! $request->filled('from') && ! $request->filled('to') && $request->filled('period')) {
             if ($request->input('period') === 'today') {
                 $q->whereBetween('r.created_at', [now()->startOfDay(), now()->endOfDay()]);
             } elseif ($request->input('period') === 'week') {
@@ -272,8 +305,8 @@ class SalesWorkReportController extends Controller
                 $q->where('r.priority', 'hot')->whereNotIn('r.status', ['won', 'lost', 'invalid']);
             } elseif ($request->input('quick') === 'need_follow') {
                 $q->whereIn('r.status', ['follow_up', 'consulting', 'quoted'])
-                  ->whereNotNull('r.next_followup_at')
-                  ->where('r.next_followup_at', '<=', now()->addDay());
+                    ->whereNotNull('r.next_followup_at')
+                    ->where('r.next_followup_at', '<=', now()->addDay());
             } elseif ($request->input('quick') === 'quote_sent') {
                 $q->where('r.quote_status', 'sent');
             } elseif ($request->input('quick') === 'quote_pending') {
@@ -288,7 +321,7 @@ class SalesWorkReportController extends Controller
         }
 
         if ($request->filled('q')) {
-            $keyword = '%' . trim($request->input('q')) . '%';
+            $keyword = '%'.trim($request->input('q')).'%';
             $q->where(function ($sub) use ($keyword) {
                 $sub->where('r.customer_name', 'like', $keyword)
                     ->orWhere('r.customer_phone', 'like', $keyword)
@@ -305,11 +338,14 @@ class SalesWorkReportController extends Controller
         return $q;
     }
 
+    /**
+     * Tính số liệu thống kê báo cáo theo ngày/tuần/tháng và trạng thái.
+     */
     private function stats(): array
     {
         $base = DB::table('sales_work_reports');
 
-        if (!$this->canManage()) {
+        if (! $this->canManage()) {
             $base->where('assigned_to', Auth::id());
         }
 
@@ -345,6 +381,9 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Validate dữ liệu báo cáo từ request.
+     */
     private function validated(Request $request): array
     {
         return $request->validate([
@@ -389,6 +428,9 @@ class SalesWorkReportController extends Controller
         ]);
     }
 
+    /**
+     * Chuẩn bị dữ liệu chung cho form tạo/sửa báo cáo.
+     */
     private function formData(SalesWorkReport $report): array
     {
         return [
@@ -407,6 +449,9 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Danh sách loại khách hàng.
+     */
     private function customerTypes(): array
     {
         return [
@@ -416,6 +461,9 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái chăm sóc khách hàng.
+     */
     private function customerStages(): array
     {
         return [
@@ -432,6 +480,9 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Danh sách kết quả cuộc gọi.
+     */
     private function callResults(): array
     {
         return [
@@ -443,6 +494,9 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Danh sách trạng thái báo giá.
+     */
     private function quoteStatuses(): array
     {
         return [
@@ -453,18 +507,24 @@ class SalesWorkReportController extends Controller
         ];
     }
 
+    /**
+     * Lấy danh sách nguồn data từ bảng crm_sources.
+     */
     private function sources()
     {
-        if (!Schema::hasTable('crm_sources')) {
+        if (! Schema::hasTable('crm_sources')) {
             return collect();
         }
 
         return DB::table('crm_sources')->orderBy('name')->get(['id', 'name']);
     }
 
+    /**
+     * Lấy danh sách nhân viên có role sales theo nhiều kiểu phân quyền.
+     */
     private function salesUsers()
     {
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             return collect();
         }
 
@@ -484,13 +544,13 @@ class SalesWorkReportController extends Controller
 
         if (Schema::hasTable('roles') && Schema::hasTable('model_has_roles')) {
             $q->join('model_has_roles as mhr', function ($join) {
-                    $join->on('mhr.model_id', '=', 'users.id')
-                        ->where(function ($sub) {
-                            $sub->where('mhr.model_type', 'App\Models\User')
-                                ->orWhere('mhr.model_type', 'App\User')
-                                ->orWhere('mhr.model_type', 'like', '%User');
-                        });
-                })
+                $join->on('mhr.model_id', '=', 'users.id')
+                    ->where(function ($sub) {
+                        $sub->where('mhr.model_type', 'App\Models\User')
+                            ->orWhere('mhr.model_type', 'App\User')
+                            ->orWhere('mhr.model_type', 'like', '%User');
+                    });
+            })
                 ->join('roles', 'roles.id', '=', 'mhr.role_id')
                 ->whereIn('roles.name', ['sales', 'sale'])
                 ->distinct();
@@ -509,11 +569,13 @@ class SalesWorkReportController extends Controller
 
         if (Schema::hasColumn('users', 'role')) {
             $q->whereIn('users.role', ['sales', 'sale']);
+
             return $q->orderBy('users.name')->get();
         }
 
         if (Schema::hasColumn('users', 'role_name')) {
             $q->whereIn('users.role_name', ['sales', 'sale']);
+
             return $q->orderBy('users.name')->get();
         }
 
@@ -521,10 +583,12 @@ class SalesWorkReportController extends Controller
         return collect();
     }
 
-
+    /**
+     * Chuyển danh sách link (mỗi dòng một link) thành chuỗi JSON.
+     */
     private function linksJson(?string $value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -539,11 +603,14 @@ class SalesWorkReportController extends Controller
             : null;
     }
 
+    /**
+     * Kiểm tra người dùng có quyền quản lý báo cáo.
+     */
     private function canManage(): bool
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -562,8 +629,11 @@ class SalesWorkReportController extends Controller
         return false;
     }
 
+    /**
+     * Chặn 403 nếu không phải quản lý hoặc người được giao báo cáo.
+     */
     private function authorizeReport(object $report): void
     {
-        abort_if(!$this->canManage() && (int) $report->assigned_to !== (int) Auth::id(), 403);
+        abort_if(! $this->canManage() && (int) $report->assigned_to !== (int) Auth::id(), 403);
     }
 }

@@ -5,8 +5,14 @@ use App\Repositories\OrderRepository;
 use App\Repositories\ProductStockRepository;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Service duyệt đơn hàng theo cấp và trừ tồn kho khi kho duyệt.
+ */
 class OrderApprovalService
 {
+	/**
+	 * Khởi tạo service với repository đơn hàng và tồn kho.
+	 */
 	public function __construct(
 		protected OrderRepository $orders,
 		protected ProductStockRepository $stocks
@@ -34,6 +40,9 @@ class OrderApprovalService
 			}
 		});
 	}
+	/**
+	 * Trừ tồn kho cho từng sản phẩm sau khi kho duyệt đơn.
+	 */
 	private function updateStockAfterApproval($order): void {
 		foreach ($order->items as $item) {
 			$this->stocks->adjustStock(

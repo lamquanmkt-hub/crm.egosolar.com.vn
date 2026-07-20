@@ -11,13 +11,22 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller quản lý người dùng và hồ sơ cá nhân.
+ */
 class UserController extends Controller
 {
+    /**
+     * Khởi tạo controller với UserService và yêu cầu đăng nhập.
+     */
     public function __construct(protected UserService $service)
     {
         $this->middleware('auth');
     }
 
+    /**
+     * Hiển thị danh sách người dùng có phân trang.
+     */
     public function index()
     {
         $this->authorize('viewAny', User::class);
@@ -27,6 +36,9 @@ class UserController extends Controller
         return view('users.index', compact('users'));
     }
 
+    /**
+     * Hiển thị form tạo người dùng.
+     */
     public function create()
     {
         $this->authorize('create', User::class);
@@ -34,6 +46,9 @@ class UserController extends Controller
         return view('users.create');
     }
 
+    /**
+     * Tạo người dùng mới.
+     */
     public function store(UserStoreRequest $request)
     {
         $this->authorize('create', User::class);
@@ -45,11 +60,17 @@ class UserController extends Controller
             ->with('success', 'Tạo người dùng thành công.');
     }
 
+    /**
+     * Hiển thị chi tiết người dùng.
+     */
     public function show(User $user)
     {
         return view('users.show', compact('user'));
     }
 
+    /**
+     * Hiển thị form sửa người dùng.
+     */
     public function edit(User $user)
     {
         $this->authorize('update', $user);
@@ -57,6 +78,9 @@ class UserController extends Controller
         return view('users.edit', compact('user'));
     }
 
+    /**
+     * Cập nhật thông tin người dùng.
+     */
     public function update(UserUpdateRequest $request, User $user)
     {
         $this->authorize('update', $user);
@@ -68,6 +92,9 @@ class UserController extends Controller
             ->with('success', 'Cập nhật người dùng thành công.');
     }
 
+    /**
+     * Xóa người dùng.
+     */
     public function destroy(User $user)
     {
         $this->authorize('delete', $user);
@@ -79,39 +106,48 @@ class UserController extends Controller
             ->with('success', 'Xoá người dùng thành công.');
     }
 
+    /**
+     * Hiển thị trang hồ sơ cá nhân.
+     */
     public function profile()
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(403);
         }
 
         return view('users.profile', compact('user'));
     }
 
+    /**
+     * Hiển thị form sửa hồ sơ cá nhân.
+     */
     public function editProfile()
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(403);
         }
 
         return view('users.profile-edit', compact('user'));
     }
 
+    /**
+     * Cập nhật hồ sơ cá nhân: tên, email và mật khẩu nếu có.
+     */
     public function updateProfile(Request $request)
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(403);
         }
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
         ], [
             'name.required' => 'Vui lòng nhập họ và tên.',
@@ -136,11 +172,14 @@ class UserController extends Controller
             ->with('success', 'Cập nhật hồ sơ thành công.');
     }
 
+    /**
+     * Cập nhật ảnh đại diện, hỗ trợ lưu qua Media hoặc cột avatar.
+     */
     public function updateAvatar(Request $request)
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(403);
         }
 
@@ -158,7 +197,7 @@ class UserController extends Controller
 
         if (Schema::hasColumn('users', 'avatar_id') && class_exists(\App\Models\Media::class)) {
             try {
-                if ($user->avatar && is_object($user->avatar) && !empty($user->avatar->file_path)) {
+                if ($user->avatar && is_object($user->avatar) && ! empty($user->avatar->file_path)) {
                     Storage::disk('public')->delete($user->avatar->file_path);
                 }
             } catch (\Throwable $e) {
@@ -166,10 +205,10 @@ class UserController extends Controller
             }
 
             $media = \App\Models\Media::create([
-                'file_name'   => $file->getClientOriginalName(),
-                'file_path'   => $path,
-                'mime_type'   => $file->getClientMimeType(),
-                'size'        => $file->getSize(),
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'mime_type' => $file->getClientMimeType(),
+                'size' => $file->getSize(),
                 'uploaded_by' => $user->id,
             ]);
 
@@ -180,7 +219,7 @@ class UserController extends Controller
         }
 
         if (Schema::hasColumn('users', 'avatar')) {
-            if (!empty($user->avatar) && is_string($user->avatar)) {
+            if (! empty($user->avatar) && is_string($user->avatar)) {
                 Storage::disk('public')->delete($user->avatar);
             }
 

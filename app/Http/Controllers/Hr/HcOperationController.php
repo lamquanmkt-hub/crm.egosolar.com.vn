@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller vận hành hành chính (HC): chi phí, tài sản, nhà cung cấp, công việc phát sinh và bảo trì thiết bị.
+ */
 class HcOperationController extends Controller
 {
     private array $maintenanceTypes = [
@@ -16,6 +19,9 @@ class HcOperationController extends Controller
         'Bảo trì / sửa chữa',
     ];
 
+    /**
+     * Hiển thị trang vận hành HC theo tab (tổng quan, chi phí, tài sản, NCC, công việc, bảo trì) kèm thống kê.
+     */
     public function index(Request $request)
     {
         $allowedTabs = ['overview', 'expenses', 'assets', 'suppliers', 'tasks', 'maintenance'];
@@ -159,6 +165,9 @@ class HcOperationController extends Controller
         ));
     }
 
+    /**
+     * Thêm mới một khoản chi phí vận hành văn phòng.
+     */
     public function storeExpense(Request $request)
     {
         $data = $request->validate([
@@ -183,6 +192,11 @@ class HcOperationController extends Controller
         return $this->backTo('expenses', 'Đã thêm chi phí văn phòng.');
     }
 
+    /**
+     * Cập nhật khoản chi phí vận hành theo ID.
+     *
+     * @param int|string $id ID khoản chi
+     */
     public function updateExpense(Request $request, $id)
     {
         $data = $request->validate([
@@ -205,6 +219,11 @@ class HcOperationController extends Controller
         return $this->backTo('expenses', 'Đã cập nhật chi phí văn phòng.');
     }
 
+    /**
+     * Xoá khoản chi phí vận hành theo ID.
+     *
+     * @param int|string $id ID khoản chi
+     */
     public function destroyExpense($id)
     {
         DB::table('hr_operation_expenses')->where('id', (int) $id)->delete();
@@ -212,6 +231,9 @@ class HcOperationController extends Controller
         return $this->backTo('expenses', 'Đã xoá chi phí văn phòng.');
     }
 
+    /**
+     * Thêm mới một tài sản văn phòng.
+     */
     public function storeAsset(Request $request)
     {
         $data = $request->validate([
@@ -234,6 +256,11 @@ class HcOperationController extends Controller
         return $this->backTo('assets', 'Đã thêm tài sản.');
     }
 
+    /**
+     * Cập nhật thông tin tài sản theo ID.
+     *
+     * @param int|string $id ID tài sản
+     */
     public function updateAsset(Request $request, $id)
     {
         $data = $request->validate([
@@ -255,6 +282,11 @@ class HcOperationController extends Controller
         return $this->backTo('assets', 'Đã cập nhật tài sản.');
     }
 
+    /**
+     * Xoá tài sản theo ID.
+     *
+     * @param int|string $id ID tài sản
+     */
     public function destroyAsset($id)
     {
         DB::table('hr_operation_assets')->where('id', (int) $id)->delete();
@@ -262,6 +294,9 @@ class HcOperationController extends Controller
         return $this->backTo('assets', 'Đã xoá tài sản.');
     }
 
+    /**
+     * Thêm mới nhà cung cấp dịch vụ văn phòng.
+     */
     public function storeSupplier(Request $request)
     {
         $data = $request->validate([
@@ -282,6 +317,11 @@ class HcOperationController extends Controller
         return $this->backTo('suppliers', 'Đã thêm nhà cung cấp.');
     }
 
+    /**
+     * Cập nhật thông tin nhà cung cấp theo ID.
+     *
+     * @param int|string $id ID nhà cung cấp
+     */
     public function updateSupplier(Request $request, $id)
     {
         $data = $request->validate([
@@ -301,6 +341,11 @@ class HcOperationController extends Controller
         return $this->backTo('suppliers', 'Đã cập nhật nhà cung cấp.');
     }
 
+    /**
+     * Xoá nhà cung cấp theo ID.
+     *
+     * @param int|string $id ID nhà cung cấp
+     */
     public function destroySupplier($id)
     {
         DB::table('hr_operation_suppliers')->where('id', (int) $id)->delete();
@@ -308,6 +353,9 @@ class HcOperationController extends Controller
         return $this->backTo('suppliers', 'Đã xoá nhà cung cấp.');
     }
 
+    /**
+     * Thêm mới công việc hành chính phát sinh.
+     */
     public function storeTask(Request $request)
     {
         $data = $request->validate([
@@ -332,6 +380,11 @@ class HcOperationController extends Controller
         return $this->backTo('tasks', 'Đã thêm việc HC phát sinh.');
     }
 
+    /**
+     * Cập nhật công việc hành chính phát sinh theo ID.
+     *
+     * @param int|string $id ID công việc
+     */
     public function updateTask(Request $request, $id)
     {
         $data = $request->validate([
@@ -353,6 +406,11 @@ class HcOperationController extends Controller
         return $this->backTo('tasks', 'Đã cập nhật việc HC phát sinh.');
     }
 
+    /**
+     * Xoá công việc hành chính phát sinh theo ID.
+     *
+     * @param int|string $id ID công việc
+     */
     public function destroyTask($id)
     {
         DB::table('hr_operation_tasks')->where('id', (int) $id)->delete();
@@ -360,6 +418,9 @@ class HcOperationController extends Controller
         return $this->backTo('tasks', 'Đã xoá việc HC phát sinh.');
     }
 
+    /**
+     * Thêm mới yêu cầu bảo trì thiết bị (task loại "Bảo trì trang thiết bị").
+     */
     public function storeMaintenance(Request $request)
     {
         $data = $request->validate([
@@ -384,6 +445,11 @@ class HcOperationController extends Controller
         return $this->backTo('maintenance', 'Đã thêm yêu cầu bảo trì thiết bị.');
     }
 
+    /**
+     * Cập nhật yêu cầu bảo trì thiết bị theo ID.
+     *
+     * @param int|string $id ID yêu cầu bảo trì
+     */
     public function updateMaintenance(Request $request, $id)
     {
         $data = $request->validate([
@@ -405,6 +471,11 @@ class HcOperationController extends Controller
         return $this->backTo('maintenance', 'Đã cập nhật yêu cầu bảo trì thiết bị.');
     }
 
+    /**
+     * Xoá yêu cầu bảo trì thiết bị theo ID.
+     *
+     * @param int|string $id ID yêu cầu bảo trì
+     */
     public function destroyMaintenance($id)
     {
         DB::table('hr_operation_tasks')->where('id', (int) $id)->delete();
@@ -412,6 +483,12 @@ class HcOperationController extends Controller
         return $this->backTo('maintenance', 'Đã xoá yêu cầu bảo trì thiết bị.');
     }
 
+    /**
+     * Redirect về trang vận hành HC đúng tab kèm thông báo thành công.
+     *
+     * @param string $tab Tab cần quay về
+     * @param string $message Thông báo hiển thị
+     */
     private function backTo($tab, $message)
     {
         return redirect()

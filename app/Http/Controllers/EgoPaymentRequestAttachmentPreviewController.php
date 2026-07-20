@@ -6,8 +6,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Xem trước chứng từ phiếu đề nghị thanh toán: ảnh, PDF, TXT, CSV, Office (convert PDF qua LibreOffice).
+ */
 class EgoPaymentRequestAttachmentPreviewController extends Controller
 {
+    /**
+     * Tìm chứng từ của phiếu và trả về trang xem trước theo định dạng file.
+     */
     public function show($paymentRequest, $attachment)
     {
         ini_set('memory_limit', '1024M');
@@ -29,7 +35,7 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
         abort_unless($att, 404, 'Không tìm thấy chứng từ đính kèm.');
 
-        if (empty($att->path) || !Storage::disk('public')->exists($att->path)) {
+        if (empty($att->path) || ! Storage::disk('public')->exists($att->path)) {
             return $this->page('Không tìm thấy file', $this->notice('Không tìm thấy file gốc trong storage.'));
         }
 
@@ -41,12 +47,12 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
         $header = $this->header($name, $paymentRequestId, $attachmentId);
 
         if (str_starts_with((string) $mime, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'], true)) {
-            $mime = $mime ?: 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
+            $mime = $mime ?: 'image/'.($ext === 'jpg' ? 'jpeg' : $ext);
             $data = base64_encode(file_get_contents($real));
 
             return $this->page(
                 $name,
-                $header . '<div class="preview-body image-body"><img class="preview-image" src="data:' . e($mime) . ';base64,' . $data . '"></div>'
+                $header.'<div class="preview-body image-body"><img class="preview-image" src="data:'.e($mime).';base64,'.$data.'"></div>'
             );
         }
 
@@ -55,7 +61,7 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
             return $this->page(
                 $name,
-                $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'
+                $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'
             );
         }
 
@@ -64,14 +70,14 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
             return $this->page(
                 $name,
-                $header . '<div class="preview-body"><pre class="text-preview">' . $text . '</pre></div>'
+                $header.'<div class="preview-body"><pre class="text-preview">'.$text.'</pre></div>'
             );
         }
 
         if ($ext === 'csv') {
             return $this->page(
                 $name,
-                $header . '<div class="preview-body"><div class="table-wrap">' . $this->csvTable($real) . '</div></div>'
+                $header.'<div class="preview-body"><div class="table-wrap">'.$this->csvTable($real).'</div></div>'
             );
         }
 
@@ -83,22 +89,25 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
                 return $this->page(
                     $name,
-                    $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'
+                    $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'
                 );
             }
 
             return $this->page(
                 $name,
-                $header . $this->notice('File Office cần LibreOffice trên server để xem trước. Anh vẫn có thể bấm Tải xuống để mở file.')
+                $header.$this->notice('File Office cần LibreOffice trên server để xem trước. Anh vẫn có thể bấm Tải xuống để mở file.')
             );
         }
 
         return $this->page(
             $name,
-            $header . $this->notice('Định dạng này chưa hỗ trợ xem trước: .' . e($ext))
+            $header.$this->notice('Định dạng này chưa hỗ trợ xem trước: .'.e($ext))
         );
     }
 
+    /**
+     * Convert file Office sang PDF bằng LibreOffice headless, có cache theo hash file.
+     */
     protected function convertOfficeToPdf(string $real): ?string
     {
         $bin = trim((string) shell_exec('command -v libreoffice 2>/dev/null || command -v soffice 2>/dev/null'));
@@ -109,49 +118,49 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
         $cacheDir = storage_path('app/preview-cache/payment-request-attachments');
 
-        if (!is_dir($cacheDir)) {
+        if (! is_dir($cacheDir)) {
             @mkdir($cacheDir, 0775, true);
         }
 
-        $hash = md5($real . '|' . @filemtime($real) . '|' . @filesize($real));
-        $pdfPath = $cacheDir . '/' . $hash . '.pdf';
+        $hash = md5($real.'|'.@filemtime($real).'|'.@filesize($real));
+        $pdfPath = $cacheDir.'/'.$hash.'.pdf';
 
         if (is_file($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
         }
 
-        $workDir = $cacheDir . '/work-' . $hash;
-        $profileDir = $cacheDir . '/lo-profile';
+        $workDir = $cacheDir.'/work-'.$hash;
+        $profileDir = $cacheDir.'/lo-profile';
 
         @mkdir($workDir, 0775, true);
         @mkdir($profileDir, 0775, true);
 
         $ext = strtolower(pathinfo($real, PATHINFO_EXTENSION)) ?: 'bin';
-        $tmpInput = $workDir . '/input.' . $ext;
+        $tmpInput = $workDir.'/input.'.$ext;
 
-        if (!@copy($real, $tmpInput)) {
+        if (! @copy($real, $tmpInput)) {
             return null;
         }
 
-        $profileUrl = 'file://' . str_replace('%2F', '/', rawurlencode($profileDir));
+        $profileUrl = 'file://'.str_replace('%2F', '/', rawurlencode($profileDir));
 
-        $cmd = 'HOME=' . escapeshellarg($profileDir) . ' '
-            . escapeshellarg($bin)
-            . ' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
-            . escapeshellarg('--env:UserInstallation=' . $profileUrl)
-            . ' --convert-to pdf --outdir '
-            . escapeshellarg($workDir) . ' '
-            . escapeshellarg($tmpInput)
-            . ' 2>&1';
+        $cmd = 'HOME='.escapeshellarg($profileDir).' '
+            .escapeshellarg($bin)
+            .' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
+            .escapeshellarg('--env:UserInstallation='.$profileUrl)
+            .' --convert-to pdf --outdir '
+            .escapeshellarg($workDir).' '
+            .escapeshellarg($tmpInput)
+            .' 2>&1';
 
         @exec($cmd, $out, $code);
 
-        $generated = glob($workDir . '/*.pdf') ?: [];
+        $generated = glob($workDir.'/*.pdf') ?: [];
 
-        if (!empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
+        if (! empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
             @rename($generated[0], $pdfPath);
 
-            foreach (glob($workDir . '/*') ?: [] as $f) {
+            foreach (glob($workDir.'/*') ?: [] as $f) {
                 if (is_file($f)) {
                     @unlink($f);
                 }
@@ -165,11 +174,14 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
         return null;
     }
 
+    /**
+     * Đọc file CSV và dựng bảng HTML (dòng đầu làm header).
+     */
     protected function csvTable(string $real): string
     {
         $handle = fopen($real, 'r');
 
-        if (!$handle) {
+        if (! $handle) {
             return '<div class="notice">Không đọc được CSV.</div>';
         }
 
@@ -181,7 +193,7 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
             foreach ($row as $cell) {
                 $tag = $rowIndex === 0 ? 'th' : 'td';
-                $html .= '<' . $tag . '>' . htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</' . $tag . '>';
+                $html .= '<'.$tag.'>'.htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</'.$tag.'>';
             }
 
             $html .= '</tr>';
@@ -190,24 +202,33 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
 
         fclose($handle);
 
-        return $html . '</table>';
+        return $html.'</table>';
     }
 
+    /**
+     * Thanh tiêu đề trang xem trước kèm nút tải xuống chứng từ.
+     */
     protected function header(string $name, int $paymentRequestId, int $attachmentId): string
     {
-        $download = url('/payment-requests/' . $paymentRequestId . '/attachments-thao/' . $attachmentId . '/download');
+        $download = url('/payment-requests/'.$paymentRequestId.'/attachments-thao/'.$attachmentId.'/download');
 
         return '<div class="preview-top">
-            <div class="preview-title">' . e($name) . '</div>
-            <a class="preview-download" href="' . e($download) . '">Tải xuống</a>
+            <div class="preview-title">'.e($name).'</div>
+            <a class="preview-download" href="'.e($download).'">Tải xuống</a>
         </div>';
     }
 
+    /**
+     * Dựng khối thông báo (lỗi/không hỗ trợ) trong trang xem trước.
+     */
     protected function notice(string $message): string
     {
-        return '<div class="preview-body"><div class="notice">' . e($message) . '</div></div>';
+        return '<div class="preview-body"><div class="notice">'.e($message).'</div></div>';
     }
 
+    /**
+     * Bọc nội dung xem trước vào trang HTML hoàn chỉnh kèm CSS chung.
+     */
     protected function page(string $title, string $body)
     {
         $css = '<style>
@@ -227,6 +248,6 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
             .preview-table td,.preview-table th{border:1px solid #d7dee8;padding:7px 9px;font-size:13px;vertical-align:top}
         </style>';
 
-        return response('<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title>' . $css . '</head><body>' . $body . '</body></html>');
+        return response('<!doctype html><html><head><meta charset="utf-8"><title>'.e($title).'</title>'.$css.'</head><body>'.$body.'</body></html>');
     }
 }

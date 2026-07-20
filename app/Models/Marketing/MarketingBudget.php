@@ -1,6 +1,9 @@
 <?php
+
 namespace App\Models\Marketing;
+
 use Illuminate\Database\Eloquent\Model;
+
 class MarketingBudget extends Model
 {
     protected $fillable = [
@@ -14,9 +17,11 @@ class MarketingBudget extends Model
         // legacy
         'campaign',
     ];
+
     protected $casts = [
         'month' => 'date:Y-m-d',
     ];
+
     public function marketingCampaign()
     {
         return $this->belongsTo(MarketingCampaign::class, 'campaign_id');

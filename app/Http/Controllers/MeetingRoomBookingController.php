@@ -7,10 +7,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Đặt phòng họp: danh sách, tạo, sửa, xóa booking và kiểm tra trùng khung giờ.
+ */
 class MeetingRoomBookingController extends Controller
 {
     private string $table = 'meeting_room_bookings';
 
+    /**
+     * Danh sách booking với bộ lọc phòng/trạng thái/ngày, thống kê và lịch hôm nay.
+     */
     public function index(Request $request)
     {
         $this->ensureTableReady();
@@ -58,6 +64,9 @@ class MeetingRoomBookingController extends Controller
         return view('meeting-room-bookings.index', compact('bookings', 'rooms', 'statuses', 'organizers', 'stats', 'todayBookings', 'date', 'room', 'status'));
     }
 
+    /**
+     * Tạo booking phòng họp mới, chặn nếu trùng khung giờ với booking khác.
+     */
     public function store(Request $request)
     {
         $this->ensureTableReady();
@@ -78,6 +87,9 @@ class MeetingRoomBookingController extends Controller
         return back()->with('success', 'Đã tạo booking phòng họp thành công.');
     }
 
+    /**
+     * Cập nhật booking phòng họp, chặn nếu trùng khung giờ với booking khác.
+     */
     public function update(Request $request, int $booking)
     {
         $this->ensureTableReady();
@@ -98,6 +110,9 @@ class MeetingRoomBookingController extends Controller
         return back()->with('success', 'Đã cập nhật booking phòng họp.');
     }
 
+    /**
+     * Xóa booking phòng họp.
+     */
     public function destroy(int $booking)
     {
         $this->ensureTableReady();
@@ -106,6 +121,9 @@ class MeetingRoomBookingController extends Controller
         return back()->with('success', 'Đã xóa booking phòng họp.');
     }
 
+    /**
+     * Validate dữ liệu booking, mặc định 1 người tham dự và người tổ chức là user hiện tại.
+     */
     private function validatedData(Request $request): array
     {
         $data = $request->validate([
@@ -132,6 +150,9 @@ class MeetingRoomBookingController extends Controller
         return $data;
     }
 
+    /**
+     * Kiểm tra phòng có booking khác (chờ duyệt/đã duyệt) trùng khung giờ hay không.
+     */
     private function hasConflict(string $roomName, string $startAt, string $endAt, ?int $ignoreId = null): bool
     {
         $query = DB::table($this->table)
@@ -147,6 +168,9 @@ class MeetingRoomBookingController extends Controller
         return $query->exists();
     }
 
+    /**
+     * Danh sách người tổ chức khả dụng (tên user kèm role/email), luôn có user hiện tại đứng đầu.
+     */
     private function organizers(): array
     {
         $items = [];
@@ -226,6 +250,9 @@ class MeetingRoomBookingController extends Controller
         return $items;
     }
 
+    /**
+     * Bảng nhãn trạng thái booking tiếng Việt.
+     */
     private function statuses(): array
     {
         return [
@@ -236,6 +263,9 @@ class MeetingRoomBookingController extends Controller
         ];
     }
 
+    /**
+     * Chặn 500 nếu chưa có bảng meeting_room_bookings.
+     */
     private function ensureTableReady(): void
     {
         abort_unless(Schema::hasTable($this->table), 500, 'Chưa có bảng meeting_room_bookings. Vui lòng chạy php artisan migrate --force.');

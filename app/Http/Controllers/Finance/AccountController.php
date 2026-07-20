@@ -7,8 +7,14 @@ use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Quản lý quỹ / tài khoản thu chi (CRUD).
+ */
 class AccountController extends Controller
 {
+    /**
+     * Danh sách quỹ / tài khoản kèm bộ lọc và thống kê tổng quan.
+     */
     public function index(Request $request)
     {
         $query = Account::query();
@@ -42,11 +48,17 @@ class AccountController extends Controller
         return view('finance.accounts.index', compact('accounts', 'stats'));
     }
 
+    /**
+     * Hiển thị form tạo quỹ / tài khoản mới.
+     */
     public function create()
     {
         return view('finance.accounts.create');
     }
 
+    /**
+     * Lưu quỹ / tài khoản mới với số dư ban đầu.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -75,11 +87,17 @@ class AccountController extends Controller
             ->with('success', 'Tạo quỹ / tài khoản thành công.');
     }
 
+    /**
+     * Hiển thị form chỉnh sửa quỹ / tài khoản.
+     */
     public function edit(Account $account)
     {
         return view('finance.accounts.create', compact('account'));
     }
 
+    /**
+     * Cập nhật thông tin quỹ / tài khoản.
+     */
     public function update(Request $request, Account $account)
     {
         $validated = $request->validate([
@@ -103,6 +121,9 @@ class AccountController extends Controller
             ->with('success', 'Cập nhật quỹ / tài khoản thành công.');
     }
 
+    /**
+     * Xóa quỹ / tài khoản nếu chưa phát sinh giao dịch.
+     */
     public function destroy(Account $account)
     {
         if ($account->receipts()->exists() || $account->payments()->exists()) {

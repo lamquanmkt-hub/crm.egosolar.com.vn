@@ -7,14 +7,23 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Chứng từ đính kèm phiếu đề nghị thanh toán: thêm, thay thế, xóa, tải xuống.
+ */
 class EgoPaymentRequestAttachmentController extends Controller
 {
+    /**
+     * Chặn 404 nếu thiếu bảng payment_requests hoặc payment_attachments.
+     */
     private function abortIfMissing(): void
     {
         abort_unless(Schema::hasTable('payment_requests'), 404, 'Khong thay bang payment_requests.');
         abort_unless(Schema::hasTable('payment_attachments'), 404, 'Khong thay bang payment_attachments.');
     }
 
+    /**
+     * Lấy phiếu đề nghị thanh toán theo id (404 nếu không có).
+     */
     private function getPaymentRequest($id)
     {
         $this->abortIfMissing();
@@ -26,6 +35,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return $pr;
     }
 
+    /**
+     * Lấy chứng từ thuộc đúng phiếu đề nghị thanh toán (404 nếu không có).
+     */
     private function getAttachment($paymentRequestId, $attachmentId)
     {
         $this->abortIfMissing();
@@ -40,6 +52,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return $att;
     }
 
+    /**
+     * Kiểm tra người dùng có một trong các role (tương thích nhiều cách lưu role).
+     */
     private function hasRole($user, array $roles): bool
     {
         if (!$user) {
@@ -65,6 +80,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return false;
     }
 
+    /**
+     * Xác định người dùng có được sửa chứng từ của phiếu: admin/kế toán/quản lý hoặc người tạo khi phiếu chưa duyệt.
+     */
     private function canEdit($pr): bool
     {
         $user = auth()->user();
@@ -92,6 +110,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return false;
     }
 
+    /**
+     * Trả kết quả thành công: JSON với AJAX, ngược lại redirect kèm flash message.
+     */
     private function ok(Request $request, string $message)
     {
         if ($request->ajax() || $request->expectsJson()) {
@@ -104,6 +125,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return back()->with('success', $message);
     }
 
+    /**
+     * Thêm nhiều chứng từ (tối đa 20MB/file) vào phiếu đề nghị thanh toán.
+     */
     public function upload(Request $request, $paymentRequest)
     {
         $pr = $this->getPaymentRequest($paymentRequest);
@@ -146,6 +170,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return $this->ok($request, 'Da them ' . $count . ' chung tu.');
     }
 
+    /**
+     * Thay file chứng từ bằng file mới (xóa file cũ trên đĩa).
+     */
     public function replace(Request $request, $paymentRequest, $attachment)
     {
         $pr = $this->getPaymentRequest($paymentRequest);
@@ -180,6 +207,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return $this->ok($request, 'Da cap nhat chung tu.');
     }
 
+    /**
+     * Xóa chứng từ khỏi phiếu (cả file vật lý và bản ghi).
+     */
     public function destroy(Request $request, $paymentRequest, $attachment)
     {
         $pr = $this->getPaymentRequest($paymentRequest);
@@ -200,6 +230,9 @@ class EgoPaymentRequestAttachmentController extends Controller
         return $this->ok($request, 'Da xoa chung tu.');
     }
 
+    /**
+     * Tải xuống chứng từ với tên gốc.
+     */
     public function download($paymentRequest, $attachment)
     {
         $this->getPaymentRequest($paymentRequest);

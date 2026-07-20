@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Quản lý hồ sơ đại lý/khách hàng: CRUD, giấy tờ đính kèm, đơn vị vận chuyển, xuất CSV.
+ */
 class CustomerProfileController extends Controller
 {
     private array $statuses = [
@@ -36,6 +39,9 @@ class CustomerProfileController extends Controller
         'other' => 'Khác',
     ];
 
+    /**
+     * Danh sách hồ sơ khách hàng với bộ lọc từ khóa, trạng thái, cấp đại lý, khoảng ngày cọc.
+     */
     public function index(Request $request)
     {
         $this->ensureTables();
@@ -44,12 +50,12 @@ class CustomerProfileController extends Controller
 
         if ($q = trim((string) $request->get('q'))) {
             $query->where(function ($x) use ($q) {
-                $x->where('agent_name', 'like', '%' . $q . '%')
-                    ->orWhere('phone', 'like', '%' . $q . '%')
-                    ->orWhere('email', 'like', '%' . $q . '%')
-                    ->orWhere('tax_code', 'like', '%' . $q . '%')
-                    ->orWhere('contract_code', 'like', '%' . $q . '%')
-                    ->orWhere('note', 'like', '%' . $q . '%');
+                $x->where('agent_name', 'like', '%'.$q.'%')
+                    ->orWhere('phone', 'like', '%'.$q.'%')
+                    ->orWhere('email', 'like', '%'.$q.'%')
+                    ->orWhere('tax_code', 'like', '%'.$q.'%')
+                    ->orWhere('contract_code', 'like', '%'.$q.'%')
+                    ->orWhere('note', 'like', '%'.$q.'%');
             });
         }
 
@@ -97,6 +103,9 @@ class CustomerProfileController extends Controller
         ]);
     }
 
+    /**
+     * Form tạo hồ sơ mới, tự đổ sẵn thông tin nếu chọn từ khách hàng CRM.
+     */
     public function create(Request $request)
     {
         $this->ensureTables();
@@ -130,6 +139,9 @@ class CustomerProfileController extends Controller
         ]);
     }
 
+    /**
+     * Tạo hồ sơ khách hàng mới kèm giấy tờ; nếu khách đã có hồ sơ thì chuyển tới hồ sơ đó.
+     */
     public function store(Request $request)
     {
         $this->ensureTables();
@@ -139,11 +151,11 @@ class CustomerProfileController extends Controller
         $data['created_by'] = auth()->id();
         $data['updated_by'] = auth()->id();
 
-        if (!empty($data['price_tier_id']) && empty($data['agent_level'])) {
+        if (! empty($data['price_tier_id']) && empty($data['agent_level'])) {
             $data['agent_level'] = $this->tierName((int) $data['price_tier_id']);
         }
 
-        if (!empty($data['customer_id'])) {
+        if (! empty($data['customer_id'])) {
             $existing = CustomerProfile::where('customer_id', $data['customer_id'])->first();
             if ($existing) {
                 return redirect()
@@ -158,6 +170,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.show', $profile)->with('success', 'Đã tạo hồ sơ khách hàng.');
     }
 
+    /**
+     * Trang chi tiết một hồ sơ khách hàng và danh sách giấy tờ.
+     */
     public function show(CustomerProfile $customerProfile)
     {
         $this->decorateProfiles(collect([$customerProfile]));
@@ -171,6 +186,9 @@ class CustomerProfileController extends Controller
         ]);
     }
 
+    /**
+     * Form chỉnh sửa hồ sơ khách hàng.
+     */
     public function edit(CustomerProfile $customerProfile)
     {
         $this->decorateProfiles(collect([$customerProfile]));
@@ -185,13 +203,16 @@ class CustomerProfileController extends Controller
         ]);
     }
 
+    /**
+     * Cập nhật hồ sơ khách hàng và lưu thêm giấy tờ mới nếu có.
+     */
     public function update(Request $request, CustomerProfile $customerProfile)
     {
         $data = $this->validatedData($request, $customerProfile->id);
         $data['deposit_amount'] = $this->money($data['deposit_amount'] ?? 0);
         $data['updated_by'] = auth()->id();
 
-        if (!empty($data['price_tier_id']) && empty($data['agent_level'])) {
+        if (! empty($data['price_tier_id']) && empty($data['agent_level'])) {
             $data['agent_level'] = $this->tierName((int) $data['price_tier_id']);
         }
 
@@ -201,6 +222,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.show', $customerProfile)->with('success', 'Đã cập nhật hồ sơ khách hàng.');
     }
 
+    /**
+     * Xóa hồ sơ khách hàng kèm toàn bộ giấy tờ và file vật lý.
+     */
     public function destroy(CustomerProfile $customerProfile)
     {
         foreach ($customerProfile->documents as $document) {
@@ -215,6 +239,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.index')->with('success', 'Đã xóa hồ sơ khách hàng.');
     }
 
+    /**
+     * Tải thêm giấy tờ lên hồ sơ khách hàng.
+     */
     public function storeDocument(Request $request, CustomerProfile $customerProfile)
     {
         $this->storeDocuments($customerProfile, $request);
@@ -222,6 +249,9 @@ class CustomerProfileController extends Controller
         return back()->with('success', 'Đã tải giấy tờ lên hồ sơ.');
     }
 
+    /**
+     * Tải xuống một giấy tờ của hồ sơ (kiểm tra giấy tờ thuộc đúng hồ sơ).
+     */
     public function downloadDocument(CustomerProfile $customerProfile, CustomerProfileDocument $document)
     {
         abort_unless((int) $document->customer_profile_id === (int) $customerProfile->id, 404);
@@ -230,6 +260,9 @@ class CustomerProfileController extends Controller
         return Storage::disk('public')->download($document->file_path, $document->original_name);
     }
 
+    /**
+     * Xóa một giấy tờ khỏi hồ sơ (cả file vật lý).
+     */
     public function destroyDocument(CustomerProfile $customerProfile, CustomerProfileDocument $document)
     {
         abort_unless((int) $document->customer_profile_id === (int) $customerProfile->id, 404);
@@ -243,6 +276,9 @@ class CustomerProfileController extends Controller
         return back()->with('success', 'Đã xóa giấy tờ.');
     }
 
+    /**
+     * Chuyển hàng loạt khách hàng CRM được chọn sang hồ sơ đại lý (bỏ qua khách đã có hồ sơ).
+     */
     public function syncCustomers(Request $request)
     {
         $this->ensureTables();
@@ -266,13 +302,14 @@ class CustomerProfileController extends Controller
 
         DB::transaction(function () use ($customers, &$created, &$skipped) {
             foreach ($customers as $customer) {
-                if (!$customer->id) {
+                if (! $customer->id) {
                     continue;
                 }
 
                 $exists = CustomerProfile::where('customer_id', $customer->id)->exists();
                 if ($exists) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -298,11 +335,12 @@ class CustomerProfileController extends Controller
             }
         });
 
-        return back()->with('success', 'Đã chuyển sang hồ sơ đại lý: tạo mới ' . $created . ' hồ sơ, bỏ qua ' . $skipped . ' khách đã có hồ sơ.');
+        return back()->with('success', 'Đã chuyển sang hồ sơ đại lý: tạo mới '.$created.' hồ sơ, bỏ qua '.$skipped.' khách đã có hồ sơ.');
     }
 
-
-
+    /**
+     * Danh sách đơn vị vận chuyển với tìm kiếm theo tên, SĐT, địa chỉ, tuyến.
+     */
     public function shippingIndex(Request $request)
     {
         $this->ensureTables();
@@ -312,7 +350,7 @@ class CustomerProfileController extends Controller
         $query = DB::table('customer_profile_shippings')->orderByDesc('id');
 
         if ($q !== '') {
-            $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $q).'%';
 
             $query->where(function ($x) use ($like) {
                 $x->where('name', 'like', $like)
@@ -331,7 +369,9 @@ class CustomerProfileController extends Controller
         ]);
     }
 
-
+    /**
+     * Thêm đơn vị vận chuyển mới.
+     */
     public function storeShipping(Request $request)
     {
         $this->ensureTables();
@@ -353,6 +393,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.shipping.index')->with('success', 'Đã thêm đơn vị vận chuyển.');
     }
 
+    /**
+     * Cập nhật thông tin đơn vị vận chuyển.
+     */
     public function updateShipping(Request $request, int $shipping)
     {
         $this->ensureTables();
@@ -377,6 +420,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.shipping.index')->with('success', 'Đã cập nhật đơn vị vận chuyển.');
     }
 
+    /**
+     * Xóa đơn vị vận chuyển.
+     */
     public function destroyShipping(int $shipping)
     {
         $this->ensureTables();
@@ -386,7 +432,9 @@ class CustomerProfileController extends Controller
         return redirect()->route('customer-profiles.shipping.index')->with('success', 'Đã xóa đơn vị vận chuyển.');
     }
 
-
+    /**
+     * Xuất toàn bộ hồ sơ khách hàng ra file CSV (có BOM UTF-8).
+     */
     public function export(Request $request): StreamedResponse
     {
         $this->ensureTables();
@@ -394,11 +442,11 @@ class CustomerProfileController extends Controller
         $profiles = CustomerProfile::query()->orderByDesc('id')->get();
         $this->decorateProfiles($profiles);
 
-        $fileName = 'ho-so-khach-hang-' . now()->format('Ymd-His') . '.csv';
+        $fileName = 'ho-so-khach-hang-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($profiles) {
             $out = fopen('php://output', 'w');
-            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
             fputcsv($out, [
                 'ID',
@@ -436,10 +484,12 @@ class CustomerProfileController extends Controller
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-
+    /**
+     * Lấy danh sách đơn vị vận chuyển (trả rỗng nếu chưa có bảng).
+     */
     private function shippingUnits()
     {
-        if (!Schema::hasTable('customer_profile_shippings')) {
+        if (! Schema::hasTable('customer_profile_shippings')) {
             return collect();
         }
 
@@ -448,6 +498,9 @@ class CustomerProfileController extends Controller
             ->get();
     }
 
+    /**
+     * Validate dữ liệu đơn vị vận chuyển.
+     */
     private function validatedShippingData(Request $request): array
     {
         return $request->validate([
@@ -459,7 +512,9 @@ class CustomerProfileController extends Controller
         ]);
     }
 
-
+    /**
+     * Validate dữ liệu hồ sơ khách hàng (dùng chung tạo mới và cập nhật).
+     */
     private function validatedData(Request $request, ?int $ignoreId = null): array
     {
         return $request->validate([
@@ -487,21 +542,24 @@ class CustomerProfileController extends Controller
         ]);
     }
 
+    /**
+     * Lưu các file giấy tờ upload kèm request vào hồ sơ (đặt tên an toàn, ghi bản ghi document).
+     */
     private function storeDocuments(CustomerProfile $profile, Request $request): void
     {
-        if (!$request->hasFile('documents')) {
+        if (! $request->hasFile('documents')) {
             return;
         }
 
         foreach ((array) $request->file('documents') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
             $safeBase = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
             $ext = $file->getClientOriginalExtension();
-            $name = now()->format('YmdHis') . '-' . Str::random(8) . '-' . ($safeBase ?: 'file') . ($ext ? '.' . $ext : '');
-            $path = $file->storeAs('customer-profile-documents/' . $profile->id, $name, 'public');
+            $name = now()->format('YmdHis').'-'.Str::random(8).'-'.($safeBase ?: 'file').($ext ? '.'.$ext : '');
+            $path = $file->storeAs('customer-profile-documents/'.$profile->id, $name, 'public');
 
             CustomerProfileDocument::create([
                 'customer_profile_id' => $profile->id,
@@ -517,12 +575,15 @@ class CustomerProfileController extends Controller
         }
     }
 
+    /**
+     * Kiểm tra các bảng bắt buộc và tự tạo bảng customer_profile_shippings nếu chưa có.
+     */
     private function ensureTables(): void
     {
         abort_unless(Schema::hasTable('customer_profiles'), 500, 'Chưa có bảng customer_profiles. Vui lòng chạy php artisan migrate.');
         abort_unless(Schema::hasTable('customer_profile_documents'), 500, 'Chưa có bảng customer_profile_documents. Vui lòng chạy php artisan migrate.');
 
-        if (!Schema::hasTable('customer_profile_shippings')) {
+        if (! Schema::hasTable('customer_profile_shippings')) {
             Schema::create('customer_profile_shippings', function (\Illuminate\Database\Schema\Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -540,6 +601,9 @@ class CustomerProfileController extends Controller
         }
     }
 
+    /**
+     * Tìm tên bảng khách hàng đang tồn tại trong hệ thống (crm_customers/customers/clients).
+     */
     private function customerTable(): ?string
     {
         foreach (['crm_customers', 'customers', 'clients'] as $table) {
@@ -551,10 +615,13 @@ class CustomerProfileController extends Controller
         return null;
     }
 
+    /**
+     * Lấy danh sách khách hàng cho ô chọn, tự dò tên cột (tên, SĐT, email, địa chỉ, MST, bậc giá).
+     */
     private function customersForSelect(int $limit = 2000)
     {
         $table = $this->customerTable();
-        if (!$table) {
+        if (! $table) {
             return collect();
         }
 
@@ -571,7 +638,7 @@ class CustomerProfileController extends Controller
             ->limit($limit)
             ->get()
             ->map(function ($row) use ($nameCol, $phoneCol, $emailCol, $addressCol, $taxCol, $priceTierCol) {
-                $row->display_name = $nameCol ? (string) ($row->{$nameCol} ?? '') : ('Khách hàng #' . ($row->id ?? ''));
+                $row->display_name = $nameCol ? (string) ($row->{$nameCol} ?? '') : ('Khách hàng #'.($row->id ?? ''));
                 $row->phone = $phoneCol ? ($row->{$phoneCol} ?? null) : null;
                 $row->email = $emailCol ? ($row->{$emailCol} ?? null) : null;
                 $row->address = $addressCol ? ($row->{$addressCol} ?? null) : null;
@@ -582,14 +649,20 @@ class CustomerProfileController extends Controller
             });
     }
 
+    /**
+     * Lấy một khách hàng theo id từ danh sách khách đã chuẩn hóa.
+     */
     private function customerById(int $id): ?object
     {
         return $this->customersForSelect(10000)->firstWhere('id', $id);
     }
 
+    /**
+     * Danh sách bậc giá đang hoạt động (trả rỗng nếu chưa có bảng crm_price_tiers).
+     */
     private function priceTiers()
     {
-        if (!Schema::hasTable('crm_price_tiers')) {
+        if (! Schema::hasTable('crm_price_tiers')) {
             return collect();
         }
 
@@ -599,15 +672,21 @@ class CustomerProfileController extends Controller
             ->get();
     }
 
+    /**
+     * Lấy tên bậc giá theo id (null nếu không có).
+     */
     private function tierName($tierId): ?string
     {
-        if (!$tierId || !Schema::hasTable('crm_price_tiers')) {
+        if (! $tierId || ! Schema::hasTable('crm_price_tiers')) {
             return null;
         }
 
         return DB::table('crm_price_tiers')->where('id', (int) $tierId)->value('name');
     }
 
+    /**
+     * Gắn thêm thông tin hiển thị cho hồ sơ: tên/SĐT/email khách, tên bậc giá, số giấy tờ.
+     */
     private function decorateProfiles($profiles): void
     {
         $customerIds = collect($profiles)->pluck('customer_id')->filter()->unique()->values();
@@ -631,6 +710,9 @@ class CustomerProfileController extends Controller
         }
     }
 
+    /**
+     * Số liệu tổng quan: tổng hồ sơ, đang hợp tác, đã cọc, thiếu hồ sơ, tổng tiền cọc, số giấy tờ.
+     */
     private function summary(): array
     {
         return [
@@ -643,6 +725,9 @@ class CustomerProfileController extends Controller
         ];
     }
 
+    /**
+     * Trả về cột đầu tiên trong danh sách ứng viên có tồn tại trong bảng.
+     */
     private function firstColumn(array $cols, array $candidates): ?string
     {
         foreach ($candidates as $candidate) {
@@ -654,6 +739,9 @@ class CustomerProfileController extends Controller
         return null;
     }
 
+    /**
+     * Chuẩn hóa chuỗi tiền tệ (bỏ ký hiệu đ, khoảng trắng, phân tách nghìn) thành số float.
+     */
     private function money($value): float
     {
         $value = trim((string) ($value ?? ''));

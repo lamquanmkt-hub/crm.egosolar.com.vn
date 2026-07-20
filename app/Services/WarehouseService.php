@@ -1,15 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
+use App\Contracts\Services\WarehouseServiceInterface;
 use App\Models\Core\Warehouse;
 use App\Repositories\Interfaces\WarehouseRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
-class WarehouseService
+/**
+ * Service xử lý nghiệp vụ kho hàng (Warehouse).
+ */
+class WarehouseService implements WarehouseServiceInterface
 {
+    /**
+     * Khởi tạo service với repository kho hàng.
+     */
     public function __construct(protected WarehouseRepositoryInterface $repo) {}
 
+    /**
+     * Lấy toàn bộ danh sách kho.
+     */
     public function list()
     {
         return $this->repo->all();
@@ -37,21 +49,33 @@ class WarehouseService
             ->get();
     }
 
+    /**
+     * Tìm kho theo ID.
+     */
     public function find(int $id)
     {
         return $this->repo->find($id);
     }
 
+    /**
+     * Tạo kho mới.
+     */
     public function create(array $data)
     {
         return $this->repo->create($data);
     }
 
+    /**
+     * Cập nhật thông tin kho.
+     */
     public function update($warehouse, array $data)
     {
         return $this->repo->update($warehouse, $data);
     }
 
+    /**
+     * Xoá kho.
+     */
     public function delete($warehouse)
     {
         return $this->repo->delete($warehouse);
@@ -71,7 +95,7 @@ class WarehouseService
                     'id' => $warehouse->id,
                     'name' => $warehouse->name,
                     'location' => $warehouse->location,
-                    'display' => $warehouse->name . ($warehouse->location ? ' - ' . $warehouse->location : ''),
+                    'display' => $warehouse->name.($warehouse->location ? ' - '.$warehouse->location : ''),
                 ];
             });
     }
@@ -84,6 +108,7 @@ class WarehouseService
         return DB::transaction(function () use ($warehouseId, $managerId) {
             $warehouse = $this->find($warehouseId);
             $warehouse->update(['manager_id' => $managerId]);
+
             return $warehouse;
         });
     }
@@ -127,11 +152,11 @@ class WarehouseService
         $query = \App\Models\CRM\Orders\Order::where('warehouse_id', $warehouseId)
             ->with(['lead.customer', 'creator']);
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('order_date', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('order_date', '<=', $filters['to_date']);
         }
 
@@ -172,15 +197,15 @@ class WarehouseService
         $query = \App\Models\Inventory\Stock\StockMovement::where('warehouse_id', $warehouseId)
             ->with(['product', 'creator']);
 
-        if (!empty($filters['product_id'])) {
+        if (! empty($filters['product_id'])) {
             $query->where('product_id', $filters['product_id']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('created_at', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
@@ -194,7 +219,7 @@ class WarehouseService
     {
         $warehouse = $this->find($warehouseId);
 
-        if (!isset($warehouse->max_capacity)) {
+        if (! isset($warehouse->max_capacity)) {
             return true;
         }
 

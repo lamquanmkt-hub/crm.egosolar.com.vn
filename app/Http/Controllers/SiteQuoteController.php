@@ -6,8 +6,14 @@ use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controller báo giá công trình: soạn hạng mục vật tư và đợt thanh toán.
+ */
 class SiteQuoteController extends Controller
 {
+    /**
+     * Form soạn báo giá công trình với hạng mục vật tư và đợt thanh toán (có mẫu mặc định).
+     */
     public function edit(Site $site)
     {
         $quoteItems = DB::table('site_planned_materials')
@@ -45,6 +51,9 @@ class SiteQuoteController extends Controller
         return view('sites.quote', compact('site', 'quoteItems', 'paymentTerms'));
     }
 
+    /**
+     * Lưu báo giá: ghi lại hạng mục, tính tổng/giảm giá/VAT, cập nhật site và đợt thanh toán.
+     */
     public function update(Request $request, Site $site)
     {
         $data = $request->validate([
@@ -181,6 +190,9 @@ class SiteQuoteController extends Controller
             ->with('success', 'Đã lưu báo giá công trình thành công.');
     }
 
+    /**
+     * Chuyển chuỗi số định dạng Việt Nam (chấm ngăn nghìn, phẩy thập phân) về float.
+     */
     private function money($value): float
     {
         if ($value === null) {

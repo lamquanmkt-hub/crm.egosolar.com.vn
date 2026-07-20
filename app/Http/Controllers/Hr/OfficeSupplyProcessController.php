@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quy trình văn phòng phẩm (VPP): kho vật phẩm, nhập kho, phân bổ và lịch sử xuất nhập.
+ */
 class OfficeSupplyProcessController extends Controller
 {
+    /**
+     * Hiển thị trang tổng quan VPP: vật phẩm, phiếu phân bổ gần nhất, lịch sử xuất nhập và thống kê kho.
+     */
     public function index(Request $request)
     {
         $this->ensureTables();
@@ -74,6 +80,9 @@ class OfficeSupplyProcessController extends Controller
         ));
     }
 
+    /**
+     * Tạo vật phẩm VPP mới (hoặc cộng dồn vào vật phẩm trùng tên + đơn vị) kèm tồn đầu kỳ.
+     */
     public function productStore(Request $request)
     {
         $this->ensureTables();
@@ -131,6 +140,9 @@ class OfficeSupplyProcessController extends Controller
         return back()->with('success', 'Đã lưu vật phẩm VPP. Nếu trùng tên, hệ thống đã cộng vào mã cũ.');
     }
 
+    /**
+     * Nhập kho VPP cho vật phẩm có sẵn hoặc tạo vật phẩm mới rồi cộng tồn.
+     */
     public function importStock(Request $request)
     {
         $this->ensureTables();
@@ -182,6 +194,9 @@ class OfficeSupplyProcessController extends Controller
         return back()->with('success', 'Đã lưu nhập VPP. Nếu trùng tên, hệ thống đã cộng vào vật phẩm cũ.');
     }
 
+    /**
+     * Phân bổ VPP cho phòng ban / người nhận: kiểm tra tồn kho, tạo phiếu hoàn tất và trừ kho.
+     */
     public function allocateStock(Request $request)
     {
         $this->ensureTables();
@@ -270,6 +285,11 @@ class OfficeSupplyProcessController extends Controller
     }
 
 
+    /**
+     * Trả về JSON chi tiết phiếu phân bổ: thông tin phiếu, item và lịch sử xuất nhập.
+     *
+     * @param int|string $id ID phiếu
+     */
     public function detailJson($id)
     {
         $this->ensureTables();
@@ -304,6 +324,11 @@ class OfficeSupplyProcessController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị trang chi tiết phiếu phân bổ VPP.
+     *
+     * @param int|string $id ID phiếu
+     */
     public function show($id)
     {
         $this->ensureTables();
@@ -334,6 +359,11 @@ class OfficeSupplyProcessController extends Controller
         return view('hr.office-supply-process.show', compact('requestRow', 'items', 'movements'));
     }
 
+    /**
+     * Xoá phiếu phân bổ và hoàn trả tồn kho các vật phẩm đã xuất (trong transaction).
+     *
+     * @param int|string $id ID phiếu
+     */
     public function destroy($id)
     {
         $this->ensureTables();
@@ -368,6 +398,11 @@ class OfficeSupplyProcessController extends Controller
     }
 
 
+    /**
+     * Cập nhật thông tin vật phẩm VPP theo ID.
+     *
+     * @param int|string $id ID vật phẩm
+     */
     public function productUpdate(Request $request, $id)
     {
         $this->ensureTables();
@@ -393,6 +428,11 @@ class OfficeSupplyProcessController extends Controller
     }
 
 
+    /**
+     * Xoá vật phẩm VPP cùng item và lịch sử xuất nhập liên quan.
+     *
+     * @param int|string $id ID vật phẩm
+     */
     public function productDestroy($id)
     {
         $this->ensureTables();
@@ -415,6 +455,9 @@ class OfficeSupplyProcessController extends Controller
         return back()->with('success', 'Đã xoá vật phẩm VPP.');
     }
 
+    /**
+     * Hiển thị lịch sử xuất nhập kho VPP có phân trang.
+     */
     public function history()
     {
         $this->ensureTables();
@@ -429,46 +472,89 @@ class OfficeSupplyProcessController extends Controller
         return view('hr.office-supply-process.history', compact('movements'));
     }
 
+    /**
+     * Alias của allocateStock để tương thích route cũ.
+     */
     public function store(Request $request)
     {
         return $this->allocateStock($request);
     }
 
+    /**
+     * Route cũ (đã bỏ): chỉ báo module mới dùng phân bổ trực tiếp từ kho.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function update(Request $request, $id)
     {
         return back()->with('success', 'Module mới dùng phân bổ trực tiếp từ kho, không cần sửa quy trình chữ.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước HR duyệt không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function hrReview(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước duyệt phiếu không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function approve(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước từ chối phiếu không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function reject(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước xuất kho không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function issue(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước nhận hàng không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function receive(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Route cũ (đã bỏ): bước hoàn tất phiếu không còn dùng trong module mới.
+     *
+     * @param int|string $id ID phiếu (không dùng)
+     */
     public function complete(Request $request, $id)
     {
         return back()->with('success', 'Module mới đã chuyển sang quản lý kho và phân bổ trực tiếp.');
     }
 
+    /**
+     * Chuẩn hoá danh sách vật phẩm phân bổ từ request, chỉ giữ dòng có product_id và số lượng > 0.
+     *
+     * @return array<int, array{product_id: int, qty: float}>
+     */
     private function normalizeAllocateItems(Request $request): array
     {
         $productIds = $request->input('product_id', []);
@@ -496,6 +582,12 @@ class OfficeSupplyProcessController extends Controller
         return $items;
     }
 
+    /**
+     * Xuất / nhập kho một vật phẩm (lock bản ghi), cập nhật tồn và ghi lịch sử movement.
+     *
+     * @param string $type 'in' hoặc 'out'
+     * @param array $meta Thông tin kèm theo (reason, note, receiver, department, request_id)
+     */
     private function moveStock(int $productId, string $type, float $qty, array $meta): void
     {
         $product = DB::table('hr_vpp_products')
@@ -537,6 +629,9 @@ class OfficeSupplyProcessController extends Controller
         ]);
     }
 
+    /**
+     * Ghi log chuyển trạng thái của phiếu VPP nếu bảng log tồn tại.
+     */
     private function log(int $requestId, ?string $from, string $to, string $action, ?string $note = null): void
     {
         if (!Schema::hasTable('hr_vpp_logs')) {
@@ -555,6 +650,9 @@ class OfficeSupplyProcessController extends Controller
         ]);
     }
 
+    /**
+     * Sinh mã phiếu dạng VPP-{năm}-{số thứ tự 5 chữ số}.
+     */
     private function makeCode(): string
     {
         $next = ((int) DB::table('hr_vpp_requests')->max('id')) + 1;
@@ -563,6 +661,11 @@ class OfficeSupplyProcessController extends Controller
     }
 
 
+    /**
+     * Tìm vật phẩm VPP trùng tên và đơn vị (không phân biệt hoa thường / khoảng trắng).
+     *
+     * @return object|null Bản ghi vật phẩm hoặc null
+     */
     private function findSameVppProduct(?string $name, ?string $unit = null)
     {
         $name = trim((string) $name);
@@ -578,6 +681,9 @@ class OfficeSupplyProcessController extends Controller
             ->first();
     }
 
+    /**
+     * Tạo các bảng VPP (products, requests, items, movements, logs) và bổ sung cột còn thiếu nếu chưa có.
+     */
     private function ensureTables(): void
     {
         if (!Schema::hasTable('hr_vpp_products')) {

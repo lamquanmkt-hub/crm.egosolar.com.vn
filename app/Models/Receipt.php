@@ -27,10 +27,13 @@ class Receipt extends Model
     ];
 
     public const CATEGORY_SALES = 'thu_khach_hang';
+
     public const CATEGORY_OTHER = 'thu_khac';
 
     public const METHOD_CASH = 'cash';
+
     public const METHOD_BANK = 'bank';
+
     public const METHOD_TRANSFER = 'transfer';
 
     public static function categoryOptions(): array

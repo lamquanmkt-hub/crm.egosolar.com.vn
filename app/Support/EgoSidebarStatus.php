@@ -4,7 +4,6 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use App\Support\EgoCompanyScope;
 
 class EgoSidebarStatus
 {
@@ -29,51 +28,51 @@ class EgoSidebarStatus
         return $data;
     }
 
-   public static function onlineCount(): int
-{
-    try {
-        if (!Schema::hasTable('users') || !Schema::hasColumn('users', 'last_seen_at')) {
+    public static function onlineCount(): int
+    {
+        try {
+            if (! Schema::hasTable('users') || ! Schema::hasColumn('users', 'last_seen_at')) {
+                return auth()->check() ? 1 : 0;
+            }
+
+            // Cứ user đang đăng nhập thì cập nhật online ngay tại đây.
+            // Cách này giúp sidebar luôn chạy kể cả middleware chưa ăn.
+            if (auth()->check()) {
+                DB::table('users')
+                    ->where('id', auth()->id())
+                    ->update([
+                        'last_seen_at' => now(),
+                    ]);
+            }
+
+            $query = DB::table('users')
+                ->whereNotNull('last_seen_at')
+                ->where('last_seen_at', '>=', now()->subMinutes(5));
+
+            if (Schema::hasColumn('users', 'is_active')) {
+                $query->where('is_active', 1);
+            }
+
+            if (Schema::hasColumn('users', 'deleted_at')) {
+                $query->whereNull('deleted_at');
+            }
+
+            $count = (int) $query->count();
+
+            // Nếu đang đăng nhập mà vì lý do nào đó query vẫn ra 0,
+            // ép tối thiểu = 1 để đúng thực tế có bạn đang online.
+            return auth()->check() ? max($count, 1) : $count;
+        } catch (\Throwable $e) {
             return auth()->check() ? 1 : 0;
         }
-
-        // Cứ user đang đăng nhập thì cập nhật online ngay tại đây.
-        // Cách này giúp sidebar luôn chạy kể cả middleware chưa ăn.
-        if (auth()->check()) {
-            DB::table('users')
-                ->where('id', auth()->id())
-                ->update([
-                    'last_seen_at' => now(),
-                ]);
-        }
-
-        $query = DB::table('users')
-            ->whereNotNull('last_seen_at')
-            ->where('last_seen_at', '>=', now()->subMinutes(5));
-
-        if (Schema::hasColumn('users', 'is_active')) {
-            $query->where('is_active', 1);
-        }
-
-        if (Schema::hasColumn('users', 'deleted_at')) {
-            $query->whereNull('deleted_at');
-        }
-
-        $count = (int) $query->count();
-
-        // Nếu đang đăng nhập mà vì lý do nào đó query vẫn ra 0,
-        // ép tối thiểu = 1 để đúng thực tế có bạn đang online.
-        return auth()->check() ? max($count, 1) : $count;
-    } catch (\Throwable $e) {
-        return auth()->check() ? 1 : 0;
     }
-}
 
     public static function workingTodayCount(): int
     {
         try {
             $config = self::detectAttendanceConfig();
 
-            if (!$config['table']) {
+            if (! $config['table']) {
                 return 0;
             }
 
@@ -122,7 +121,7 @@ class EgoSidebarStatus
         try {
             $config = self::detectEmployeeConfig();
 
-            if (!$config['table']) {
+            if (! $config['table']) {
                 return 0;
             }
 
@@ -200,7 +199,7 @@ class EgoSidebarStatus
 
         $table = collect($tables)->first(fn ($table) => Schema::hasTable($table));
 
-        if (!$table) {
+        if (! $table) {
             return [
                 'table' => null,
                 'date_column' => null,
@@ -237,7 +236,7 @@ class EgoSidebarStatus
 
         $table = collect($tables)->first(fn ($table) => Schema::hasTable($table));
 
-        if (!$table) {
+        if (! $table) {
             return [
                 'table' => null,
                 'status_column' => null,

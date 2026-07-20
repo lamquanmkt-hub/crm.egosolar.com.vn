@@ -1,13 +1,29 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Bản ghi phê duyệt của đợt bảo trì điện mặt trời (gửi duyệt, duyệt, yêu cầu chỉnh sửa...).
+ */
 class SolarMaintenanceApproval extends Model
 {
-    protected $guarded = [];
+    protected $fillable = [
+        'maintenance_schedule_id',
+        'approval_level',
+        'approver_id',
+        'submitted_by',
+        'action',
+        'status',
+        'comment',
+        'submitted_at',
+        'reviewed_at',
+        'metadata',
+    ];
 
     protected $casts = [
         'submitted_at' => 'datetime',

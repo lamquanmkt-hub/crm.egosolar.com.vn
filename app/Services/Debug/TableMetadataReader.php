@@ -2,6 +2,9 @@
 declare(strict_types=1);
 namespace App\Services\Debug;
 use Illuminate\Support\Facades\DB;
+/**
+ * Service debug: đọc metadata bảng từ information_schema (danh sách bảng, cột).
+ */
 final class TableMetadataReader
 {
     /** @return array<int,string> */
@@ -17,6 +20,9 @@ final class TableMetadataReader
             )
         );
     }
+    /**
+     * Đếm tổng số bảng trong database hiện tại.
+     */
     public function countAllTables(): int
     {
         $db = DB::getDatabaseName();

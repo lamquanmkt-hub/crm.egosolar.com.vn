@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Services\StockLotServiceInterface;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\Inventory\Stock\ProductStock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class StockLotService
+/**
+ * Service quản lý lô tồn kho (StockLot) theo FIFO: nhập lô, xuất lô, đồng bộ tồn.
+ */
+class StockLotService implements StockLotServiceInterface
 {
+    /**
+     * Đồng bộ tồn kho thủ công từ form sản phẩm: tăng thì tạo lô mới, giảm thì trừ lô cũ nhất (FIFO).
+     */
     public function syncManualStock(
         Product $product,
         int $companyId,
@@ -19,14 +26,15 @@ class StockLotService
         float $costBeforeVat = 0,
         float $costVatPercent = 0
     ): void {
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             $this->syncLegacyStock((int) $product->id, $companyId, $warehouseId, $targetQty);
+
             return;
         }
 
         $stock = ProductStock::where([
-            'product_id'   => (int) $product->id,
-            'company_id'   => $companyId,
+            'product_id' => (int) $product->id,
+            'company_id' => $companyId,
             'warehouse_id' => $warehouseId,
         ])->lockForUpdate()->first();
 
@@ -36,15 +44,16 @@ class StockLotService
         if ($diff === 0) {
             ProductStock::updateOrCreate(
                 [
-                    'product_id'   => (int) $product->id,
-                    'company_id'   => $companyId,
+                    'product_id' => (int) $product->id,
+                    'company_id' => $companyId,
                     'warehouse_id' => $warehouseId,
                 ],
                 [
-                    'qty'          => $targetQty,
+                    'qty' => $targetQty,
                     'last_updated' => now(),
                 ]
             );
+
             return;
         }
 
@@ -53,6 +62,7 @@ class StockLotService
                 'source_type' => 'manual_stock_sync',
                 'note' => 'Tăng tồn từ form sản phẩm',
             ]);
+
             return;
         }
 
@@ -63,6 +73,11 @@ class StockLotService
         ]);
     }
 
+    /**
+     * Nhập một lô tồn kho mới (tính giá vốn sau VAT + chi phí phụ) và cộng tồn tổng.
+     *
+     * @return int ID lô vừa tạo (0 nếu không có bảng lô)
+     */
     public function receiveLot(
         Product $product,
         int $companyId,
@@ -77,8 +92,9 @@ class StockLotService
             throw new \InvalidArgumentException('Số lượng nhập lô phải lớn hơn 0.');
         }
 
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             $this->changeProductStock((int) $product->id, $companyId, $warehouseId, $qtyIn, 'Nhập kho', (int) $product->id);
+
             return 0;
         }
 
@@ -95,7 +111,7 @@ class StockLotService
 
         $lotCode = trim((string) ($meta['lot_code'] ?? ''));
         if ($lotCode === '') {
-            $lotCode = 'LOT-P' . $product->id . '-W' . $warehouseId . '-' . now()->format('YmdHis');
+            $lotCode = 'LOT-P'.$product->id.'-W'.$warehouseId.'-'.now()->format('YmdHis');
         }
 
         $payload = [];
@@ -135,6 +151,11 @@ class StockLotService
         return $lotId;
     }
 
+    /**
+     * Xuất kho theo FIFO: trừ dần từng lô cũ nhất, ghi allocation và trừ tồn tổng.
+     *
+     * @return array Danh sách allocation theo từng lô đã trừ
+     */
     public function issueLots(
         int $productId,
         ?int $companyId,
@@ -146,8 +167,9 @@ class StockLotService
             return [];
         }
 
-        if (!Schema::hasTable('crm_product_stock_lots')) {
+        if (! Schema::hasTable('crm_product_stock_lots')) {
             $this->changeProductStock($productId, (int) ($companyId ?? 0), $warehouseId, -$qty, $meta['reason'] ?? 'Xuất kho', (int) ($meta['reference_id'] ?? 0));
+
             return [];
         }
 
@@ -205,7 +227,7 @@ class StockLotService
         }
 
         if ($remaining > 0) {
-            throw new \Exception('Không đủ tồn theo SKU/lô để xuất. Cần ' . $qty . ', còn thiếu ' . $remaining . '.');
+            throw new \Exception('Không đủ tồn theo SKU/lô để xuất. Cần '.$qty.', còn thiếu '.$remaining.'.');
         }
 
         $this->changeProductStock(
@@ -222,6 +244,9 @@ class StockLotService
         return $allocations;
     }
 
+    /**
+     * Thay đổi tồn kho tổng (crm_product_stock) có khoá bản ghi và ghi lịch sử biến động.
+     */
     public function changeProductStock(
         int $productId,
         int $companyId,
@@ -237,8 +262,8 @@ class StockLotService
         }
 
         $stock = ProductStock::where([
-            'product_id'   => $productId,
-            'company_id'   => $companyId,
+            'product_id' => $productId,
+            'company_id' => $companyId,
             'warehouse_id' => $warehouseId,
         ])->lockForUpdate()->first();
 
@@ -246,24 +271,23 @@ class StockLotService
         $newQty = $oldQty + $changeQty;
 
         if ($newQty < 0) {
-            throw new \Exception('Không đủ tồn kho tổng để trừ. Tồn hiện tại ' . $oldQty . ', cần ' . abs($changeQty) . '.');
+            throw new \Exception('Không đủ tồn kho tổng để trừ. Tồn hiện tại '.$oldQty.', cần '.abs($changeQty).'.');
         }
 
         ProductStock::updateOrCreate(
             [
-                'product_id'   => $productId,
-                'company_id'   => $companyId,
+                'product_id' => $productId,
+                'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
             ],
             [
-                'qty'          => $newQty,
+                'qty' => $newQty,
                 'last_updated' => now(),
             ]
         );
 
         $this->logMovement($productId, $companyId, $warehouseId, $changeQty, $oldQty, $newQty, $reason, $referenceId, $referenceType, $note);
     }
-
 
     /**
      * Xuất kho cho 1 dòng đơn hàng theo FIFO.
@@ -291,7 +315,7 @@ class StockLotService
         }
 
         if ($warehouseId <= 0) {
-            throw new \Exception('Không xác định được kho xuất cho sản phẩm #' . $productId . '.');
+            throw new \Exception('Không xác định được kho xuất cho sản phẩm #'.$productId.'.');
         }
 
         $orderId = (int) ($order->id ?? 0);
@@ -319,35 +343,41 @@ class StockLotService
             $qty -= $allocatedQty;
         }
 
-        $orderCode = (string) ($order->order_code ?? ('#' . $orderId));
+        $orderCode = (string) ($order->order_code ?? ('#'.$orderId));
 
         return $this->issueLots($productId, $companyId, $warehouseId, $qty, [
             'order_id' => $orderId,
             'order_item_id' => $orderItemId,
             'reference_type' => 'order',
             'reference_id' => $orderId,
-            'reason' => 'Xuất kho đơn hàng ' . $orderCode,
+            'reason' => 'Xuất kho đơn hàng '.$orderCode,
         ]);
     }
 
+    /**
+     * Ghi tồn kho trực tiếp khi hệ thống chưa có bảng lô (fallback legacy).
+     */
     private function syncLegacyStock(int $productId, int $companyId, int $warehouseId, int $targetQty): void
     {
         ProductStock::updateOrCreate(
             [
-                'product_id'   => $productId,
-                'company_id'   => $companyId,
+                'product_id' => $productId,
+                'company_id' => $companyId,
                 'warehouse_id' => $warehouseId,
             ],
             [
-                'qty'          => max(0, $targetQty),
+                'qty' => max(0, $targetQty),
                 'last_updated' => now(),
             ]
         );
     }
 
+    /**
+     * Ghi allocation lô cho dòng đơn hàng nếu bảng crm_order_item_stock_allocations tồn tại.
+     */
     private function insertOrderAllocationIfPossible(array $allocation, array $meta): void
     {
-        if (!Schema::hasTable('crm_order_item_stock_allocations')) {
+        if (! Schema::hasTable('crm_order_item_stock_allocations')) {
             return;
         }
 
@@ -374,6 +404,9 @@ class StockLotService
         ]);
     }
 
+    /**
+     * Ghi lịch sử biến động tồn kho vào crm_stock_movements, chỉ ghi các cột thực có.
+     */
     private function logMovement(
         int $productId,
         int $companyId,
@@ -386,7 +419,7 @@ class StockLotService
         ?string $referenceType = null,
         ?string $note = null
     ): void {
-        if (!Schema::hasTable('crm_stock_movements')) {
+        if (! Schema::hasTable('crm_stock_movements')) {
             return;
         }
 
@@ -394,24 +427,56 @@ class StockLotService
         $has = fn (string $column): bool => in_array($column, $columns, true);
         $payload = [];
 
-        if ($has('product_id')) $payload['product_id'] = $productId;
-        if ($has('company_id')) $payload['company_id'] = $companyId;
-        if ($has('warehouse_id')) $payload['warehouse_id'] = $warehouseId;
-        if ($has('change_qty')) $payload['change_qty'] = $changeQty;
-        if ($has('qty_before')) $payload['qty_before'] = $qtyBefore;
-        if ($has('qty_after')) $payload['qty_after'] = $qtyAfter;
-        if ($has('type')) $payload['type'] = $changeQty >= 0 ? 'in' : 'out';
-        if ($has('movement_type')) $payload['movement_type'] = $changeQty >= 0 ? 'in' : 'out';
-        if ($has('reason')) $payload['reason'] = $reason;
-        if ($has('note')) $payload['note'] = $note ?: $reason;
-        if ($has('reference_type')) $payload['reference_type'] = $referenceType;
-        if ($has('reference_id')) $payload['reference_id'] = $referenceId ?: null;
-        if ($has('created_by')) $payload['created_by'] = auth()->id();
-        if ($has('user_id')) $payload['user_id'] = auth()->id();
-        if ($has('created_at')) $payload['created_at'] = now();
-        if ($has('updated_at')) $payload['updated_at'] = now();
+        if ($has('product_id')) {
+            $payload['product_id'] = $productId;
+        }
+        if ($has('company_id')) {
+            $payload['company_id'] = $companyId;
+        }
+        if ($has('warehouse_id')) {
+            $payload['warehouse_id'] = $warehouseId;
+        }
+        if ($has('change_qty')) {
+            $payload['change_qty'] = $changeQty;
+        }
+        if ($has('qty_before')) {
+            $payload['qty_before'] = $qtyBefore;
+        }
+        if ($has('qty_after')) {
+            $payload['qty_after'] = $qtyAfter;
+        }
+        if ($has('type')) {
+            $payload['type'] = $changeQty >= 0 ? 'in' : 'out';
+        }
+        if ($has('movement_type')) {
+            $payload['movement_type'] = $changeQty >= 0 ? 'in' : 'out';
+        }
+        if ($has('reason')) {
+            $payload['reason'] = $reason;
+        }
+        if ($has('note')) {
+            $payload['note'] = $note ?: $reason;
+        }
+        if ($has('reference_type')) {
+            $payload['reference_type'] = $referenceType;
+        }
+        if ($has('reference_id')) {
+            $payload['reference_id'] = $referenceId ?: null;
+        }
+        if ($has('created_by')) {
+            $payload['created_by'] = auth()->id();
+        }
+        if ($has('user_id')) {
+            $payload['user_id'] = auth()->id();
+        }
+        if ($has('created_at')) {
+            $payload['created_at'] = now();
+        }
+        if ($has('updated_at')) {
+            $payload['updated_at'] = now();
+        }
 
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             DB::table('crm_stock_movements')->insert($payload);
         }
     }

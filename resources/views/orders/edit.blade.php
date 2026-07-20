@@ -101,7 +101,13 @@
 <script>
   window.rowIndex = {{ isset($order) && isset($order->items) ? $order->items->count() : 1 }};
   window.customerTypeId = {{ (int)($order->lead?->customer?->customer_type_id ?? 0) }};
-  window.allPriceTiers = @json(collect($priceTiers ?? [])->map(fn($t) => ['id' => (int)$t->id, 'code' => $t->code, 'name' => $t->name])->values());
+  @php
+    $orderEditPriceTiersJs = collect($priceTiers ?? [])
+        ->map(fn($t) => ['id' => (int) $t->id, 'code' => (string) $t->code, 'name' => (string) $t->name])
+        ->values()
+        ->all();
+  @endphp
+  window.allPriceTiers = @json($orderEditPriceTiersJs);
 </script>
 <script src="{{ asset('js/order-form.js') }}?v={{ filemtime(public_path('js/order-form.js')) }}"></script>
 

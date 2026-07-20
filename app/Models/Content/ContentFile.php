@@ -1,6 +1,9 @@
 <?php
+
 namespace App\Models\Content;
+
 use Illuminate\Database\Eloquent\Model;
+
 class ContentFile extends Model
 {
     protected $fillable = [

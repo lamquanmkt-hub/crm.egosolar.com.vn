@@ -1,6 +1,12 @@
 <?php
+
 namespace App\Http\Requests;
+
 use Illuminate\Foundation\Http\FormRequest;
+
+/**
+ * FormRequest validate dữ liệu cập nhật người dùng.
+ */
 class UserUpdateRequest extends FormRequest
 {
     /**
@@ -8,8 +14,9 @@ class UserUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-	    return auth()->check() && auth()->user()->can('update', $this->route('user'));
+        return auth()->check() && auth()->user()->can('update', $this->route('user'));
     }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -17,16 +24,17 @@ class UserUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-	    $userId = $this->route('user')->id;
-	    $rules = [
-		    'name' => 'required|string|max:255',
-		    'email' => 'required|email|unique:users,email,' . $userId,
-		    'password' => 'nullable|string|min:6|confirmed',
-	    ];
-	    if (auth()->user()->hasRole('admin')) {
-		    $rules['roles'] = 'nullable|array';
-		    $rules['roles.*'] = 'exists:roles,name';
-	    }
-	    return $rules;
+        $userId = $this->route('user')->id;
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,'.$userId,
+            'password' => 'nullable|string|min:6|confirmed',
+        ];
+        if (auth()->user()->hasRole('admin')) {
+            $rules['roles'] = 'nullable|array';
+            $rules['roles.*'] = 'exists:roles,name';
+        }
+
+        return $rules;
     }
 }

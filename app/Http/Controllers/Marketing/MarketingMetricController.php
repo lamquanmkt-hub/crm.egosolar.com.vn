@@ -9,8 +9,14 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller CRUD chỉ số marketing (reach/leads/spend) kèm bộ lọc.
+ */
 class MarketingMetricController extends Controller
 {
+    /**
+     * Danh sách chỉ số marketing có lọc theo ngày/kênh/chiến dịch và tính tổng CPL/CPO/ROAS.
+     */
     public function index(Request $request)
     {
         $month       = $request->get('month');        // YYYY-MM
@@ -96,11 +102,17 @@ class MarketingMetricController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form thêm chỉ số marketing.
+     */
     public function create()
     {
         return view('marketing.metrics_create');
     }
 
+    /**
+     * Lưu chỉ số marketing mới kèm breakdown giới tính/tuổi/khu vực.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -138,6 +150,9 @@ class MarketingMetricController extends Controller
         return back()->with('success', 'Đã lưu chỉ số marketing');
     }
 
+    /**
+     * Hiển thị form sửa chỉ số marketing.
+     */
     public function edit($id)
     {
         $metric = MarketingMetric::with('campaign')->findOrFail($id);
@@ -146,6 +161,9 @@ class MarketingMetricController extends Controller
         return view('marketing.metrics_edit', compact('metric', 'campaigns'));
     }
 
+    /**
+     * Cập nhật chỉ số marketing.
+     */
     public function update(Request $request, $id)
     {
         $metric = MarketingMetric::findOrFail($id);
@@ -184,6 +202,9 @@ class MarketingMetricController extends Controller
         return redirect()->back()->with('success', 'Đã cập nhật chỉ số marketing');
     }
 
+    /**
+     * Xóa chỉ số marketing.
+     */
     public function destroy($id)
     {
         $metric = MarketingMetric::findOrFail($id);

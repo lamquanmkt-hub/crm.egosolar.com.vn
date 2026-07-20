@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller quản lý thông báo nhân sự: tạo, phân phối theo đối tượng, file đính kèm và trạng thái đã đọc.
+ */
 class AnnouncementController extends Controller
 {
+    /**
+     * Tạo các bảng thông báo (announcements, files, reads) nếu chưa tồn tại.
+     */
     private function ensureTables(): void
     {
         DB::statement("
@@ -64,6 +70,9 @@ class AnnouncementController extends Controller
         ");
     }
 
+    /**
+     * Hiển thị danh sách thông báo (chế độ xem hoặc quản lý) với bộ lọc và số liệu tổng hợp.
+     */
     public function index(Request $request)
     {
         $this->ensureTables();
@@ -141,6 +150,9 @@ class AnnouncementController extends Controller
         ));
     }
 
+    /**
+     * Tạo thông báo nhân sự mới kèm file đính kèm (chỉ người có quyền quản lý).
+     */
     public function store(Request $request)
     {
         $this->ensureTables();
@@ -171,6 +183,11 @@ class AnnouncementController extends Controller
             ->with('success', 'Đã tạo thông báo nhân sự.');
     }
 
+    /**
+     * Hiển thị chi tiết thông báo, kiểm tra quyền xem và đánh dấu đã đọc.
+     *
+     * @param int|string $announcement ID thông báo
+     */
     public function show($announcement)
     {
         $this->ensureTables();
@@ -205,6 +222,11 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Cập nhật nội dung thông báo và bổ sung file đính kèm.
+     *
+     * @param int|string $announcement ID thông báo
+     */
     public function update(Request $request, $announcement)
     {
         $this->ensureTables();
@@ -234,6 +256,11 @@ class AnnouncementController extends Controller
         return back()->with('success', 'Đã cập nhật thông báo.');
     }
 
+    /**
+     * Xoá thông báo cùng dữ liệu file và trạng thái đọc liên quan (trong transaction).
+     *
+     * @param int|string $announcement ID thông báo
+     */
     public function destroy($announcement)
     {
         $this->ensureTables();
@@ -252,6 +279,11 @@ class AnnouncementController extends Controller
             ->with('success', 'Đã xoá thông báo.');
     }
 
+    /**
+     * Đánh dấu một thông báo là đã đọc cho user hiện tại.
+     *
+     * @param int|string $announcement ID thông báo
+     */
     public function markRead($announcement)
     {
         $this->ensureTables();
@@ -260,6 +292,9 @@ class AnnouncementController extends Controller
         return back()->with('success', 'Đã đánh dấu đã đọc.');
     }
 
+    /**
+     * Đánh dấu tất cả thông báo hiển thị với user hiện tại là đã đọc.
+     */
     public function markAllRead()
     {
         $this->ensureTables();
@@ -273,6 +308,9 @@ class AnnouncementController extends Controller
         return back()->with('success', 'Đã đọc tất cả thông báo nhân sự.');
     }
 
+    /**
+     * Trả về JSON số lượng thông báo chưa đọc của user hiện tại.
+     */
     public function unreadCount()
     {
         $this->ensureTables();
@@ -282,6 +320,9 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Trả về JSON danh sách thông báo hiển thị với user hiện tại (cho widget notification).
+     */
     public function jsonList(Request $request)
     {
         $this->ensureTables();
@@ -323,6 +364,9 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Validate dữ liệu form thông báo và trả về mảng dữ liệu hợp lệ.
+     */
     private function validatedData(Request $request): array
     {
         return $request->validate([
@@ -340,6 +384,9 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    /**
+     * Tạo query các thông báo đã publish, còn hiệu lực và đúng đối tượng với user hiện tại.
+     */
     private function visibleQuery()
     {
         $user = auth()->user();
@@ -367,6 +414,11 @@ class AnnouncementController extends Controller
             });
     }
 
+    /**
+     * Kiểm tra một thông báo có hiển thị với user hiện tại (trạng thái, thời gian, đối tượng).
+     *
+     * @param object $item Bản ghi thông báo
+     */
     private function isVisibleToCurrentUser($item): bool
     {
         if (($item->status ?? '') !== 'published') {
@@ -400,6 +452,9 @@ class AnnouncementController extends Controller
         return false;
     }
 
+    /**
+     * Đếm số thông báo hiển thị mà user hiện tại chưa đọc.
+     */
     private function unreadCountValue(): int
     {
         return (int) $this->visibleQuery()
@@ -411,6 +466,9 @@ class AnnouncementController extends Controller
             ->count('a.id');
     }
 
+    /**
+     * Ghi nhận (upsert) trạng thái đã đọc của user hiện tại cho một thông báo.
+     */
     private function markOneAsRead(int $announcementId): void
     {
         DB::table('hr_announcement_reads')->updateOrInsert(
@@ -426,6 +484,9 @@ class AnnouncementController extends Controller
         );
     }
 
+    /**
+     * Kiểm tra user hiện tại có quyền quản lý thông báo (admin / accounting / manager / hr).
+     */
     private function canManage(): bool
     {
         $user = auth()->user();
@@ -441,6 +502,11 @@ class AnnouncementController extends Controller
         return false;
     }
 
+    /**
+     * Parse giá trị ngày giờ về chuỗi Y-m-d H:i:s, trả về null nếu không hợp lệ.
+     *
+     * @param mixed $value Giá trị ngày giờ đầu vào
+     */
     private function parseDateTime($value): ?string
     {
         if (!$value) {
@@ -454,6 +520,9 @@ class AnnouncementController extends Controller
         }
     }
 
+    /**
+     * Lưu các file đính kèm hợp lệ của thông báo vào storage và ghi bản ghi DB.
+     */
     private function storeFiles(Request $request, int $announcementId): void
     {
         if (!$request->hasFile('attachments')) {

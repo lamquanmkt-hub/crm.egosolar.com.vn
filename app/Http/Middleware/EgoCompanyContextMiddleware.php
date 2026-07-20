@@ -29,7 +29,7 @@ class EgoCompanyContextMiddleware
         ];
 
         foreach ($excluded as $prefix) {
-            if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+            if ($path === $prefix || str_starts_with($path, $prefix.'/')) {
                 return $next($request);
             }
         }

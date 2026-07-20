@@ -9,8 +9,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý báo giá bán hàng: CRUD, xuất PDF/Excel.
+ */
 class SalesQuotationController extends Controller
 {
+    /**
+     * Hiển thị danh sách báo giá kèm bộ lọc và thống kê.
+     */
     public function index(Request $request)
     {
         $baseQuery = SalesQuotation::query();
@@ -59,6 +65,9 @@ class SalesQuotationController extends Controller
         return view('sales_quotations.index', compact('quotations', 'summary'));
     }
 
+    /**
+     * Hiển thị form tạo báo giá với các điều khoản mặc định.
+     */
     public function create()
     {
         $quotation = new SalesQuotation([
@@ -67,8 +76,8 @@ class SalesQuotationController extends Controller
             'status' => 'draft',
             'payment_terms' => "Đợt 1: 40% tạm ứng khi hợp đồng có hiệu lực\nĐợt 2: 50% thanh toán khi thiết bị, vật tư tập kết tại công trình và thi công\nĐợt 3: 10% thanh toán khi hoàn thành lắp đặt, bàn giao hệ thống",
             'commercial_terms' => "1. Thời gian hoàn thành dự án: 2-4 ngày tuỳ điều kiện mặt bằng.\n2. Hàng hóa mới 100%, đúng chủng loại và thông số kỹ thuật.\n3. Công việc trọn gói, không tính phát sinh trừ khi có thay đổi thiết kế hoặc tăng công suất lắp đặt.",
-            'warranty_terms' => "Bảo hành toàn bộ công trình 24 tháng miễn phí. Thiết bị bảo hành theo chính sách hãng sản xuất.",
-            'om_terms' => "Kiểm tra định kỳ 6 tháng/lần trong 24 tháng. Vệ sinh tấm pin tối đa 3 lần/năm. Theo dõi hệ thống qua phần mềm giám sát.",
+            'warranty_terms' => 'Bảo hành toàn bộ công trình 24 tháng miễn phí. Thiết bị bảo hành theo chính sách hãng sản xuất.',
+            'om_terms' => 'Kiểm tra định kỳ 6 tháng/lần trong 24 tháng. Vệ sinh tấm pin tối đa 3 lần/năm. Theo dõi hệ thống qua phần mềm giám sát.',
         ]);
 
         return view('sales_quotations.form', [
@@ -80,6 +89,9 @@ class SalesQuotationController extends Controller
         ]);
     }
 
+    /**
+     * Tạo báo giá mới, sinh mã BG và lưu các hạng mục.
+     */
     public function store(Request $request)
     {
         [$data, $itemsData, $totals] = $this->validatedData($request);
@@ -90,7 +102,7 @@ class SalesQuotationController extends Controller
             ]));
 
             $quotation->update([
-                'quote_code' => 'BG-' . now()->format('Ymd') . '-' . str_pad((string) $quotation->id, 5, '0', STR_PAD_LEFT),
+                'quote_code' => 'BG-'.now()->format('Ymd').'-'.str_pad((string) $quotation->id, 5, '0', STR_PAD_LEFT),
             ]);
 
             $this->syncItems($quotation, $itemsData);
@@ -99,6 +111,9 @@ class SalesQuotationController extends Controller
         return redirect()->route('sales-quotations.show', $quotation)->with('success', 'Đã tạo báo giá thành công.');
     }
 
+    /**
+     * Hiển thị chi tiết báo giá.
+     */
     public function show(SalesQuotation $salesQuotation)
     {
         $salesQuotation->load('items');
@@ -108,6 +123,9 @@ class SalesQuotationController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị form sửa báo giá.
+     */
     public function edit(SalesQuotation $salesQuotation)
     {
         $salesQuotation->load('items');
@@ -121,6 +139,9 @@ class SalesQuotationController extends Controller
         ]);
     }
 
+    /**
+     * Cập nhật báo giá và đồng bộ lại các hạng mục.
+     */
     public function update(Request $request, SalesQuotation $salesQuotation)
     {
         [$data, $itemsData, $totals] = $this->validatedData($request);
@@ -133,6 +154,9 @@ class SalesQuotationController extends Controller
         return redirect()->route('sales-quotations.show', $salesQuotation)->with('success', 'Đã cập nhật báo giá thành công.');
     }
 
+    /**
+     * Xóa báo giá.
+     */
     public function destroy(SalesQuotation $salesQuotation)
     {
         $salesQuotation->delete();
@@ -140,6 +164,9 @@ class SalesQuotationController extends Controller
         return redirect()->route('sales-quotations.index')->with('success', 'Đã xoá báo giá.');
     }
 
+    /**
+     * Đánh dấu báo giá đã gửi khách.
+     */
     public function markSent(SalesQuotation $salesQuotation)
     {
         $salesQuotation->update([
@@ -151,6 +178,9 @@ class SalesQuotationController extends Controller
         return back()->with('success', 'Đã đánh dấu báo giá là đã gửi khách.');
     }
 
+    /**
+     * Hiển thị bản in báo giá để xuất PDF bằng trình duyệt.
+     */
     public function pdf(SalesQuotation $salesQuotation)
     {
         $salesQuotation->load('items');
@@ -161,12 +191,14 @@ class SalesQuotationController extends Controller
         ]);
     }
 
-
+    /**
+     * Tải file PDF báo giá qua DomPDF nếu máy chủ có cài.
+     */
     public function downloadPdf(SalesQuotation $salesQuotation)
     {
         $salesQuotation->load('items');
 
-        if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+        if (! class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             return redirect()
                 ->route('sales-quotations.pdf', $salesQuotation)
                 ->with('success', 'Máy chủ chưa cài gói xuất PDF tải về. Tạm thời dùng chức năng Xuất PDF bằng trình duyệt.');
@@ -185,23 +217,31 @@ class SalesQuotationController extends Controller
             'fontHeightRatio' => 0.95,
         ]);
 
-        $fileName = ($salesQuotation->quote_code ?: 'bao-gia') . '.pdf';
+        $fileName = ($salesQuotation->quote_code ?: 'bao-gia').'.pdf';
 
         return $pdf->download($fileName);
     }
 
+    /**
+     * Tải báo giá dạng file Excel.
+     */
     public function excel(SalesQuotation $salesQuotation)
     {
         $salesQuotation->load('items');
 
-        $fileName = ($salesQuotation->quote_code ?: 'bao-gia') . '.xls';
+        $fileName = ($salesQuotation->quote_code ?: 'bao-gia').'.xls';
 
         return response()
             ->view('sales_quotations.excel', ['quotation' => $salesQuotation])
             ->header('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$fileName.'"');
     }
 
+    /**
+     * Validate dữ liệu báo giá và tính tổng các hạng mục.
+     *
+     * @return array [data, items, totals]
+     */
     private function validatedData(Request $request): array
     {
         $data = $request->validate([
@@ -240,7 +280,7 @@ class SalesQuotationController extends Controller
         $sortOrder = 1;
 
         foreach ($items as $item) {
-            if (!is_array($item)) {
+            if (! is_array($item)) {
                 continue;
             }
 
@@ -310,6 +350,9 @@ class SalesQuotationController extends Controller
         return [$data, $cleanItems, $totals];
     }
 
+    /**
+     * Xóa và tạo lại các hạng mục của báo giá.
+     */
     private function syncItems(SalesQuotation $quotation, array $items): void
     {
         SalesQuotationItem::where('quotation_id', $quotation->id)->delete();
@@ -319,9 +362,12 @@ class SalesQuotationController extends Controller
         }
     }
 
+    /**
+     * Lấy danh sách sản phẩm đang bán cho form báo giá.
+     */
     private function products()
     {
-        if (!Schema::hasTable('crm_product_catalog')) {
+        if (! Schema::hasTable('crm_product_catalog')) {
             return collect();
         }
 
@@ -349,11 +395,14 @@ class SalesQuotationController extends Controller
             });
     }
 
+    /**
+     * Lấy danh sách khách hàng cho form báo giá.
+     */
     private function customers()
     {
         $table = Schema::hasTable('crm_customers') ? 'crm_customers' : (Schema::hasTable('customers') ? 'customers' : null);
 
-        if (!$table) {
+        if (! $table) {
             return collect();
         }
 
@@ -363,6 +412,9 @@ class SalesQuotationController extends Controller
             ->get();
     }
 
+    /**
+     * Chuyển chuỗi số định dạng Việt Nam về float.
+     */
     private function num($value): float
     {
         if ($value === null || $value === '') {
@@ -398,7 +450,9 @@ class SalesQuotationController extends Controller
         return is_numeric($value) ? (float) $value : 0.0;
     }
 
-
+    /**
+     * Chuẩn hóa các trường số trong request báo giá.
+     */
     private function normalizeSalesQuotationNumbers(\Illuminate\Http\Request $request): void
     {
         $merge = [];
@@ -419,7 +473,7 @@ class SalesQuotationController extends Controller
 
         if (is_array($items)) {
             foreach ($items as $key => $item) {
-                if (!is_array($item)) {
+                if (! is_array($item)) {
                     continue;
                 }
 
@@ -445,6 +499,9 @@ class SalesQuotationController extends Controller
         }
     }
 
+    /**
+     * Chuẩn hóa một giá trị số nhập kiểu Việt Nam về float.
+     */
     private function normalizeSalesQuotationNumber($value): float
     {
         if ($value === null || $value === '') {
@@ -483,8 +540,9 @@ class SalesQuotationController extends Controller
         return is_numeric($value) ? (float) $value : 0;
     }
 
-
-
+    /**
+     * Ép làm sạch mọi trường số trong request báo giá.
+     */
     private function forceCleanQuoteRequestNumbers(\Illuminate\Http\Request $request): void
     {
         $merge = [];
@@ -508,7 +566,7 @@ class SalesQuotationController extends Controller
 
         if (is_array($items)) {
             foreach ($items as $key => $item) {
-                if (!is_array($item)) {
+                if (! is_array($item)) {
                     continue;
                 }
 
@@ -534,6 +592,9 @@ class SalesQuotationController extends Controller
         }
     }
 
+    /**
+     * Ép làm sạch các trường số trong dữ liệu đã validate.
+     */
     private function forceCleanQuoteValidatedData(array $data): array
     {
         foreach ([
@@ -553,7 +614,7 @@ class SalesQuotationController extends Controller
 
         if (isset($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as $key => $item) {
-                if (!is_array($item)) {
+                if (! is_array($item)) {
                     continue;
                 }
 
@@ -575,6 +636,9 @@ class SalesQuotationController extends Controller
         return $data;
     }
 
+    /**
+     * Ép chuyển một giá trị tiền/số kiểu Việt Nam về float.
+     */
     private function forceCleanQuoteNumber($value): float
     {
         if ($value === null || $value === '') {
@@ -619,5 +683,4 @@ class SalesQuotationController extends Controller
 
         return is_numeric($value) ? (float) $value : 0.0;
     }
-
 }

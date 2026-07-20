@@ -10,8 +10,14 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Service tài chính cho đổi/trả hàng: tạo, duyệt, chi hoàn tiền và điều chỉnh công nợ.
+ */
 class OrderReturnFinancialService
 {
+    /**
+     * Tạo phiếu hoàn tiền cho phiếu trả hàng, kiểm tra số tiền còn có thể hoàn.
+     */
     public function createRefund(OrderReturn $return, User $user, array $data): OrderRefund
     {
         return DB::transaction(function () use ($return, $user, $data) {
@@ -43,6 +49,9 @@ class OrderReturnFinancialService
         });
     }
 
+    /**
+     * Kế toán duyệt phiếu hoàn tiền đang chờ.
+     */
     public function approve(OrderRefund $refund, User $user): OrderRefund
     {
         if ($refund->status !== 'pending_accounting') {
@@ -52,6 +61,9 @@ class OrderReturnFinancialService
         return $refund->fresh();
     }
 
+    /**
+     * Chi hoàn tiền: đánh dấu đã trả, điều chỉnh công nợ và cập nhật trạng thái phiếu trả.
+     */
     public function process(OrderRefund $refund, User $user, ?string $attachmentPath = null): OrderRefund
     {
         return DB::transaction(function () use ($refund, $user, $attachmentPath) {
@@ -84,6 +96,9 @@ class OrderReturnFinancialService
         });
     }
 
+    /**
+     * Giảm nghĩa vụ công nợ của đơn hàng theo số tiền đã hoàn.
+     */
     private function adjustDebt(OrderReturn $return, float $amount): void
     {
         $debt = DB::table('crm_customer_debts')->where('order_id', $return->order_id)->lockForUpdate()->first();

@@ -11,8 +11,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
+/**
+ * Controller tải lên chứng từ đính kèm cho phiếu đề nghị thanh toán.
+ */
 class PaymentAttachmentController extends Controller
 {
+    /**
+     * Tải lên và lưu chứng từ cho phiếu đề nghị thanh toán, luôn trả về JSON.
+     */
     public function store(Request $request, $paymentRequest)
     {
         @set_time_limit(180);
@@ -23,7 +29,7 @@ class PaymentAttachmentController extends Controller
         try {
             $user = auth()->user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'ok' => false,
                     'success' => false,
@@ -32,8 +38,8 @@ class PaymentAttachmentController extends Controller
             }
 
             if (
-                !Schema::hasTable('payment_requests') ||
-                !Schema::hasTable('payment_attachments')
+                ! Schema::hasTable('payment_requests') ||
+                ! Schema::hasTable('payment_attachments')
             ) {
                 return response()->json([
                     'ok' => false,
@@ -46,7 +52,7 @@ class PaymentAttachmentController extends Controller
                 ->where('id', $paymentRequestId)
                 ->first();
 
-            if (!$paymentRequestRow) {
+            if (! $paymentRequestRow) {
                 return response()->json([
                     'ok' => false,
                     'success' => false,
@@ -71,8 +77,7 @@ class PaymentAttachmentController extends Controller
                 ]);
             } elseif (method_exists($user, 'hasRole')) {
                 foreach (
-                    ['admin', 'accounting', 'ketoan', 'ke_toan']
-                    as $role
+                    ['admin', 'accounting', 'ketoan', 'ke_toan'] as $role
                 ) {
                     if ($user->hasRole($role)) {
                         $isPrivileged = true;
@@ -98,7 +103,7 @@ class PaymentAttachmentController extends Controller
             if (
                 (int) ($paymentRequestRow->created_by ?? 0) !==
                     (int) $user->id &&
-                !$isPrivileged
+                ! $isPrivileged
             ) {
                 return response()->json([
                     'ok' => false,
@@ -119,7 +124,7 @@ class PaymentAttachmentController extends Controller
                 $files = [$files];
             }
 
-            if (!is_array($files)) {
+            if (! is_array($files)) {
                 $files = [];
             }
 
@@ -163,14 +168,13 @@ class PaymentAttachmentController extends Controller
             $maximumBytes = 20 * 1024 * 1024;
 
             foreach ($files as $index => $file) {
-                if (!$file->isValid()) {
+                if (! $file->isValid()) {
                     return response()->json([
                         'ok' => false,
                         'success' => false,
-                        'message' =>
-                            'File "' .
-                            $file->getClientOriginalName() .
-                            '" không hợp lệ. Mã upload: ' .
+                        'message' => 'File "'.
+                            $file->getClientOriginalName().
+                            '" không hợp lệ. Mã upload: '.
                             $file->getError(),
                     ], 422);
                 }
@@ -179,9 +183,8 @@ class PaymentAttachmentController extends Controller
                     return response()->json([
                         'ok' => false,
                         'success' => false,
-                        'message' =>
-                            'File "' .
-                            $file->getClientOriginalName() .
+                        'message' => 'File "'.
+                            $file->getClientOriginalName().
                             '" không có dữ liệu.',
                     ], 422);
                 }
@@ -190,9 +193,8 @@ class PaymentAttachmentController extends Controller
                     return response()->json([
                         'ok' => false,
                         'success' => false,
-                        'message' =>
-                            'File "' .
-                            $file->getClientOriginalName() .
+                        'message' => 'File "'.
+                            $file->getClientOriginalName().
                             '" vượt quá 20MB.',
                     ], 422);
                 }
@@ -205,14 +207,13 @@ class PaymentAttachmentController extends Controller
 
                 if (
                     $extension === '' ||
-                    !in_array($extension, $allowedExtensions, true)
+                    ! in_array($extension, $allowedExtensions, true)
                 ) {
                     return response()->json([
                         'ok' => false,
                         'success' => false,
-                        'message' =>
-                            'File "' .
-                            $file->getClientOriginalName() .
+                        'message' => 'File "'.
+                            $file->getClientOriginalName().
                             '" không đúng định dạng cho phép.',
                     ], 422);
                 }
@@ -229,7 +230,7 @@ class PaymentAttachmentController extends Controller
             );
 
             $directory =
-                'payment_requests/' . $paymentRequestId;
+                'payment_requests/'.$paymentRequestId;
 
             Storage::disk('public')->makeDirectory($directory);
 
@@ -243,10 +244,10 @@ class PaymentAttachmentController extends Controller
                 );
 
                 $storedName =
-                    now()->format('YmdHis') .
-                    '-' .
-                    Str::uuid()->toString() .
-                    '.' .
+                    now()->format('YmdHis').
+                    '-'.
+                    Str::uuid()->toString().
+                    '.'.
                     $extension;
 
                 $path = Storage::disk('public')->putFileAs(
@@ -256,11 +257,11 @@ class PaymentAttachmentController extends Controller
                 );
 
                 if (
-                    !$path ||
-                    !Storage::disk('public')->exists($path)
+                    ! $path ||
+                    ! Storage::disk('public')->exists($path)
                 ) {
                     throw new \RuntimeException(
-                        'Không ghi được file vào storage: ' .
+                        'Không ghi được file vào storage: '.
                         $file->getClientOriginalName()
                     );
                 }
@@ -269,11 +270,9 @@ class PaymentAttachmentController extends Controller
 
                 $attachmentData = [
                     'payment_request_id' => $paymentRequestId,
-                    'original_name' =>
-                        $file->getClientOriginalName(),
+                    'original_name' => $file->getClientOriginalName(),
                     'path' => $path,
-                    'mime_type' =>
-                        $file->getClientMimeType() ?:
+                    'mime_type' => $file->getClientMimeType() ?:
                         $file->getMimeType(),
                     'size' => (int) $file->getSize(),
                     'created_at' => now(),
@@ -329,9 +328,9 @@ class PaymentAttachmentController extends Controller
             }
 
             $errorId =
-                'ATT-' .
-                now()->format('YmdHis') .
-                '-' .
+                'ATT-'.
+                now()->format('YmdHis').
+                '-'.
                 Str::upper(Str::random(5));
 
             Log::error('PAYMENT_ATTACHMENT_UPLOAD_FAILED', [
@@ -348,10 +347,9 @@ class PaymentAttachmentController extends Controller
             return response()->json([
                 'ok' => false,
                 'success' => false,
-                'message' =>
-                    'Không tải được chứng từ. Mã lỗi: ' .
-                    $errorId .
-                    ' — ' .
+                'message' => 'Không tải được chứng từ. Mã lỗi: '.
+                    $errorId.
+                    ' — '.
                     $exception->getMessage(),
                 'error_id' => $errorId,
             ], 500);

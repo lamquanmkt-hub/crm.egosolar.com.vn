@@ -27,12 +27,17 @@ class Payment extends Model
     ];
 
     public const CATEGORY_SUPPLIER = 'chi_nha_cung_cap';
+
     public const CATEGORY_SALARY = 'chi_luong';
+
     public const CATEGORY_OPERATING = 'chi_van_hanh';
+
     public const CATEGORY_OTHER = 'chi_khac';
 
     public const METHOD_CASH = 'cash';
+
     public const METHOD_BANK = 'bank';
+
     public const METHOD_TRANSFER = 'transfer';
 
     public static function categoryOptions(): array

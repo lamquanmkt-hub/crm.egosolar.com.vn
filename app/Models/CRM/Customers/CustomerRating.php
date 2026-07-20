@@ -9,32 +9,32 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomerRating extends Model
 {
-	use HasFactory;
+    use HasFactory;
 
-	protected $table = 'crm_customer_ratings';
+    protected $table = 'crm_customer_ratings';
 
-	protected $fillable = [
-		'customer_id',
-		'rating_type_id',
-		'note',
-		'rated_by',
-	];
+    protected $fillable = [
+        'customer_id',
+        'rating_type_id',
+        'note',
+        'rated_by',
+    ];
 
-	// Khách hàng
-	public function customer(): BelongsTo
-	{
-		return $this->belongsTo(Customer::class);
-	}
+    // Khách hàng
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
 
-	// Loại đánh giá
-	public function ratingType(): BelongsTo
-	{
-		return $this->belongsTo(CustomerRatingType::class, 'rating_type_id');
-	}
+    // Loại đánh giá
+    public function ratingType(): BelongsTo
+    {
+        return $this->belongsTo(CustomerRatingType::class, 'rating_type_id');
+    }
 
-	// Người đánh giá
-	public function rater(): BelongsTo
-	{
-		return $this->belongsTo(User::class, 'rated_by');
-	}
+    // Người đánh giá
+    public function rater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rated_by');
+    }
 }

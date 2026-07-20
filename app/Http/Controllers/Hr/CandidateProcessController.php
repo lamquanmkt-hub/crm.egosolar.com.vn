@@ -7,8 +7,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý quy trình phỏng vấn ứng viên (các đợt và ứng viên trong từng đợt).
+ */
 class CandidateProcessController extends Controller
 {
+    /**
+     * Hiển thị danh sách đợt phỏng vấn, ứng viên và thống kê tổng quan.
+     */
     public function index()
     {
         $this->ensureDefaultRounds();
@@ -37,6 +43,9 @@ class CandidateProcessController extends Controller
         return view('hr.candidate-processes.index', compact('rounds', 'items', 'stats'));
     }
 
+    /**
+     * Thêm ứng viên mới vào quy trình phỏng vấn.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -55,6 +64,11 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã thêm ứng viên vào quy trình.');
     }
 
+    /**
+     * Cập nhật thông tin ứng viên trong quy trình.
+     *
+     * @param int|string $item ID bản ghi ứng viên
+     */
     public function update(Request $request, $item)
     {
         $data = $request->validate([
@@ -74,6 +88,11 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã cập nhật quy trình ứng viên.');
     }
 
+    /**
+     * Xoá ứng viên khỏi quy trình.
+     *
+     * @param int|string $item ID bản ghi ứng viên
+     */
     public function destroy($item)
     {
         DB::table('hr_candidate_process_items')->where('id', (int) $item)->delete();
@@ -81,6 +100,9 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã xoá ứng viên khỏi quy trình.');
     }
 
+    /**
+     * Thêm mới một lịch / đợt phỏng vấn.
+     */
     public function storeRound(Request $request)
     {
         $data = $request->validate([
@@ -98,6 +120,11 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã thêm lịch / đợt.');
     }
 
+    /**
+     * Cập nhật tên / thứ tự của lịch / đợt phỏng vấn.
+     *
+     * @param int|string $round ID đợt phỏng vấn
+     */
     public function updateRound(Request $request, $round)
     {
         $data = $request->validate([
@@ -116,6 +143,11 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã cập nhật lịch / đợt.');
     }
 
+    /**
+     * Xoá lịch / đợt phỏng vấn nếu chưa có ứng viên sử dụng.
+     *
+     * @param int|string $round ID đợt phỏng vấn
+     */
     public function destroyRound($round)
     {
         $used = DB::table('hr_candidate_process_items')
@@ -133,6 +165,9 @@ class CandidateProcessController extends Controller
         return back()->with('success', 'Đã xoá lịch / đợt.');
     }
 
+    /**
+     * Tạo sẵn các đợt phỏng vấn mặc định (Đợt 1-3) nếu bảng đang trống.
+     */
     private function ensureDefaultRounds()
     {
         if (!Schema::hasTable('hr_candidate_process_rounds')) {

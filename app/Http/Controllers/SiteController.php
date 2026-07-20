@@ -15,12 +15,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller quản lý công trình điện mặt trời (CRUD, thanh toán, phân quyền sales).
+ */
 class SiteController extends Controller
 {
+    /**
+     * Khởi tạo controller với SiteService.
+     */
     public function __construct(
         private readonly SiteService $siteService
     ) {}
 
+        /**
+         * Danh sách công trình có tìm kiếm, lọc trạng thái/công ty/ngày, giới hạn theo sales.
+         */
         public function index(Request $request): View
     {
         $query = Site::query();
@@ -154,11 +163,17 @@ class SiteController extends Controller
         );
     }
 
+    /**
+     * Hiển thị form tạo công trình mới.
+     */
     public function create(): View
     {
         return view('sites.create');
     }
 
+    /**
+     * Tạo công trình mới kèm thiết bị, vật tư dự kiến và đợt thanh toán.
+     */
     public function store(StoreSiteRequest $request): RedirectResponse
     {
         $data = $request->validated();
@@ -203,6 +218,9 @@ class SiteController extends Controller
             ->with('success', 'Đã tạo công trình!');
     }
 
+    /**
+     * Chi tiết công trình: thiết bị, vật tư, tài chính, thanh toán và vật tư thực tế đã xuất kho.
+     */
     public function show(int $id): View
     {
         $site = $this->siteService->find($id);
@@ -320,6 +338,9 @@ $devices = $this->siteService->getDevices($site);
         ));
     }
 
+    /**
+     * Hiển thị form sửa công trình.
+     */
     public function edit(int $id): View
     {
         $site = $this->siteService->find($id);
@@ -338,6 +359,9 @@ $paymentTerms = $this->siteService->getPaymentTerms($site);
         ));
     }
 
+    /**
+     * Cập nhật công trình, ép lưu chi phí phát sinh và đồng bộ thiết bị/vật tư/đợt thanh toán.
+     */
     public function update(UpdateSiteRequest $request, int $id): RedirectResponse
     {
         $site = $this->siteService->find($id);
@@ -467,6 +491,9 @@ $this->siteService->syncDevices($site, $devices);
             ->with('success', 'Đã cập nhật công trình!');
     }
 
+   /**
+    * Ghi nhận thanh toán cho một đợt thanh toán của công trình (tạo phiếu thu).
+    */
    public function recordPayment(\Illuminate\Http\Request $request, $id)
     {
         $siteId = (int) $id;
@@ -637,6 +664,9 @@ $this->siteService->syncDevices($site, $devices);
 
 
 
+    /**
+     * Xóa công trình nếu chưa phát sinh dữ liệu liên quan (phiếu thu, vật tư...).
+     */
     public function destroy(int $id): RedirectResponse
     {
         $site = Site::query()->findOrFail($id);
@@ -677,6 +707,9 @@ $this->siteService->syncDevices($site, $devices);
     }
 
     /* EGO_SITE_CONTROLLER_SALES_SCOPE_START */
+    /**
+     * Kiểm tra user hiện tại có phải sales thuần (không phải admin/kế toán/kỹ thuật/kho).
+     */
     private function egoCurrentUserIsSalesOnly(): bool
     {
         try {
@@ -756,6 +789,9 @@ $this->siteService->syncDevices($site, $devices);
         }
     }
 
+    /**
+     * Chặn 403 nếu sales thuần truy cập công trình không do mình tạo.
+     */
     private function egoAbortIfSalesCannotAccessSite($site): void
     {
         try {
@@ -780,6 +816,9 @@ $this->siteService->syncDevices($site, $devices);
 
 
     /* EGO_SITE_PAYMENT_TERM_ONLY_START */
+    /**
+     * Cập nhật một phiếu thu thanh toán của công trình và đồng bộ trạng thái đợt.
+     */
     public function updatePayment(\Illuminate\Http\Request $request, $id, $receipt)
     {
         $site = \Illuminate\Support\Facades\DB::table('sites')->where('id', (int) $id)->first();
@@ -856,6 +895,9 @@ $this->siteService->syncDevices($site, $devices);
         return back()->with('success', 'Đã cập nhật thanh toán.');
     }
 
+    /**
+     * Xóa một phiếu thu thanh toán và đồng bộ lại trạng thái đợt.
+     */
     public function destroyPayment($id, $receipt)
     {
         $site = \Illuminate\Support\Facades\DB::table('sites')->where('id', (int) $id)->first();
@@ -885,6 +927,9 @@ $this->siteService->syncDevices($site, $devices);
         return back()->with('success', 'Đã xóa thanh toán.');
     }
 
+    /**
+     * Chuyển chuỗi tiền tệ nhiều định dạng (dấu chấm/phẩy) về float.
+     */
     private function egoSiteMoneyToFloat($value): float
     {
         if (is_int($value) || is_float($value)) {
@@ -976,6 +1021,9 @@ $this->siteService->syncDevices($site, $devices);
             : 0.0;
     }
 
+    /**
+     * Sinh mã phiếu thu kế tiếp dạng PT-Ymd-XXXX.
+     */
     private function egoSiteNextReceiptCode(): string
     {
         $prefix = 'PT-' . date('Ymd') . '-';
@@ -994,6 +1042,9 @@ $this->siteService->syncDevices($site, $devices);
         return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Đồng bộ trạng thái đợt thanh toán (pending/partial/paid) theo tổng tiền đã thu.
+     */
     private function egoSiteSyncPaymentTermStatus(int $termId): void
     {
         $term = \Illuminate\Support\Facades\DB::table('site_payment_terms')->where('id', $termId)->first();

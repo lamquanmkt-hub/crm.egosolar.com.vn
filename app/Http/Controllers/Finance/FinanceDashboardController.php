@@ -14,8 +14,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Dashboard tài chính: tổng quan thu chi, công nợ và bảng lương.
+ */
 class FinanceDashboardController extends Controller
 {
+    /**
+     * Trang tổng quan tài chính với các chỉ số thu chi, công nợ, lợi nhuận.
+     */
     public function index(Request $request)
     {
         $filters = [
@@ -76,11 +82,17 @@ class FinanceDashboardController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị trang đề nghị thanh toán.
+     */
     public function paymentRequest()
     {
         return view('finance.payment-request');
     }
 
+    /**
+     * Bảng lương tháng: gộp chấm công, phạt đi trễ, lương kỹ thuật và payroll đã lưu.
+     */
     public function salary(Request $request)
     {
         $month = $request->get('month', now()->format('Y-m'));
@@ -248,6 +260,9 @@ class FinanceDashboardController extends Controller
 
 
 
+    /**
+     * Xuất bảng lương tháng ra Excel gồm sheet tổng hợp và chi tiết từng nhân viên.
+     */
     public function exportSalaryExcel(Request $request)
     {
         $month = $request->get('month', now()->format('Y-m'));
@@ -763,11 +778,17 @@ class FinanceDashboardController extends Controller
 
 
 
+    /**
+     * Xem chi tiết lương của chính người đang đăng nhập.
+     */
     public function mySalary(Request $request)
     {
         return $this->salaryDetail($request, auth()->user());
     }
 
+    /**
+     * Chi tiết lương một nhân viên theo tháng.
+     */
     public function salaryDetail(Request $request, User $user)
     {
         $month = $request->get('month', now()->format('Y-m'));
@@ -826,6 +847,9 @@ class FinanceDashboardController extends Controller
         ]);
     }
 
+    /**
+     * Lưu (tạo mới / cập nhật) bảng lương tháng cho nhiều nhân viên.
+     */
     public function saveSalary(Request $request)
     {
         $rows = $request->input('rows', []);
@@ -915,6 +939,9 @@ class FinanceDashboardController extends Controller
     }
 
 
+    /**
+     * Tính số ngày công chuẩn của tháng theo cài đặt chấm công và ngày lễ.
+     */
     private function calculateStandardWorkdays(string $month): int
     {
         try {
@@ -995,6 +1022,9 @@ class FinanceDashboardController extends Controller
         return max($standardDays, 1);
     }
 
+    /**
+     * Lấy lương cơ bản của nhân viên từ cột lương đầu tiên tồn tại trong bảng users.
+     */
     private function getEmployeeBaseSalary(User $employee): float
     {
         $columns = [
@@ -1015,6 +1045,9 @@ class FinanceDashboardController extends Controller
         return 0;
     }
 
+    /**
+     * Kiểm tra nhân viên có thuộc phòng ban / vai trò kỹ thuật hay không.
+     */
     private function isTechnicalEmployee(User $employee): bool
     {
         $departmentName = mb_strtolower((string) optional($employee->department)->name, 'UTF-8');
@@ -1045,6 +1078,9 @@ class FinanceDashboardController extends Controller
         return false;
     }
 
+    /**
+     * Lấy map user_id => tổng lương kỹ thuật của tháng từ bảng payroll kỹ thuật khả dụng.
+     */
     private function getTechnicalSalaryMap(string $month)
     {
         $tables = [
@@ -1105,6 +1141,9 @@ class FinanceDashboardController extends Controller
         return collect();
     }
 
+    /**
+     * Sinh các biến thể định dạng chuỗi tháng để so khớp dữ liệu cũ.
+     */
     private function getMonthVariants(string $month): array
     {
         try {
@@ -1124,6 +1163,9 @@ class FinanceDashboardController extends Controller
         }
     }
 
+    /**
+     * Trả về cột đầu tiên tồn tại trong bảng theo danh sách ưu tiên.
+     */
     private function firstExistingColumn(string $table, array $columns): ?string
     {
         foreach ($columns as $column) {
@@ -1135,6 +1177,9 @@ class FinanceDashboardController extends Controller
         return null;
     }
 
+    /**
+     * Dựng query đơn hàng theo bộ lọc từ khóa, trạng thái và khoảng ngày.
+     */
     private function getFilteredOrdersQuery(array $filters)
     {
         $query = Order::query();
@@ -1176,6 +1221,9 @@ class FinanceDashboardController extends Controller
         return $query;
     }
 
+    /**
+     * Xác định cột ngày dùng để lọc đơn hàng.
+     */
     private function getOrderDateColumn(): ?string
     {
         if (Schema::hasColumn('crm_orders', 'order_date')) {
@@ -1189,6 +1237,9 @@ class FinanceDashboardController extends Controller
         return null;
     }
 
+    /**
+     * Danh sách các trạng thái đơn hàng hiện có.
+     */
     private function getOrderStatuses(): array
     {
         if (!Schema::hasTable('crm_orders') || !Schema::hasColumn('crm_orders', 'status')) {
@@ -1205,6 +1256,9 @@ class FinanceDashboardController extends Controller
             ->toArray();
     }
 
+    /**
+     * Đếm số đề nghị thanh toán chưa bị từ chối trong khoảng lọc.
+     */
     private function getPendingPaymentRequestsCount(array $filters): int
     {
         if (!Schema::hasTable('payment_requests') || !Schema::hasColumn('payment_requests', 'status')) {
@@ -1229,6 +1283,9 @@ class FinanceDashboardController extends Controller
         return (int) $query->count();
     }
 
+    /**
+     * Tổng tiền đề nghị thanh toán chưa bị từ chối trong khoảng lọc.
+     */
     private function getPendingPaymentRequestsAmount(array $filters): float
     {
         if (
@@ -1257,6 +1314,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('amount');
     }
 
+    /**
+     * Xác định cột ngày dùng để lọc đề nghị thanh toán.
+     */
     private function getPaymentRequestDateColumn(): ?string
     {
         if (Schema::hasColumn('payment_requests', 'updated_at')) {
@@ -1270,6 +1330,9 @@ class FinanceDashboardController extends Controller
         return null;
     }
 
+    /**
+     * Dựng query công nợ khách hàng theo bộ lọc; trả về null nếu thiếu bảng.
+     */
     private function getDebtBaseQuery(array $filters)
     {
         if (!Schema::hasTable('crm_customer_debts')) {
@@ -1311,6 +1374,9 @@ class FinanceDashboardController extends Controller
         return $query;
     }
 
+    /**
+     * Xác định cột ngày dùng để lọc công nợ khách hàng.
+     */
     private function getDebtDateColumn(): ?string
     {
         if (Schema::hasColumn('crm_customer_debts', 'debt_date')) {
@@ -1324,6 +1390,9 @@ class FinanceDashboardController extends Controller
         return null;
     }
 
+    /**
+     * Tổng giá trị công nợ gốc theo bộ lọc.
+     */
     private function getDebtBaseTotal(array $filters): float
     {
         $query = $this->getDebtBaseQuery($filters);
@@ -1335,6 +1404,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('total_amount');
     }
 
+    /**
+     * Tổng tiền khách đã thanh toán theo bộ lọc.
+     */
     private function getDebtPaidTotal(array $filters): float
     {
         $query = $this->getDebtBaseQuery($filters);
@@ -1346,6 +1418,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('paid_amount');
     }
 
+    /**
+     * Tổng công nợ còn lại theo bộ lọc.
+     */
     private function getDebtRemainTotal(array $filters): float
     {
         $query = $this->getDebtBaseQuery($filters);
@@ -1357,6 +1432,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('debt_amount');
     }
 
+    /**
+     * Tổng công nợ quá hạn theo bộ lọc.
+     */
     private function getOverdueDebtTotal(array $filters): float
     {
         $query = $this->getDebtBaseQuery($filters);
@@ -1374,6 +1452,9 @@ class FinanceDashboardController extends Controller
             ->sum('debt_amount');
     }
 
+    /**
+     * Tổng doanh thu từ đơn hàng theo bộ lọc.
+     */
     private function getTotalRevenue(array $filters): float
     {
         $query = $this->getFilteredOrdersQuery($filters);
@@ -1396,6 +1477,9 @@ class FinanceDashboardController extends Controller
         return 0;
     }
 
+    /**
+     * Tổng giá vốn (số lượng x giá đại lý) của các đơn theo bộ lọc.
+     */
     private function getTotalCost(array $filters): float
     {
         if (
@@ -1423,6 +1507,9 @@ class FinanceDashboardController extends Controller
             ->value('total_cost');
     }
 
+    /**
+     * Tổng tiền thu vào trong kỳ từ crm_payments.
+     */
     private function getCashInPeriod(array $filters): float
     {
         if (
@@ -1458,6 +1545,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('amount');
     }
 
+    /**
+     * Tổng tiền chi ra trong kỳ từ các đề nghị thanh toán đã duyệt.
+     */
     private function getCashOutPeriod(array $filters): float
     {
         if (
@@ -1500,6 +1590,9 @@ class FinanceDashboardController extends Controller
         return (float) $query->sum('amount');
     }
 
+    /**
+     * Lợi nhuận gộp của 10 đơn hàng gần nhất theo bộ lọc.
+     */
     private function getRecentOrderProfits(array $filters)
     {
         if (

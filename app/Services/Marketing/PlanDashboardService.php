@@ -5,8 +5,14 @@ namespace App\Services\Marketing;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Service tổng hợp dữ liệu dashboard cho kế hoạch marketing theo tháng.
+ */
 class PlanDashboardService
 {
+    /**
+     * Tổng hợp dashboard kế hoạch: mục tiêu, thực tế, KPI và phân bổ chi tiêu theo kênh.
+     */
     public function build(int $planId): array
     {
         $plan = DB::table('mkt_plans')->where('id', $planId)->first();

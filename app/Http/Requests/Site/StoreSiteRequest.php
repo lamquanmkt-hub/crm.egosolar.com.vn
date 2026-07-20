@@ -6,8 +6,14 @@ namespace App\Http\Requests\Site;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * FormRequest validate dữ liệu tạo mới công trình.
+ */
 class StoreSiteRequest extends FormRequest
 {
+    /**
+     * Chỉ cho phép các vai trò nội bộ (sales, kỹ thuật, admin, kế toán, kho...).
+     */
     public function authorize(): bool
     {
         return (bool) optional($this->user())->hasAnyRole([
@@ -21,6 +27,9 @@ class StoreSiteRequest extends FormRequest
         ]);
     }
 
+    /**
+     * Quy tắc validate dữ liệu công trình.
+     */
     public function rules(): array
     {
         return [
@@ -80,10 +89,13 @@ class StoreSiteRequest extends FormRequest
             'planned' => ['nullable', 'array'],
             'planned.*.name' => ['nullable', 'string', 'max:255'],
             'planned.*.unit' => ['nullable', 'string', 'max:50'],
-            'planned.*.qty'  => ['nullable', 'numeric', 'min:0'],
+            'planned.*.qty' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
+    /**
+     * Thông báo lỗi validate tuỳ chỉnh bằng tiếng Việt.
+     */
     public function messages(): array
     {
         return [
@@ -110,17 +122,20 @@ class StoreSiteRequest extends FormRequest
         ];
     }
 
+    /**
+     * Trim chuỗi và chuẩn hoá số điện thoại, dữ liệu đầu vào trước khi validate.
+     */
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'name' => trim((string)($this->name ?? '')),
-            'address' => $this->address !== null ? trim((string)$this->address) : null,
-            'contact_name' => $this->contact_name !== null ? trim((string)$this->contact_name) : null,
+            'name' => trim((string) ($this->name ?? '')),
+            'address' => $this->address !== null ? trim((string) $this->address) : null,
+            'contact_name' => $this->contact_name !== null ? trim((string) $this->contact_name) : null,
             'contact_phone' => $this->contact_phone !== null
-                ? preg_replace('/\s+/', '', (string)$this->contact_phone)
+                ? preg_replace('/\s+/', '', (string) $this->contact_phone)
                 : null,
-            'note' => $this->note !== null ? trim((string)$this->note) : null,
-            'finance_note' => $this->finance_note !== null ? trim((string)$this->finance_note) : null,
+            'note' => $this->note !== null ? trim((string) $this->note) : null,
+            'finance_note' => $this->finance_note !== null ? trim((string) $this->finance_note) : null,
         ]);
     }
 }

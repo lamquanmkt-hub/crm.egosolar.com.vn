@@ -20,9 +20,8 @@ class OrderItemCalculator
     /**
      * Tạo các item cho đơn hàng mới.
      *
-     * @param Order          $order
-     * @param array          $items   Mảng item từ request
-     * @param PricingService $pricing Service lấy giá theo bảng giá
+     * @param  array  $items  Mảng item từ request
+     * @param  PricingService  $pricing  Service lấy giá theo bảng giá
      */
     public function createOrderItems(Order $order, array $items, PricingService $pricing): void
     {
@@ -31,23 +30,23 @@ class OrderItemCalculator
                 continue;
             }
 
-            $productId   = (int) $item['product_id'];
+            $productId = (int) $item['product_id'];
             $warehouseId = (int) ($item['warehouse_id'] ?? 0) ?: (int) ($order->warehouse_id ?? 0);
-            $qty         = max(1, (int) ($item['quantity'] ?? 0));
+            $qty = max(1, (int) ($item['quantity'] ?? 0));
             $discPercent = (float) ($item['discount_percent'] ?? 0);
-            $discAmount  = (float) ($item['discount_amount'] ?? 0);
-            $tierId      = (int) ($item['price_tier_id'] ?? 0) ?: ($order->price_tier_id ? (int) $order->price_tier_id : null);
+            $discAmount = (float) ($item['discount_amount'] ?? 0);
+            $tierId = (int) ($item['price_tier_id'] ?? 0) ?: ($order->price_tier_id ? (int) $order->price_tier_id : null);
 
             $price = $this->resolveUnitPrice($item, $productId, $tierId, $order->order_date, $pricing);
 
             $order->items()->create([
-                'warehouse_id'     => $warehouseId ?: null,
-                'product_id'       => $productId,
-                'price_tier_id'    => $tierId,
-                'quantity'         => $qty,
-                'unit_price'       => (float) $price,
+                'warehouse_id' => $warehouseId ?: null,
+                'product_id' => $productId,
+                'price_tier_id' => $tierId,
+                'quantity' => $qty,
+                'unit_price' => (float) $price,
                 'discount_percent' => $this->normalizePercent($discPercent),
-                'discount_amount'  => max(0, $discAmount),
+                'discount_amount' => max(0, $discAmount),
             ]);
         }
     }
@@ -55,8 +54,7 @@ class OrderItemCalculator
     /**
      * Cập nhật items của đơn hàng (xóa cũ, thêm/sửa mới).
      *
-     * @param Order $order
-     * @param array $items Mảng item từ request
+     * @param  array  $items  Mảng item từ request
      */
     public function updateOrderItems(Order $order, array $items): void
     {
@@ -69,11 +67,11 @@ class OrderItemCalculator
                 continue;
             }
 
-            $productId   = (int) $item['product_id'];
+            $productId = (int) $item['product_id'];
             $warehouseId = (int) $item['warehouse_id'];
-            $qty         = max(1, (int) ($item['quantity'] ?? 0));
+            $qty = max(1, (int) ($item['quantity'] ?? 0));
             $discPercent = (float) ($item['discount_percent'] ?? 0);
-            $discAmount  = (float) ($item['discount_amount'] ?? 0);
+            $discAmount = (float) ($item['discount_amount'] ?? 0);
 
             // Giữ giá chốt nếu item đã tồn tại
             $existing = $order->items()
@@ -89,16 +87,16 @@ class OrderItemCalculator
 
             $order->items()->updateOrCreate(
                 [
-                    'order_id'     => $order->id,
+                    'order_id' => $order->id,
                     'warehouse_id' => $warehouseId,
-                    'product_id'   => $productId,
+                    'product_id' => $productId,
                 ],
                 [
-                    'quantity'         => $qty,
-                    'unit_price'       => $price,
+                    'quantity' => $qty,
+                    'unit_price' => $price,
                     'discount_percent' => $this->normalizePercent($discPercent),
-                    'discount_amount'  => max(0, $discAmount),
-                    'price_tier_id'    => (int) ($item['price_tier_id'] ?? 0) ?: ($order->price_tier_id ? (int) $order->price_tier_id : null),
+                    'discount_amount' => max(0, $discAmount),
+                    'price_tier_id' => (int) ($item['price_tier_id'] ?? 0) ?: ($order->price_tier_id ? (int) $order->price_tier_id : null),
                 ]
             );
 
@@ -115,9 +113,6 @@ class OrderItemCalculator
 
     /**
      * Tính tổng tiền đơn hàng từ mảng items.
-     *
-     * @param array $items
-     * @return float
      */
     public function calcOrderTotalFromItems(array $items): float
     {
@@ -144,19 +139,19 @@ class OrderItemCalculator
      *
      * Ưu tiên: discount_amount (giảm/SP) > discount_percent (giảm %)
      *
-     * @param int   $qty             Số lượng
-     * @param float $price           Đơn giá
-     * @param float $discountPercent Giảm %
-     * @param float $discountAmount  Giảm tiền / 1 SP
+     * @param  int  $qty  Số lượng
+     * @param  float  $price  Đơn giá
+     * @param  float  $discountPercent  Giảm %
+     * @param  float  $discountAmount  Giảm tiền / 1 SP
      * @return float Thành tiền sau chiết khấu
      */
     public function calcLineTotal(int $qty, float $price, float $discountPercent, float $discountAmount = 0): float
     {
-        $qty     = max(0, $qty);
+        $qty = max(0, $qty);
         $subtotal = $qty * $price;
 
         $discountPercent = $this->normalizePercent($discountPercent);
-        $discountAmount  = max(0, $discountAmount);
+        $discountAmount = max(0, $discountAmount);
 
         $discount = ($discountAmount > 0)
             ? ($discountAmount * $qty)
@@ -170,12 +165,7 @@ class OrderItemCalculator
     /**
      * Xác định đơn giá: từ request hoặc từ bảng giá.
      *
-     * @param array          $item
-     * @param int            $productId
-     * @param int|null       $tierId
-     * @param mixed          $orderDate
-     * @param PricingService $pricing
-     * @return float
+     * @param  mixed  $orderDate
      */
     private function resolveUnitPrice(array $item, int $productId, ?int $tierId, $orderDate, PricingService $pricing): float
     {
@@ -190,21 +180,18 @@ class OrderItemCalculator
 
     /**
      * Xóa các item không còn trong request.
-     *
-     * @param Order $order
-     * @param array $items
      */
     private function removeStaleItems(Order $order, array $items): void
     {
         $activePairs = collect($items)
-            ->filter(fn ($it) => !empty($it['product_id']) && !empty($it['warehouse_id']))
-            ->map(fn ($it) => ((int) $it['warehouse_id']) . '|' . ((int) $it['product_id']))
+            ->filter(fn ($it) => ! empty($it['product_id']) && ! empty($it['warehouse_id']))
+            ->map(fn ($it) => ((int) $it['warehouse_id']).'|'.((int) $it['product_id']))
             ->values()
             ->toArray();
 
         $order->items()->get()->each(function ($dbItem) use ($activePairs) {
-            $key = ((int) $dbItem->warehouse_id) . '|' . ((int) $dbItem->product_id);
-            if (!in_array($key, $activePairs, true)) {
+            $key = ((int) $dbItem->warehouse_id).'|'.((int) $dbItem->product_id);
+            if (! in_array($key, $activePairs, true)) {
                 $dbItem->delete();
             }
         });
@@ -212,9 +199,6 @@ class OrderItemCalculator
 
     /**
      * Chuẩn hóa phần trăm chiết khấu (0-100).
-     *
-     * @param float $percent
-     * @return float
      */
     private function normalizePercent(float $percent): float
     {

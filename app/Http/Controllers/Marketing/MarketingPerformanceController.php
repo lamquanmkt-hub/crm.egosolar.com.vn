@@ -8,8 +8,14 @@ use App\Models\Marketing\MarketingMetric;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
+/**
+ * Controller báo cáo hiệu suất marketing (gộp ngân sách + chỉ số theo tháng/kênh).
+ */
 class MarketingPerformanceController extends Controller
 {
+    /**
+     * Tổng hợp hiệu suất: budget, spend, leads, orders, revenue và KPI CPL/CPO/ROAS.
+     */
     public function index(Request $request)
     {
         $month    = $request->get('month');     // YYYY-MM

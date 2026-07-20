@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * Kho tài liệu công ty theo phòng ban: folder, upload, xem trước, tải xuống, sao chép/di chuyển.
+ */
 class CompanyDocumentController extends Controller
 {
     private array $departments = [
@@ -20,6 +23,9 @@ class CompanyDocumentController extends Controller
         'media' => ['label' => 'Tư liệu hình ảnh', 'roles' => ['*']],
     ];
 
+    /**
+     * Duyệt tài liệu theo phòng ban và folder hiện tại (kiểm tra quyền phòng ban).
+     */
     public function index(Request $request)
     {
         $allowed = $this->allowedDepartments();
@@ -54,6 +60,9 @@ class CompanyDocumentController extends Controller
         ]);
     }
 
+    /**
+     * Tạo folder mới trong phòng ban (folder cha phải cùng phòng ban).
+     */
     public function storeFolder(Request $request)
     {
         $data = $request->validate([
@@ -64,7 +73,7 @@ class CompanyDocumentController extends Controller
 
         abort_unless(in_array($data['department'], $this->allowedDepartments(), true), 403);
 
-        if (!empty($data['parent_id'])) {
+        if (! empty($data['parent_id'])) {
             CompanyDocumentFolder::where('department', $data['department'])->findOrFail($data['parent_id']);
         }
 
@@ -78,6 +87,9 @@ class CompanyDocumentController extends Controller
         return back()->with('success', 'Đã tạo folder.');
     }
 
+    /**
+     * Upload nhiều file (tối đa 50MB/file) vào folder của phòng ban.
+     */
     public function upload(Request $request)
     {
         $data = $request->validate([
@@ -97,8 +109,8 @@ class CompanyDocumentController extends Controller
         foreach ($request->file('files', []) as $file) {
             $safeName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
             $ext = $file->getClientOriginalExtension();
-            $storedName = now()->format('YmdHis') . '_' . Str::random(8) . '_' . $safeName . ($ext ? '.' . $ext : '');
-            $path = $file->storeAs('company-documents/' . $data['department'], $storedName, 'public');
+            $storedName = now()->format('YmdHis').'_'.Str::random(8).'_'.$safeName.($ext ? '.'.$ext : '');
+            $path = $file->storeAs('company-documents/'.$data['department'], $storedName, 'public');
 
             CompanyDocumentFile::create([
                 'department' => $data['department'],
@@ -115,7 +127,9 @@ class CompanyDocumentController extends Controller
         return back()->with('success', 'Đã upload file.');
     }
 
-
+    /**
+     * Xem trước file: inline với ảnh/PDF/text, định dạng khác hiển thị trang gợi ý tải xuống.
+     */
     public function preview(CompanyDocumentFile $file)
     {
         abort_unless(in_array($file->department, $this->allowedDepartments(), true), 403);
@@ -129,10 +143,10 @@ class CompanyDocumentController extends Controller
 
         $safeName = str_replace(['"', "\r", "\n"], '', $name);
 
-        if (str_starts_with((string) $mime, 'image/') && !in_array($ext, ['svg'], true)) {
+        if (str_starts_with((string) $mime, 'image/') && ! in_array($ext, ['svg'], true)) {
             return response()->file($realPath, [
                 'Content-Type' => $mime,
-                'Content-Disposition' => 'inline; filename="' . $safeName . '"',
+                'Content-Disposition' => 'inline; filename="'.$safeName.'"',
                 'X-Content-Type-Options' => 'nosniff',
             ]);
         }
@@ -140,7 +154,7 @@ class CompanyDocumentController extends Controller
         if ($mime === 'application/pdf' || $ext === 'pdf') {
             return response()->file($realPath, [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="' . $safeName . '"',
+                'Content-Disposition' => 'inline; filename="'.$safeName.'"',
                 'X-Content-Type-Options' => 'nosniff',
             ]);
         }
@@ -153,7 +167,7 @@ class CompanyDocumentController extends Controller
 
             return response($content, 200, [
                 'Content-Type' => 'text/plain; charset=utf-8',
-                'Content-Disposition' => 'inline; filename="' . $safeName . '"',
+                'Content-Disposition' => 'inline; filename="'.$safeName.'"',
                 'X-Content-Type-Options' => 'nosniff',
             ]);
         }
@@ -180,7 +194,7 @@ class CompanyDocumentController extends Controller
         <div class="icon">📄</div>
         <h1>Định dạng này chưa hỗ trợ xem trước</h1>
         <p>CRM hiện xem trực tiếp tốt nhất với ảnh, PDF, TXT/CSV. Với file Office/ZIP, vui lòng tải xuống để mở.</p>
-        <a href="' . e($downloadUrl) . '">Tải file xuống</a>
+        <a href="'.e($downloadUrl).'">Tải file xuống</a>
     </div>
 </body>
 </html>', 200, [
@@ -189,7 +203,9 @@ class CompanyDocumentController extends Controller
         ]);
     }
 
-
+    /**
+     * Tải xuống file tài liệu với tên gốc.
+     */
     public function download(CompanyDocumentFile $file)
     {
         abort_unless(in_array($file->department, $this->allowedDepartments(), true), 403);
@@ -198,6 +214,9 @@ class CompanyDocumentController extends Controller
         return Storage::disk('public')->download($file->path, $file->original_name ?: basename($file->path));
     }
 
+    /**
+     * Xóa một file tài liệu (cả file vật lý và bản ghi).
+     */
     public function destroyFile(CompanyDocumentFile $file)
     {
         abort_unless(in_array($file->department, $this->allowedDepartments(), true), 403);
@@ -207,6 +226,9 @@ class CompanyDocumentController extends Controller
         return back()->with('success', 'Đã xóa file.');
     }
 
+    /**
+     * Xóa folder cùng toàn bộ file và folder con bên trong (đệ quy).
+     */
     public function destroyFolder(CompanyDocumentFolder $folder)
     {
         abort_unless(in_array($folder->department, $this->allowedDepartments(), true), 403);
@@ -223,6 +245,9 @@ class CompanyDocumentController extends Controller
         return redirect()->route('company-documents.index', ['department' => $folder->department])->with('success', 'Đã xóa folder.');
     }
 
+    /**
+     * Xóa đệ quy một cây folder: file vật lý, bản ghi file và các folder con.
+     */
     private function deleteFolderTree(CompanyDocumentFolder $folder): void
     {
         foreach ($folder->files as $file) {
@@ -235,7 +260,9 @@ class CompanyDocumentController extends Controller
         $folder->delete();
     }
 
-
+    /**
+     * Ghi file/folder vào clipboard phiên làm việc để sao chép hoặc di chuyển.
+     */
     public function setClipboard(Request $request)
     {
         $data = $request->validate([
@@ -262,9 +289,12 @@ class CompanyDocumentController extends Controller
             'department' => $item->department,
         ]);
 
-        return back()->with('success', 'Đã chọn ' . ($data['action'] === 'copy' ? 'sao chép' : 'di chuyển') . ': ' . $name);
+        return back()->with('success', 'Đã chọn '.($data['action'] === 'copy' ? 'sao chép' : 'di chuyển').': '.$name);
     }
 
+    /**
+     * Hủy thao tác sao chép/di chuyển đang chờ trong clipboard.
+     */
     public function clearClipboard()
     {
         session()->forget('company_doc_clipboard');
@@ -272,6 +302,9 @@ class CompanyDocumentController extends Controller
         return back()->with('success', 'Đã hủy thao tác sao chép/di chuyển.');
     }
 
+    /**
+     * Dán file/folder từ clipboard vào vị trí đích: sao chép hoặc di chuyển, tự đổi tên khi trùng.
+     */
     public function paste(Request $request)
     {
         $data = $request->validate([
@@ -283,7 +316,7 @@ class CompanyDocumentController extends Controller
 
         $clip = session('company_doc_clipboard');
 
-        if (!$clip) {
+        if (! $clip) {
             return back()->withErrors(['clipboard' => 'Chưa chọn file/folder để dán.']);
         }
 
@@ -302,11 +335,11 @@ class CompanyDocumentController extends Controller
             while (
                 CompanyDocumentFolder::where('department', $department)
                     ->where('parent_id', $parentId)
-                    ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+                    ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                     ->where('name', $candidate)
                     ->exists()
             ) {
-                $candidate = $base . ' (' . $i . ')';
+                $candidate = $base.' ('.$i.')';
                 $i++;
             }
 
@@ -316,17 +349,17 @@ class CompanyDocumentController extends Controller
         $uniqueFileName = function ($department, $folderId, $name, $ignoreId = null) {
             $base = pathinfo((string) $name, PATHINFO_FILENAME) ?: 'file';
             $ext = pathinfo((string) $name, PATHINFO_EXTENSION);
-            $candidate = $base . ($ext ? '.' . $ext : '');
+            $candidate = $base.($ext ? '.'.$ext : '');
             $i = 2;
 
             while (
                 CompanyDocumentFile::where('department', $department)
                     ->where('folder_id', $folderId)
-                    ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId))
+                    ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                     ->where('original_name', $candidate)
                     ->exists()
             ) {
-                $candidate = $base . ' (' . $i . ')' . ($ext ? '.' . $ext : '');
+                $candidate = $base.' ('.$i.')'.($ext ? '.'.$ext : '');
                 $i++;
             }
 
@@ -339,7 +372,7 @@ class CompanyDocumentController extends Controller
             $newName = $uniqueFileName($department, $folderId, $file->original_name ?: basename($file->path));
             $ext = pathinfo($newName, PATHINFO_EXTENSION);
             $safe = Str::slug(pathinfo($newName, PATHINFO_FILENAME)) ?: 'file';
-            $newPath = 'company-documents/' . $department . '/' . now()->format('YmdHis') . '_' . Str::random(8) . '_' . $safe . ($ext ? '.' . $ext : '');
+            $newPath = 'company-documents/'.$department.'/'.now()->format('YmdHis').'_'.Str::random(8).'_'.$safe.($ext ? '.'.$ext : '');
 
             Storage::disk('public')->copy($file->path, $newPath);
 
@@ -388,7 +421,7 @@ class CompanyDocumentController extends Controller
         };
 
         $isSameOrChild = function ($sourceFolderId, $targetFolderId) {
-            if (!$targetFolderId) {
+            if (! $targetFolderId) {
                 return false;
             }
 
@@ -455,10 +488,15 @@ class CompanyDocumentController extends Controller
             ->with('success', 'Đã sao chép folder.');
     }
 
+    /**
+     * Danh sách phòng ban người dùng hiện tại được phép truy cập theo role.
+     */
     private function allowedDepartments(): array
     {
         $user = auth()->user();
-        if (!$user) return [];
+        if (! $user) {
+            return [];
+        }
 
         if ($this->hasAnyRole($user, ['admin', 'management', 'warehouse', 'kho'])) {
             return array_keys($this->departments);
@@ -470,6 +508,7 @@ class CompanyDocumentController extends Controller
 
             if (in_array('*', $roles, true)) {
                 $allowed[] = $key;
+
                 continue;
             }
 
@@ -477,15 +516,26 @@ class CompanyDocumentController extends Controller
                 $allowed[] = $key;
             }
         }
+
         return array_values(array_unique($allowed));
     }
 
+    /**
+     * Kiểm tra người dùng có một trong các role (tương thích nhiều cách lưu role).
+     */
     private function hasAnyRole($user, array $roles): bool
     {
-        if (method_exists($user, 'hasAnyRole')) return $user->hasAnyRole($roles);
-        if (method_exists($user, 'hasRole')) {
-            foreach ($roles as $role) if ($user->hasRole($role)) return true;
+        if (method_exists($user, 'hasAnyRole')) {
+            return $user->hasAnyRole($roles);
         }
+        if (method_exists($user, 'hasRole')) {
+            foreach ($roles as $role) {
+                if ($user->hasRole($role)) {
+                    return true;
+                }
+            }
+        }
+
         return isset($user->role) && in_array((string) $user->role, $roles, true);
     }
 }

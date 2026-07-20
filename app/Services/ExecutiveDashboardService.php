@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Service dashboard điều hành: doanh thu, tiền thu, công nợ, cảnh báo, tồn kho, hậu mãi.
+ */
 final class ExecutiveDashboardService
 {
     private const CACHE_SECONDS = 45;
@@ -59,6 +62,9 @@ final class ExecutiveDashboardService
         );
     }
 
+    /**
+     * Tính toàn bộ payload dashboard cho kỳ hiện tại và kỳ so sánh.
+     */
     private function compute(User $user, array $access, array $filters, array $range): array
     {
         $current = $this->periodMetrics(
@@ -160,6 +166,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Xác định quyền truy cập dashboard dựa trên role của user.
+     */
     private function resolveAccess(User $user): array
     {
         $roles = collect();
@@ -205,6 +214,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Chuẩn hóa bộ lọc đầu vào (kỳ, nguồn, sales) theo quyền của user.
+     */
     private function normaliseFilters(array $raw, array $access, User $user): array
     {
         $period = in_array((string) ($raw['period'] ?? 'month'), [
@@ -231,6 +243,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Xác định khoảng thời gian hiện tại và kỳ liền trước để so sánh.
+     */
     private function resolveRange(array $raw): array
     {
         $period = in_array((string) ($raw['period'] ?? 'month'), [
@@ -275,6 +290,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Tính doanh thu, tiền đã thu, số đơn và số công trình trong một khoảng thời gian.
+     */
     private function periodMetrics(
         User $user,
         array $access,
@@ -361,6 +379,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Tổng hợp công nợ phải thu hiện tại từ đơn thương mại và công trình.
+     */
     private function receivableSnapshot(User $user, array $access, array $filters): array
     {
         $commercial = $filters['source'] === 'sites'
@@ -394,6 +415,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Tính công nợ đơn thương mại từ bảng công nợ khách, kèm tuổi nợ và dự báo thu.
+     */
     private function commercialReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
@@ -480,6 +504,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Suy ra công nợ từ chênh lệch tổng đơn và tiền đã thanh toán khi thiếu bảng công nợ.
+     */
     private function derivedOrderReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
@@ -526,6 +553,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Tính công nợ công trình từ các đợt thanh toán theo hợp đồng.
+     */
     private function projectReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
@@ -607,6 +637,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Tổng hợp cảnh báo vận hành (chờ duyệt, chờ xuất kho, nợ quá hạn, đổi trả...).
+     */
     private function alerts(User $user, array $access, array $filters, array $range, array $debt): array
     {
         $items = [];
@@ -792,6 +825,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Xây dựng dữ liệu biểu đồ xu hướng doanh thu và tiền thu theo ngày/tháng.
+     */
     private function trend(User $user, array $access, array $filters, array $range): array
     {
         $daily = $range['days'] <= 62;
@@ -915,6 +951,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Thống kê số lượng và giá trị đơn hàng theo từng bộ phận xử lý.
+     */
     private function pipeline(User $user, array $access, array $filters, array $range): array
     {
         $definitions = [
@@ -969,6 +1008,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Tổng hợp số liệu tồn kho: tổng tồn, số SKU, hàng giữ chỗ, sắp hết hàng.
+     */
     private function inventory(array $access, array $filters): array
     {
         $payload = [
@@ -1030,6 +1072,9 @@ final class ExecutiveDashboardService
         return $payload;
     }
 
+    /**
+     * Tổng hợp số liệu hậu mãi: đổi trả, hoàn tiền, lịch bảo trì.
+     */
     private function afterSales(array $access, array $filters): array
     {
         $payload = [
@@ -1091,6 +1136,9 @@ final class ExecutiveDashboardService
         return $payload;
     }
 
+    /**
+     * Thống kê hiệu suất từng sales: số đơn, doanh thu, đã thu, công nợ.
+     */
     private function teamPerformance(User $user, array $access, array $filters, array $range): array
     {
         if (!$this->hasTable('crm_orders') || !$this->hasTable('users')) {
@@ -1142,6 +1190,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Lấy các hoạt động gần đây (đơn mới, thanh toán, đổi trả, bảo trì).
+     */
     private function recentActivities(User $user, array $access, array $filters): array
     {
         $items = collect();
@@ -1237,6 +1288,9 @@ final class ExecutiveDashboardService
             ->all();
     }
 
+    /**
+     * Lấy danh sách user cho bộ lọc sales (chỉ khi có quyền lọc).
+     */
     private function salesUsers(User $user, array $access): array
     {
         if (!$access['can_filter_sales'] || !$this->hasTable('users')) {
@@ -1258,6 +1312,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Tạo query đơn hàng đã áp scope công ty/user và khoảng thời gian.
+     */
     private function orderQuery(
         User $user,
         array $access,
@@ -1280,6 +1337,9 @@ final class ExecutiveDashboardService
         return $query;
     }
 
+    /**
+     * Tạo query công trình đã áp scope công ty/user, loại trừ đơn hủy, theo thời gian.
+     */
     private function siteQuery(
         User $user,
         array $access,
@@ -1308,6 +1368,9 @@ final class ExecutiveDashboardService
         return $query;
     }
 
+    /**
+     * Áp bộ lọc công ty, sales và soft-delete cho query đơn hàng.
+     */
     private function scopeOrderCompanyAndUser(
         Builder $query,
         User $user,
@@ -1327,6 +1390,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Áp bộ lọc sales cho query công trình.
+     */
     private function scopeSiteUser(
         Builder $query,
         User $user,
@@ -1340,6 +1406,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Loại trừ các đơn đã hủy khỏi query.
+     */
     private function excludeCancelledOrders(Builder $query, string $alias): void
     {
         if ($this->hasColumn('crm_orders', 'current_department')) {
@@ -1352,6 +1421,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Áp scope công ty hiện tại cho query nếu có thể.
+     */
     private function applyCompany(Builder $query, string $table, string $alias): void
     {
         try {
@@ -1361,6 +1433,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Tạo biểu thức SQL lấy ngày của công trình (ưu tiên ngày ký hợp đồng).
+     */
     private function siteDateExpression(string $alias): ?string
     {
         $columns = [];
@@ -1379,6 +1454,9 @@ final class ExecutiveDashboardService
             : 'COALESCE(' . implode(', ', $columns) . ')';
     }
 
+    /**
+     * Trả về cấu trúc công nợ rỗng mặc định.
+     */
     private function emptyDebtPayload(): array
     {
         return [
@@ -1390,6 +1468,9 @@ final class ExecutiveDashboardService
         ];
     }
 
+    /**
+     * Sinh URL từ tên route nếu route tồn tại, ngược lại trả về null.
+     */
     private function routeUrl(string $name, array $parameters = []): ?string
     {
         try {
@@ -1402,6 +1483,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Trả về cột đầu tiên tồn tại trong bảng theo danh sách ứng viên.
+     */
     private function firstColumn(string $table, array $candidates): ?string
     {
         foreach ($candidates as $column) {
@@ -1413,6 +1497,9 @@ final class ExecutiveDashboardService
         return null;
     }
 
+    /**
+     * Kiểm tra bảng tồn tại (có cache trong request).
+     */
     private function hasTable(string $table): bool
     {
         return $this->tableCache[$table]
@@ -1425,6 +1512,9 @@ final class ExecutiveDashboardService
             })();
     }
 
+    /**
+     * Kiểm tra cột tồn tại trong bảng (có cache trong request).
+     */
     private function hasColumn(string $table, string $column): bool
     {
         $key = $table . '.' . $column;
@@ -1438,6 +1528,9 @@ final class ExecutiveDashboardService
             })();
     }
 
+    /**
+     * Parse chuỗi ngày an toàn, trả về null nếu không hợp lệ.
+     */
     private function safeDate(mixed $value): ?string
     {
         if (!is_string($value) || trim($value) === '') {
@@ -1451,6 +1544,9 @@ final class ExecutiveDashboardService
         }
     }
 
+    /**
+     * Chuyển chuỗi tiếng Việt về dạng slug không dấu, nối bằng gạch dưới.
+     */
     private function slug(string $value): string
     {
         $value = mb_strtolower(trim($value));
@@ -1467,6 +1563,9 @@ final class ExecutiveDashboardService
         return preg_replace('/_+/', '_', str_replace([' ', '-'], '_', strtr($value, $map))) ?: '';
     }
 
+    /**
+     * Tính phần trăm thay đổi giữa kỳ hiện tại và kỳ trước.
+     */
     private function percentChange(float $current, float $previous): ?float
     {
         if (abs($previous) < 0.0001) {
@@ -1476,11 +1575,17 @@ final class ExecutiveDashboardService
         return ($current - $previous) / abs($previous) * 100;
     }
 
+    /**
+     * Định dạng số tiền kiểu Việt Nam kèm ký hiệu đ.
+     */
     private function money(float $value): string
     {
         return number_format($value, 0, ',', '.') . ' đ';
     }
 
+    /**
+     * Chuyển thời gian về dạng tương đối dễ đọc (diffForHumans).
+     */
     private function relativeTime(mixed $date): string
     {
         if (!$date) {

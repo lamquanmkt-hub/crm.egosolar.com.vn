@@ -13,8 +13,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Controller chấm công: check-in/out GPS, bảng công cá nhân, tổng hợp toàn công ty và xuất Excel / PDF.
+ */
 class AttendanceController extends Controller
 {
+    /**
+     * Hiển thị bảng chấm công cá nhân theo tháng kèm bản ghi hôm nay.
+     */
     public function myAttendance(Request $request)
     {
         $user = auth()->user();
@@ -51,6 +57,9 @@ class AttendanceController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị bảng chấm công toàn công ty theo tháng với bộ lọc, thống kê từng nhân viên và xếp hạng.
+     */
     public function index(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
@@ -233,6 +242,9 @@ class AttendanceController extends Controller
         ));
     }
 
+    /**
+     * Check-in hôm nay: tính số phút đi muộn theo cài đặt và lưu toạ độ / địa chỉ GPS.
+     */
     public function checkIn(Request $request)
     {
         $setting = $this->getAttendanceSetting();
@@ -283,6 +295,9 @@ class AttendanceController extends Controller
         return back()->with('success', 'Check-in thành công.');
     }
 
+    /**
+     * Check-out hôm nay: tính giờ công, số phút về sớm và cập nhật trạng thái completed / early_leave.
+     */
     public function checkOut(Request $request)
     {
         $setting = $this->getAttendanceSetting();
@@ -348,6 +363,9 @@ class AttendanceController extends Controller
         return back()->with('success', 'Check-out thành công.');
     }
 
+    /**
+     * Lấy bản ghi cài đặt chấm công, tự tạo với giá trị mặc định nếu chưa có.
+     */
     private function getAttendanceSetting(): AttendanceSetting
     {
         $setting = AttendanceSetting::first();
@@ -368,6 +386,9 @@ class AttendanceController extends Controller
         return $setting;
     }
 
+    /**
+     * Trả về rule validate toạ độ GPS và ghi chú; GPS bắt buộc hay không tuỳ cài đặt.
+     */
     private function locationValidationRules(AttendanceSetting $setting): array
     {
         $gpsRequired = (bool) ($setting->require_gps ?? true);
@@ -379,6 +400,9 @@ class AttendanceController extends Controller
         ];
     }
 
+    /**
+     * Chuẩn hoá chuỗi giờ về định dạng H:i:s, trả về giá trị fallback nếu không hợp lệ.
+     */
     private function normalizeTime(?string $time, string $fallback): string
     {
         if (blank($time)) {
@@ -398,6 +422,12 @@ class AttendanceController extends Controller
         return $fallback;
     }
 
+    /**
+     * Chuyển toạ độ GPS thành địa chỉ qua Nominatim; nếu lỗi thì trả về chuỗi toạ độ thô.
+     *
+     * @param mixed $lat Vĩ độ
+     * @param mixed $lng Kinh độ
+     */
     private function resolveAddress($lat, $lng): ?string
     {
         if (blank($lat) || blank($lng)) {
@@ -431,6 +461,9 @@ class AttendanceController extends Controller
 
 
 
+    /**
+     * Xuất báo cáo chấm công tháng ra Excel: sheet tổng hợp, lịch công chuẩn và sheet chi tiết từng nhân viên.
+     */
     public function exportExcel(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));
@@ -954,6 +987,9 @@ class AttendanceController extends Controller
 
 
 
+    /**
+     * Xuất bảng công tháng ra PDF khổ A4 ngang theo bộ lọc.
+     */
     public function exportPdf(Request $request)
     {
         $month = $request->input('month', now()->format('Y-m'));

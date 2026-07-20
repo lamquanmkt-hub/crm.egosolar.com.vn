@@ -7,6 +7,9 @@ use App\Models\Payments\PaymentRequestApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controller xử lý luồng phê duyệt phiếu đề nghị thanh toán.
+ */
 class PaymentRequestApprovalController extends Controller
 {
     /**
@@ -16,7 +19,7 @@ class PaymentRequestApprovalController extends Controller
     {
         return (method_exists($user, 'hasRole') && $user->hasRole('admin'))
             || (($user->role ?? null) === 'admin')
-            || ((int)($user->is_admin ?? 0) === 1);
+            || ((int) ($user->is_admin ?? 0) === 1);
     }
 
     /**
@@ -24,7 +27,7 @@ class PaymentRequestApprovalController extends Controller
      */
     private function isAccounting($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -48,43 +51,48 @@ class PaymentRequestApprovalController extends Controller
         return in_array($rawRole, $roles, true) || str_contains($email, 'ketoan');
     }
 
-  // User gửi duyệt
-public function submit(Request $request, $id)
-{
-    $item = PaymentRequest::findOrFail($id);
-    $user = auth()->user();
+    // User gửi duyệt
+    /**
+     * Chủ phiếu gửi phiếu đề nghị thanh toán đi duyệt.
+     */
+    public function submit(Request $request, $id)
+    {
+        $item = PaymentRequest::findOrFail($id);
+        $user = auth()->user();
 
-    // chỉ chủ phiếu được submit
-    if ((int)$item->created_by !== (int)$user->id) {
-        abort(403);
+        // chỉ chủ phiếu được submit
+        if ((int) $item->created_by !== (int) $user->id) {
+            abort(403);
+        }
+
+        // chỉ submit khi draft hoặc bị reject
+        if (! in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
+            // web -> quay lại trang trước
+            return back()->with('error', 'Không thể gửi duyệt ở trạng thái này');
+        }
+
+        $item->update(['status' => 'submitted']);
+
+        PaymentRequestApproval::create([
+            'payment_request_id' => $item->id,
+            'actor_id' => $user->id,
+            'step' => 'submit',
+            'action' => 'submitted',
+            'note' => null,
+        ]);
+
+        // ✅ QUAN TRỌNG: redirect về trang chi tiết để "view"
+        return redirect()
+            ->route('payment_requests.show', $item->id)
+            ->with('success', 'Đã gửi admin duyệt');
     }
-
-    // chỉ submit khi draft hoặc bị reject
-    if (!in_array($item->status, ['draft', 'admin_rejected', 'accounting_rejected'], true)) {
-        // web -> quay lại trang trước
-        return back()->with('error', 'Không thể gửi duyệt ở trạng thái này');
-    }
-
-    $item->update(['status' => 'submitted']);
-
-    PaymentRequestApproval::create([
-        'payment_request_id' => $item->id,
-        'actor_id' => $user->id,
-        'step' => 'submit',
-        'action' => 'submitted',
-        'note' => null,
-    ]);
-
-    // ✅ QUAN TRỌNG: redirect về trang chi tiết để "view"
-    return redirect()
-        ->route('payment_requests.show', $item->id)
-        ->with('success', 'Đã gửi admin duyệt');
-}
-
 
     // =========================
     // Admin duyệt
     // =========================
+    /**
+     * Quản lý tài chính duyệt phiếu đang ở trạng thái submitted.
+     */
     public function adminApprove(Request $request, $id)
     {
         abort_unless($this->isAdmin(auth()->user()), 403);
@@ -112,13 +120,16 @@ public function submit(Request $request, $id)
             'note' => $note,
         ]);
 
-   return redirect()->route('payment_requests.show', $item->id);
+        return redirect()->route('payment_requests.show', $item->id);
 
     }
 
     // =========================
     // Admin từ chối
     // =========================
+    /**
+     * Quản lý tài chính từ chối phiếu kèm lý do.
+     */
     public function adminReject(Request $request, $id)
     {
         abort_unless($this->isAdmin(auth()->user()), 403);
@@ -154,13 +165,16 @@ public function submit(Request $request, $id)
             'note' => $note,
         ]);
 
-return redirect()->route('payment_requests.show', $item->id);
+        return redirect()->route('payment_requests.show', $item->id);
 
     }
 
     // =========================
     // Kế toán duyệt
     // =========================
+    /**
+     * Kế toán xác nhận đã chi phiếu đã được quản lý duyệt.
+     */
     public function accApprove(Request $request, $id)
     {
         abort_unless($this->isAccounting(auth()->user()), 403);
@@ -188,12 +202,15 @@ return redirect()->route('payment_requests.show', $item->id);
             'note' => $note,
         ]);
 
-return redirect()->route('payment_requests.show', $item->id);
+        return redirect()->route('payment_requests.show', $item->id);
     }
 
     // =========================
     // Kế toán từ chối
     // =========================
+    /**
+     * Kế toán từ chối phiếu kèm lý do.
+     */
     public function accReject(Request $request, $id)
     {
         abort_unless($this->isAccounting(auth()->user()), 403);
@@ -229,7 +246,7 @@ return redirect()->route('payment_requests.show', $item->id);
             'note' => $note,
         ]);
 
-return redirect()->route('payment_requests.show', $item->id);
+        return redirect()->route('payment_requests.show', $item->id);
     }
 
     /**
@@ -308,6 +325,7 @@ return redirect()->route('payment_requests.show', $item->id);
 
                     $adminApproved++;
                     $processedIds[] = (int) $item->id;
+
                     continue;
                 }
 
@@ -352,20 +370,19 @@ return redirect()->route('payment_requests.show', $item->id);
         $details = [];
 
         if ($result['admin_approved'] > 0) {
-            $details[] = 'quản lý duyệt ' . $result['admin_approved'] . ' phiếu';
+            $details[] = 'quản lý duyệt '.$result['admin_approved'].' phiếu';
         }
 
         if ($result['accounting_approved'] > 0) {
-            $details[] = 'kế toán xác nhận đã chi ' . $result['accounting_approved'] . ' phiếu';
+            $details[] = 'kế toán xác nhận đã chi '.$result['accounting_approved'].' phiếu';
         }
 
-        $message = 'Đã xử lý thành công ' . $processedCount . ' phiếu (' . implode(', ', $details) . ').';
+        $message = 'Đã xử lý thành công '.$processedCount.' phiếu ('.implode(', ', $details).').';
 
         if ($skippedCount > 0) {
-            $message .= ' Bỏ qua ' . $skippedCount . ' phiếu do trạng thái đã thay đổi hoặc không đúng bước duyệt.';
+            $message .= ' Bỏ qua '.$skippedCount.' phiếu do trạng thái đã thay đổi hoặc không đúng bước duyệt.';
         }
 
         return back()->with('success', $message);
     }
-
 }

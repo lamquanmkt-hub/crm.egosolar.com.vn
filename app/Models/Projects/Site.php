@@ -18,15 +18,15 @@ class Site extends Model
         'contact_name',
         'contact_phone',
         'note',
-        //update
+        // update
         'deployment_started_at',
-'completed_at',
-'warranty_reminder_1_at',
-'warranty_reminder_2_at',
-'warranty_reminder_3_at',
-'solar_panel_qty',
-'solar_panel_wp',
-'battery_kwh',
+        'completed_at',
+        'warranty_reminder_1_at',
+        'warranty_reminder_2_at',
+        'warranty_reminder_3_at',
+        'solar_panel_qty',
+        'solar_panel_wp',
+        'battery_kwh',
 
         // System info
         'system_kwp',
@@ -58,14 +58,14 @@ class Site extends Model
 
         'system_kwp' => 'float',
         'system_kw_ac' => 'float',
-'deployment_started_at' => 'date',
-'completed_at' => 'date',
-'warranty_reminder_1_at' => 'date',
-'warranty_reminder_2_at' => 'date',
-'warranty_reminder_3_at' => 'date',
-'solar_panel_qty' => 'integer',
-'solar_panel_wp' => 'float',
-'battery_kwh' => 'float',
+        'deployment_started_at' => 'date',
+        'completed_at' => 'date',
+        'warranty_reminder_1_at' => 'date',
+        'warranty_reminder_2_at' => 'date',
+        'warranty_reminder_3_at' => 'date',
+        'solar_panel_qty' => 'integer',
+        'solar_panel_wp' => 'float',
+        'battery_kwh' => 'float',
         'contract_amount' => 'decimal:2',
     ];
 

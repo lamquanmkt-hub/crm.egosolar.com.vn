@@ -14,6 +14,9 @@ use App\Models\Marketing\MarketingKpiPayActual;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller lịch biên tập nội dung: CRUD, feedback, số liệu tuần và đồng bộ KPI lương.
+ */
 class ContentCalendarController extends Controller
 {
     /**
@@ -63,6 +66,9 @@ class ContentCalendarController extends Controller
             ->get();
     }
 
+    /**
+     * Danh sách nội dung lịch biên tập kèm danh sách user marketing phụ trách.
+     */
     public function index()
     {
         $items = ContentCalendar::with('files')
@@ -76,6 +82,9 @@ class ContentCalendarController extends Controller
         return view('marketing.reports.content_calendar', compact('items', 'marketingUsers', 'marketingUserMap'));
     }
 
+    /**
+     * Tạo nội dung mới, gán người phụ trách, lưu file đính kèm và đồng bộ KPI lương nếu có.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -201,6 +210,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã gửi feedback');
     }
 
+    /**
+     * Cập nhật nội dung feedback (chỉ chủ sở hữu được sửa).
+     */
     public function updateFeedback(Request $request, $fbId)
     {
         $request->validate([
@@ -220,6 +232,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã cập nhật feedback');
     }
 
+    /**
+     * Xoá feedback cùng replies con và ảnh đính kèm (chỉ chủ sở hữu được xoá).
+     */
     public function deleteFeedback($fbId)
     {
         $fb = ContentFeedback::find($fbId);
@@ -248,6 +263,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã xoá feedback');
     }
 
+    /**
+     * Chi tiết nội dung: feedback dạng cây, số liệu tuần/tổng và các danh sách liên quan.
+     */
     public function show($id)
     {
         $item = ContentCalendar::with('files')->findOrFail($id);
@@ -320,6 +338,9 @@ class ContentCalendarController extends Controller
         ));
     }
 
+    /**
+     * Cập nhật nội dung, người phụ trách và đồng bộ KPI lương theo tháng khi cần.
+     */
     public function update(Request $request, $id)
     {
         $item = ContentCalendar::findOrFail($id);
@@ -426,6 +447,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã lưu nội dung');
     }
 
+    /**
+     * Upload file đính kèm cho nội dung.
+     */
     public function uploadFile(Request $request, $id)
     {
         $item = ContentCalendar::findOrFail($id);
@@ -447,6 +471,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã upload file');
     }
 
+    /**
+     * Chuyển nội dung sang trạng thái chờ duyệt (submitted).
+     */
     public function submit($id)
     {
         $item = ContentCalendar::findOrFail($id);
@@ -459,6 +486,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã gửi duyệt');
     }
 
+    /**
+     * Duyệt nội dung (approved) và ghi nhận người duyệt.
+     */
     public function approve($id)
     {
         $item = ContentCalendar::findOrFail($id);
@@ -472,6 +502,9 @@ class ContentCalendarController extends Controller
         return back()->with('success', 'Đã duyệt');
     }
 
+    /**
+     * Lấy số liệu tuần của nội dung theo week_start (trả JSON).
+     */
     public function getWeeklyMetrics(Request $request, $id)
     {
         $request->validate([
@@ -494,6 +527,9 @@ class ContentCalendarController extends Controller
         ]);
     }
 
+    /**
+     * Lưu (tạo mới hoặc cập nhật) số liệu tuần của nội dung.
+     */
     public function saveWeeklyMetrics(Request $request, $id)
     {
         $request->validate([
@@ -553,6 +589,9 @@ class ContentCalendarController extends Controller
         ]);
     }
 
+    /**
+     * Dashboard tổng hợp số liệu tuần: KPI, xếp hạng, top nội dung, cảnh báo thiếu số liệu (trả JSON).
+     */
     public function weeklyDashboard(Request $request)
     {
         $request->validate([
@@ -767,6 +806,9 @@ class ContentCalendarController extends Controller
         $actual->save();
     }
 
+    /**
+     * Xóa nội dung khỏi lịch biên tập.
+     */
     public function destroy($id)
     {
         $item = ContentCalendar::findOrFail($id);
@@ -775,6 +817,11 @@ class ContentCalendarController extends Controller
         return redirect()->back()->with('success', 'Đã xóa nội dung');
     }
 
+    /**
+     * Chuẩn hoá danh sách người phụ trách từ request (trim, bỏ rỗng, bỏ trùng).
+     *
+     * @return array
+     */
     protected function normalizeAssignees(Request $request): array
     {
         $assignees = $request->input('assignees');

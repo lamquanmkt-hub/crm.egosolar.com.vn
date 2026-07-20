@@ -1,11 +1,18 @@
 <?php
+
 namespace App\Policies;
+
 use App\Models\CRM\Customers\Customer;
 use App\Models\User;
 
+/**
+ * Policy phân quyền các thao tác trên khách hàng.
+ */
 class CustomerPolicy
 {
-
+    /**
+     * Kiểm tra user có vai trò kho/warehouse hoặc admin hay không.
+     */
     private function isKhoOrWarehouse(User $user): bool
     {
         if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['kho', 'warehouse', 'admin'])) {
@@ -28,7 +35,6 @@ class CustomerPolicy
             || str_contains($roleText, 'warehouse')
             || str_contains($roleText, 'admin');
     }
-
 
     /**
      * Admin có permission "*" => bypass mọi quyền trong policy.
@@ -56,6 +62,7 @@ class CustomerPolicy
             'customer.view_all',
         ]);
     }
+
     /**
      * Determine whether the user can view the model.
      */
@@ -78,6 +85,7 @@ class CustomerPolicy
         return $user->can('customer.view_own')
             && $customer->owner_id === $user->id;
     }
+
     /**
      * Determine whether the user can create models.
      */
@@ -86,6 +94,7 @@ class CustomerPolicy
         return $user->can('customer.create');
 
     }
+
     /**
      * Determine whether the user can update the model.
      */
@@ -107,6 +116,7 @@ class CustomerPolicy
         return $user->can('customer.update_own')
             && $customer->owner_id === $user->id;
     }
+
     /**
      * Determine whether the user can delete the model.
      */
@@ -114,6 +124,7 @@ class CustomerPolicy
     {
         return $user->can('customer.delete');
     }
+
     /**
      * Determine whether the user can restore the model.
      */
@@ -121,6 +132,7 @@ class CustomerPolicy
     {
         return true;
     }
+
     /**
      * Determine whether the user can permanently delete the model.
      */

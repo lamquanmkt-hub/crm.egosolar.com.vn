@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
+use App\Contracts\Services\ProductStockServiceInterface;
 use App\Models\Inventory\Stock\StockMovement;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -9,7 +12,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class ProductStockService
+/**
+ * Service xử lý tồn kho sản phẩm (ProductStock): kiểm tra, điều chỉnh, báo cáo.
+ */
+class ProductStockService implements ProductStockServiceInterface
 {
     /**
      * Tự resolve company_id theo kho/sp nếu caller không truyền
@@ -136,21 +142,33 @@ class ProductStockService
         });
     }
 
+    /**
+     * Nhập kho: tăng tồn kho sản phẩm tại kho chỉ định.
+     */
     public function stockIn($productId, $warehouseId, int $quantity, string $reason = 'Nhập kho', ?int $companyId = null): void
     {
         $this->adjustStock($productId, $warehouseId, $quantity, $reason, null, $companyId);
     }
 
+    /**
+     * Xuất kho: giảm tồn kho sản phẩm tại kho chỉ định.
+     */
     public function stockOut($productId, $warehouseId, int $quantity, string $reason = 'Xuất kho', $referenceId = null, ?int $companyId = null): void
     {
         $this->adjustStock($productId, $warehouseId, -$quantity, $reason, $referenceId, $companyId);
     }
 
+    /**
+     * Tính tổng tồn kho của một sản phẩm trên mọi kho.
+     */
     public function getTotalStockByProduct($productId): int
     {
         return (int) DB::table('crm_product_stock')->where('product_id', (int)$productId)->sum('qty');
     }
 
+    /**
+     * Lấy danh sách sản phẩm sắp hết hàng (tồn <= ngưỡng, > 0).
+     */
     public function getLowStockProducts($threshold = 10): Collection|array
     {
         // giữ nguyên nếu bạn đang dùng Eloquent ở nơi khác
@@ -160,6 +178,9 @@ class ProductStockService
             ->get();
     }
 
+    /**
+     * Lấy danh sách sản phẩm đã hết hàng (tồn = 0).
+     */
     public function getOutOfStockProducts(): Collection|array
     {
         return \App\Models\Inventory\Stock\ProductStock::with(['product', 'warehouse'])
@@ -167,6 +188,9 @@ class ProductStockService
             ->get();
     }
 
+    /**
+     * Báo cáo tồn kho theo kho, sắp xếp tồn tăng dần.
+     */
     public function getStockReportByWarehouse($warehouseId): Collection|array
     {
         return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', (int)$warehouseId)
@@ -175,6 +199,9 @@ class ProductStockService
             ->get();
     }
 
+    /**
+     * Tổng hợp tồn kho theo sản phẩm (tổng số lượng, số kho có hàng).
+     */
     public function getStockSummary(): Collection|array
     {
         return \App\Models\Inventory\Stock\ProductStock::select(
@@ -188,6 +215,9 @@ class ProductStockService
             ->get();
     }
 
+    /**
+     * Lấy lịch sử biến động tồn kho của sản phẩm (có phân trang, lọc theo kho).
+     */
     public function getStockHistory($productId, $warehouseId = null, $limit = 50): array|LengthAwarePaginator
     {
         $query = \App\Models\Inventory\Stock\StockMovement::where('product_id', (int)$productId)

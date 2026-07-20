@@ -15,14 +15,23 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
+/**
+ * Quản lý lịch bảo trì / bảo hành hệ thống điện mặt trời (danh sách, tạo, cập nhật, đổi trạng thái, xóa).
+ */
 class SolarMaintenanceController extends Controller
 {
+    /**
+     * Khởi tạo controller với service truy vấn và service nghiệp vụ bảo trì.
+     */
     public function __construct(
         private readonly SolarMaintenanceQueryService $queryService,
         private readonly SolarMaintenanceService $service,
     ) {
     }
 
+    /**
+     * Hiển thị trang danh sách lịch bảo trì kèm bộ lọc, thống kê và quyền thao tác.
+     */
     public function index(Request $request): View
     {
         $this->authorize('viewAny', SolarMaintenanceSchedule::class);
@@ -62,6 +71,9 @@ class SolarMaintenanceController extends Controller
         ));
     }
 
+    /**
+     * Tạo chuỗi các đợt bảo trì / bảo hành mới từ dữ liệu đã validate.
+     */
     public function store(StoreSolarMaintenanceRequest $request): RedirectResponse
     {
         $this->authorize('create', SolarMaintenanceSchedule::class);
@@ -74,6 +86,9 @@ class SolarMaintenanceController extends Controller
         );
     }
 
+    /**
+     * Trả về chi tiết một đợt bảo trì dạng JSON (kèm lịch sử trạng thái và quyền).
+     */
     public function showJson(Request $request, SolarMaintenanceSchedule $schedule): JsonResponse
     {
         $schedule->load(['site', 'assignees.user', 'statusHistories.user']);
@@ -131,6 +146,9 @@ class SolarMaintenanceController extends Controller
         ]);
     }
 
+    /**
+     * Tìm kiếm công trình theo từ khóa, trả JSON cho ô chọn công trình.
+     */
     public function sitesSearch(Request $request): JsonResponse
     {
         $this->authorize('viewAny', SolarMaintenanceSchedule::class);
@@ -161,6 +179,9 @@ class SolarMaintenanceController extends Controller
         ]);
     }
 
+    /**
+     * Cập nhật thông tin một đợt bảo trì và ghi lịch sử thay đổi.
+     */
     public function update(
         UpdateSolarMaintenanceRequest $request,
         SolarMaintenanceSchedule $schedule
@@ -172,6 +193,9 @@ class SolarMaintenanceController extends Controller
         return back()->with('success', 'Đã cập nhật lịch và ghi nhận lịch sử thay đổi.');
     }
 
+    /**
+     * Đổi trạng thái đợt bảo trì và lưu nhật ký xử lý.
+     */
     public function updateStatus(
         UpdateSolarMaintenanceStatusRequest $request,
         SolarMaintenanceSchedule $schedule
@@ -183,6 +207,9 @@ class SolarMaintenanceController extends Controller
         return back()->with('success', 'Đã cập nhật trạng thái và lưu nhật ký xử lý.');
     }
 
+    /**
+     * Xóa mềm một đợt bảo trì (chuyển vào thùng rác, giữ lại lịch sử).
+     */
     public function destroy(Request $request, SolarMaintenanceSchedule $schedule): RedirectResponse
     {
         $this->authorize('delete', $schedule);

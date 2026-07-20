@@ -12,6 +12,9 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Quản lý tài sản cố định: danh sách, khấu hao, lịch sử và tệp đính kèm.
+ */
 class AssetController extends Controller
 {
     private array $statuses = [
@@ -43,6 +46,9 @@ class AssetController extends Controller
         'note' => 'Ghi chú',
     ];
 
+    /**
+     * Danh sách tài sản kèm bộ lọc, chỉ số khấu hao, lịch sử và tệp đính kèm.
+     */
     public function index(Request $request)
     {
         $this->ensureDefaultCategories();
@@ -169,6 +175,9 @@ class AssetController extends Controller
         ]);
     }
 
+    /**
+     * Tạo tài sản mới, ghi sự kiện mua và lưu tệp đính kèm.
+     */
     public function store(Request $request)
     {
         $data = $this->validatedAsset($request);
@@ -201,6 +210,9 @@ class AssetController extends Controller
             ->with('success', 'Đã thêm tài sản ' . $data['code'] . '.');
     }
 
+    /**
+     * Cập nhật tài sản, ghi sự kiện điều chuyển khi đổi người giữ hoặc trạng thái.
+     */
     public function update(Request $request, $id)
     {
         $asset = DB::table('finance_assets')->whereNull('deleted_at')->where('id', (int) $id)->first();
@@ -231,6 +243,9 @@ class AssetController extends Controller
         return back()->with('success', 'Đã cập nhật tài sản.');
     }
 
+    /**
+     * Xóa mềm tài sản khỏi danh sách.
+     */
     public function destroy($id)
     {
         $asset = DB::table('finance_assets')->whereNull('deleted_at')->where('id', (int) $id)->first();
@@ -244,6 +259,9 @@ class AssetController extends Controller
         return back()->with('success', 'Đã xóa tài sản khỏi danh sách.');
     }
 
+    /**
+     * Tạo hoặc cập nhật nhóm tài sản theo mã.
+     */
     public function storeCategory(Request $request)
     {
         $data = $request->validate([
@@ -270,6 +288,9 @@ class AssetController extends Controller
         return back()->with('success', 'Đã lưu nhóm tài sản.');
     }
 
+    /**
+     * Ghi nhận sự kiện lịch sử tài sản và đồng bộ trạng thái, vị trí, người giữ.
+     */
     public function storeEvent(Request $request, $assetId)
     {
         $asset = DB::table('finance_assets')->whereNull('deleted_at')->where('id', (int) $assetId)->first();
@@ -331,6 +352,9 @@ class AssetController extends Controller
         return back()->with('success', 'Đã ghi nhận lịch sử tài sản.');
     }
 
+    /**
+     * Xóa một dòng lịch sử tài sản.
+     */
     public function destroyEvent($eventId)
     {
         DB::table('finance_asset_events')->where('id', (int) $eventId)->delete();
@@ -338,6 +362,9 @@ class AssetController extends Controller
         return back()->with('success', 'Đã xóa dòng lịch sử.');
     }
 
+    /**
+     * Tải xuống tệp đính kèm của tài sản.
+     */
     public function downloadFile($fileId)
     {
         $file = DB::table('finance_asset_files')->where('id', (int) $fileId)->first();
@@ -350,6 +377,9 @@ class AssetController extends Controller
         return Storage::disk('public')->download($file->path, $file->original_name ?: basename($file->path));
     }
 
+    /**
+     * Xuất danh sách tài sản kèm khấu hao ra file CSV.
+     */
     public function exportCsv(Request $request): StreamedResponse
     {
         $rows = DB::table('finance_assets as a')
@@ -395,6 +425,9 @@ class AssetController extends Controller
         ]);
     }
 
+    /**
+     * Validate và chuẩn hóa dữ liệu tài sản từ request (kiểm tra trùng mã).
+     */
     private function validatedAsset(Request $request, ?int $id = null): array
     {
         $data = $request->validate([
@@ -462,6 +495,9 @@ class AssetController extends Controller
         ];
     }
 
+    /**
+     * Chuyển chuỗi tiền tệ nhập tay (dấu chấm / phẩy) về số float.
+     */
     private function money($value): float
     {
         $value = trim((string) ($value ?? '0'));
@@ -488,6 +524,9 @@ class AssetController extends Controller
         return round((float) ($value ?: 0), 2);
     }
 
+    /**
+     * Sinh mã tài sản kế tiếp dạng TS-YYYY-XXXX.
+     */
     private function nextAssetCode(): string
     {
         $prefix = 'TS-' . now()->format('Y') . '-';
@@ -505,6 +544,9 @@ class AssetController extends Controller
         return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Tính chỉ số khấu hao của tài sản: hàng tháng, lũy kế, giá trị còn lại, tiến độ.
+     */
     private function assetMetric(object $asset): array
     {
         $cost = (float) ($asset->original_cost ?? 0);
@@ -549,6 +591,9 @@ class AssetController extends Controller
         ];
     }
 
+    /**
+     * Tổng hợp số liệu toàn bộ tài sản: nguyên giá, khấu hao, cảnh báo bảo trì.
+     */
     private function summary($assets): array
     {
         $totalCost = 0;
@@ -585,6 +630,9 @@ class AssetController extends Controller
         ];
     }
 
+    /**
+     * Ghi một dòng sự kiện vào lịch sử tài sản.
+     */
     private function recordEvent(int $assetId, array $data): void
     {
         DB::table('finance_asset_events')->insert([
@@ -603,6 +651,9 @@ class AssetController extends Controller
         ]);
     }
 
+    /**
+     * Lưu các tệp upload đính kèm cho tài sản.
+     */
     private function storeFiles(Request $request, int $assetId): void
     {
         if (!$request->hasFile('files')) {
@@ -629,6 +680,9 @@ class AssetController extends Controller
         }
     }
 
+    /**
+     * Khởi tạo các nhóm tài sản mặc định nếu bảng còn trống.
+     */
     private function ensureDefaultCategories(): void
     {
         if (!Schema::hasTable('finance_asset_categories')) {

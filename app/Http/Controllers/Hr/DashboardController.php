@@ -12,8 +12,14 @@ use App\Models\User;
 use App\Models\AttendanceRecord;
 use App\Models\LeaveRequest;
 
+/**
+ * Controller trang tổng quan (dashboard) của module HR.
+ */
 class DashboardController extends Controller
 {
+    /**
+     * Hiển thị dashboard HR: tổng nhân sự, nghỉ phép chờ duyệt và thống kê chấm công theo khoảng thời gian.
+     */
     public function index(Request $request)
     {
         $fromDate = $request->from_date

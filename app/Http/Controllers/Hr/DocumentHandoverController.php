@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller quản lý bàn giao hồ sơ tài liệu: vòng đời trạng thái, file đính kèm và lịch sử xử lý.
+ */
 class DocumentHandoverController extends Controller
 {
     protected array $statuses = [
@@ -37,6 +40,9 @@ class DocumentHandoverController extends Controller
         'completed' => 'archived',
     ];
 
+    /**
+     * Hiển thị danh sách hồ sơ bàn giao với tìm kiếm, lọc trạng thái / độ ưu tiên và thống kê.
+     */
     public function index(Request $request)
     {
         $this->ensureTables();
@@ -88,6 +94,11 @@ class DocumentHandoverController extends Controller
         ]);
     }
 
+    /**
+     * Hiển thị chi tiết hồ sơ bàn giao kèm lịch sử xử lý và danh sách file.
+     *
+     * @param int|string $id ID hồ sơ
+     */
     public function show($id)
     {
         $this->ensureTables();
@@ -126,6 +137,9 @@ class DocumentHandoverController extends Controller
         ]);
     }
 
+    /**
+     * Tạo hồ sơ bàn giao mới với mã tự sinh, lưu file đính kèm và ghi lịch sử.
+     */
     public function store(Request $request)
     {
         $this->ensureTables();
@@ -167,6 +181,11 @@ class DocumentHandoverController extends Controller
             ->with('success', 'Đã tạo hồ sơ mới.');
     }
 
+    /**
+     * Cập nhật thông tin hồ sơ bàn giao và ghi lịch sử thay đổi.
+     *
+     * @param int|string $id ID hồ sơ
+     */
     public function update(Request $request, $id)
     {
         $this->ensureTables();
@@ -206,6 +225,11 @@ class DocumentHandoverController extends Controller
             ->with('success', 'Đã cập nhật hồ sơ.');
     }
 
+    /**
+     * Upload thêm file đính kèm cho hồ sơ và ghi lịch sử.
+     *
+     * @param int|string $id ID hồ sơ
+     */
     public function uploadFiles(Request $request, $id)
     {
         $this->ensureTables();
@@ -226,6 +250,11 @@ class DocumentHandoverController extends Controller
             ->with('success', 'Đã thêm file hồ sơ.');
     }
 
+    /**
+     * Chuyển trạng thái hồ sơ, cập nhật mốc thời gian / người giữ hồ sơ tương ứng và ghi lịch sử.
+     *
+     * @param int|string $id ID hồ sơ
+     */
     public function changeStatus(Request $request, $id)
     {
         $this->ensureTables();
@@ -290,6 +319,11 @@ class DocumentHandoverController extends Controller
             ->with('success', 'Đã chuyển trạng thái: ' . ($this->statuses[$status] ?? $status));
     }
 
+    /**
+     * Xoá hồ sơ bàn giao cùng file vật lý, bản ghi file và lịch sử (trong transaction).
+     *
+     * @param int|string $id ID hồ sơ
+     */
     public function destroy($id)
     {
         $this->ensureTables();
@@ -313,6 +347,12 @@ class DocumentHandoverController extends Controller
             ->with('success', 'Đã xóa hồ sơ.');
     }
 
+    /**
+     * Xoá một file đính kèm của hồ sơ và ghi lịch sử.
+     *
+     * @param int|string $id ID hồ sơ
+     * @param int|string $fileId ID file
+     */
     public function deleteFile($id, $fileId)
     {
         $this->ensureTables();
@@ -338,6 +378,12 @@ class DocumentHandoverController extends Controller
         return back()->with('success', 'Đã xóa file hồ sơ.');
     }
 
+    /**
+     * Tải xuống file đính kèm của hồ sơ.
+     *
+     * @param int|string $id ID hồ sơ
+     * @param int|string $fileId ID file
+     */
     public function downloadFile($id, $fileId)
     {
         $this->ensureTables();
@@ -353,6 +399,12 @@ class DocumentHandoverController extends Controller
         return Storage::disk('public')->download($file->path, $file->original_name ?: basename($file->path));
     }
 
+    /**
+     * Xem trước file đính kèm (ảnh, PDF, text) dưới dạng trang HTML nhúng.
+     *
+     * @param int|string $id ID hồ sơ
+     * @param int|string $fileId ID file
+     */
     public function previewFile($id, $fileId)
     {
         $this->ensureTables();
@@ -391,6 +443,9 @@ class DocumentHandoverController extends Controller
         return response($this->previewPage($name, $header . '<div class="pv-body"><div class="pv-notice">Định dạng này chưa hỗ trợ xem trước. Anh bấm Tải xuống để mở file.</div></div>'));
     }
 
+    /**
+     * Validate dữ liệu form hồ sơ bàn giao và trả về mảng dữ liệu hợp lệ.
+     */
     protected function validateMain(Request $request): array
     {
         return $request->validate([
@@ -410,6 +465,9 @@ class DocumentHandoverController extends Controller
         ]);
     }
 
+    /**
+     * Lưu các file đính kèm hợp lệ của hồ sơ vào storage và ghi bản ghi DB.
+     */
     protected function storeFiles(Request $request, int $handoverId): void
     {
         if (!$request->hasFile('attachments')) {
@@ -436,6 +494,9 @@ class DocumentHandoverController extends Controller
         }
     }
 
+    /**
+     * Tạo các bảng hồ sơ bàn giao (handovers, histories, files) nếu chưa tồn tại.
+     */
     protected function ensureTables(): void
     {
         if (!Schema::hasTable('hr_document_handovers')) {
@@ -491,6 +552,9 @@ class DocumentHandoverController extends Controller
         }
     }
 
+    /**
+     * Sinh mã hồ sơ dạng HS-{năm}-{số thứ tự 5 chữ số}.
+     */
     protected function makeCode(): string
     {
         $prefix = 'HS-' . now()->format('Y') . '-';
@@ -498,6 +562,9 @@ class DocumentHandoverController extends Controller
         return $prefix . str_pad((string) $count, 5, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Ghi một dòng lịch sử xử lý cho hồ sơ bàn giao.
+     */
     protected function history(int $id, string $status, string $action, ?string $note = null): void
     {
         DB::table('hr_document_handover_histories')->insert([
@@ -511,6 +578,9 @@ class DocumentHandoverController extends Controller
         ]);
     }
 
+    /**
+     * Lấy danh sách user (id, name, email) để chọn người nhận hồ sơ.
+     */
     protected function users()
     {
         return Schema::hasTable('users')
@@ -518,6 +588,9 @@ class DocumentHandoverController extends Controller
             : collect();
     }
 
+    /**
+     * Lấy tên user theo ID, trả về null nếu không có bảng users.
+     */
     protected function userName(int $id): ?string
     {
         return Schema::hasTable('users')
@@ -525,6 +598,9 @@ class DocumentHandoverController extends Controller
             : null;
     }
 
+    /**
+     * Dựng trang HTML hoàn chỉnh (kèm CSS) cho chức năng xem trước file.
+     */
     protected function previewPage(string $title, string $body): string
     {
         return '<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title>

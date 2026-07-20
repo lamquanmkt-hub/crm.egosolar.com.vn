@@ -61,8 +61,7 @@
         </button>
 
         <div class="mt-3 text-center" style="font-weight:750; color: rgba(15,23,42,.65)">
-            Chưa có tài khoản?
-            <a class="link-ego" href="{{ route('register') }}">Đăng ký</a>
+            Chưa có tài khoản? Liên hệ quản trị viên để được cấp tài khoản.
         </div>
     </form>
 @endsection

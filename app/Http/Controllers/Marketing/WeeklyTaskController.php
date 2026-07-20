@@ -9,8 +9,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Controller công việc tuần của marketing: CRUD kèm file đính kèm.
+ */
 class WeeklyTaskController extends Controller
 {
+    /**
+     * Chuẩn hoá trạng thái về pending/doing/done (todo được quy về pending).
+     */
     private function normStatus(?string $s): string
     {
         $s = strtolower(trim((string)$s));
@@ -20,6 +26,9 @@ class WeeklyTaskController extends Controller
         return $s;
     }
 
+    /**
+     * Chuẩn hoá độ ưu tiên về high/medium/low (mặc định high).
+     */
     private function normPriority(?string $p): string
     {
         $p = strtolower(trim((string)$p));
@@ -27,6 +36,11 @@ class WeeklyTaskController extends Controller
         return $p;
     }
 
+    /**
+     * Parse danh sách từ array hoặc chuỗi phân tách bởi dấu phẩy/xuống dòng (trim, bỏ trùng).
+     *
+     * @return array
+     */
     private function parseList($v): array
     {
         // nhận array hoặc string "a, b\nc"
@@ -43,6 +57,11 @@ class WeeklyTaskController extends Controller
         return $arr;
     }
 
+    /**
+     * Xử lý upload file đính kèm và nối vào danh sách cũ.
+     *
+     * @return array Danh sách metadata file đính kèm
+     */
     private function handleUploads(Request $request, array $old = []): array
     {
         $attachments = is_array($old) ? $old : [];
@@ -66,6 +85,9 @@ class WeeklyTaskController extends Controller
         return $attachments;
     }
 
+    /**
+     * Danh sách công việc tuần có lọc và thống kê tổng/done/doing/quá hạn.
+     */
     public function index(Request $request)
     {
         $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
@@ -120,11 +142,17 @@ class WeeklyTaskController extends Controller
         ));
     }
 
+    /**
+     * Hiển thị form tạo công việc tuần.
+     */
     public function create()
     {
         return view('marketing.reports.weekly_tasks_create');
     }
 
+    /**
+     * Tạo công việc tuần mới kèm người phụ trách, link và file đính kèm.
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -175,18 +203,27 @@ class WeeklyTaskController extends Controller
     }
 
     // ✅ CHI TIẾT
+    /**
+     * Chi tiết công việc tuần.
+     */
     public function show($id)
     {
         $task = WeeklyTask::findOrFail($id);
         return view('marketing.reports.weekly_tasks_show', compact('task'));
     }
 
+    /**
+     * Hiển thị form sửa công việc tuần.
+     */
     public function edit($id)
     {
         $task = WeeklyTask::findOrFail($id);
         return view('marketing.reports.weekly_tasks_edit', compact('task'));
     }
 
+    /**
+     * Cập nhật công việc tuần (trạng thái, tiến độ, file đính kèm...).
+     */
     public function update(Request $request, $id)
     {
         $task = WeeklyTask::findOrFail($id);
@@ -238,6 +275,9 @@ class WeeklyTaskController extends Controller
             ->with('success', 'Đã cập nhật công việc #' . $id);
     }
 
+    /**
+     * Xoá công việc tuần cùng các file đính kèm.
+     */
     public function destroy($id)
     {
         $task = WeeklyTask::findOrFail($id);

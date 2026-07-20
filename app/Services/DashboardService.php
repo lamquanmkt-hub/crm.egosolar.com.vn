@@ -12,6 +12,9 @@ use App\Repositories\Interfaces\PaymentRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Service tổng hợp số liệu dashboard chung (đơn hàng, doanh thu, lead, thanh toán).
+ */
 class DashboardService
 {
     protected $orderRepo;
@@ -19,6 +22,9 @@ class DashboardService
     protected $customerRepo;
     protected $paymentRepo;
 
+    /**
+     * Khởi tạo service với các repository đơn hàng, lead, khách hàng, thanh toán.
+     */
     public function __construct(
         OrderRepositoryInterface $orderRepo,
         LeadRepositoryInterface $leadRepo,
@@ -31,6 +37,9 @@ class DashboardService
         $this->paymentRepo  = $paymentRepo;
     }
 
+    /**
+     * Phân tích khoảng ngày từ bộ lọc, mặc định là tháng hiện tại.
+     */
     private function parseDateRange(array $filters): array
     {
         $fromRaw = $filters['from'] ?? null; // YYYY-MM-DD
@@ -46,6 +55,9 @@ class DashboardService
         return [$from, $to];
     }
 
+    /**
+     * Lấy top sales theo doanh thu trong khoảng thời gian (chỉ role admin/sales/sales_manager).
+     */
     private function topSalesByRevenue(Carbon $from, Carbon $to, int $limit = 5)
     {
         // ✅ chỉ tính cho role admin/sales/sales_manager
@@ -67,6 +79,9 @@ class DashboardService
             ->get();
     }
 
+    /**
+     * Tổng hợp toàn bộ dữ liệu dashboard theo bộ lọc ngày.
+     */
     public function getDashboardData(array $filters = []): array
     {
         [$from, $to] = $this->parseDateRange($filters);
