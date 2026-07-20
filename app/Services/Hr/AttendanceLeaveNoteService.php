@@ -44,7 +44,7 @@ class AttendanceLeaveNoteService
                     'work_date' => $date,
                 ]);
 
-                if (!$record->exists) {
+                if (! $record->exists) {
                     $record->status = 'absent';
                     $record->late_minutes = 0;
                     $record->early_leave_minutes = 0;
@@ -96,15 +96,15 @@ class AttendanceLeaveNoteService
      */
     private function mergeTaggedNote(string $currentNote, LeaveRequest $leave, ?User $approver = null): string
     {
-        $tagStart = '[Đơn HR #' . $leave->id . ']';
-        $tagEnd = '[/Đơn HR #' . $leave->id . ']';
+        $tagStart = '[Đơn HR #'.$leave->id.']';
+        $tagEnd = '[/Đơn HR #'.$leave->id.']';
 
-        $pattern = '/\s*' . preg_quote($tagStart, '/') . '.*?' . preg_quote($tagEnd, '/') . '\s*/su';
+        $pattern = '/\s*'.preg_quote($tagStart, '/').'.*?'.preg_quote($tagEnd, '/').'\s*/su';
         $clean = trim((string) preg_replace($pattern, "\n", $currentNote));
 
-        $newNote = $tagStart . ' ' . $this->buildNoteText($leave, $approver) . ' ' . $tagEnd;
+        $newNote = $tagStart.' '.$this->buildNoteText($leave, $approver).' '.$tagEnd;
 
-        return trim($clean === '' ? $newNote : ($clean . "\n" . $newNote));
+        return trim($clean === '' ? $newNote : ($clean."\n".$newNote));
     }
 
     /**
@@ -118,36 +118,36 @@ class AttendanceLeaveNoteService
         $dateText = Carbon::parse($leave->start_date)->format('d/m/Y');
 
         if (Carbon::parse($leave->end_date)->toDateString() !== Carbon::parse($leave->start_date)->toDateString()) {
-            $dateText .= ' - ' . Carbon::parse($leave->end_date)->format('d/m/Y');
+            $dateText .= ' - '.Carbon::parse($leave->end_date)->format('d/m/Y');
         }
 
         $parts = [
             $type,
-            'Loại: ' . $leaveType,
-            'Ngày: ' . $dateText,
-            'Số ngày: ' . rtrim(rtrim(number_format((float) $leave->days, 2, '.', ''), '0'), '.'),
+            'Loại: '.$leaveType,
+            'Ngày: '.$dateText,
+            'Số ngày: '.rtrim(rtrim(number_format((float) $leave->days, 2, '.', ''), '0'), '.'),
         ];
 
         $reason = $this->shorten((string) ($leave->reason ?? ''), 260);
 
         if ($reason !== '') {
-            $parts[] = 'Lý do: ' . $reason;
+            $parts[] = 'Lý do: '.$reason;
         }
 
         $approvedBy = $approver?->name ?: $leave->approver?->name;
 
         if ($approvedBy) {
-            $parts[] = 'Người duyệt: ' . $approvedBy;
+            $parts[] = 'Người duyệt: '.$approvedBy;
         }
 
         if ($leave->approved_at) {
-            $parts[] = 'Duyệt lúc: ' . Carbon::parse($leave->approved_at)->format('d/m/Y H:i');
+            $parts[] = 'Duyệt lúc: '.Carbon::parse($leave->approved_at)->format('d/m/Y H:i');
         }
 
         $approvalNote = $this->shorten((string) ($leave->approval_note ?? ''), 220);
 
         if ($approvalNote !== '') {
-            $parts[] = 'Ghi chú duyệt: ' . $approvalNote;
+            $parts[] = 'Ghi chú duyệt: '.$approvalNote;
         }
 
         return implode(' | ', $parts);
@@ -180,11 +180,11 @@ class AttendanceLeaveNoteService
         }
 
         if (function_exists('mb_strlen') && mb_strlen($text, 'UTF-8') > $limit) {
-            return mb_substr($text, 0, $limit, 'UTF-8') . '...';
+            return mb_substr($text, 0, $limit, 'UTF-8').'...';
         }
 
-        if (!function_exists('mb_strlen') && strlen($text) > $limit) {
-            return substr($text, 0, $limit) . '...';
+        if (! function_exists('mb_strlen') && strlen($text) > $limit) {
+            return substr($text, 0, $limit).'...';
         }
 
         return $text;

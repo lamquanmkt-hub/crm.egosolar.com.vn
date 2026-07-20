@@ -70,6 +70,15 @@ Tài liệu này ghi lại (1) những gì đã làm trong đợt refactor 2026-
 
 **Cách làm an toàn (đã áp dụng cho cả 4 controller):** viết **feature test đặc tả hành vi hiện tại** cho từng endpoint TRƯỚC, rồi mới tách từng nhóm method, chạy test sau mỗi lần. Không rewrite cả file một lần. Khi test đầu tiên fail, kiểm tra hành vi thật rồi sửa TEST cho khớp production — không sửa code cho khớp giả định.
 
+### P1f. Tầng Contracts (đợt 2026-07-20, sau khi deploy)
+- **Gộp một chỗ duy nhất:** `app/Repositories/Interfaces/` → `app/Contracts/Repositories/` (12 interface, 36 file tham chiếu) — khớp quy ước crm-shop. Trước đây interface nằm rải ở 2 nơi.
+- **Thêm 7 service interface** — chọn theo số nơi được inject (đo thực tế), không tạo tràn lan: Notification(5 nơi), SupplierDebt(4), OrderReturn(4), PageAccess(3), CommissionEngine(3), MediaUpload + Callio (seam ra filesystem/API ngoài, để test thay bằng fake). Chuyển 9 consumer sang phụ thuộc interface. Tổng contracts: 12 repo + 18 service = 30.
+- ⚠️ **Interface được SINH TỪ implementation của egosolar, KHÔNG copy từ crm-shop** — signature 2 codebase đã phân kỳ (vd `OrderServiceInterface` của shop có `getOrdersForExport` mà ego không có). Copy mù = fatal error lúc bind.
+- **Dọn code chết** (đã xác minh 0 tham chiếu, kể cả gọi động): xoá `LeadService`, `OrderApprovalService`, `PaymentService` và 3 repository trùng lặp ở `app/Repositories/{Lead,Order,Payment}Repository.php` (bản dùng thật là `app/Repositories/Eloquent/*`). Xoá thêm 2 method chết trong `SupplierDebtService`, hạ 1 method về private.
+
+### Vì sao KHÔNG nhân bản đủ 95 interface như crm-shop
+Interface chỉ trả cổ tức khi có nơi inject hoặc cần seam để test. Các lớp còn lại của egosolar là helper nội bộ dùng đúng 1 chỗ (exporter, `OrderStockGuard`, debug tool, `SalesCommissionScope` chỉ chứa hằng) — thêm interface cho chúng là ceremony, làm tăng file phải đồng bộ mà không đổi được gì. Tiêu chí đã dùng: **được inject ≥2 nơi, hoặc là seam ra hệ thống ngoài.**
+
 ## CÒN LẠI — theo thứ tự ưu tiên
 
 ### P1e. Tách tiếp phần còn lại của 4 controller trên (tuỳ chọn)

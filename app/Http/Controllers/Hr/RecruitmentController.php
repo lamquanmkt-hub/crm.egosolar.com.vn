@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 
 /**
  * Controller quản lý toàn bộ quy trình tuyển dụng: yêu cầu, sàng lọc, phỏng vấn, thư mời và tiếp nhận.
@@ -96,7 +96,7 @@ class RecruitmentController extends Controller
     /**
      * Dựng dữ liệu chung cho trang tuyển dụng (yêu cầu, ứng viên, phỏng vấn, offer, thống kê) theo tab đang chọn.
      *
-     * @param string $active Tab đang hiển thị
+     * @param  string  $active  Tab đang hiển thị
      */
     private function page($active)
     {
@@ -211,7 +211,7 @@ class RecruitmentController extends Controller
     /**
      * Cập nhật yêu cầu tuyển dụng theo ID.
      *
-     * @param int|string $id ID yêu cầu
+     * @param  int|string  $id  ID yêu cầu
      */
     public function updateRequest(Request $request, $id)
     {
@@ -238,7 +238,7 @@ class RecruitmentController extends Controller
     /**
      * Xoá yêu cầu tuyển dụng theo ID.
      *
-     * @param int|string $id ID yêu cầu
+     * @param  int|string  $id  ID yêu cầu
      */
     public function destroyRequest($id)
     {
@@ -285,7 +285,7 @@ class RecruitmentController extends Controller
     /**
      * Cập nhật thông tin ứng viên theo ID.
      *
-     * @param int|string $id ID ứng viên
+     * @param  int|string  $id  ID ứng viên
      */
     public function updateCandidate(Request $request, $id)
     {
@@ -322,7 +322,7 @@ class RecruitmentController extends Controller
     /**
      * Xoá ứng viên theo ID.
      *
-     * @param int|string $id ID ứng viên
+     * @param  int|string  $id  ID ứng viên
      */
     public function destroyCandidate($id)
     {
@@ -367,7 +367,7 @@ class RecruitmentController extends Controller
     /**
      * Cập nhật lịch / đánh giá phỏng vấn và đồng bộ trạng thái ứng viên.
      *
-     * @param int|string $id ID lịch phỏng vấn
+     * @param  int|string  $id  ID lịch phỏng vấn
      */
     public function updateInterview(Request $request, $id)
     {
@@ -402,7 +402,7 @@ class RecruitmentController extends Controller
     /**
      * Xoá lịch phỏng vấn theo ID.
      *
-     * @param int|string $id ID lịch phỏng vấn
+     * @param  int|string  $id  ID lịch phỏng vấn
      */
     public function destroyInterview($id)
     {
@@ -442,7 +442,7 @@ class RecruitmentController extends Controller
     /**
      * Cập nhật thư mời / tiếp nhận nhân sự và đồng bộ trạng thái ứng viên.
      *
-     * @param int|string $id ID thư mời
+     * @param  int|string  $id  ID thư mời
      */
     public function updateOffer(Request $request, $id)
     {
@@ -472,7 +472,7 @@ class RecruitmentController extends Controller
     /**
      * Xoá đề nghị nhận việc theo ID.
      *
-     * @param int|string $id ID thư mời
+     * @param  int|string  $id  ID thư mời
      */
     public function destroyOffer($id)
     {
@@ -673,14 +673,13 @@ class RecruitmentController extends Controller
         ];
     }
 
-
     /**
      * Chuẩn hoá các trường datetime dạng HTML (thay chữ T bằng khoảng trắng) ngay trên mảng dữ liệu.
      */
     private function normalizeDateTimes(array &$data, array $fields): void
     {
         foreach ($fields as $field) {
-            if (!empty($data[$field]) && is_string($data[$field])) {
+            if (! empty($data[$field]) && is_string($data[$field])) {
                 $data[$field] = str_replace('T', ' ', $data[$field]);
             }
         }
@@ -691,7 +690,7 @@ class RecruitmentController extends Controller
      */
     private function onlyExistingColumns(string $table, array $data): array
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return $data;
         }
 
@@ -713,7 +712,7 @@ class RecruitmentController extends Controller
             'hr_recruitment_interviews',
             'hr_recruitment_offers',
         ] as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 return;
             }
         }
@@ -743,7 +742,7 @@ class RecruitmentController extends Controller
      */
     private function addColumnIfMissing(string $table, string $column, callable $definition): void
     {
-        if (Schema::hasTable($table) && !Schema::hasColumn($table, $column)) {
+        if (Schema::hasTable($table) && ! Schema::hasColumn($table, $column)) {
             Schema::table($table, function (Blueprint $blueprint) use ($definition) {
                 $definition($blueprint);
             });

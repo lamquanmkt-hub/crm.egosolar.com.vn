@@ -140,11 +140,11 @@ class AttendanceController extends Controller
                 DB::raw('COUNT(id) as total_records'),
                 DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL THEN 1 ELSE 0 END) as valid_days'),
                 DB::raw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_days"),
-                DB::raw("SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) as late_days"),
+                DB::raw('SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) as late_days'),
                 DB::raw("SUM(CASE WHEN status = 'early_leave' THEN 1 ELSE 0 END) as early_leave_days"),
-                DB::raw("SUM(CASE WHEN check_in_at IS NOT NULL AND check_out_at IS NULL THEN 1 ELSE 0 END) as incomplete_days"),
+                DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL AND check_out_at IS NULL THEN 1 ELSE 0 END) as incomplete_days'),
                 DB::raw('SUM(work_minutes) as total_work_minutes'),
-                DB::raw("SUM(CASE WHEN check_in_at IS NOT NULL AND late_minutes = 0 THEN 1 ELSE 0 END) as ontime_days"),
+                DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL AND late_minutes = 0 THEN 1 ELSE 0 END) as ontime_days'),
             ])
             ->groupBy('user_id')
             ->get()
@@ -272,7 +272,7 @@ class AttendanceController extends Controller
         $workStartTime = $this->normalizeTime($setting->work_start_time ?? null, '08:30:00');
         $graceMinutes = max((int) ($setting->late_grace_minutes ?? 0), 0);
 
-        $standardCheckIn = Carbon::parse($workDate . ' ' . $workStartTime);
+        $standardCheckIn = Carbon::parse($workDate.' '.$workStartTime);
         $allowedCheckIn = (clone $standardCheckIn)->addMinutes($graceMinutes);
 
         $lateMinutes = $now->greaterThan($allowedCheckIn)
@@ -317,7 +317,7 @@ class AttendanceController extends Controller
             ->whereDate('work_date', $workDate)
             ->first();
 
-        if (!$record || !$record->check_in_at) {
+        if (! $record || ! $record->check_in_at) {
             return back()->with('error', 'Bạn chưa check-in hôm nay.');
         }
 
@@ -328,7 +328,7 @@ class AttendanceController extends Controller
         $checkInAt = Carbon::parse($record->check_in_at);
 
         $workEndTime = $this->normalizeTime($setting->work_end_time ?? null, '18:00:00');
-        $standardCheckOut = Carbon::parse($workDate . ' ' . $workEndTime);
+        $standardCheckOut = Carbon::parse($workDate.' '.$workEndTime);
 
         $workMinutes = $checkInAt->diffInMinutes($now);
 
@@ -355,7 +355,7 @@ class AttendanceController extends Controller
         }
 
         if ($request->filled('note')) {
-            $record->note = trim(($record->note ? $record->note . "\n" : '') . $request->note);
+            $record->note = trim(($record->note ? $record->note."\n" : '').$request->note);
         }
 
         $record->save();
@@ -374,7 +374,7 @@ class AttendanceController extends Controller
             return $setting;
         }
 
-        $setting = new AttendanceSetting();
+        $setting = new AttendanceSetting;
         $setting->work_start_time = '08:30:00';
         $setting->work_end_time = '18:00:00';
         $setting->late_grace_minutes = 5;
@@ -412,7 +412,7 @@ class AttendanceController extends Controller
         $time = trim((string) $time);
 
         if (preg_match('/^\d{2}:\d{2}$/', $time)) {
-            return $time . ':00';
+            return $time.':00';
         }
 
         if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $time)) {
@@ -425,8 +425,8 @@ class AttendanceController extends Controller
     /**
      * Chuyển toạ độ GPS thành địa chỉ qua Nominatim; nếu lỗi thì trả về chuỗi toạ độ thô.
      *
-     * @param mixed $lat Vĩ độ
-     * @param mixed $lng Kinh độ
+     * @param  mixed  $lat  Vĩ độ
+     * @param  mixed  $lng  Kinh độ
      */
     private function resolveAddress($lat, $lng): ?string
     {
@@ -437,7 +437,7 @@ class AttendanceController extends Controller
         try {
             $response = Http::timeout(8)
                 ->withHeaders([
-                    'User-Agent' => config('app.name', 'Laravel') . '/1.0 attendance-system',
+                    'User-Agent' => config('app.name', 'Laravel').'/1.0 attendance-system',
                     'Accept-Language' => 'vi',
                 ])
                 ->get('https://nominatim.openstreetmap.org/reverse', [
@@ -449,17 +449,15 @@ class AttendanceController extends Controller
             if ($response->successful()) {
                 $displayName = $response->json('display_name');
 
-                if (!empty($displayName)) {
+                if (! empty($displayName)) {
                     return $displayName;
                 }
             }
         } catch (\Throwable $e) {
         }
 
-        return 'GPS: ' . number_format((float) $lat, 7, '.', '') . ', ' . number_format((float) $lng, 7, '.', '');
+        return 'GPS: '.number_format((float) $lat, 7, '.', '').', '.number_format((float) $lng, 7, '.', '');
     }
-
-
 
     /**
      * Xuất báo cáo chấm công tháng ra Excel: sheet tổng hợp, lịch công chuẩn và sheet chi tiết từng nhân viên.
@@ -636,11 +634,11 @@ class AttendanceController extends Controller
                 'user_id',
                 DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL THEN 1 ELSE 0 END) as valid_days'),
                 DB::raw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_days"),
-                DB::raw("SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) as late_days"),
+                DB::raw('SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) as late_days'),
                 DB::raw("SUM(CASE WHEN status = 'early_leave' THEN 1 ELSE 0 END) as early_leave_days"),
-                DB::raw("SUM(CASE WHEN check_in_at IS NOT NULL AND check_out_at IS NULL THEN 1 ELSE 0 END) as incomplete_days"),
+                DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL AND check_out_at IS NULL THEN 1 ELSE 0 END) as incomplete_days'),
                 DB::raw('SUM(work_minutes) as total_work_minutes'),
-                DB::raw("SUM(CASE WHEN check_in_at IS NOT NULL AND late_minutes = 0 THEN 1 ELSE 0 END) as ontime_days"),
+                DB::raw('SUM(CASE WHEN check_in_at IS NOT NULL AND late_minutes = 0 THEN 1 ELSE 0 END) as ontime_days'),
             ])
             ->groupBy('user_id')
             ->get()
@@ -690,10 +688,10 @@ class AttendanceController extends Controller
             ];
         });
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
-            ->setTitle('Báo cáo chấm công ' . $month);
+            ->setTitle('Báo cáo chấm công '.$month);
 
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
@@ -760,10 +758,10 @@ class AttendanceController extends Controller
             $i = 2;
 
             while (in_array($title, $usedTitles, true)) {
-                $suffix = ' ' . $i;
+                $suffix = ' '.$i;
                 $limit = 31 - strlen($suffix);
                 $shortBase = function_exists('mb_substr') ? mb_substr($base, 0, $limit) : substr($base, 0, $limit);
-                $title = $shortBase . $suffix;
+                $title = $shortBase.$suffix;
                 $i++;
             }
 
@@ -784,7 +782,7 @@ class AttendanceController extends Controller
         $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $summarySheet->mergeCells('A2:O2');
-        $summarySheet->setCellValue('A2', 'Tháng ' . $start->format('m/Y') . ' | Công chuẩn: ' . $standardDays . ' | Thứ 7 đi làm: ' . $saturdayWorkdays . ' | Ngày nghỉ/lễ đã cấu hình: ' . $holidayDeductedDays);
+        $summarySheet->setCellValue('A2', 'Tháng '.$start->format('m/Y').' | Công chuẩn: '.$standardDays.' | Thứ 7 đi làm: '.$saturdayWorkdays.' | Ngày nghỉ/lễ đã cấu hình: '.$holidayDeductedDays);
         $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $summaryHeaders = [
@@ -824,16 +822,16 @@ class AttendanceController extends Controller
                 $item->early_leave_days,
                 $item->incomplete_days,
                 $item->total_hours,
-                $item->ontime_rate . '%',
+                $item->ontime_rate.'%',
                 $item->rank_label,
-                $item->missing_days > 0 ? 'Thiếu ' . $item->missing_days . ' công' : '',
-            ], null, 'A' . $rowNumber);
+                $item->missing_days > 0 ? 'Thiếu '.$item->missing_days.' công' : '',
+            ], null, 'A'.$rowNumber);
 
             $rowNumber++;
         }
 
         if ($rowNumber > 5) {
-            $summarySheet->getStyle('A4:O' . ($rowNumber - 1))->applyFromArray($cellStyle);
+            $summarySheet->getStyle('A4:O'.($rowNumber - 1))->applyFromArray($cellStyle);
         }
 
         $summarySheet->freezePane('A5');
@@ -848,7 +846,7 @@ class AttendanceController extends Controller
         $calendarSheet->setTitle('Lich cong chuan');
 
         $calendarSheet->mergeCells('A1:F1');
-        $calendarSheet->setCellValue('A1', 'LỊCH CÔNG CHUẨN THÁNG ' . $start->format('m/Y'));
+        $calendarSheet->setCellValue('A1', 'LỊCH CÔNG CHUẨN THÁNG '.$start->format('m/Y'));
         $calendarSheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
         $calendarSheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
@@ -874,12 +872,12 @@ class AttendanceController extends Controller
                 $calendarDay->is_workday ? 'Có' : 'Không',
                 $calendarDay->holiday_name ?: '',
                 $calendarDay->is_workday ? 'Ngày phải chấm công' : 'Không tính công chuẩn',
-            ], null, 'A' . $calendarRow);
+            ], null, 'A'.$calendarRow);
 
             $calendarRow++;
         }
 
-        $calendarSheet->getStyle('A3:F' . ($calendarRow - 1))->applyFromArray($cellStyle);
+        $calendarSheet->getStyle('A3:F'.($calendarRow - 1))->applyFromArray($cellStyle);
         $calendarSheet->freezePane('A4');
         $autoSize($calendarSheet, 'F');
 
@@ -898,12 +896,12 @@ class AttendanceController extends Controller
             $sheet->setTitle($sheetTitle);
 
             $sheet->mergeCells('A1:O1');
-            $sheet->setCellValue('A1', 'CHI TIẾT CHẤM CÔNG - ' . $employee->name);
+            $sheet->setCellValue('A1', 'CHI TIẾT CHẤM CÔNG - '.$employee->name);
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $sheet->mergeCells('A2:O2');
-            $sheet->setCellValue('A2', 'Tháng ' . $start->format('m/Y') . ' | Phòng ban: ' . (optional($employee->department)->name ?? '-') . ' | Chức vụ: ' . (optional($employee->position)->name ?? '-') . ' | Công chuẩn: ' . $standardDays);
+            $sheet->setCellValue('A2', 'Tháng '.$start->format('m/Y').' | Phòng ban: '.(optional($employee->department)->name ?? '-').' | Chức vụ: '.(optional($employee->position)->name ?? '-').' | Công chuẩn: '.$standardDays);
             $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $detailHeaders = [
@@ -954,27 +952,27 @@ class AttendanceController extends Controller
                     $record ? ($record->check_in_address ?: '-') : '-',
                     $record ? $formatTime($record->check_out_at) : '-',
                     $record ? ($record->check_out_address ?: '-') : '-',
-                    $record ? ((int) $record->late_minutes . ' phút') : '-',
-                    $record ? ((int) $record->early_leave_minutes . ' phút') : '-',
-                    $record ? (round(((int) $record->work_minutes) / 60, 2) . ' giờ') : '-',
+                    $record ? ((int) $record->late_minutes.' phút') : '-',
+                    $record ? ((int) $record->early_leave_minutes.' phút') : '-',
+                    $record ? (round(((int) $record->work_minutes) / 60, 2).' giờ') : '-',
                     $rowStatus,
                     $calendarDay->holiday_name ?: '',
                     $record ? ($record->note ?: '') : '',
-                ], null, 'A' . $detailRow);
+                ], null, 'A'.$detailRow);
 
                 $detailRow++;
             }
 
-            $sheet->getStyle('A4:O' . ($detailRow - 1))->applyFromArray($cellStyle);
-            $sheet->getStyle('G5:G' . ($detailRow - 1))->getAlignment()->setWrapText(true);
-            $sheet->getStyle('I5:I' . ($detailRow - 1))->getAlignment()->setWrapText(true);
+            $sheet->getStyle('A4:O'.($detailRow - 1))->applyFromArray($cellStyle);
+            $sheet->getStyle('G5:G'.($detailRow - 1))->getAlignment()->setWrapText(true);
+            $sheet->getStyle('I5:I'.($detailRow - 1))->getAlignment()->setWrapText(true);
             $sheet->freezePane('A5');
             $autoSize($sheet, 'O');
         }
 
         $spreadsheet->setActiveSheetIndex(0);
 
-        $fileName = 'bao-cao-cham-cong-' . $month . '.xlsx';
+        $fileName = 'bao-cao-cham-cong-'.$month.'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -984,8 +982,6 @@ class AttendanceController extends Controller
             'Cache-Control' => 'max-age=0',
         ]);
     }
-
-
 
     /**
      * Xuất bảng công tháng ra PDF khổ A4 ngang theo bộ lọc.
@@ -1052,8 +1048,6 @@ class AttendanceController extends Controller
             'end'
         ))->setPaper('a4', 'landscape');
 
-        return $pdf->download('bang-cong-' . $month . '.pdf');
+        return $pdf->download('bang-cong-'.$month.'.pdf');
     }
-
-
 }

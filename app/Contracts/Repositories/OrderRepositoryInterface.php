@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories\Interfaces;
+namespace App\Contracts\Repositories;
 
 use App\Models\CRM\Orders\Order;
 use Illuminate\Database\Eloquent\Collection;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Finance;
 
+use App\Contracts\Services\SupplierDebtServiceInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
  * Tách nguyên trạng từ Finance\SupplierDebtController (P1d refactor) —
  * hành vi chốt bằng SupplierDebtCharacterizationTest.
  */
-class SupplierDebtService
+class SupplierDebtService implements SupplierDebtServiceInterface
 {
     /**
      * Danh sách công ty được phép chọn khi nhập công nợ.
@@ -51,17 +52,9 @@ class SupplierDebtService
     /**
      * Các trạng thái ĐNTT được xem là đã hoàn tất chi.
      */
-    public function completedPaymentRequestStatuses(): array
+    private function completedPaymentRequestStatuses(): array
     {
         return ['accounting_approved', 'paid', 'completed', 'complete', 'done', 'closed'];
-    }
-
-    /**
-     * Các trạng thái ĐNTT còn đang mở chờ chi.
-     */
-    public function payablePaymentRequestStatuses(): array
-    {
-        return ['submitted', 'admin_approved', 'requested', 'draft', 'pending'];
     }
 
     /**
@@ -92,18 +85,6 @@ class SupplierDebtService
         }
 
         return in_array(strtolower((string) ($paymentRequest->status ?? '')), $this->completedPaymentRequestStatuses(), true);
-    }
-
-    /**
-     * Kiểm tra ĐNTT còn đang mở (chưa chi) hay không.
-     */
-    public function paymentRequestIsOpen($paymentRequest): bool
-    {
-        if (! $paymentRequest) {
-            return false;
-        }
-
-        return in_array(strtolower((string) ($paymentRequest->status ?? '')), $this->payablePaymentRequestStatuses(), true);
     }
 
     /**

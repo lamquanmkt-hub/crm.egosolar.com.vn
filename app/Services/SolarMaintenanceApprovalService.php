@@ -19,13 +19,13 @@ class SolarMaintenanceApprovalService
     public function submit(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
-            if (!in_array($schedule->status, ['in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true)) {
+            if (! in_array($schedule->status, ['in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true)) {
                 throw ValidationException::withMessages([
                     'approval' => 'Chỉ gửi duyệt khi công việc đang thực hiện, chờ gửi duyệt hoặc đang được yêu cầu chỉnh sửa.',
                 ]);
             }
 
-            if (!trim((string) $schedule->result_note)) {
+            if (! trim((string) $schedule->result_note)) {
                 throw ValidationException::withMessages([
                     'result_note' => 'Phải nhập kết quả xử lý trước khi gửi duyệt.',
                 ]);
@@ -83,7 +83,7 @@ class SolarMaintenanceApprovalService
             $this->assertPending($schedule);
             $this->assertNotExecutor($schedule, $actor);
 
-            if (!trim($comment)) {
+            if (! trim($comment)) {
                 throw ValidationException::withMessages(['comment' => 'Phải nhập nội dung cần chỉnh sửa.']);
             }
 
@@ -111,7 +111,7 @@ class SolarMaintenanceApprovalService
             $this->assertPending($schedule);
             $this->assertNotExecutor($schedule, $actor);
 
-            if (!trim($comment)) {
+            if (! trim($comment)) {
                 throw ValidationException::withMessages(['comment' => 'Phải nhập lý do từ chối.']);
             }
 
@@ -125,7 +125,7 @@ class SolarMaintenanceApprovalService
             ])->save();
 
             $this->approval($schedule, $actor, 'reject', 'rejected', $comment, $actor->id);
-            $this->history($schedule, $actor, $oldStatus, 'revision_requested', 'Từ chối: ' . $comment);
+            $this->history($schedule, $actor, $oldStatus, 'revision_requested', 'Từ chối: '.$comment);
             $this->audit($schedule, $actor, 'approval_rejected');
         });
     }
@@ -136,11 +136,11 @@ class SolarMaintenanceApprovalService
     public function reopen(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
-            if (!in_array($schedule->status, ['approved', 'completed', 'pending_approval', 'revision_requested'], true)) {
+            if (! in_array($schedule->status, ['approved', 'completed', 'pending_approval', 'revision_requested'], true)) {
                 throw ValidationException::withMessages(['comment' => 'Trạng thái hiện tại không cần mở lại.']);
             }
 
-            if (!trim($comment)) {
+            if (! trim($comment)) {
                 throw ValidationException::withMessages(['comment' => 'Phải nhập lý do mở lại công việc.']);
             }
 
@@ -162,7 +162,7 @@ class SolarMaintenanceApprovalService
             ])->save();
 
             $this->approval($schedule, $actor, 'reopen', 'not_submitted', $comment, $actor->id);
-            $this->history($schedule, $actor, $oldStatus, 'in_progress', 'Mở lại: ' . $comment);
+            $this->history($schedule, $actor, $oldStatus, 'in_progress', 'Mở lại: '.$comment);
             $this->audit($schedule, $actor, 'approval_reopened');
         });
     }

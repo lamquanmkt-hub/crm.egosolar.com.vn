@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\CRM\Customers\Customer;
-use App\Repositories\Interfaces\CustomerRepositoryInterface;
+use App\Contracts\Repositories\CustomerRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**

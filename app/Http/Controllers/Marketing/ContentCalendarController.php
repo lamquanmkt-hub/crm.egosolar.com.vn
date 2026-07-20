@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Marketing;
 use App\Http\Controllers\Controller;
 use App\Models\Content\ContentCalendar;
 use App\Models\ContentFeedback;
+use App\Models\Marketing\MarketingKpiPayActual;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-use App\Models\User;
-use App\Models\Marketing\MarketingKpiPayActual;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,11 +25,11 @@ class ContentCalendarController extends Controller
     private function typeGroups(): array
     {
         return [
-            'post'   => ['Bài viết'],
-            'ai'     => ['Video', 'Video AI'],
+            'post' => ['Bài viết'],
+            'ai' => ['Video', 'Video AI'],
             'review' => ['Video Review'],
-            'trend'  => ['Trend Video'],
-            'live'   => ['Livestream'],
+            'trend' => ['Trend Video'],
+            'live' => ['Livestream'],
         ];
     }
 
@@ -88,22 +88,22 @@ class ContentCalendarController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'publish_date'  => 'required|date',
-            'platform'      => 'required|string',
-            'content_type'  => 'required|string',
-            'title'         => 'required|string|max:255',
-            'description'   => 'nullable|string',
-            'full_content'  => 'nullable|string',
-            'status'        => 'required|string',
-            'campaign_id'   => 'nullable',
-            'link'          => 'nullable|url|max:2048',
-            'attachment'    => 'nullable|file|max:10240',
+            'publish_date' => 'required|date',
+            'platform' => 'required|string',
+            'content_type' => 'required|string',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'full_content' => 'nullable|string',
+            'status' => 'required|string',
+            'campaign_id' => 'nullable',
+            'link' => 'nullable|url|max:2048',
+            'attachment' => 'nullable|file|max:10240',
 
-            'assignees'     => 'nullable|array',
-            'assignees.*'   => 'nullable|string|max:255',
+            'assignees' => 'nullable|array',
+            'assignees.*' => 'nullable|string|max:255',
 
             'assignee_user_id' => 'nullable|integer|exists:users,id',
-            'assignee'      => 'nullable|string|max:255',
+            'assignee' => 'nullable|string|max:255',
         ]);
 
         $assignees = $this->normalizeAssignees($request);
@@ -123,25 +123,25 @@ class ContentCalendarController extends Controller
 
         $item = ContentCalendar::create([
             'publish_date' => $validated['publish_date'],
-            'platform'     => $validated['platform'],
+            'platform' => $validated['platform'],
             'content_type' => $validated['content_type'],
-            'title'        => $validated['title'],
-            'description'  => $validated['description'] ?? null,
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
             'full_content' => $validated['full_content'] ?? null,
-            'campaign_id'  => $validated['campaign_id'] ?? null,
-            'created_by'   => Auth::id(),
-            'status'       => $validated['status'],
-            'link'         => $validated['link'] ?? null,
+            'campaign_id' => $validated['campaign_id'] ?? null,
+            'created_by' => Auth::id(),
+            'status' => $validated['status'],
+            'link' => $validated['link'] ?? null,
 
             'assignee_user_id' => $assigneeUserId ?: null,
-            'assignee'     => $assigneeJoined ?: null,
-            'assignees'    => count($assignees) ? json_encode($assignees, JSON_UNESCAPED_UNICODE) : null,
+            'assignee' => $assigneeJoined ?: null,
+            'assignees' => count($assignees) ? json_encode($assignees, JSON_UNESCAPED_UNICODE) : null,
         ]);
 
         // ✅ Sync KPI payroll nếu có assignee
-        if (!empty($assigneeUserId)) {
+        if (! empty($assigneeUserId)) {
             $period = Carbon::parse($validated['publish_date'])->format('Y-m');
-            $this->syncKpiPayrollFromCalendarByMonth($period, (int)$assigneeUserId);
+            $this->syncKpiPayrollFromCalendarByMonth($period, (int) $assigneeUserId);
         }
 
         if ($request->hasFile('attachment')) {
@@ -149,9 +149,9 @@ class ContentCalendarController extends Controller
             $path = $file->store('content_files', 'public');
             if (method_exists($item, 'files')) {
                 $item->files()->create([
-                    'file_path'   => $path,
-                    'file_name'   => $file->getClientOriginalName(),
-                    'file_type'   => $file->getClientMimeType(),
+                    'file_path' => $path,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_type' => $file->getClientMimeType(),
                     'uploaded_by' => auth()->id(),
                 ]);
             } else {
@@ -169,27 +169,27 @@ class ContentCalendarController extends Controller
      */
     public function storeFeedback(Request $request, $id)
     {
-        if (!Schema::hasTable('content_feedbacks')) {
+        if (! Schema::hasTable('content_feedbacks')) {
             return back()->with('error', 'Chưa có bảng content_feedbacks. Hãy chạy migrate.');
         }
 
         $request->validate([
-            'message'    => 'required|string',
-            'parent_id'  => 'nullable|integer',
-            'image'      => 'nullable|image|max:4096',
+            'message' => 'required|string',
+            'parent_id' => 'nullable|integer',
+            'image' => 'nullable|image|max:4096',
         ]);
 
         $item = ContentCalendar::findOrFail($id);
 
         // Validate parent_id thuộc cùng content_calendar_id (nếu có)
         $parentId = $request->input('parent_id');
-        if (!empty($parentId)) {
+        if (! empty($parentId)) {
             $parent = ContentFeedback::query()
-                ->where('id', (int)$parentId)
-                ->where('content_calendar_id', (int)$item->id)
+                ->where('id', (int) $parentId)
+                ->where('content_calendar_id', (int) $item->id)
                 ->first();
 
-            if (!$parent) {
+            if (! $parent) {
                 return back()->with('error', 'Comment cha không hợp lệ.');
             }
         }
@@ -200,11 +200,11 @@ class ContentCalendarController extends Controller
         }
 
         ContentFeedback::create([
-            'content_calendar_id' => (int)$item->id,
-            'user_id'             => Auth::id(),
-            'parent_id'           => $parentId ? (int)$parentId : null,
-            'message'             => $request->message,
-            'image_path'          => $path,
+            'content_calendar_id' => (int) $item->id,
+            'user_id' => Auth::id(),
+            'parent_id' => $parentId ? (int) $parentId : null,
+            'message' => $request->message,
+            'image_path' => $path,
         ]);
 
         return back()->with('success', 'Đã gửi feedback');
@@ -220,9 +220,11 @@ class ContentCalendarController extends Controller
         ]);
 
         $fb = ContentFeedback::with('user')->find($fbId);
-        if (!$fb) return back()->with('error', 'Feedback không tồn tại');
+        if (! $fb) {
+            return back()->with('error', 'Feedback không tồn tại');
+        }
 
-        if ((int)$fb->user_id !== (int)Auth::id()) {
+        if ((int) $fb->user_id !== (int) Auth::id()) {
             return back()->with('error', 'Bạn không có quyền sửa feedback này');
         }
 
@@ -238,23 +240,25 @@ class ContentCalendarController extends Controller
     public function deleteFeedback($fbId)
     {
         $fb = ContentFeedback::find($fbId);
-        if (!$fb) return back()->with('error', 'Feedback không tồn tại');
+        if (! $fb) {
+            return back()->with('error', 'Feedback không tồn tại');
+        }
 
-        if ((int)$fb->user_id !== (int)Auth::id()) {
+        if ((int) $fb->user_id !== (int) Auth::id()) {
             return back()->with('error', 'Bạn không có quyền xoá feedback này');
         }
 
         // Xoá replies con trước
-        $children = ContentFeedback::query()->where('parent_id', (int)$fb->id)->get();
+        $children = ContentFeedback::query()->where('parent_id', (int) $fb->id)->get();
         foreach ($children as $c) {
-            if (!empty($c->image_path) && Storage::disk('public')->exists($c->image_path)) {
+            if (! empty($c->image_path) && Storage::disk('public')->exists($c->image_path)) {
                 Storage::disk('public')->delete($c->image_path);
             }
             $c->delete();
         }
 
         // Xoá ảnh của comment cha (nếu có)
-        if (!empty($fb->image_path) && Storage::disk('public')->exists($fb->image_path)) {
+        if (! empty($fb->image_path) && Storage::disk('public')->exists($fb->image_path)) {
             Storage::disk('public')->delete($fb->image_path);
         }
 
@@ -283,6 +287,7 @@ class ContentCalendarController extends Controller
 
         $feedbackTree = $parents->map(function ($p) use ($childrenByParent) {
             $p->children = ($childrenByParent[$p->id] ?? collect())->values();
+
             return $p;
         });
 
@@ -347,31 +352,33 @@ class ContentCalendarController extends Controller
 
         $validated = $request->validate([
             'publish_date' => 'nullable|date',
-            'platform'     => 'nullable|string',
+            'platform' => 'nullable|string',
             'content_type' => 'nullable|string',
-            'title'        => 'nullable|string|max:255',
-            'description'  => 'nullable|string',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
             'full_content' => 'nullable|string',
-            'status'       => 'nullable|string',
-            'campaign_id'  => 'nullable',
-            'link'         => 'nullable|url|max:2048',
-            'attachment'   => 'nullable|file|max:10240',
+            'status' => 'nullable|string',
+            'campaign_id' => 'nullable',
+            'link' => 'nullable|url|max:2048',
+            'attachment' => 'nullable|file|max:10240',
 
-            'assignees'    => 'nullable|array',
-            'assignees.*'  => 'nullable|string|max:255',
+            'assignees' => 'nullable|array',
+            'assignees.*' => 'nullable|string|max:255',
             'assignee_user_id' => 'nullable|integer|exists:users,id',
-            'assignee'     => 'nullable|string|max:255',
+            'assignee' => 'nullable|string|max:255',
         ]);
 
         $updateData = [];
         foreach (['publish_date', 'platform', 'content_type', 'title', 'description', 'full_content', 'status', 'campaign_id', 'link'] as $k) {
-            if (array_key_exists($k, $validated)) $updateData[$k] = $validated[$k];
+            if (array_key_exists($k, $validated)) {
+                $updateData[$k] = $validated[$k];
+            }
         }
 
         $assignees = $this->normalizeAssignees($request);
 
         if (empty($assignees)) {
-            $legacy = trim((string)$request->input('assignee', ''));
+            $legacy = trim((string) $request->input('assignee', ''));
             if ($legacy !== '') {
                 $parts = preg_split('/,|;|\|/', $legacy);
                 $parts = array_values(array_filter(array_map('trim', $parts)));
@@ -380,8 +387,10 @@ class ContentCalendarController extends Controller
             }
         }
 
-        $assigneeJoined = trim((string)($validated['assignee'] ?? ''));
-        if ($assigneeJoined === '' && count($assignees)) $assigneeJoined = implode(', ', $assignees);
+        $assigneeJoined = trim((string) ($validated['assignee'] ?? ''));
+        if ($assigneeJoined === '' && count($assignees)) {
+            $assigneeJoined = implode(', ', $assignees);
+        }
 
         if ($request->has('assignee_user_id')) {
             $assigneeUserId = $request->input('assignee_user_id');
@@ -404,27 +413,37 @@ class ContentCalendarController extends Controller
             }
         } else {
             if ($request->has('assignee') || $request->has('assignees')) {
-                $updateData['assignee']  = $assigneeJoined ?: null;
+                $updateData['assignee'] = $assigneeJoined ?: null;
                 $updateData['assignees'] = count($assignees) ? json_encode($assignees, JSON_UNESCAPED_UNICODE) : null;
             }
         }
 
-        if (!empty($updateData)) $item->update($updateData);
+        if (! empty($updateData)) {
+            $item->update($updateData);
+        }
 
         // ✅ Auto sync KPI payroll theo tháng sau khi sửa
         $assigneeId = $item->assignee_user_id ?? null;
-        if ($request->has('assignee_user_id')) $assigneeId = $request->input('assignee_user_id') ?: null;
+        if ($request->has('assignee_user_id')) {
+            $assigneeId = $request->input('assignee_user_id') ?: null;
+        }
 
         $publishDate = $item->publish_date;
-        if ($request->filled('publish_date')) $publishDate = $request->input('publish_date');
+        if ($request->filled('publish_date')) {
+            $publishDate = $request->input('publish_date');
+        }
 
         $needSync = false;
-        if ($request->has('status') || $request->has('publish_date') || $request->has('content_type') || $request->has('assignee_user_id')) $needSync = true;
-        if (($request->input('status') ?? $item->status) === 'posted') $needSync = true;
+        if ($request->has('status') || $request->has('publish_date') || $request->has('content_type') || $request->has('assignee_user_id')) {
+            $needSync = true;
+        }
+        if (($request->input('status') ?? $item->status) === 'posted') {
+            $needSync = true;
+        }
 
-        if ($needSync && !empty($assigneeId) && !empty($publishDate)) {
+        if ($needSync && ! empty($assigneeId) && ! empty($publishDate)) {
             $period = Carbon::parse($publishDate)->format('Y-m');
-            $this->syncKpiPayrollFromCalendarByMonth($period, (int)$assigneeId);
+            $this->syncKpiPayrollFromCalendarByMonth($period, (int) $assigneeId);
         }
 
         if ($request->hasFile('attachment')) {
@@ -433,9 +452,9 @@ class ContentCalendarController extends Controller
 
             if (method_exists($item, 'files')) {
                 $item->files()->create([
-                    'file_path'   => $path,
-                    'file_name'   => $file->getClientOriginalName(),
-                    'file_type'   => $file->getClientMimeType(),
+                    'file_path' => $path,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_type' => $file->getClientMimeType(),
                     'uploaded_by' => auth()->id(),
                 ]);
             } else {
@@ -462,10 +481,10 @@ class ContentCalendarController extends Controller
         $path = $file->store('content_files', 'public');
 
         $item->files()->create([
-            'file_path'     => $path,
-            'file_name'     => $file->getClientOriginalName(),
-            'file_type'     => $file->getClientMimeType(),
-            'uploaded_by'   => auth()->id(),
+            'file_path' => $path,
+            'file_name' => $file->getClientOriginalName(),
+            'file_type' => $file->getClientMimeType(),
+            'uploaded_by' => auth()->id(),
         ]);
 
         return back()->with('success', 'Đã upload file');
@@ -479,7 +498,7 @@ class ContentCalendarController extends Controller
         $item = ContentCalendar::findOrFail($id);
 
         $item->update([
-            'status'       => 'submitted',
+            'status' => 'submitted',
             'submitted_at' => now(),
         ]);
 
@@ -494,7 +513,7 @@ class ContentCalendarController extends Controller
         $item = ContentCalendar::findOrFail($id);
 
         $item->update([
-            'status'      => 'approved',
+            'status' => 'approved',
             'approved_at' => now(),
             'approved_by' => auth()->id(),
         ]);
@@ -511,7 +530,7 @@ class ContentCalendarController extends Controller
             'week_start' => ['required'],
         ]);
 
-        $weekStart = $this->parseDateFlexible((string)$request->week_start)
+        $weekStart = $this->parseDateFlexible((string) $request->week_start)
             ->startOfWeek(Carbon::MONDAY)
             ->format('Y-m-d');
 
@@ -545,19 +564,19 @@ class ContentCalendarController extends Controller
         ]);
 
         // ✅ FIX: parse dd/mm/yyyy hoặc yyyy-mm-dd
-        $weekStartCarbon = $this->parseDateFlexible((string)$request->week_start)->startOfWeek(Carbon::MONDAY);
-        $weekEndCarbon   = (clone $weekStartCarbon)->endOfWeek(Carbon::SUNDAY);
+        $weekStartCarbon = $this->parseDateFlexible((string) $request->week_start)->startOfWeek(Carbon::MONDAY);
+        $weekEndCarbon = (clone $weekStartCarbon)->endOfWeek(Carbon::SUNDAY);
 
         $payload = [
             'week_end' => $weekEndCarbon->format('Y-m-d'),
-            'reach' => (int)($request->reach ?? 0),
-            'views' => (int)($request->views ?? 0),
-            'likes' => (int)($request->likes ?? 0),
-            'comments' => (int)($request->comments ?? 0),
-            'shares' => (int)($request->shares ?? 0),
-            'leads' => (int)($request->leads ?? 0),
+            'reach' => (int) ($request->reach ?? 0),
+            'views' => (int) ($request->views ?? 0),
+            'likes' => (int) ($request->likes ?? 0),
+            'comments' => (int) ($request->comments ?? 0),
+            'shares' => (int) ($request->shares ?? 0),
+            'leads' => (int) ($request->leads ?? 0),
             'note' => $request->note,
-            'duration_min' => (int)($request->duration_min ?? 0), // ✅ PHÚT
+            'duration_min' => (int) ($request->duration_min ?? 0), // ✅ PHÚT
             'entered_by' => auth()->id(),
             'updated_at' => now(),
         ];
@@ -585,7 +604,7 @@ class ContentCalendarController extends Controller
             'ok' => true,
             'message' => 'Đã lưu số liệu tuần thành công.',
             'week_start' => $weekStartStr,
-            'duration_min' => (int)$payload['duration_min'],
+            'duration_min' => (int) $payload['duration_min'],
         ]);
     }
 
@@ -604,20 +623,20 @@ class ContentCalendarController extends Controller
         ]);
 
         $from = $request->filled('from_date') ? $this->parseDateFlexible($request->from_date)->format('Y-m-d') : null;
-        $to   = $request->filled('to_date')   ? $this->parseDateFlexible($request->to_date)->format('Y-m-d')   : null;
+        $to = $request->filled('to_date') ? $this->parseDateFlexible($request->to_date)->format('Y-m-d') : null;
 
-        if (!$from || !$to) {
+        if (! $from || ! $to) {
             $ws = $request->filled('week_start') ? $this->parseDateFlexible($request->week_start) : now();
             $weekStart = $ws->copy()->startOfWeek(Carbon::MONDAY);
-            $weekEnd   = $ws->copy()->endOfWeek(Carbon::SUNDAY);
+            $weekEnd = $ws->copy()->endOfWeek(Carbon::SUNDAY);
             $from = $weekStart->format('Y-m-d');
-            $to   = $weekEnd->format('Y-m-d');
+            $to = $weekEnd->format('Y-m-d');
         }
 
         $base = DB::table('content_calendars as c')
             ->leftJoin('content_calendar_weekly_metrics as m', function ($join) {
                 $join->on('m.content_calendar_id', '=', 'c.id');
-                $join->whereRaw("m.week_start = DATE_SUB(DATE(c.publish_date), INTERVAL WEEKDAY(DATE(c.publish_date)) DAY)");
+                $join->whereRaw('m.week_start = DATE_SUB(DATE(c.publish_date), INTERVAL WEEKDAY(DATE(c.publish_date)) DAY)');
             })
             ->whereBetween('c.publish_date', [$from, $to]);
 
@@ -631,7 +650,7 @@ class ContentCalendarController extends Controller
         }
 
         if ($request->filled('assignee_user_id')) {
-            $base->where('c.assignee_user_id', (int)$request->assignee_user_id);
+            $base->where('c.assignee_user_id', (int) $request->assignee_user_id);
         }
 
         $g = $this->typeGroups();
@@ -651,14 +670,14 @@ class ContentCalendarController extends Controller
                 COALESCE(SUM(COALESCE(m.duration_min,0)),0) as duration_min
             ')
             ->selectRaw('
-                SUM(CASE WHEN c.content_type IN ("' . implode('","', $postTypes) . '") THEN 1 ELSE 0 END) as cnt_post,
-                SUM(CASE WHEN c.content_type IN ("' . implode('","', $aiTypes) . '") THEN 1 ELSE 0 END) as cnt_video_ai,
-                SUM(CASE WHEN c.content_type IN ("' . implode('","', $reviewTypes) . '") THEN 1 ELSE 0 END) as cnt_video_review,
-                SUM(CASE WHEN c.content_type IN ("' . implode('","', $liveTypes) . '") THEN 1 ELSE 0 END) as cnt_livestream
+                SUM(CASE WHEN c.content_type IN ("'.implode('","', $postTypes).'") THEN 1 ELSE 0 END) as cnt_post,
+                SUM(CASE WHEN c.content_type IN ("'.implode('","', $aiTypes).'") THEN 1 ELSE 0 END) as cnt_video_ai,
+                SUM(CASE WHEN c.content_type IN ("'.implode('","', $reviewTypes).'") THEN 1 ELSE 0 END) as cnt_video_review,
+                SUM(CASE WHEN c.content_type IN ("'.implode('","', $liveTypes).'") THEN 1 ELSE 0 END) as cnt_livestream
             ')
             ->first();
 
-        $engagement = (int)$totals->likes + (int)$totals->comments + (int)$totals->shares;
+        $engagement = (int) $totals->likes + (int) $totals->comments + (int) $totals->shares;
 
         $ranking = (clone $base)
             ->selectRaw('
@@ -698,7 +717,7 @@ class ContentCalendarController extends Controller
 
         $alertsMissing = (clone $base)
             ->whereNull('m.week_start')
-            ->select('c.id','c.title','c.publish_date','c.assignee_user_id','c.platform','c.status')
+            ->select('c.id', 'c.title', 'c.publish_date', 'c.assignee_user_id', 'c.platform', 'c.status')
             ->orderBy('c.publish_date')
             ->limit(10)
             ->get();
@@ -736,7 +755,7 @@ class ContentCalendarController extends Controller
     private function syncKpiPayrollFromCalendarByMonth(string $period, int $userId): void
     {
         $start = Carbon::createFromFormat('Y-m', $period)->startOfMonth()->toDateString();
-        $end   = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->toDateString();
+        $end = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->toDateString();
 
         $base = ContentCalendar::query()
             ->where('assignee_user_id', $userId)
@@ -745,28 +764,28 @@ class ContentCalendarController extends Controller
 
         $g = $this->typeGroups();
 
-        $post   = (clone $base)->whereIn('content_type', $g['post'])->count();
-        $ai     = (clone $base)->whereIn('content_type', $g['ai'])->count();
+        $post = (clone $base)->whereIn('content_type', $g['post'])->count();
+        $ai = (clone $base)->whereIn('content_type', $g['ai'])->count();
         $review = (clone $base)->whereIn('content_type', $g['review'])->count();
 
         $trendRows = (clone $base)->whereIn('content_type', $g['trend'])
             ->orderBy('publish_date')
-            ->get(['title','link']);
+            ->get(['title', 'link']);
 
         $liveRows = (clone $base)->whereIn('content_type', $g['live'])
             ->orderBy('publish_date')
-            ->get(['title','link']);
+            ->get(['title', 'link']);
 
-        $suggestTrend = $trendRows->map(fn($r) => [
-            'title' => (string)($r->title ?? ''),
-            'url' => (string)($r->link ?? ''),
+        $suggestTrend = $trendRows->map(fn ($r) => [
+            'title' => (string) ($r->title ?? ''),
+            'url' => (string) ($r->link ?? ''),
             'views' => 0,
             'engagement' => 0,
         ])->values()->all();
 
-        $suggestLive = $liveRows->map(fn($r) => [
-            'title' => (string)($r->title ?? ''),
-            'url' => (string)($r->link ?? ''),
+        $suggestLive = $liveRows->map(fn ($r) => [
+            'title' => (string) ($r->title ?? ''),
+            'url' => (string) ($r->link ?? ''),
             'duration_min' => 0,
             'views' => 0,
             'engagement' => 0,
@@ -778,30 +797,39 @@ class ContentCalendarController extends Controller
             'user_id' => $userId,
         ]);
 
-        $existingTrend = is_array($actual->trend_videos) ? $actual->trend_videos : (array)($actual->trend_videos ?? []);
-        $existingLive  = is_array($actual->livestreams)  ? $actual->livestreams  : (array)($actual->livestreams ?? []);
+        $existingTrend = is_array($actual->trend_videos) ? $actual->trend_videos : (array) ($actual->trend_videos ?? []);
+        $existingLive = is_array($actual->livestreams) ? $actual->livestreams : (array) ($actual->livestreams ?? []);
 
-        $mergeByUrl = function(array $old, array $new): array {
+        $mergeByUrl = function (array $old, array $new): array {
             $map = [];
             foreach ($old as $row) {
-                $key = trim((string)($row['url'] ?? ''));
-                if ($key === '') $key = trim((string)($row['title'] ?? ''));
-                if ($key !== '') $map[$key] = $row;
+                $key = trim((string) ($row['url'] ?? ''));
+                if ($key === '') {
+                    $key = trim((string) ($row['title'] ?? ''));
+                }
+                if ($key !== '') {
+                    $map[$key] = $row;
+                }
             }
             foreach ($new as $row) {
-                $key = trim((string)($row['url'] ?? ''));
-                if ($key === '') $key = trim((string)($row['title'] ?? ''));
-                if ($key !== '' && !isset($map[$key])) $map[$key] = $row;
+                $key = trim((string) ($row['url'] ?? ''));
+                if ($key === '') {
+                    $key = trim((string) ($row['title'] ?? ''));
+                }
+                if ($key !== '' && ! isset($map[$key])) {
+                    $map[$key] = $row;
+                }
             }
+
             return array_values($map);
         };
 
-        $actual->actual_post = (int)$post;
-        $actual->actual_video_ai = (int)$ai;
-        $actual->actual_video_review = (int)$review;
+        $actual->actual_post = (int) $post;
+        $actual->actual_video_ai = (int) $ai;
+        $actual->actual_video_review = (int) $review;
 
         $actual->trend_videos = $mergeByUrl($existingTrend, $suggestTrend);
-        $actual->livestreams  = $mergeByUrl($existingLive,  $suggestLive);
+        $actual->livestreams = $mergeByUrl($existingLive, $suggestLive);
 
         $actual->save();
     }
@@ -819,8 +847,6 @@ class ContentCalendarController extends Controller
 
     /**
      * Chuẩn hoá danh sách người phụ trách từ request (trim, bỏ rỗng, bỏ trùng).
-     *
-     * @return array
      */
     protected function normalizeAssignees(Request $request): array
     {
@@ -830,10 +856,12 @@ class ContentCalendarController extends Controller
             $assignees = preg_split('/,|;|\|/', $assignees);
         }
 
-        if (!is_array($assignees)) $assignees = [];
+        if (! is_array($assignees)) {
+            $assignees = [];
+        }
 
-        $assignees = array_map(fn($v) => trim((string)$v), $assignees);
-        $assignees = array_values(array_filter($assignees, fn($v) => $v !== ''));
+        $assignees = array_map(fn ($v) => trim((string) $v), $assignees);
+        $assignees = array_values(array_filter($assignees, fn ($v) => $v !== ''));
         $assignees = array_values(array_unique($assignees));
 
         return $assignees;

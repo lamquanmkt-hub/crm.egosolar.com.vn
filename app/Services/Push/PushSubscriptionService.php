@@ -1,8 +1,12 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services\Push;
+
 use App\DTO\PushSubscriptionData;
 use Illuminate\Contracts\Auth\Authenticatable;
+
 /**
  * Service nghiệp vụ đăng ký/huỷ web push: chuẩn hoá dữ liệu rồi uỷ quyền cho gateway.
  */
@@ -11,9 +15,8 @@ final class PushSubscriptionService
     /**
      * Khởi tạo service với gateway lưu trữ subscription.
      */
-    public function __construct(private readonly PushSubscriptionGateway $gateway)
-    {
-    }
+    public function __construct(private readonly PushSubscriptionGateway $gateway) {}
+
     /**
      * Đăng ký web push: trim dữ liệu rồi gọi gateway (idempotent theo endpoint).
      */
@@ -29,6 +32,7 @@ final class PushSubscriptionService
         // Idempotent: gateway (updatePushSubscription) thường tự upsert theo endpoint
         $this->gateway->subscribe($user, $data);
     }
+
     /**
      * Huỷ đăng ký web push theo endpoint.
      */

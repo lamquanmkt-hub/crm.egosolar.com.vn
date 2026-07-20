@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\Services\ProductStockServiceInterface;
-use App\Models\Inventory\Stock\StockMovement;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -22,10 +21,12 @@ class ProductStockService implements ProductStockServiceInterface
      */
     private function resolveCompanyId(int $warehouseId, int $productId): ?int
     {
-        $cid = (int)(DB::table('company_warehouse')->where('warehouse_id', $warehouseId)->value('company_id') ?? 0);
-        if ($cid > 0) return $cid;
+        $cid = (int) (DB::table('company_warehouse')->where('warehouse_id', $warehouseId)->value('company_id') ?? 0);
+        if ($cid > 0) {
+            return $cid;
+        }
 
-        $cid = (int)(DB::table('crm_product_stock')
+        $cid = (int) (DB::table('crm_product_stock')
             ->where('warehouse_id', $warehouseId)
             ->where('product_id', $productId)
             ->value('company_id') ?? 0);
@@ -38,8 +39,8 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function checkStock($productId, $warehouseId, ?int $companyId = null): int
     {
-        $productId = (int)$productId;
-        $warehouseId = (int)$warehouseId;
+        $productId = (int) $productId;
+        $warehouseId = (int) $warehouseId;
 
         if ($companyId === null) {
             $companyId = $this->resolveCompanyId($warehouseId, $productId);
@@ -53,7 +54,7 @@ class ProductStockService implements ProductStockServiceInterface
             $q->where('company_id', $companyId);
         }
 
-        return (int)($q->value('qty') ?? 0);
+        return (int) ($q->value('qty') ?? 0);
     }
 
     /**
@@ -65,26 +66,26 @@ class ProductStockService implements ProductStockServiceInterface
         $productId,
         $warehouseId,
         int $changeQty,
-        string $reason = null,
+        ?string $reason = null,
         $referenceId = null,
         ?int $companyId = null
     ): void {
-        $productId = (int)$productId;
-        $warehouseId = (int)$warehouseId;
+        $productId = (int) $productId;
+        $warehouseId = (int) $warehouseId;
 
         DB::transaction(function () use ($productId, $warehouseId, $changeQty, $reason, $referenceId, $companyId) {
 
             if ($companyId === null) {
                 $companyId = $this->resolveCompanyId($warehouseId, $productId);
             }
-            if (!$companyId) {
+            if (! $companyId) {
                 throw new \Exception("Thiếu company_id để cập nhật tồn kho (warehouse_id={$warehouseId}, product_id={$productId}).");
             }
 
             $baseWhere = [
-                'product_id'   => $productId,
+                'product_id' => $productId,
                 'warehouse_id' => $warehouseId,
-                'company_id'   => $companyId,
+                'company_id' => $companyId,
             ];
 
             // lock row để tránh trừ tồn race-condition
@@ -93,28 +94,28 @@ class ProductStockService implements ProductStockServiceInterface
                 ->lockForUpdate()
                 ->first();
 
-            $currentQty = (int)($row->qty ?? 0);
-            $newQty = $currentQty + (int)$changeQty;
+            $currentQty = (int) ($row->qty ?? 0);
+            $newQty = $currentQty + (int) $changeQty;
 
             if ($newQty < 0) {
-                throw new \Exception("Không đủ tồn kho. Hiện tại: {$currentQty}, Yêu cầu: " . abs($changeQty));
+                throw new \Exception("Không đủ tồn kho. Hiện tại: {$currentQty}, Yêu cầu: ".abs($changeQty));
             }
 
-            if (!$row) {
+            if (! $row) {
                 DB::table('crm_product_stock')->insert([
-                    'product_id'    => $productId,
-                    'warehouse_id'  => $warehouseId,
-                    'company_id'    => $companyId,
-                    'qty'           => 0,
-                    'serials_json'  => null,
-                    'last_updated'  => now(),
+                    'product_id' => $productId,
+                    'warehouse_id' => $warehouseId,
+                    'company_id' => $companyId,
+                    'qty' => 0,
+                    'serials_json' => null,
+                    'last_updated' => now(),
                 ]);
             }
 
             DB::table('crm_product_stock')
                 ->where($baseWhere)
                 ->update([
-                    'qty'          => $newQty,
+                    'qty' => $newQty,
                     'last_updated' => now(),
                 ]);
 
@@ -123,19 +124,41 @@ class ProductStockService implements ProductStockServiceInterface
                 $has = fn (string $column): bool => in_array($column, $columns, true);
                 $movement = [];
 
-                if ($has('product_id')) $movement['product_id'] = $productId;
-                if ($has('warehouse_id')) $movement['warehouse_id'] = $warehouseId;
-                if ($has('company_id')) $movement['company_id'] = $companyId;
-                if ($has('change_qty')) $movement['change_qty'] = (int)$changeQty;
-                if ($has('qty_before')) $movement['qty_before'] = $currentQty;
-                if ($has('qty_after')) $movement['qty_after'] = $newQty;
-                if ($has('reason')) $movement['reason'] = $reason;
-                if ($has('reference_id')) $movement['reference_id'] = $referenceId;
-                if ($has('created_by')) $movement['created_by'] = Auth::id();
-                if ($has('created_at')) $movement['created_at'] = now();
-                if ($has('updated_at')) $movement['updated_at'] = now();
+                if ($has('product_id')) {
+                    $movement['product_id'] = $productId;
+                }
+                if ($has('warehouse_id')) {
+                    $movement['warehouse_id'] = $warehouseId;
+                }
+                if ($has('company_id')) {
+                    $movement['company_id'] = $companyId;
+                }
+                if ($has('change_qty')) {
+                    $movement['change_qty'] = (int) $changeQty;
+                }
+                if ($has('qty_before')) {
+                    $movement['qty_before'] = $currentQty;
+                }
+                if ($has('qty_after')) {
+                    $movement['qty_after'] = $newQty;
+                }
+                if ($has('reason')) {
+                    $movement['reason'] = $reason;
+                }
+                if ($has('reference_id')) {
+                    $movement['reference_id'] = $referenceId;
+                }
+                if ($has('created_by')) {
+                    $movement['created_by'] = Auth::id();
+                }
+                if ($has('created_at')) {
+                    $movement['created_at'] = now();
+                }
+                if ($has('updated_at')) {
+                    $movement['updated_at'] = now();
+                }
 
-                if (!empty($movement)) {
+                if (! empty($movement)) {
                     DB::table('crm_stock_movements')->insert($movement);
                 }
             }
@@ -163,7 +186,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getTotalStockByProduct($productId): int
     {
-        return (int) DB::table('crm_product_stock')->where('product_id', (int)$productId)->sum('qty');
+        return (int) DB::table('crm_product_stock')->where('product_id', (int) $productId)->sum('qty');
     }
 
     /**
@@ -193,7 +216,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getStockReportByWarehouse($warehouseId): Collection|array
     {
-        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', (int)$warehouseId)
+        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', (int) $warehouseId)
             ->with('product')
             ->orderBy('qty', 'asc')
             ->get();
@@ -220,11 +243,11 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getStockHistory($productId, $warehouseId = null, $limit = 50): array|LengthAwarePaginator
     {
-        $query = \App\Models\Inventory\Stock\StockMovement::where('product_id', (int)$productId)
+        $query = \App\Models\Inventory\Stock\StockMovement::where('product_id', (int) $productId)
             ->with(['product', 'warehouse', 'creator']);
 
         if ($warehouseId) {
-            $query->where('warehouse_id', (int)$warehouseId);
+            $query->where('warehouse_id', (int) $warehouseId);
         }
 
         return $query->latest()->paginate($limit);

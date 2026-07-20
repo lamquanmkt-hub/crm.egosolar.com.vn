@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Marketing;
 
-use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -21,7 +20,7 @@ class MarketingReportController extends Controller
     {
         $table = 'mkt_actual_kpi_daily';
 
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             $filters = [
                 'from' => Carbon::today()->startOfMonth()->toDateString(),
                 'to' => Carbon::today()->toDateString(),
@@ -37,9 +36,9 @@ class MarketingReportController extends Controller
                 'channel' => $filters['channel'],
                 'campaign' => $filters['campaign'],
                 'compare' => $filters['compare'],
-                'rangeText' => Carbon::parse($filters['from'])->format('d/m/Y') . ' đến ' . Carbon::parse($filters['to'])->format('d/m/Y'),
+                'rangeText' => Carbon::parse($filters['from'])->format('d/m/Y').' đến '.Carbon::parse($filters['to'])->format('d/m/Y'),
 
-                'kpi' => (object)[
+                'kpi' => (object) [
                     'spend' => 0,
                     'impressions' => 0,
                     'clicks' => 0,
@@ -48,7 +47,7 @@ class MarketingReportController extends Controller
                     'roas' => 0,
                     'cpl' => 0,
                 ],
-                'summary' => (object)[
+                'summary' => (object) [
                     'spend' => 0,
                     'impressions' => 0,
                     'clicks' => 0,
@@ -74,7 +73,7 @@ class MarketingReportController extends Controller
         $today = Carbon::today();
 
         $fromStr = $request->get('from') ?: $today->copy()->startOfMonth()->toDateString();
-        $toStr   = $request->get('to') ?: $today->toDateString();
+        $toStr = $request->get('to') ?: $today->toDateString();
 
         try {
             $fromC = Carbon::parse($fromStr)->startOfDay();
@@ -93,12 +92,12 @@ class MarketingReportController extends Controller
         }
 
         $from = $fromC->toDateString();
-        $to   = $toC->toDateString();
+        $to = $toC->toDateString();
 
-        $channel  = trim((string)$request->get('channel', ''));
-        $campaign = trim((string)$request->get('campaign', ''));
+        $channel = trim((string) $request->get('channel', ''));
+        $campaign = trim((string) $request->get('campaign', ''));
 
-        $compare = (string)$request->get('compare', '0');
+        $compare = (string) $request->get('compare', '0');
         $compareOn = ($compare === '1' || $compare === 'prev' || $compare === 'prev_period');
 
         $filters = [
@@ -109,7 +108,7 @@ class MarketingReportController extends Controller
             'compare' => $compareOn ? '1' : '0',
         ];
 
-        $rangeText = Carbon::parse($from)->format('d/m/Y') . ' đến ' . Carbon::parse($to)->format('d/m/Y');
+        $rangeText = Carbon::parse($from)->format('d/m/Y').' đến '.Carbon::parse($to)->format('d/m/Y');
 
         $channelOptions = DB::table($table)
             ->select('channel')
@@ -141,21 +140,21 @@ class MarketingReportController extends Controller
             COALESCE(SUM(revenue),0) as revenue
         ')->first();
 
-        $spend = (float)($kpiRow->spend ?? 0);
-        $leads = (float)($kpiRow->leads ?? 0);
-        $rev   = (float)($kpiRow->revenue ?? 0);
+        $spend = (float) ($kpiRow->spend ?? 0);
+        $leads = (float) ($kpiRow->leads ?? 0);
+        $rev = (float) ($kpiRow->revenue ?? 0);
 
-        $kpi = (object)[
+        $kpi = (object) [
             'spend' => $spend,
-            'impressions' => (float)($kpiRow->impressions ?? 0),
-            'clicks' => (float)($kpiRow->clicks ?? 0),
+            'impressions' => (float) ($kpiRow->impressions ?? 0),
+            'clicks' => (float) ($kpiRow->clicks ?? 0),
             'leads' => $leads,
             'revenue' => $rev,
             'cpl' => $leads > 0 ? round($spend / $leads, 0) : 0,
             'roas' => $spend > 0 ? round($rev / $spend, 2) : 0,
         ];
 
-        $summary = (object)[
+        $summary = (object) [
             'spend' => $kpi->spend,
             'impressions' => $kpi->impressions,
             'clicks' => $kpi->clicks,
@@ -174,9 +173,9 @@ class MarketingReportController extends Controller
             ->orderBy('date')
             ->get()
             ->map(function ($r) {
-                $sp = (float)($r->spend ?? 0);
-                $ld = (float)($r->leads ?? 0);
-                $rv = (float)($r->revenue ?? 0);
+                $sp = (float) ($r->spend ?? 0);
+                $ld = (float) ($r->leads ?? 0);
+                $rv = (float) ($r->revenue ?? 0);
 
                 $r->cpl = $ld > 0 ? round($sp / $ld, 2) : 0;
                 $r->roas = $sp > 0 ? round($rv / $sp, 2) : 0;
@@ -206,9 +205,9 @@ class MarketingReportController extends Controller
             ->orderByDesc('spend')
             ->get()
             ->map(function ($r) {
-                $sp = (float)($r->spend ?? 0);
-                $ld = (float)($r->leads ?? 0);
-                $rv = (float)($r->revenue ?? 0);
+                $sp = (float) ($r->spend ?? 0);
+                $ld = (float) ($r->leads ?? 0);
+                $rv = (float) ($r->revenue ?? 0);
 
                 $r->cpl = $ld > 0 ? round($sp / $ld, 0) : 0;
                 $r->roas = $sp > 0 ? round($rv / $sp, 2) : 0;
@@ -241,14 +240,14 @@ class MarketingReportController extends Controller
                 COALESCE(SUM(revenue),0) as revenue
             ')->first();
 
-            $pSpend = (float)($prev->spend ?? 0);
-            $pLeads = (float)($prev->leads ?? 0);
-            $pRev   = (float)($prev->revenue ?? 0);
+            $pSpend = (float) ($prev->spend ?? 0);
+            $pLeads = (float) ($prev->leads ?? 0);
+            $pRev = (float) ($prev->revenue ?? 0);
 
-            $compareKpi = (object)[
+            $compareKpi = (object) [
                 'spend' => $pSpend,
-                'impressions' => (float)($prev->impressions ?? 0),
-                'clicks' => (float)($prev->clicks ?? 0),
+                'impressions' => (float) ($prev->impressions ?? 0),
+                'clicks' => (float) ($prev->clicks ?? 0),
                 'leads' => $pLeads,
                 'revenue' => $pRev,
                 'cpl' => $pLeads > 0 ? round($pSpend / $pLeads, 0) : 0,
@@ -260,8 +259,8 @@ class MarketingReportController extends Controller
             $cmp = $compareKpi;
 
             $pct = function ($cur, $prev) {
-                $cur = (float)($cur ?? 0);
-                $prev = (float)($prev ?? 0);
+                $cur = (float) ($cur ?? 0);
+                $prev = (float) ($prev ?? 0);
 
                 if ($prev == 0) {
                     return null;
@@ -322,8 +321,8 @@ class MarketingReportController extends Controller
         $actualChannelCol = 'channel';
 
         $date = $request->get('date') ?: Carbon::today()->toDateString();
-$channelParam = trim((string) old('channel', $request->get('channel', '')));
-$campaignName = trim((string) old('campaign_name', $request->get('campaign_name', '')));
+        $channelParam = trim((string) old('channel', $request->get('channel', '')));
+        $campaignName = trim((string) old('campaign_name', $request->get('campaign_name', '')));
 
         $channelOptions = collect();
 
@@ -361,7 +360,7 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
                 ->where($planCampaignCol, '!=', '');
 
             if ($channelParam !== '') {
-                $q->whereRaw('LOWER(' . $planPlatformCol . ') = LOWER(?)', [$channelParam]);
+                $q->whereRaw('LOWER('.$planPlatformCol.') = LOWER(?)', [$channelParam]);
             }
 
             $campaignOptions = $q->groupBy($planCampaignCol)
@@ -372,11 +371,11 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
         $recent = collect();
         if (Schema::hasTable($actualTable)) {
             $recent = DB::table($actualTable)
-    ->select('date','channel','campaign_name','spend','impressions','clicks','leads','revenue','updated_at')
-    ->orderByDesc('date')
-    ->orderByDesc('updated_at')
-    ->limit(100)
-    ->get();
+                ->select('date', 'channel', 'campaign_name', 'spend', 'impressions', 'clicks', 'leads', 'revenue', 'updated_at')
+                ->orderByDesc('date')
+                ->orderByDesc('updated_at')
+                ->limit(100)
+                ->get();
         }
 
         return view('marketing.reports.ads_input', [
@@ -396,7 +395,7 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
     {
         $actualTable = 'mkt_actual_kpi_daily';
 
-        if (!Schema::hasTable($actualTable)) {
+        if (! Schema::hasTable($actualTable)) {
             return back()->with('error', 'Chưa có bảng mkt_actual_kpi_daily.');
         }
 
@@ -412,11 +411,11 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
         ]);
 
         $payload = [
-            'spend' => (float)$data['spend'],
-            'impressions' => (int)($data['impressions'] ?? 0),
-            'clicks' => (int)($data['clicks'] ?? 0),
-            'leads' => (int)($data['leads'] ?? 0),
-            'revenue' => (float)($data['revenue'] ?? 0),
+            'spend' => (float) $data['spend'],
+            'impressions' => (int) ($data['impressions'] ?? 0),
+            'clicks' => (int) ($data['clicks'] ?? 0),
+            'leads' => (int) ($data['leads'] ?? 0),
+            'revenue' => (float) ($data['revenue'] ?? 0),
         ];
 
         if (Schema::hasColumn($actualTable, 'updated_at')) {
@@ -438,14 +437,14 @@ $campaignName = trim((string) old('campaign_name', $request->get('campaign_name'
 
         $nextDate = Carbon::parse($data['date'])->addDay()->toDateString();
 
-$qs = http_build_query([
-    'date' => $nextDate,
-    'channel' => trim($data['channel']),
-    'campaign_name' => trim($data['campaign_name']),
-]);
+        $qs = http_build_query([
+            'date' => $nextDate,
+            'channel' => trim($data['channel']),
+            'campaign_name' => trim($data['campaign_name']),
+        ]);
 
-return redirect(url('/marketing/report/ads/input') . '?' . $qs)
-    ->with('success', 'Đã lưu dữ liệu ADS.');
+        return redirect(url('/marketing/report/ads/input').'?'.$qs)
+            ->with('success', 'Đã lưu dữ liệu ADS.');
     }
 
     /**
@@ -455,7 +454,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
     {
         $actualTable = 'mkt_actual_kpi_daily';
 
-        if (!Schema::hasTable($actualTable)) {
+        if (! Schema::hasTable($actualTable)) {
             return back()->with('error', 'Chưa có bảng mkt_actual_kpi_daily.');
         }
 
@@ -478,13 +477,12 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         return back()->with('error', 'Không tìm thấy dữ liệu để xóa.');
     }
 
-
     /**
      * Tạo bảng mkt_actual_kpi_daily nếu chưa có và bổ sung các cột còn thiếu.
      */
     private function ensureAdsActualTableForImport(): void
     {
-        DB::statement("
+        DB::statement('
             CREATE TABLE IF NOT EXISTS mkt_actual_kpi_daily (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 date DATE NOT NULL,
@@ -509,14 +507,14 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 INDEX mkt_actual_channel_index (channel),
                 INDEX mkt_actual_campaign_index (campaign_name)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        ');
 
-        if (!Schema::hasColumn('mkt_actual_kpi_daily', 'source_type')) {
-            DB::statement("ALTER TABLE mkt_actual_kpi_daily ADD COLUMN source_type VARCHAR(100) NULL AFTER conversions");
+        if (! Schema::hasColumn('mkt_actual_kpi_daily', 'source_type')) {
+            DB::statement('ALTER TABLE mkt_actual_kpi_daily ADD COLUMN source_type VARCHAR(100) NULL AFTER conversions');
         }
 
-        if (!Schema::hasColumn('mkt_actual_kpi_daily', 'raw_payload')) {
-            DB::statement("ALTER TABLE mkt_actual_kpi_daily ADD COLUMN raw_payload LONGTEXT NULL AFTER source_type");
+        if (! Schema::hasColumn('mkt_actual_kpi_daily', 'raw_payload')) {
+            DB::statement('ALTER TABLE mkt_actual_kpi_daily ADD COLUMN raw_payload LONGTEXT NULL AFTER source_type');
         }
     }
 
@@ -543,7 +541,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 ? $this->readAdsCsvRows($file->getRealPath())
                 : $this->readAdsXlsxRows($file->getRealPath());
         } catch (\Throwable $e) {
-            return back()->with('error', 'Không đọc được file: ' . $e->getMessage());
+            return back()->with('error', 'Không đọc được file: '.$e->getMessage());
         }
 
         if (empty($rows)) {
@@ -571,6 +569,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
 
             if ($campaignName === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -666,9 +665,9 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
             $toMax = $toMax ? max($toMax, $endDate) : $endDate;
         }
 
-        $message = 'Đã import ' . $imported . ' chiến dịch. Bỏ qua ' . $skipped . ' dòng. Tổng chi tiêu: ' . number_format($totalSpend, 0, ',', '.') . ' đ, tổng leads: ' . number_format($totalLeads, 0, ',', '.');
+        $message = 'Đã import '.$imported.' chiến dịch. Bỏ qua '.$skipped.' dòng. Tổng chi tiêu: '.number_format($totalSpend, 0, ',', '.').' đ, tổng leads: '.number_format($totalLeads, 0, ',', '.');
 
-        return redirect(url('/marketing/report/ads') . '?' . http_build_query([
+        return redirect(url('/marketing/report/ads').'?'.http_build_query([
             'from' => $fromMin ?: \Carbon\Carbon::today()->startOfMonth()->toDateString(),
             'to' => $toMax ?: \Carbon\Carbon::today()->toDateString(),
             'channel' => $channelDefault,
@@ -677,14 +676,12 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
 
     /**
      * Đọc file CSV thành mảng dòng theo header.
-     *
-     * @return array
      */
     private function readAdsCsvRows(string $path): array
     {
         $handle = fopen($path, 'r');
 
-        if (!$handle) {
+        if (! $handle) {
             return [];
         }
 
@@ -694,6 +691,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         while (($data = fgetcsv($handle)) !== false) {
             if ($headers === null) {
                 $headers = $data;
+
                 continue;
             }
 
@@ -713,8 +711,6 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
 
     /**
      * Đọc file XLSX thành mảng dòng theo header (dùng ZipArchive hoặc lệnh unzip).
-     *
-     * @return array
      */
     private function readAdsXlsxRows(string $path): array
     {
@@ -722,7 +718,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
         $sheetXml = null;
 
         if (class_exists(\ZipArchive::class)) {
-            $zip = new \ZipArchive();
+            $zip = new \ZipArchive;
 
             if ($zip->open($path) !== true) {
                 throw new \RuntimeException('Không mở được file Excel.');
@@ -741,7 +737,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 }
             }
 
-            if (!$sheetName) {
+            if (! $sheetName) {
                 $zip->close();
                 throw new \RuntimeException('Không tìm thấy worksheet trong file Excel.');
             }
@@ -749,7 +745,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
             $sheetXml = $zip->getFromName($sheetName);
             $zip->close();
         } else {
-            if (!function_exists('shell_exec')) {
+            if (! function_exists('shell_exec')) {
                 throw new \RuntimeException('Server chưa bật ZipArchive và cũng khóa shell_exec. Vui lòng bật PHP extension zip hoặc lưu file Excel thành CSV rồi upload.');
             }
 
@@ -759,11 +755,11 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 throw new \RuntimeException('Server chưa bật ZipArchive và không có lệnh unzip. Vui lòng bật PHP extension zip hoặc lưu file Excel thành CSV rồi upload.');
             }
 
-            $listCommand = escapeshellcmd($unzipPath) . ' -Z1 ' . escapeshellarg($path) . ' 2>/dev/null';
+            $listCommand = escapeshellcmd($unzipPath).' -Z1 '.escapeshellarg($path).' 2>/dev/null';
             $listOutput = (string) shell_exec($listCommand);
 
             if (trim($listOutput) === '') {
-                $listCommand = escapeshellcmd($unzipPath) . ' -l ' . escapeshellarg($path) . ' 2>/dev/null';
+                $listCommand = escapeshellcmd($unzipPath).' -l '.escapeshellarg($path).' 2>/dev/null';
                 $listOutput = (string) shell_exec($listCommand);
             }
 
@@ -776,15 +772,15 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 }
             }
 
-            if (!$sheetName) {
+            if (! $sheetName) {
                 throw new \RuntimeException('Không tìm thấy worksheet trong file Excel.');
             }
 
-            $sharedXml = (string) shell_exec(escapeshellcmd($unzipPath) . ' -p ' . escapeshellarg($path) . ' xl/sharedStrings.xml 2>/dev/null');
-            $sheetXml = (string) shell_exec(escapeshellcmd($unzipPath) . ' -p ' . escapeshellarg($path) . ' ' . escapeshellarg($sheetName) . ' 2>/dev/null');
+            $sharedXml = (string) shell_exec(escapeshellcmd($unzipPath).' -p '.escapeshellarg($path).' xl/sharedStrings.xml 2>/dev/null');
+            $sheetXml = (string) shell_exec(escapeshellcmd($unzipPath).' -p '.escapeshellarg($path).' '.escapeshellarg($sheetName).' 2>/dev/null');
         }
 
-        if (!$sheetXml) {
+        if (! $sheetXml) {
             throw new \RuntimeException('Không đọc được nội dung sheet trong file Excel.');
         }
 
@@ -812,7 +808,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
 
         $sx = simplexml_load_string($sheetXml);
 
-        if (!$sx) {
+        if (! $sx) {
             throw new \RuntimeException('File Excel không đúng định dạng XML worksheet.');
         }
 
@@ -839,7 +835,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
                 $cells[$idx] = $value;
             }
 
-            if (!empty($cells)) {
+            if (! empty($cells)) {
                 ksort($cells);
                 $matrix[] = $cells;
             }
@@ -991,6 +987,7 @@ return redirect(url('/marketing/report/ads/input') . '?' . $qs)
             return null;
         }
     }
+
     /**
      * Trang báo cáo SEO.
      */

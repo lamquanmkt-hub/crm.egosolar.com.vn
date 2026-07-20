@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\PriceTierRepositoryInterface;
 use App\Contracts\Services\PriceTierServiceInterface;
 use App\Models\Inventory\Pricing\PriceTier;
-use App\Repositories\Interfaces\PriceTierRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

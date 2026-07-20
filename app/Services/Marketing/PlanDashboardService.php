@@ -16,10 +16,10 @@ class PlanDashboardService
     public function build(int $planId): array
     {
         $plan = DB::table('mkt_plans')->where('id', $planId)->first();
-        abort_if(!$plan, 404);
+        abort_if(! $plan, 404);
 
         $from = Carbon::parse($plan->month)->startOfMonth();
-        $to   = Carbon::parse($plan->month)->endOfMonth();
+        $to = Carbon::parse($plan->month)->endOfMonth();
 
         $actualRow = DB::table('mkt_actual_kpi_daily')
             ->whereBetween('date', [$from, $to])
@@ -31,18 +31,18 @@ class PlanDashboardService
             ->first();
 
         $actual = [
-            'spend'   => (float)($actualRow->spend ?? 0),
-            'leads'   => (float)($actualRow->leads ?? 0),
-            'revenue' => (float)($actualRow->revenue ?? 0),
+            'spend' => (float) ($actualRow->spend ?? 0),
+            'leads' => (float) ($actualRow->leads ?? 0),
+            'revenue' => (float) ($actualRow->revenue ?? 0),
         ];
 
         $target = [
-            'budget'  => (float)$plan->total_budget,
-            'leads'   => (float)$plan->target_leads,
-            'revenue' => (float)$plan->target_revenue,
+            'budget' => (float) $plan->total_budget,
+            'leads' => (float) $plan->target_leads,
+            'revenue' => (float) $plan->target_revenue,
         ];
 
-        $calculator = new PlanKpiCalculator();
+        $calculator = new PlanKpiCalculator;
         $kpi = $calculator->calculate($target, $actual);
 
         $channelBreakdown = DB::table('mkt_actual_kpi_daily')

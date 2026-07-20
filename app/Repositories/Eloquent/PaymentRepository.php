@@ -2,7 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Repositories\Interfaces\PaymentRepositoryInterface;
+use App\Contracts\Repositories\PaymentRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 /**

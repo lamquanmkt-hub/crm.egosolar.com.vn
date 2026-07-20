@@ -3,11 +3,12 @@
 declare(strict_types=1);
 
 namespace App\Services;
+
+use App\Contracts\Repositories\PaymentMethodRepositoryInterface;
 use App\Contracts\Services\PaymentMethodServiceInterface;
-use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 use Exception;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Service xử lý nghiệp vụ phương thức thanh toán (PaymentMethod).
@@ -51,6 +52,7 @@ class PaymentMethodService implements PaymentMethodServiceInterface
             $method = $this->repository->create($data);
 
             $this->clearCache(); // Side effect
+
             return $method;
         });
     }
@@ -68,6 +70,7 @@ class PaymentMethodService implements PaymentMethodServiceInterface
             $result = $this->repository->update($id, $data);
 
             $this->clearCache();
+
             return $result;
         });
     }
@@ -79,6 +82,7 @@ class PaymentMethodService implements PaymentMethodServiceInterface
     {
         $result = $this->repository->delete($id);
         $this->clearCache();
+
         return $result;
     }
 
@@ -88,9 +92,10 @@ class PaymentMethodService implements PaymentMethodServiceInterface
     public function getDetail(int $id)
     {
         $method = $this->repository->findById($id);
-        if (!$method) {
-            throw new Exception("Phương thức thanh toán không tồn tại.");
+        if (! $method) {
+            throw new Exception('Phương thức thanh toán không tồn tại.');
         }
+
         return $method;
     }
 

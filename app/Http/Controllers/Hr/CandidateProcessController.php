@@ -67,7 +67,7 @@ class CandidateProcessController extends Controller
     /**
      * Cập nhật thông tin ứng viên trong quy trình.
      *
-     * @param int|string $item ID bản ghi ứng viên
+     * @param  int|string  $item  ID bản ghi ứng viên
      */
     public function update(Request $request, $item)
     {
@@ -91,7 +91,7 @@ class CandidateProcessController extends Controller
     /**
      * Xoá ứng viên khỏi quy trình.
      *
-     * @param int|string $item ID bản ghi ứng viên
+     * @param  int|string  $item  ID bản ghi ứng viên
      */
     public function destroy($item)
     {
@@ -123,7 +123,7 @@ class CandidateProcessController extends Controller
     /**
      * Cập nhật tên / thứ tự của lịch / đợt phỏng vấn.
      *
-     * @param int|string $round ID đợt phỏng vấn
+     * @param  int|string  $round  ID đợt phỏng vấn
      */
     public function updateRound(Request $request, $round)
     {
@@ -146,7 +146,7 @@ class CandidateProcessController extends Controller
     /**
      * Xoá lịch / đợt phỏng vấn nếu chưa có ứng viên sử dụng.
      *
-     * @param int|string $round ID đợt phỏng vấn
+     * @param  int|string  $round  ID đợt phỏng vấn
      */
     public function destroyRound($round)
     {
@@ -170,7 +170,7 @@ class CandidateProcessController extends Controller
      */
     private function ensureDefaultRounds()
     {
-        if (!Schema::hasTable('hr_candidate_process_rounds')) {
+        if (! Schema::hasTable('hr_candidate_process_rounds')) {
             return;
         }
 

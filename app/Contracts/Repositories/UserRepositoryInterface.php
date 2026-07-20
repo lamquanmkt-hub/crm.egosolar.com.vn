@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories\Interfaces;
+namespace App\Contracts\Repositories;
 
 /**
  * Interface khai báo các thao tác repository cho người dùng.

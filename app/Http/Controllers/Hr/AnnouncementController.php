@@ -42,7 +42,7 @@ class AnnouncementController extends Controller
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
 
-        DB::statement("
+        DB::statement('
             CREATE TABLE IF NOT EXISTS hr_announcement_files (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 announcement_id BIGINT UNSIGNED NOT NULL,
@@ -54,9 +54,9 @@ class AnnouncementController extends Controller
                 updated_at TIMESTAMP NULL DEFAULT NULL,
                 INDEX hraf_announcement_id_index (announcement_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        ');
 
-        DB::statement("
+        DB::statement('
             CREATE TABLE IF NOT EXISTS hr_announcement_reads (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 announcement_id BIGINT UNSIGNED NOT NULL,
@@ -67,7 +67,7 @@ class AnnouncementController extends Controller
                 UNIQUE KEY hra_reads_unique (announcement_id, user_id),
                 INDEX hra_reads_user_index (user_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        ');
     }
 
     /**
@@ -111,8 +111,8 @@ class AnnouncementController extends Controller
         if ($request->filled('q')) {
             $keyword = trim((string) $request->q);
             $query->where(function ($q) use ($keyword) {
-                $q->where('a.title', 'like', '%' . $keyword . '%')
-                    ->orWhere('a.body', 'like', '%' . $keyword . '%');
+                $q->where('a.title', 'like', '%'.$keyword.'%')
+                    ->orWhere('a.body', 'like', '%'.$keyword.'%');
             });
         }
 
@@ -186,7 +186,7 @@ class AnnouncementController extends Controller
     /**
      * Hiển thị chi tiết thông báo, kiểm tra quyền xem và đánh dấu đã đọc.
      *
-     * @param int|string $announcement ID thông báo
+     * @param  int|string  $announcement  ID thông báo
      */
     public function show($announcement)
     {
@@ -225,7 +225,7 @@ class AnnouncementController extends Controller
     /**
      * Cập nhật nội dung thông báo và bổ sung file đính kèm.
      *
-     * @param int|string $announcement ID thông báo
+     * @param  int|string  $announcement  ID thông báo
      */
     public function update(Request $request, $announcement)
     {
@@ -259,7 +259,7 @@ class AnnouncementController extends Controller
     /**
      * Xoá thông báo cùng dữ liệu file và trạng thái đọc liên quan (trong transaction).
      *
-     * @param int|string $announcement ID thông báo
+     * @param  int|string  $announcement  ID thông báo
      */
     public function destroy($announcement)
     {
@@ -282,7 +282,7 @@ class AnnouncementController extends Controller
     /**
      * Đánh dấu một thông báo là đã đọc cho user hiện tại.
      *
-     * @param int|string $announcement ID thông báo
+     * @param  int|string  $announcement  ID thông báo
      */
     public function markRead($announcement)
     {
@@ -348,10 +348,10 @@ class AnnouncementController extends Controller
             ->limit($limit)
             ->get()
             ->map(fn ($row) => [
-                'id' => 'hr_' . $row->id,
-                'title' => 'Nhân sự: ' . $row->title,
+                'id' => 'hr_'.$row->id,
+                'title' => 'Nhân sự: '.$row->title,
                 'message' => mb_strimwidth(strip_tags((string) $row->body), 0, 140, '...'),
-                'is_read' => !empty($row->read_at),
+                'is_read' => ! empty($row->read_at),
                 'created_at' => $row->created_at,
                 'link' => route('hr.announcements.show', $row->id),
                 'category' => $row->category,
@@ -417,7 +417,7 @@ class AnnouncementController extends Controller
     /**
      * Kiểm tra một thông báo có hiển thị với user hiện tại (trạng thái, thời gian, đối tượng).
      *
-     * @param object $item Bản ghi thông báo
+     * @param  object  $item  Bản ghi thông báo
      */
     private function isVisibleToCurrentUser($item): bool
     {
@@ -427,11 +427,11 @@ class AnnouncementController extends Controller
 
         $now = now();
 
-        if (!empty($item->starts_at) && Carbon::parse($item->starts_at)->gt($now)) {
+        if (! empty($item->starts_at) && Carbon::parse($item->starts_at)->gt($now)) {
             return false;
         }
 
-        if (!empty($item->ends_at) && Carbon::parse($item->ends_at)->lt($now)) {
+        if (! empty($item->ends_at) && Carbon::parse($item->ends_at)->lt($now)) {
             return false;
         }
 
@@ -491,7 +491,7 @@ class AnnouncementController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -505,11 +505,11 @@ class AnnouncementController extends Controller
     /**
      * Parse giá trị ngày giờ về chuỗi Y-m-d H:i:s, trả về null nếu không hợp lệ.
      *
-     * @param mixed $value Giá trị ngày giờ đầu vào
+     * @param  mixed  $value  Giá trị ngày giờ đầu vào
      */
     private function parseDateTime($value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -525,16 +525,16 @@ class AnnouncementController extends Controller
      */
     private function storeFiles(Request $request, int $announcementId): void
     {
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return;
         }
 
         foreach ((array) $request->file('attachments') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
-            $path = $file->store('hr_announcements/' . $announcementId, 'public');
+            $path = $file->store('hr_announcements/'.$announcementId, 'public');
 
             DB::table('hr_announcement_files')->insert([
                 'announcement_id' => $announcementId,

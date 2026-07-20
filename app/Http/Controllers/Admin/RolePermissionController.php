@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Contracts\Services\PageAccessServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\RolePermissionAudit;
 use App\Models\User;
-use App\Services\RolePermission\PageAccessService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +24,7 @@ class RolePermissionController extends Controller
     /**
      * Khởi tạo controller với service quản lý quyền truy cập trang.
      */
-    public function __construct(private readonly PageAccessService $pageAccess) {}
+    public function __construct(private readonly PageAccessServiceInterface $pageAccess) {}
 
     /**
      * Trang tổng quan phân quyền: danh sách role, ma trận quyền, người dùng, thống kê và audit.

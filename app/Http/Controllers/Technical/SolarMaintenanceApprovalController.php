@@ -16,9 +16,7 @@ class SolarMaintenanceApprovalController extends Controller
     /**
      * Khởi tạo controller với service phê duyệt bảo trì.
      */
-    public function __construct(private readonly SolarMaintenanceApprovalService $service)
-    {
-    }
+    public function __construct(private readonly SolarMaintenanceApprovalService $service) {}
 
     /**
      * Gửi kết quả bảo trì cho Trưởng phòng kỹ thuật phê duyệt.
@@ -27,6 +25,7 @@ class SolarMaintenanceApprovalController extends Controller
     {
         $this->authorize('submitForApproval', $schedule);
         $this->service->submit($schedule, $request->user(), $request->validated('comment'));
+
         return back()->with('success', 'Đã gửi Trưởng phòng kỹ thuật phê duyệt.');
     }
 
@@ -37,6 +36,7 @@ class SolarMaintenanceApprovalController extends Controller
     {
         $this->authorize('approve', $schedule);
         $this->service->approve($schedule, $request->user(), $request->validated('comment'));
+
         return back()->with('success', 'Đã phê duyệt kết quả kỹ thuật.');
     }
 
@@ -48,6 +48,7 @@ class SolarMaintenanceApprovalController extends Controller
         $this->authorize('requestRevision', $schedule);
         $comment = trim((string) $request->input('comment'));
         $this->service->requestRevision($schedule, $request->user(), $comment);
+
         return back()->with('success', 'Đã trả lại và yêu cầu kỹ thuật viên chỉnh sửa.');
     }
 
@@ -59,6 +60,7 @@ class SolarMaintenanceApprovalController extends Controller
         $this->authorize('reject', $schedule);
         $comment = trim((string) $request->input('comment'));
         $this->service->reject($schedule, $request->user(), $comment);
+
         return back()->with('success', 'Đã từ chối kết quả và ghi lịch sử phê duyệt.');
     }
 
@@ -70,6 +72,7 @@ class SolarMaintenanceApprovalController extends Controller
         $this->authorize('reopen', $schedule);
         $comment = trim((string) $request->input('comment'));
         $this->service->reopen($schedule, $request->user(), $comment);
+
         return back()->with('success', 'Đã mở lại công việc để tiếp tục xử lý.');
     }
 }

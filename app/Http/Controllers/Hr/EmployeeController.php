@@ -15,27 +15,26 @@ use Spatie\Permission\Models\Role;
  */
 class EmployeeController extends Controller
 {
-
     /**
      * Tự thêm các cột lương (official/probation/internship) vào bảng users nếu chưa có.
      */
     private function ensureEmployeeSalaryColumns(): void
     {
         try {
-            if (!\Illuminate\Support\Facades\Schema::hasTable('users')) {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('users')) {
                 return;
             }
 
             \Illuminate\Support\Facades\Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
-                if (!\Illuminate\Support\Facades\Schema::hasColumn('users', 'official_salary')) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'official_salary')) {
                     $table->decimal('official_salary', 15, 2)->nullable()->after('is_active');
                 }
 
-                if (!\Illuminate\Support\Facades\Schema::hasColumn('users', 'probation_salary')) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'probation_salary')) {
                     $table->decimal('probation_salary', 15, 2)->nullable()->after('official_salary');
                 }
 
-                if (!\Illuminate\Support\Facades\Schema::hasColumn('users', 'internship_salary')) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'internship_salary')) {
                     $table->decimal('internship_salary', 15, 2)->nullable()->after('probation_salary');
                 }
             });
@@ -47,7 +46,7 @@ class EmployeeController extends Controller
     /**
      * Chuẩn hoá chuỗi lương nhập vào (bỏ đ, dấu chấm, phẩy, khoảng trắng) về số float không âm.
      *
-     * @param mixed $value Giá trị lương đầu vào
+     * @param  mixed  $value  Giá trị lương đầu vào
      */
     private function normalizeSalaryInput($value): ?float
     {
@@ -59,7 +58,7 @@ class EmployeeController extends Controller
         $value = str_replace([' ', 'đ', 'Đ', ','], ['', '', '', ''], $value);
         $value = str_replace('.', '', $value);
 
-        if ($value === '' || !is_numeric($value)) {
+        if ($value === '' || ! is_numeric($value)) {
             return null;
         }
 
@@ -87,7 +86,6 @@ class EmployeeController extends Controller
         $employee->probation_salary = $this->normalizeSalaryInput($request->input('probation_salary'));
         $employee->internship_salary = $this->normalizeSalaryInput($request->input('internship_salary'));
     }
-
 
     /**
      * Hiển thị danh sách nhân viên với bộ lọc, thống kê và nhóm theo ban giám đốc / phòng ban.
@@ -146,7 +144,7 @@ class EmployeeController extends Controller
         $boardUsers = $activeEmployeesOnly
             ->filter(fn ($user) => $this->isBoardMember($user))
             ->sortBy(fn ($user) => [
-                !$this->isLikelyLeader($user),
+                ! $this->isLikelyLeader($user),
                 strtolower($user->name ?? ''),
             ])
             ->values();
@@ -229,7 +227,7 @@ class EmployeeController extends Controller
     /**
      * Hiển thị chi tiết một nhân viên.
      *
-     * @param string $id ID nhân viên
+     * @param  string  $id  ID nhân viên
      */
     public function show(string $id)
     {
@@ -242,7 +240,7 @@ class EmployeeController extends Controller
     /**
      * Hiển thị form chỉnh sửa nhân viên.
      *
-     * @param string $id ID nhân viên
+     * @param  string  $id  ID nhân viên
      */
     public function edit(string $id)
     {
@@ -258,7 +256,7 @@ class EmployeeController extends Controller
     /**
      * Cập nhật thông tin nhân viên, lương và vai trò.
      *
-     * @param string $id ID nhân viên
+     * @param  string  $id  ID nhân viên
      */
     public function update(Request $request, string $id)
     {
@@ -296,7 +294,7 @@ class EmployeeController extends Controller
     /**
      * Xoá nhân viên: xoá cứng nếu không còn ràng buộc dữ liệu quan trọng, ngược lại xoá mềm (ẩn + khoá tài khoản).
      *
-     * @param int|string|object $employee ID hoặc model nhân viên
+     * @param  int|string|object  $employee  ID hoặc model nhân viên
      */
     public function destroy($employee)
     {
@@ -304,7 +302,7 @@ class EmployeeController extends Controller
             $id = is_object($employee) ? ($employee->id ?? null) : $employee;
             $id = (int) $id;
 
-            if (!$id) {
+            if (! $id) {
                 return redirect()->route('hr.employees.index')->withErrors('Không xác định được nhân viên cần xóa.');
             }
 
@@ -348,7 +346,7 @@ class EmployeeController extends Controller
                 $files = \Illuminate\Support\Facades\DB::table('hr_employee_files')->where('employee_id', $id)->get();
 
                 foreach ($files as $file) {
-                    if (!empty($file->file_path) && \Illuminate\Support\Facades\Storage::disk('public')->exists($file->file_path)) {
+                    if (! empty($file->file_path) && \Illuminate\Support\Facades\Storage::disk('public')->exists($file->file_path)) {
                         \Illuminate\Support\Facades\Storage::disk('public')->delete($file->file_path);
                     }
                 }
@@ -376,7 +374,7 @@ class EmployeeController extends Controller
                             continue;
                         }
 
-                        if (!\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
                             continue;
                         }
 
@@ -396,7 +394,7 @@ class EmployeeController extends Controller
             }
 
             // Nếu không có ràng buộc quan trọng thì được phép xóa cứng.
-            if (!$hasImportantReferences) {
+            if (! $hasImportantReferences) {
                 if (is_object($employee) && method_exists($employee, 'delete')) {
                     $employee->delete();
 
@@ -440,7 +438,7 @@ class EmployeeController extends Controller
                 }
 
                 if (in_array('email', $columns, true)) {
-                    $data['email'] = 'deleted_user_' . $id . '_' . time() . '@deleted.local';
+                    $data['email'] = 'deleted_user_'.$id.'_'.time().'@deleted.local';
                 }
 
                 if (in_array('phone', $columns, true)) {
@@ -453,19 +451,19 @@ class EmployeeController extends Controller
 
                 if (in_array('name', $columns, true)) {
                     $oldName = \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->value('name');
-                    $data['name'] = '[Đã xóa] ' . ($oldName ?: 'User ' . $id);
+                    $data['name'] = '[Đã xóa] '.($oldName ?: 'User '.$id);
                 }
 
                 if (in_array('full_name', $columns, true)) {
                     $oldFullName = \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->value('full_name');
-                    $data['full_name'] = '[Đã xóa] ' . ($oldFullName ?: 'User ' . $id);
+                    $data['full_name'] = '[Đã xóa] '.($oldFullName ?: 'User '.$id);
                 }
 
                 if (in_array('updated_at', $columns, true)) {
                     $data['updated_at'] = now();
                 }
 
-                if (!empty($data)) {
+                if (! empty($data)) {
                     \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->update($data);
                 }
             }
@@ -478,11 +476,9 @@ class EmployeeController extends Controller
 
             return redirect()
                 ->route('hr.employees.index')
-                ->withErrors('Không xóa được nhân viên: ' . $e->getMessage());
+                ->withErrors('Không xóa được nhân viên: '.$e->getMessage());
         }
     }
-
-
 
     /**
      * Hiển thị sơ đồ tổ chức (dùng chung dữ liệu với trang danh sách nhân viên).
@@ -495,8 +491,8 @@ class EmployeeController extends Controller
     /**
      * Gom nhân viên đang hoạt động thành các nhóm phòng ban (gộp Marketing & Sales, Kế toán & Kho) kèm leader.
      *
-     * @param \Illuminate\Support\Collection $employees Danh sách nhân viên
-     * @param \Illuminate\Support\Collection|null $boardUsers Danh sách ban giám đốc
+     * @param  \Illuminate\Support\Collection  $employees  Danh sách nhân viên
+     * @param  \Illuminate\Support\Collection|null  $boardUsers  Danh sách ban giám đốc
      */
     private function buildDepartmentGroups($employees, $boardUsers = null)
     {
@@ -530,12 +526,12 @@ class EmployeeController extends Controller
                     $name = 'Chưa gán phòng ban';
                     $subtitle = 'Nhân sự chưa được phân về bộ phận cụ thể';
                 } else {
-                    $key = 'department-' . md5($normalized);
+                    $key = 'department-'.md5($normalized);
                     $name = $departmentName;
-                    $subtitle = 'Nhân sự thuộc ' . $departmentName;
+                    $subtitle = 'Nhân sự thuộc '.$departmentName;
                 }
 
-                if (!isset($grouped[$key])) {
+                if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'key' => $key,
                         'name' => $name,
@@ -545,7 +541,7 @@ class EmployeeController extends Controller
                     ];
                 }
 
-                if (!$grouped[$key]['members']->contains(fn ($member) => $member->id === $employee->id)) {
+                if (! $grouped[$key]['members']->contains(fn ($member) => $member->id === $employee->id)) {
                     $grouped[$key]['members']->push($employee);
                 }
             }
@@ -556,7 +552,7 @@ class EmployeeController extends Controller
                 $members = $group['members']
                     ->sortBy(fn ($user) => [
                         in_array($user->id, $boardUserIds, true) ? 0 : 1,
-                        !$this->isLikelyLeader($user),
+                        ! $this->isLikelyLeader($user),
                         strtolower($user->name ?? ''),
                     ])
                     ->values();
@@ -596,7 +592,7 @@ class EmployeeController extends Controller
     {
         $names = [];
 
-        if (!empty(optional($user->department)->name)) {
+        if (! empty(optional($user->department)->name)) {
             $names[] = trim($user->department->name);
         }
 

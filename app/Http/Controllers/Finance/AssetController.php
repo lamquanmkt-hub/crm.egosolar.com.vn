@@ -81,7 +81,7 @@ class AssetController extends Controller
         }
 
         if ($filters['keyword'] !== '') {
-            $kw = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $filters['keyword']) . '%';
+            $kw = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $filters['keyword']).'%';
             $query->where(function ($q) use ($kw) {
                 $q->where('a.code', 'like', $kw)
                     ->orWhere('a.name', 'like', $kw)
@@ -207,7 +207,7 @@ class AssetController extends Controller
 
         return redirect()
             ->route('finance.assets.index')
-            ->with('success', 'Đã thêm tài sản ' . $data['code'] . '.');
+            ->with('success', 'Đã thêm tài sản '.$data['code'].'.');
     }
 
     /**
@@ -318,19 +318,19 @@ class AssetController extends Controller
 
             $update = ['updated_at' => now()];
 
-            if (!empty($data['to_user_id'])) {
+            if (! empty($data['to_user_id'])) {
                 $update['assigned_to'] = (int) $data['to_user_id'];
             }
 
-            if (!empty($data['to_location'])) {
+            if (! empty($data['to_location'])) {
                 $update['location'] = $data['to_location'];
             }
 
-            if (!empty($data['condition']) && isset($this->conditions[$data['condition']])) {
+            if (! empty($data['condition']) && isset($this->conditions[$data['condition']])) {
                 $update['condition'] = $data['condition'];
             }
 
-            if (!empty($data['status']) && isset($this->statuses[$data['status']])) {
+            if (! empty($data['status']) && isset($this->statuses[$data['status']])) {
                 $update['status'] = $data['status'];
             } elseif (in_array($data['type'], ['maintenance', 'repair', 'liquidation', 'lost'], true)) {
                 $update['status'] = match ($data['type']) {
@@ -342,7 +342,7 @@ class AssetController extends Controller
                 };
             }
 
-            if (!empty($data['next_maintenance_date'])) {
+            if (! empty($data['next_maintenance_date'])) {
                 $update['next_maintenance_date'] = $data['next_maintenance_date'];
             }
 
@@ -370,7 +370,7 @@ class AssetController extends Controller
         $file = DB::table('finance_asset_files')->where('id', (int) $fileId)->first();
         abort_unless($file, 404);
 
-        if (!Storage::disk('public')->exists($file->path)) {
+        if (! Storage::disk('public')->exists($file->path)) {
             abort(404);
         }
 
@@ -389,7 +389,7 @@ class AssetController extends Controller
             ->orderBy('a.code')
             ->get();
 
-        $filename = 'tai-san-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'tai-san-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
@@ -397,7 +397,7 @@ class AssetController extends Controller
 
             fputcsv($out, [
                 'Ma tai san', 'Ten tai san', 'Nhom', 'Trang thai', 'Tinh trang', 'Ngay mua',
-                'Nguyen gia', 'Khau hao luy ke', 'Gia tri con lai', 'Vi tri', 'Nha cung cap', 'Ghi chu'
+                'Nguyen gia', 'Khau hao luy ke', 'Gia tri con lai', 'Vi tri', 'Nha cung cap', 'Ghi chu',
             ]);
 
             foreach ($rows as $asset) {
@@ -473,9 +473,9 @@ class AssetController extends Controller
         return [
             'code' => $code,
             'name' => trim((string) $data['name']),
-            'category_id' => !empty($data['category_id']) ? (int) $data['category_id'] : null,
-            'company_id' => !empty($data['company_id']) ? (int) $data['company_id'] : null,
-            'assigned_to' => !empty($data['assigned_to']) ? (int) $data['assigned_to'] : null,
+            'category_id' => ! empty($data['category_id']) ? (int) $data['category_id'] : null,
+            'company_id' => ! empty($data['company_id']) ? (int) $data['company_id'] : null,
+            'assigned_to' => ! empty($data['assigned_to']) ? (int) $data['assigned_to'] : null,
             'department' => trim((string) ($data['department'] ?? '')) ?: null,
             'serial_no' => trim((string) ($data['serial_no'] ?? '')) ?: null,
             'purchase_date' => $data['purchase_date'] ?? null,
@@ -529,9 +529,9 @@ class AssetController extends Controller
      */
     private function nextAssetCode(): string
     {
-        $prefix = 'TS-' . now()->format('Y') . '-';
+        $prefix = 'TS-'.now()->format('Y').'-';
         $last = DB::table('finance_assets')
-            ->where('code', 'like', $prefix . '%')
+            ->where('code', 'like', $prefix.'%')
             ->orderByDesc('id')
             ->value('code');
 
@@ -541,7 +541,7 @@ class AssetController extends Controller
             $next = ((int) $m[1]) + 1;
         }
 
-        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -607,7 +607,7 @@ class AssetController extends Controller
             $totalBook += $metric['book_value'];
             $monthly += $metric['monthly_depreciation'];
 
-            if (!empty($asset->next_maintenance_date)) {
+            if (! empty($asset->next_maintenance_date)) {
                 try {
                     if (Carbon::parse($asset->next_maintenance_date)->lte(now()->addDays(30))) {
                         $warning++;
@@ -642,8 +642,8 @@ class AssetController extends Controller
             'amount' => $data['amount'] ?? null,
             'from_location' => $data['from_location'] ?? null,
             'to_location' => $data['to_location'] ?? null,
-            'from_user_id' => !empty($data['from_user_id']) ? (int) $data['from_user_id'] : null,
-            'to_user_id' => !empty($data['to_user_id']) ? (int) $data['to_user_id'] : null,
+            'from_user_id' => ! empty($data['from_user_id']) ? (int) $data['from_user_id'] : null,
+            'to_user_id' => ! empty($data['to_user_id']) ? (int) $data['to_user_id'] : null,
             'note' => trim((string) ($data['note'] ?? '')) ?: null,
             'created_by' => auth()->id(),
             'created_at' => now(),
@@ -656,16 +656,16 @@ class AssetController extends Controller
      */
     private function storeFiles(Request $request, int $assetId): void
     {
-        if (!$request->hasFile('files')) {
+        if (! $request->hasFile('files')) {
             return;
         }
 
         foreach ((array) $request->file('files') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
-            $path = $file->store('finance/assets/' . $assetId, 'public');
+            $path = $file->store('finance/assets/'.$assetId, 'public');
 
             DB::table('finance_asset_files')->insert([
                 'asset_id' => $assetId,
@@ -685,7 +685,7 @@ class AssetController extends Controller
      */
     private function ensureDefaultCategories(): void
     {
-        if (!Schema::hasTable('finance_asset_categories')) {
+        if (! Schema::hasTable('finance_asset_categories')) {
             return;
         }
 

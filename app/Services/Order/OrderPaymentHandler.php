@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Order;
 
+use App\Contracts\Repositories\OrderRepositoryInterface;
+use App\Contracts\Services\NotificationServiceInterface;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\Payments\Payment;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
-use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +29,7 @@ class OrderPaymentHandler
      * @param  int|string  $id
      * @param  array  $data  {payment_date, amount, method_id, note?}
      */
-    public function recordPayment($id, array $data, OrderRepositoryInterface $orderRepo, NotificationService $notificationService): void
+    public function recordPayment($id, array $data, OrderRepositoryInterface $orderRepo, NotificationServiceInterface $notificationService): void
     {
         DB::transaction(function () use ($id, $data, $orderRepo, $notificationService) {
             $order = $orderRepo->find($id);

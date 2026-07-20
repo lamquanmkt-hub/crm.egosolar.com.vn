@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-use App\Models\Payment;
 use App\Models\Account;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -36,10 +36,10 @@ class PaymentController extends Controller
             $keyword = trim($request->q);
 
             $query->where(function ($sub) use ($keyword) {
-                $sub->where('code', 'like', '%' . $keyword . '%')
-                    ->orWhere('payee_name', 'like', '%' . $keyword . '%')
-                    ->orWhere('payee_phone', 'like', '%' . $keyword . '%')
-                    ->orWhere('note', 'like', '%' . $keyword . '%');
+                $sub->where('code', 'like', '%'.$keyword.'%')
+                    ->orWhere('payee_name', 'like', '%'.$keyword.'%')
+                    ->orWhere('payee_phone', 'like', '%'.$keyword.'%')
+                    ->orWhere('note', 'like', '%'.$keyword.'%');
             });
         }
 
@@ -88,15 +88,15 @@ class PaymentController extends Controller
      * Hiển thị form tạo phiếu chi.
      */
     public function create()
-{
-    $accounts = Account::where('is_active', true)->orderBy('name')->get();
+    {
+        $accounts = Account::where('is_active', true)->orderBy('name')->get();
 
-    return view('finance.payments.create', [
-        'accounts' => $accounts,
-        'categories' => Payment::categoryOptions(),
-        'paymentMethods' => Payment::paymentMethodOptions(),
-    ]);
-}
+        return view('finance.payments.create', [
+            'accounts' => $accounts,
+            'categories' => Payment::categoryOptions(),
+            'paymentMethods' => Payment::paymentMethodOptions(),
+        ]);
+    }
 
     /**
      * Tạo phiếu chi và trừ số dư tài khoản (chặn khi không đủ số dư).
@@ -121,6 +121,7 @@ class PaymentController extends Controller
 
             if ((float) $account->current_balance < (float) $validated['amount']) {
                 $insufficient = true;
+
                 return;
             }
 
@@ -157,10 +158,10 @@ class PaymentController extends Controller
      */
     private function generatePaymentCode(): string
     {
-        $prefix = 'PC' . now()->format('Ymd');
+        $prefix = 'PC'.now()->format('Ymd');
 
         $last = Payment::query()
-            ->where('code', 'like', $prefix . '-%')
+            ->where('code', 'like', $prefix.'-%')
             ->latest('id')
             ->value('code');
 
@@ -170,7 +171,7 @@ class PaymentController extends Controller
             $number = ((int) $matches[1]) + 1;
         }
 
-        return $prefix . '-' . str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+        return $prefix.'-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
     }
 
     /**

@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\Inventory\Pricing\PriceTier;
-use App\Repositories\Interfaces\PriceTierRepositoryInterface;
+use App\Contracts\Repositories\PriceTierRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 

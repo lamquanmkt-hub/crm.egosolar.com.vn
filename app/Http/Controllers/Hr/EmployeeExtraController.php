@@ -25,6 +25,7 @@ class EmployeeExtraController extends Controller
 
         if (method_exists($user, 'hasAnyRole')) {
             abort_unless($user->hasAnyRole($roles), 403);
+
             return;
         }
 
@@ -44,7 +45,7 @@ class EmployeeExtraController extends Controller
     /**
      * Cập nhật (hoặc tạo mới) hồ sơ chi tiết của nhân viên trong bảng hr_employee_profiles.
      *
-     * @param int|string $employee ID nhân viên
+     * @param  int|string  $employee  ID nhân viên
      */
     public function update(Request $request, $employee)
     {
@@ -106,7 +107,7 @@ class EmployeeExtraController extends Controller
     /**
      * Upload file hồ sơ cho nhân viên và lưu thông tin vào bảng hr_employee_files.
      *
-     * @param int|string $employee ID nhân viên
+     * @param  int|string  $employee  ID nhân viên
      */
     public function uploadFile(Request $request, $employee)
     {
@@ -121,7 +122,7 @@ class EmployeeExtraController extends Controller
         abort_unless(Schema::hasTable('hr_employee_files'), 404);
 
         $file = $request->file('file');
-        $path = $file->store('hr/employee-files/' . (int) $employee, 'public');
+        $path = $file->store('hr/employee-files/'.(int) $employee, 'public');
 
         DB::table('hr_employee_files')->insert([
             'employee_id' => (int) $employee,
@@ -142,7 +143,7 @@ class EmployeeExtraController extends Controller
     /**
      * Tải xuống file hồ sơ nhân viên theo ID file.
      *
-     * @param int|string $file ID bản ghi file
+     * @param  int|string  $file  ID bản ghi file
      */
     public function downloadFile($file)
     {
@@ -159,7 +160,7 @@ class EmployeeExtraController extends Controller
     /**
      * Xoá file hồ sơ nhân viên (cả file vật lý và bản ghi DB).
      *
-     * @param int|string $file ID bản ghi file
+     * @param  int|string  $file  ID bản ghi file
      */
     public function deleteFile($file)
     {

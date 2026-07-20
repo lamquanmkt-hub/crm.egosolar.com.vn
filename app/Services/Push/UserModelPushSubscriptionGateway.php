@@ -1,8 +1,12 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services\Push;
+
 use App\DTO\PushSubscriptionData;
 use Illuminate\Contracts\Auth\Authenticatable;
+
 /**
  * Gateway lưu subscription push qua trait WebPush trên model User.
  */
@@ -21,6 +25,7 @@ final class UserModelPushSubscriptionGateway implements PushSubscriptionGateway
             $data->contentEncoding
         );
     }
+
     /**
      * Xoá subscription push theo endpoint trên model User.
      */

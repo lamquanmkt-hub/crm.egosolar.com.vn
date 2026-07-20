@@ -1,7 +1,11 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services\Debug;
+
 use Illuminate\Support\Facades\DB;
+
 /**
  * Service debug: đọc metadata bảng từ information_schema (danh sách bảng, cột).
  */
@@ -12,6 +16,7 @@ final class TableMetadataReader
     {
         // MariaDB/MySQL: lấy từ information_schema.tables
         $db = DB::getDatabaseName();
+
         return array_map(
             fn ($r) => $r->table_name,
             DB::select(
@@ -20,22 +25,26 @@ final class TableMetadataReader
             )
         );
     }
+
     /**
      * Đếm tổng số bảng trong database hiện tại.
      */
     public function countAllTables(): int
     {
         $db = DB::getDatabaseName();
+
         return (int) (DB::selectOne(
             'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = ?',
             [$db]
         )->c ?? 0);
     }
+
     /** @return array<int,string> */
     public function tablesLike(string $needle): array
     {
         $db = DB::getDatabaseName();
-        $needle = '%' . strtolower($needle) . '%';
+        $needle = '%'.strtolower($needle).'%';
+
         return array_map(
             fn ($r) => $r->table_name,
             DB::select(
@@ -47,6 +56,7 @@ final class TableMetadataReader
             )
         );
     }
+
     /** @return array<string,mixed> */
     public function tableInfo(string $tableName): array
     {
@@ -60,13 +70,14 @@ final class TableMetadataReader
                  FROM information_schema.columns
                  WHERE table_schema = ? AND table_name = ?
                  ORDER BY ordinal_position
-                 LIMIT ' . $maxCols,
+                 LIMIT '.$maxCols,
                 [$db, $tableName]
             );
-            $columns = array_map(fn($r) => $r->c, $cols);
+            $columns = array_map(fn ($r) => $r->c, $cols);
             $hasNameLike = in_array('name', $columns, true)
                 || in_array('product_name', $columns, true)
                 || in_array('title', $columns, true);
+
             return [
                 'table' => $tableName,
                 'has_name_like' => $hasNameLike,

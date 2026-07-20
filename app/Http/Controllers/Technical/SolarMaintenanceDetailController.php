@@ -24,27 +24,25 @@ class SolarMaintenanceDetailController extends Controller
     /**
      * Khởi tạo controller với service truy vấn bảo trì.
      */
-    public function __construct(private readonly SolarMaintenanceQueryService $queryService)
-    {
-    }
+    public function __construct(private readonly SolarMaintenanceQueryService $queryService) {}
 
     /**
      * Trang hồ sơ công trình: các chu kỳ bảo trì, tài liệu, serial và nhật ký hoạt động.
      */
     public function site(Request $request, int $site): View|RedirectResponse
     {
-        if (!SolarMaintenanceAccess::canViewAny($request->user())) {
+        if (! SolarMaintenanceAccess::canViewAny($request->user())) {
             return $this->deny('Bạn chưa có quyền xem hồ sơ công trình bảo trì.');
         }
 
         $siteModel = Site::withoutGlobalScopes()->find($site);
-        if (!$siteModel) {
+        if (! $siteModel) {
             return redirect()
                 ->route('ky-thuat.maintenance.index')
                 ->with('error', 'Không tìm thấy công trình. Có thể lịch cũ đang liên kết tới một công trình đã bị xóa.');
         }
 
-        if (!$this->canAccessSite($request, $siteModel)) {
+        if (! $this->canAccessSite($request, $siteModel)) {
             return $this->deny('Công trình không thuộc phạm vi công ty bạn đang làm việc.');
         }
 
@@ -70,7 +68,7 @@ class SolarMaintenanceDetailController extends Controller
         }
 
         $cycles = $schedules
-            ->groupBy(fn (SolarMaintenanceSchedule $item) => $item->round_group ?: 'single-' . $item->id)
+            ->groupBy(fn (SolarMaintenanceSchedule $item) => $item->round_group ?: 'single-'.$item->id)
             ->map(function (Collection $items, string $key) {
                 $first = $items->first();
                 $planned = max(1, (int) ($first?->total_rounds ?? $items->count()));
@@ -78,13 +76,13 @@ class SolarMaintenanceDetailController extends Controller
 
                 return [
                     'key' => $key,
-                    'title' => $planned > 1 ? 'Chu kỳ ' . $planned . ' đợt' : 'Lịch đơn lẻ',
+                    'title' => $planned > 1 ? 'Chu kỳ '.$planned.' đợt' : 'Lịch đơn lẻ',
                     'total' => $items->count(),
                     'planned' => $planned,
                     'completed' => $completed,
                     'approved' => $items->whereIn('status', ['approved', 'completed'])->count(),
                     'percent' => min(100, (int) round(($completed / $planned) * 100)),
-                    'next' => $items->first(fn ($item) => !in_array($item->status, ['completed', 'cancelled'], true)),
+                    'next' => $items->first(fn ($item) => ! in_array($item->status, ['completed', 'cancelled'], true)),
                     'items' => $items,
                 ];
             })
@@ -125,7 +123,7 @@ class SolarMaintenanceDetailController extends Controller
             'assignees.user:id,name,email,phone_number,department_id,position_id',
         ]);
 
-        if (!$request->user()->can('view', $schedule)) {
+        if (! $request->user()->can('view', $schedule)) {
             return $this->deny('Bạn chưa có quyền xem đợt bảo trì này hoặc đợt không thuộc công ty đang làm việc.');
         }
 
@@ -143,7 +141,7 @@ class SolarMaintenanceDetailController extends Controller
 
         $siblingQuery = SolarMaintenanceSchedule::query()
             ->when($schedule->round_group, fn ($q) => $q->where('round_group', $schedule->round_group))
-            ->when(!$schedule->round_group, fn ($q) => $q->whereKey($schedule->id));
+            ->when(! $schedule->round_group, fn ($q) => $q->whereKey($schedule->id));
 
         $this->queryService->scopeVisibleTo($siblingQuery, $request->user());
 
@@ -233,7 +231,7 @@ class SolarMaintenanceDetailController extends Controller
         ];
 
         foreach ($tables as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 return collect();
             }
         }
@@ -259,7 +257,7 @@ class SolarMaintenanceDetailController extends Controller
      */
     private function activityForSchedules(array $scheduleIds): Collection
     {
-        if (!$scheduleIds) {
+        if (! $scheduleIds) {
             return collect();
         }
 

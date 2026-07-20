@@ -34,7 +34,7 @@ class CustomerDebtController extends Controller
             if ($request->payment_status === 'paid') {
                 $query->where(function ($q) {
                     $q->where('payment_recorded', 1)
-                      ->orWhere('total_amount', '<=', 0);
+                        ->orWhere('total_amount', '<=', 0);
                 });
             }
 
@@ -52,11 +52,11 @@ class CustomerDebtController extends Controller
             $keyword = trim($request->keyword);
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('order_code', 'like', '%' . $keyword . '%')
-                  ->orWhere('receiver_name', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
-                      $sub->where('name', 'like', '%' . $keyword . '%');
-                  });
+                $q->where('order_code', 'like', '%'.$keyword.'%')
+                    ->orWhere('receiver_name', 'like', '%'.$keyword.'%')
+                    ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', '%'.$keyword.'%');
+                    });
             });
         }
 
@@ -66,11 +66,11 @@ class CustomerDebtController extends Controller
             ->groupBy(function ($order) {
                 $customer = optional(optional($order->lead)->customer);
 
-                if (!empty($customer->id)) {
-                    return 'customer_' . $customer->id;
+                if (! empty($customer->id)) {
+                    return 'customer_'.$customer->id;
                 }
 
-                return 'name_' . md5($this->resolveCustomerName($order));
+                return 'name_'.md5($this->resolveCustomerName($order));
             })
             ->map(function (Collection $items, $groupKey) {
                 $first = $items->first();
@@ -88,7 +88,7 @@ class CustomerDebtController extends Controller
 
                     return (object) [
                         'id' => $order->id,
-                        'order_code' => $order->order_code ?? ('#' . $order->id),
+                        'order_code' => $order->order_code ?? ('#'.$order->id),
                         'total_amount' => $money['total'],
                         'paid_amount' => $money['paid'],
                         'debt_amount' => $money['debt'],
@@ -156,7 +156,7 @@ class CustomerDebtController extends Controller
             if ($request->payment_status === 'paid') {
                 $query->where(function ($q) {
                     $q->where('payment_recorded', 1)
-                      ->orWhere('total_amount', '<=', 0);
+                        ->orWhere('total_amount', '<=', 0);
                 });
             }
 
@@ -174,11 +174,11 @@ class CustomerDebtController extends Controller
             $keyword = trim($request->keyword);
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('order_code', 'like', '%' . $keyword . '%')
-                  ->orWhere('receiver_name', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
-                      $sub->where('name', 'like', '%' . $keyword . '%');
-                  });
+                $q->where('order_code', 'like', '%'.$keyword.'%')
+                    ->orWhere('receiver_name', 'like', '%'.$keyword.'%')
+                    ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', '%'.$keyword.'%');
+                    });
             });
         }
 
@@ -188,11 +188,11 @@ class CustomerDebtController extends Controller
             ->groupBy(function ($order) {
                 $customer = optional(optional($order->lead)->customer);
 
-                if (!empty($customer->id)) {
-                    return 'customer_' . $customer->id;
+                if (! empty($customer->id)) {
+                    return 'customer_'.$customer->id;
                 }
 
-                return 'name_' . md5($this->resolveCustomerName($order));
+                return 'name_'.md5($this->resolveCustomerName($order));
             })
             ->map(function (Collection $items) {
                 $first = $items->first();
@@ -210,10 +210,10 @@ class CustomerDebtController extends Controller
 
                 return (object) [
                     'customer_name' => $this->resolveCustomerName($first),
-                    'total_orders'  => $items->count(),
-                    'total_amount'  => $total,
-                    'paid_amount'   => $paid,
-                    'debt_amount'   => $debt,
+                    'total_orders' => $items->count(),
+                    'total_amount' => $total,
+                    'paid_amount' => $paid,
+                    'debt_amount' => $debt,
                 ];
             })
             ->sortByDesc('debt_amount')
@@ -258,7 +258,7 @@ class CustomerDebtController extends Controller
             if ($request->payment_status === 'paid') {
                 $query->where(function ($q) {
                     $q->where('payment_recorded', 1)
-                      ->orWhere('total_amount', '<=', 0);
+                        ->orWhere('total_amount', '<=', 0);
                 });
             }
 
@@ -276,11 +276,11 @@ class CustomerDebtController extends Controller
             $keyword = trim($request->keyword);
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('order_code', 'like', '%' . $keyword . '%')
-                  ->orWhere('receiver_name', 'like', '%' . $keyword . '%')
-                  ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
-                      $sub->where('name', 'like', '%' . $keyword . '%');
-                  });
+                $q->where('order_code', 'like', '%'.$keyword.'%')
+                    ->orWhere('receiver_name', 'like', '%'.$keyword.'%')
+                    ->orWhereHas('lead.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', '%'.$keyword.'%');
+                    });
             });
         }
 
@@ -308,23 +308,23 @@ class CustomerDebtController extends Controller
     {
         $customer = optional(optional($order->lead)->customer);
 
-        if (!empty($customer->name)) {
+        if (! empty($customer->name)) {
             return $customer->name;
         }
 
-        if (!empty($order->receiver_name)) {
+        if (! empty($order->receiver_name)) {
             return $order->receiver_name;
         }
 
         return 'Khách lẻ / Chưa xác định';
     }
 
-        /**
-         * Tính tổng tiền, đã trả và còn nợ của một đơn hàng.
-         *
-         * @return array{total: float, paid: float, debt: float}
-         */
-        private function mapMoney($order): array
+    /**
+     * Tính tổng tiền, đã trả và còn nợ của một đơn hàng.
+     *
+     * @return array{total: float, paid: float, debt: float}
+     */
+    private function mapMoney($order): array
     {
         $total = (float) ($order->total_amount ?? 0);
 

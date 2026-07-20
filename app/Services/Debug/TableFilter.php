@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services\Debug;
+
 /**
  * Service debug: lọc danh sách tên bảng theo từ khoá.
  */
@@ -10,6 +13,7 @@ final class TableFilter
     public function byKeywords(array $tables, array $keywords): array
     {
         $keywords = array_values(array_filter(array_map('strtolower', $keywords)));
+
         return array_values(array_filter($tables, function (string $table) use ($keywords) {
             $t = strtolower($table);
             foreach ($keywords as $k) {
@@ -17,6 +21,7 @@ final class TableFilter
                     return true;
                 }
             }
+
             return false;
         }));
     }

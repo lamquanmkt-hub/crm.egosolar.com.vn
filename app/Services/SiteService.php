@@ -132,7 +132,7 @@ class SiteService
         Site $site,
         array $rows
     ): void {
-        if (!Schema::hasTable('site_payment_terms')) {
+        if (! Schema::hasTable('site_payment_terms')) {
             return;
         }
 
@@ -213,7 +213,7 @@ class SiteService
                     'name' => $name,
                     'percent' => $percent,
                     'amount' => $amount,
-                    'due_date' => !empty($dueDate)
+                    'due_date' => ! empty($dueDate)
                         ? $dueDate
                         : null,
                     'note' => $note !== ''
@@ -325,7 +325,7 @@ class SiteService
      */
     public function getPaymentTerms(Site $site): array
     {
-        if (!Schema::hasTable('site_payment_terms')) {
+        if (! Schema::hasTable('site_payment_terms')) {
             return [];
         }
 
@@ -372,7 +372,7 @@ class SiteService
                     'paid_amount' => $paidAmount,
                     'remaining_amount' => $remainingAmount,
                     'computed_status' => $computedStatus,
-                    'due_date' => !empty($r->due_date) ? (string) $r->due_date : '',
+                    'due_date' => ! empty($r->due_date) ? (string) $r->due_date : '',
                     'status' => (string) ($r->status ?? 'pending'),
                     'note' => (string) ($r->note ?? ''),
                 ];
@@ -385,11 +385,11 @@ class SiteService
      */
     public function getPaymentReceipts(Site $site): array
     {
-        if (!Schema::hasTable('receipts')) {
+        if (! Schema::hasTable('receipts')) {
             return [];
         }
 
-        if (!Schema::hasColumn('receipts', 'site_id')) {
+        if (! Schema::hasColumn('receipts', 'site_id')) {
             return [];
         }
 
@@ -457,13 +457,13 @@ class SiteService
                 return [
                     'id' => (int) ($r->id ?? 0),
                     'site_id' => (int) ($r->site_id ?? 0),
-                    'site_payment_term_id' => !empty($r->site_payment_term_id) ? (int) $r->site_payment_term_id : null,
+                    'site_payment_term_id' => ! empty($r->site_payment_term_id) ? (int) $r->site_payment_term_id : null,
                     'term_name' => (string) ($r->term_name ?? ''),
                     'amount' => (float) ($r->amount ?? 0),
                     'payment_method' => (string) ($r->payment_method ?? ''),
-                    'paid_at' => !empty($r->paid_at) ? (string) $r->paid_at : '',
+                    'paid_at' => ! empty($r->paid_at) ? (string) $r->paid_at : '',
                     'note' => (string) ($r->note ?? ''),
-                    'created_at' => !empty($r->created_at) ? (string) $r->created_at : '',
+                    'created_at' => ! empty($r->created_at) ? (string) $r->created_at : '',
                 ];
             })
             ->toArray();
@@ -572,9 +572,9 @@ class SiteService
 
             // Không đếm dòng chỉ có type mặc định, ví dụ Inverter trống.
             $hasAny =
-                !empty($d['brand'])
-                || !empty($d['model'])
-                || !empty($d['serial'])
+                ! empty($d['brand'])
+                || ! empty($d['model'])
+                || ! empty($d['serial'])
                 || $powerKw > 0
                 || $capacityKwh > 0;
 
@@ -617,8 +617,8 @@ class SiteService
             'device_count' => $deviceCount,
             'system_type' => (string) ($site->system_type ?? ''),
             'phase' => (string) ($site->phase ?? ''),
-            'installed_at' => !empty($site->installed_at) ? (string) $site->installed_at : '',
-            'warranty_to' => !empty($site->warranty_to) ? (string) $site->warranty_to : '',
+            'installed_at' => ! empty($site->installed_at) ? (string) $site->installed_at : '',
+            'warranty_to' => ! empty($site->warranty_to) ? (string) $site->warranty_to : '',
             'technician_name' => (string) ($site->technician_name ?? ''),
             'monitoring_link' => (string) ($site->monitoring_link ?? ''),
             'monitoring_account' => (string) ($site->monitoring_account ?? ''),
@@ -635,7 +635,7 @@ class SiteService
      */
     public function syncPlannedMaterials(Site $site, array $plannedRows): void
     {
-        if (!Schema::hasTable('site_planned_materials')) {
+        if (! Schema::hasTable('site_planned_materials')) {
             return;
         }
 
@@ -666,7 +666,7 @@ class SiteService
                 ];
             }
 
-            if (!empty($inserts)) {
+            if (! empty($inserts)) {
                 DB::table('site_planned_materials')->insert($inserts);
             }
         });
@@ -677,7 +677,7 @@ class SiteService
      */
     public function getPlannedMaterials(Site $site): array
     {
-        if (!Schema::hasTable('site_planned_materials')) {
+        if (! Schema::hasTable('site_planned_materials')) {
             return [];
         }
 
@@ -700,7 +700,7 @@ class SiteService
     {
         $savedPlanned = $this->getPlannedMaterials($site);
 
-        if (!empty($savedPlanned)) {
+        if (! empty($savedPlanned)) {
             return $savedPlanned;
         }
 
@@ -726,7 +726,7 @@ class SiteService
      */
     public function getDevices(Site $site): array
     {
-        if (!Schema::hasTable('site_devices')) {
+        if (! Schema::hasTable('site_devices')) {
             return [];
         }
 
@@ -742,7 +742,7 @@ class SiteService
                 'power_kw' => (string) ($r->power_kw ?? ''),
                 'capacity_kwh' => (string) ($r->capacity_kwh ?? ''),
                 'qty' => (int) ($r->qty ?? 1),
-                'warranty_to' => !empty($r->warranty_to) ? (string) $r->warranty_to : '',
+                'warranty_to' => ! empty($r->warranty_to) ? (string) $r->warranty_to : '',
             ])
             ->toArray();
     }
@@ -770,7 +770,7 @@ class SiteService
             ->values()
             ->toArray();
 
-        if (!empty($savedDevices)) {
+        if (! empty($savedDevices)) {
             return $savedDevices;
         }
 
@@ -799,7 +799,7 @@ class SiteService
      */
     public function syncDevices(Site $site, array $deviceRows): void
     {
-        if (!Schema::hasTable('site_devices')) {
+        if (! Schema::hasTable('site_devices')) {
             return;
         }
 
@@ -829,7 +829,7 @@ class SiteService
                     || $powerKw > 0
                     || $capacityKwh > 0;
 
-                if (!$hasAny) {
+                if (! $hasAny) {
                     continue;
                 }
 
@@ -850,13 +850,13 @@ class SiteService
                     'power_kw' => $powerKw > 0 ? $powerKw : null,
                     'capacity_kwh' => $capacityKwh > 0 ? $capacityKwh : null,
                     'qty' => $qty,
-                    'warranty_to' => !empty($warrantyTo) ? $warrantyTo : null,
+                    'warranty_to' => ! empty($warrantyTo) ? $warrantyTo : null,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
             }
 
-            if (!empty($inserts)) {
+            if (! empty($inserts)) {
                 DB::table('site_devices')->insert($inserts);
             }
         });
@@ -872,8 +872,8 @@ class SiteService
     private function getActualMaterialsForEdit(Site $site)
     {
         if (
-            !Schema::hasTable('material_request_items')
-            || !Schema::hasTable('material_requests')
+            ! Schema::hasTable('material_request_items')
+            || ! Schema::hasTable('material_requests')
         ) {
             return collect();
         }
@@ -959,7 +959,7 @@ class SiteService
      */
     private function actualMaterialName(object $item): string
     {
-        if (!empty($item->product_id) && !empty($item->product_name)) {
+        if (! empty($item->product_id) && ! empty($item->product_name)) {
             return (string) $item->product_name;
         }
 
@@ -977,11 +977,11 @@ class SiteService
      */
     private function actualMaterialUnit(object $item): string
     {
-        if (!empty($item->unit)) {
+        if (! empty($item->unit)) {
             return (string) $item->unit;
         }
 
-        if (!empty($item->product_unit)) {
+        if (! empty($item->product_unit)) {
             return (string) $item->product_unit;
         }
 
@@ -1023,7 +1023,7 @@ class SiteService
             return false;
         }
 
-        return !empty($item->product_id);
+        return ! empty($item->product_id);
     }
 
     /**
@@ -1031,7 +1031,7 @@ class SiteService
      */
     private function detectDeviceType(string $name, string $note = ''): string
     {
-        $text = mb_strtolower($name . ' ' . $note, 'UTF-8');
+        $text = mb_strtolower($name.' '.$note, 'UTF-8');
 
         if (str_contains($text, 'hybrid')) {
             return 'hybrid_inverter';

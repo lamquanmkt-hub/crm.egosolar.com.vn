@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Department;
+use Illuminate\Http\Request;
 
 /**
  * Controller quản lý phòng ban (Department) trong module HR.
@@ -54,7 +54,7 @@ class DepartmentController extends Controller
     /**
      * Hiển thị form chỉnh sửa phòng ban.
      *
-     * @param int $id ID phòng ban
+     * @param  int  $id  ID phòng ban
      */
     public function edit($id)
     {
@@ -66,7 +66,7 @@ class DepartmentController extends Controller
     /**
      * Cập nhật thông tin phòng ban.
      *
-     * @param int $id ID phòng ban
+     * @param  int  $id  ID phòng ban
      */
     public function update(Request $request, $id)
     {
@@ -92,7 +92,7 @@ class DepartmentController extends Controller
     /**
      * Xoá phòng ban theo ID.
      *
-     * @param int $id ID phòng ban
+     * @param  int  $id  ID phòng ban
      */
     public function destroy($id)
     {

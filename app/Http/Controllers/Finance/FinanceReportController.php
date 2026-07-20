@@ -23,7 +23,7 @@ class FinanceReportController extends Controller
         |--------------------------------------------------------------------------
         */
         $month = $request->input('month', now()->format('Y-m'));
-        $monthStart = $month . '-01';
+        $monthStart = $month.'-01';
         $monthEnd = date('Y-m-t', strtotime($monthStart));
 
         /*

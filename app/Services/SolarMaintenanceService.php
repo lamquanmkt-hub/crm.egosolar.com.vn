@@ -26,7 +26,7 @@ class SolarMaintenanceService
     public function createSeries(array $data, User $actor): Collection
     {
         return DB::transaction(function () use ($data, $actor) {
-            $site = !empty($data['site_id'])
+            $site = ! empty($data['site_id'])
                 ? Site::withoutGlobalScopes()->find((int) $data['site_id'])
                 : null;
 
@@ -42,7 +42,7 @@ class SolarMaintenanceService
             $roundsCount = max(1, min(24, (int) ($data['rounds_count'] ?? 1)));
             $intervalMonths = max(1, min(24, (int) ($data['round_interval_months'] ?? 3)));
             $baseDate = Carbon::parse($data['scheduled_date']);
-            $roundGroup = 'SMG-' . now()->format('YmdHis') . '-' . $actor->id . '-' . random_int(1000, 9999);
+            $roundGroup = 'SMG-'.now()->format('YmdHis').'-'.$actor->id.'-'.random_int(1000, 9999);
             $created = collect();
 
             for ($round = 1; $round <= $roundsCount; $round++) {
@@ -223,7 +223,8 @@ class SolarMaintenanceService
 
         $invalid = collect($ids)->filter(function ($id) use ($users) {
             $user = $users->get($id);
-            return !$user || !SolarMaintenanceAccess::isSelectableTechnician($user);
+
+            return ! $user || ! SolarMaintenanceAccess::isSelectableTechnician($user);
         })->values()->all();
 
         if ($invalid) {
@@ -276,24 +277,24 @@ class SolarMaintenanceService
 
         $allowed = SolarMaintenanceSchedule::TRANSITIONS[$oldStatus] ?? [];
 
-        if (!in_array($newStatus, $allowed, true)) {
+        if (! in_array($newStatus, $allowed, true)) {
             throw ValidationException::withMessages([
                 'status' => 'Không thể chuyển từ “'
-                    . (SolarMaintenanceSchedule::STATUSES[$oldStatus] ?? $oldStatus)
-                    . '” sang “'
-                    . (SolarMaintenanceSchedule::STATUSES[$newStatus] ?? $newStatus)
-                    . '”.',
+                    .(SolarMaintenanceSchedule::STATUSES[$oldStatus] ?? $oldStatus)
+                    .'” sang “'
+                    .(SolarMaintenanceSchedule::STATUSES[$newStatus] ?? $newStatus)
+                    .'”.',
             ]);
         }
 
         if (in_array($oldStatus, ['completed', 'cancelled', 'approved'], true)) {
-            if (!SolarMaintenanceAccess::isManager($actor)) {
+            if (! SolarMaintenanceAccess::isManager($actor)) {
                 throw ValidationException::withMessages([
                     'status' => 'Chỉ Admin hoặc Trưởng phòng kỹ thuật được mở lại lịch đã kết thúc hoặc đã phê duyệt.',
                 ]);
             }
 
-            if (!$this->filled($reason)) {
+            if (! $this->filled($reason)) {
                 throw ValidationException::withMessages([
                     'reason' => 'Phải nhập lý do khi mở lại lịch đã kết thúc hoặc đã phê duyệt.',
                 ]);
@@ -311,12 +312,12 @@ class SolarMaintenanceService
         ?string $reason,
         User $actor
     ): void {
-        if ($newStatus === 'in_progress' && !$schedule->started_at) {
+        if ($newStatus === 'in_progress' && ! $schedule->started_at) {
             $schedule->started_at = now();
         }
 
         if ($newStatus === 'completed') {
-            if ($schedule->approval_status !== 'approved' && !SolarMaintenanceAccess::isAdmin($actor)) {
+            if ($schedule->approval_status !== 'approved' && ! SolarMaintenanceAccess::isAdmin($actor)) {
                 throw ValidationException::withMessages([
                     'status' => 'Lịch phải được Trưởng phòng kỹ thuật phê duyệt trước khi hoàn thành.',
                 ]);
@@ -399,7 +400,7 @@ class SolarMaintenanceService
      */
     private function cleanIds($ids): array
     {
-        if (!is_array($ids)) {
+        if (! is_array($ids)) {
             return [];
         }
 
@@ -418,6 +419,7 @@ class SolarMaintenanceService
     private function filled($value): ?string
     {
         $value = trim((string) ($value ?? ''));
+
         return $value !== '' ? $value : null;
     }
 }

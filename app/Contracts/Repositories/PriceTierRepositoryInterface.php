@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repositories\Interfaces;
+namespace App\Contracts\Repositories;
 
 use App\Models\Inventory\Pricing\PriceTier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;

@@ -27,8 +27,8 @@ class OfficeSupplyProcessController extends Controller
             $q = trim($request->q);
             $productQuery->where(function ($x) use ($q) {
                 $x->where('name', 'like', "%{$q}%")
-                  ->orWhere('sku', 'like', "%{$q}%")
-                  ->orWhere('note', 'like', "%{$q}%");
+                    ->orWhere('sku', 'like', "%{$q}%")
+                    ->orWhere('note', 'like', "%{$q}%");
             });
         }
 
@@ -159,7 +159,7 @@ class OfficeSupplyProcessController extends Controller
         DB::transaction(function () use ($data) {
             $productId = $data['product_id'] ?? null;
 
-            if (!$productId && !empty($data['new_product_name'])) {
+            if (! $productId && ! empty($data['new_product_name'])) {
                 $name = trim($data['new_product_name']);
                 $unit = trim($data['unit'] ?? 'cái');
 
@@ -180,7 +180,7 @@ class OfficeSupplyProcessController extends Controller
                 }
             }
 
-            abort_if(!$productId, 422, 'Vui lòng chọn vật phẩm hoặc nhập tên vật phẩm mới.');
+            abort_if(! $productId, 422, 'Vui lòng chọn vật phẩm hoặc nhập tên vật phẩm mới.');
 
             $this->moveStock($productId, 'in', (float) $data['qty'], [
                 'reason' => $data['reason'] ?? 'Nhập VPP',
@@ -219,13 +219,14 @@ class OfficeSupplyProcessController extends Controller
         foreach ($items as $item) {
             $product = DB::table('hr_vpp_products')->where('id', $item['product_id'])->first();
 
-            if (!$product) {
-                $stockErrors[] = 'Không tìm thấy vật phẩm ID ' . $item['product_id'];
+            if (! $product) {
+                $stockErrors[] = 'Không tìm thấy vật phẩm ID '.$item['product_id'];
+
                 continue;
             }
 
             if ((float) $product->current_stock < (float) $item['qty']) {
-                $stockErrors[] = $product->name . ' chỉ còn ' . $product->current_stock . ' ' . $product->unit . ', không đủ xuất ' . $item['qty'];
+                $stockErrors[] = $product->name.' chỉ còn '.$product->current_stock.' '.$product->unit.', không đủ xuất '.$item['qty'];
             }
         }
 
@@ -284,11 +285,10 @@ class OfficeSupplyProcessController extends Controller
         return back()->with('success', 'Đã phân bổ VPP. Tồn kho đã tự động trừ.');
     }
 
-
     /**
      * Trả về JSON chi tiết phiếu phân bổ: thông tin phiếu, item và lịch sử xuất nhập.
      *
-     * @param int|string $id ID phiếu
+     * @param  int|string  $id  ID phiếu
      */
     public function detailJson($id)
     {
@@ -327,7 +327,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Hiển thị trang chi tiết phiếu phân bổ VPP.
      *
-     * @param int|string $id ID phiếu
+     * @param  int|string  $id  ID phiếu
      */
     public function show($id)
     {
@@ -362,7 +362,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Xoá phiếu phân bổ và hoàn trả tồn kho các vật phẩm đã xuất (trong transaction).
      *
-     * @param int|string $id ID phiếu
+     * @param  int|string  $id  ID phiếu
      */
     public function destroy($id)
     {
@@ -397,11 +397,10 @@ class OfficeSupplyProcessController extends Controller
             ->with('success', 'Đã xoá phiếu và hoàn lại tồn kho.');
     }
 
-
     /**
      * Cập nhật thông tin vật phẩm VPP theo ID.
      *
-     * @param int|string $id ID vật phẩm
+     * @param  int|string  $id  ID vật phẩm
      */
     public function productUpdate(Request $request, $id)
     {
@@ -427,11 +426,10 @@ class OfficeSupplyProcessController extends Controller
         return back()->with('success', 'Đã cập nhật vật phẩm VPP.');
     }
 
-
     /**
      * Xoá vật phẩm VPP cùng item và lịch sử xuất nhập liên quan.
      *
-     * @param int|string $id ID vật phẩm
+     * @param  int|string  $id  ID vật phẩm
      */
     public function productDestroy($id)
     {
@@ -483,7 +481,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): chỉ báo module mới dùng phân bổ trực tiếp từ kho.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function update(Request $request, $id)
     {
@@ -493,7 +491,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước HR duyệt không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function hrReview(Request $request, $id)
     {
@@ -503,7 +501,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước duyệt phiếu không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function approve(Request $request, $id)
     {
@@ -513,7 +511,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước từ chối phiếu không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function reject(Request $request, $id)
     {
@@ -523,7 +521,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước xuất kho không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function issue(Request $request, $id)
     {
@@ -533,7 +531,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước nhận hàng không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function receive(Request $request, $id)
     {
@@ -543,7 +541,7 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Route cũ (đã bỏ): bước hoàn tất phiếu không còn dùng trong module mới.
      *
-     * @param int|string $id ID phiếu (không dùng)
+     * @param  int|string  $id  ID phiếu (không dùng)
      */
     public function complete(Request $request, $id)
     {
@@ -563,7 +561,7 @@ class OfficeSupplyProcessController extends Controller
         $items = [];
 
         foreach ($productIds as $i => $productId) {
-            if (!$productId) {
+            if (! $productId) {
                 continue;
             }
 
@@ -585,8 +583,8 @@ class OfficeSupplyProcessController extends Controller
     /**
      * Xuất / nhập kho một vật phẩm (lock bản ghi), cập nhật tồn và ghi lịch sử movement.
      *
-     * @param string $type 'in' hoặc 'out'
-     * @param array $meta Thông tin kèm theo (reason, note, receiver, department, request_id)
+     * @param  string  $type  'in' hoặc 'out'
+     * @param  array  $meta  Thông tin kèm theo (reason, note, receiver, department, request_id)
      */
     private function moveStock(int $productId, string $type, float $qty, array $meta): void
     {
@@ -634,7 +632,7 @@ class OfficeSupplyProcessController extends Controller
      */
     private function log(int $requestId, ?string $from, string $to, string $action, ?string $note = null): void
     {
-        if (!Schema::hasTable('hr_vpp_logs')) {
+        if (! Schema::hasTable('hr_vpp_logs')) {
             return;
         }
 
@@ -657,9 +655,8 @@ class OfficeSupplyProcessController extends Controller
     {
         $next = ((int) DB::table('hr_vpp_requests')->max('id')) + 1;
 
-        return 'VPP-' . now()->format('Y') . '-' . str_pad($next, 5, '0', STR_PAD_LEFT);
+        return 'VPP-'.now()->format('Y').'-'.str_pad($next, 5, '0', STR_PAD_LEFT);
     }
-
 
     /**
      * Tìm vật phẩm VPP trùng tên và đơn vị (không phân biệt hoa thường / khoảng trắng).
@@ -686,7 +683,7 @@ class OfficeSupplyProcessController extends Controller
      */
     private function ensureTables(): void
     {
-        if (!Schema::hasTable('hr_vpp_products')) {
+        if (! Schema::hasTable('hr_vpp_products')) {
             Schema::create('hr_vpp_products', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -700,7 +697,7 @@ class OfficeSupplyProcessController extends Controller
             });
         }
 
-        if (!Schema::hasTable('hr_vpp_requests')) {
+        if (! Schema::hasTable('hr_vpp_requests')) {
             Schema::create('hr_vpp_requests', function (Blueprint $table) {
                 $table->id();
                 $table->string('code')->unique();
@@ -722,43 +719,43 @@ class OfficeSupplyProcessController extends Controller
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'receiver_name')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'receiver_name')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->string('receiver_name')->nullable()->after('status');
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'received_note')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'received_note')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->text('received_note')->nullable()->after('receiver_name');
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'received_by')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'received_by')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->unsignedBigInteger('received_by')->nullable()->after('received_note');
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'received_at')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'received_at')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->timestamp('received_at')->nullable()->after('received_by');
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'completed_note')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'completed_note')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->text('completed_note')->nullable()->after('received_at');
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_requests', 'completed_at')) {
+        if (! Schema::hasColumn('hr_vpp_requests', 'completed_at')) {
             Schema::table('hr_vpp_requests', function (Blueprint $table) {
                 $table->timestamp('completed_at')->nullable()->after('completed_note');
             });
         }
 
-        if (!Schema::hasTable('hr_vpp_items')) {
+        if (! Schema::hasTable('hr_vpp_items')) {
             Schema::create('hr_vpp_items', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('request_id')->index();
@@ -772,13 +769,13 @@ class OfficeSupplyProcessController extends Controller
             });
         }
 
-        if (!Schema::hasColumn('hr_vpp_items', 'product_id')) {
+        if (! Schema::hasColumn('hr_vpp_items', 'product_id')) {
             Schema::table('hr_vpp_items', function (Blueprint $table) {
                 $table->unsignedBigInteger('product_id')->nullable()->index()->after('request_id');
             });
         }
 
-        if (!Schema::hasTable('hr_vpp_movements')) {
+        if (! Schema::hasTable('hr_vpp_movements')) {
             Schema::create('hr_vpp_movements', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('product_id')->index();
@@ -797,7 +794,7 @@ class OfficeSupplyProcessController extends Controller
             });
         }
 
-        if (!Schema::hasTable('hr_vpp_logs')) {
+        if (! Schema::hasTable('hr_vpp_logs')) {
             Schema::create('hr_vpp_logs', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('request_id')->index();

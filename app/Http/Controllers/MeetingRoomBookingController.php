@@ -228,13 +228,13 @@ class MeetingRoomBookingController extends Controller
                 $email = trim((string) ($user->email ?? ''));
                 $role = trim((string) ($user->role ?? ($roleByUserId[(int) $user->id] ?? '')));
 
-                $value = $name !== '' ? $name : ($email !== '' ? $email : ('User #' . $user->id));
+                $value = $name !== '' ? $name : ($email !== '' ? $email : ('User #'.$user->id));
                 $label = $value;
 
                 if ($role !== '') {
-                    $label .= ' - ' . $role;
+                    $label .= ' - '.$role;
                 } elseif ($email !== '' && $email !== $value) {
-                    $label .= ' - ' . $email;
+                    $label .= ' - '.$email;
                 }
 
                 $items[$value] = $label;
@@ -243,7 +243,7 @@ class MeetingRoomBookingController extends Controller
 
         $authName = trim((string) (optional(auth()->user())->name ?: optional(auth()->user())->email));
 
-        if ($authName !== '' && !array_key_exists($authName, $items)) {
+        if ($authName !== '' && ! array_key_exists($authName, $items)) {
             $items = [$authName => $authName] + $items;
         }
 

@@ -24,13 +24,13 @@ class MaterialRequestService
     public function createDraft(array $data): MaterialRequest
     {
         return DB::transaction(function () use ($data) {
-            $items = (array)($data['items'] ?? []);
-            $extraItems = (array)($data['extra_items'] ?? []);
+            $items = (array) ($data['items'] ?? []);
+            $extraItems = (array) ($data['extra_items'] ?? []);
 
             $warehouseId = $this->pickWarehouseId($items, $extraItems);
 
             $materialRequestId = DB::table('material_requests')->insertGetId($this->filterColumns('material_requests', [
-                'site_id' => (int)($data['site_id'] ?? 0),
+                'site_id' => (int) ($data['site_id'] ?? 0),
                 'warehouse_id' => $warehouseId,
                 'created_by' => Auth::id() ?: 1,
                 'status' => MaterialRequestStatus::DRAFT->value,
@@ -59,22 +59,22 @@ class MaterialRequestService
     {
         return DB::transaction(function () use ($materialRequest, $data) {
             if (! in_array((string) $materialRequest->status, [
-            MaterialRequestStatus::DRAFT->value,
-            MaterialRequestStatus::SUBMITTED->value,
-            MaterialRequestStatus::ADMIN_APPROVED->value,
-        ], true)) {
-            abort(403, 'Chỉ được sửa đơn vật tư khi còn ở trạng thái nháp.');
-        }
+                MaterialRequestStatus::DRAFT->value,
+                MaterialRequestStatus::SUBMITTED->value,
+                MaterialRequestStatus::ADMIN_APPROVED->value,
+            ], true)) {
+                abort(403, 'Chỉ được sửa đơn vật tư khi còn ở trạng thái nháp.');
+            }
 
-            $items = (array)($data['items'] ?? []);
-            $extraItems = (array)($data['extra_items'] ?? []);
+            $items = (array) ($data['items'] ?? []);
+            $extraItems = (array) ($data['extra_items'] ?? []);
 
-            $warehouseId = $this->pickWarehouseId($items, $extraItems, (int)($materialRequest->warehouse_id ?? 0));
+            $warehouseId = $this->pickWarehouseId($items, $extraItems, (int) ($materialRequest->warehouse_id ?? 0));
 
             DB::table('material_requests')
                 ->where('id', $materialRequest->id)
                 ->update($this->filterColumns('material_requests', [
-                    'site_id' => (int)($data['site_id'] ?? $materialRequest->site_id),
+                    'site_id' => (int) ($data['site_id'] ?? $materialRequest->site_id),
                     'warehouse_id' => $warehouseId,
                     'note' => $data['note'] ?? null,
                     'updated_at' => now(),
@@ -84,7 +84,7 @@ class MaterialRequestService
                 ->where('material_request_id', $materialRequest->id)
                 ->delete();
 
-            $this->insertRequestItems((int)$materialRequest->id, $warehouseId, $items, $extraItems);
+            $this->insertRequestItems((int) $materialRequest->id, $warehouseId, $items, $extraItems);
 
             $materialRequest = MaterialRequest::query()
                 ->with(['items.product', 'site'])
@@ -102,7 +102,7 @@ class MaterialRequestService
     public function submit(MaterialRequest $materialRequest): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest) {
-            if ((string)$materialRequest->status !== MaterialRequestStatus::DRAFT->value) {
+            if ((string) $materialRequest->status !== MaterialRequestStatus::DRAFT->value) {
                 abort(403, 'Chỉ đơn nháp mới được gửi admin duyệt.');
             }
 
@@ -123,7 +123,7 @@ class MaterialRequestService
     public function adminApprove(MaterialRequest $materialRequest): MaterialRequest
     {
         return DB::transaction(function () use ($materialRequest) {
-            if (!in_array((string)$materialRequest->status, [
+            if (! in_array((string) $materialRequest->status, [
                 MaterialRequestStatus::SUBMITTED->value,
                 MaterialRequestStatus::DRAFT->value,
             ], true)) {
@@ -154,36 +154,38 @@ class MaterialRequestService
                 ->lockForUpdate()
                 ->findOrFail($materialRequest->id);
 
-            if ((string)$materialRequest->status === MaterialRequestStatus::EXPORTED->value) {
+            if ((string) $materialRequest->status === MaterialRequestStatus::EXPORTED->value) {
                 $this->refreshCosts($materialRequest);
+
                 return $materialRequest->fresh(['items.product', 'site']);
             }
 
-            if ((string)$materialRequest->status !== MaterialRequestStatus::ADMIN_APPROVED->value) {
+            if ((string) $materialRequest->status !== MaterialRequestStatus::ADMIN_APPROVED->value) {
                 abort(403, 'Chỉ đơn đã admin duyệt mới được kho duyệt / xuất kho.');
             }
 
             foreach ($materialRequest->items as $item) {
-                $itemId = (int)$item->id;
+                $itemId = (int) $item->id;
                 $qty = $this->toFloat($item->qty ?? 0);
                 $qty = $qty > 0 ? $qty : 1;
 
-                if (!empty($item->product_id)) {
-                    $this->refreshStockItemCost($itemId, (int)$item->product_id, $qty);
-                    $this->exportStockProduct($materialRequest, (int)$item->product_id, $qty);
+                if (! empty($item->product_id)) {
+                    $this->refreshStockItemCost($itemId, (int) $item->product_id, $qty);
+                    $this->exportStockProduct($materialRequest, (int) $item->product_id, $qty);
+
                     continue;
                 }
 
-                $costRow = (array)($costs[$itemId] ?? []);
+                $costRow = (array) ($costs[$itemId] ?? []);
 
                 $unitCostBeforeVat = $this->toFloat($costRow['unit_cost'] ?? $item->unit_cost ?? 0);
                 $vatPercent = $this->toFloat($costRow['vat_percent'] ?? $item->vat_percent ?? 0);
-                $unit = trim((string)($costRow['unit'] ?? $item->unit ?? $this->externalUnitFromNote((string)$item->note)));
-                $warehouseId = (int)($costRow['warehouse_id'] ?? $materialRequest->warehouse_id ?? 0);
-                $addToCatalog = (string)($costRow['add_to_catalog'] ?? '0') === '1';
+                $unit = trim((string) ($costRow['unit'] ?? $item->unit ?? $this->externalUnitFromNote((string) $item->note)));
+                $warehouseId = (int) ($costRow['warehouse_id'] ?? $materialRequest->warehouse_id ?? 0);
+                $addToCatalog = (string) ($costRow['add_to_catalog'] ?? '0') === '1';
 
                 if ($unitCostBeforeVat <= 0) {
-                    throw new RuntimeException('Vui lòng nhập giá vốn cho vật tư ngoài kho: ' . $this->externalName((string)$item->note));
+                    throw new RuntimeException('Vui lòng nhập giá vốn cho vật tư ngoài kho: '.$this->externalName((string) $item->note));
                 }
 
                 $lineTotal = $this->lineTotalWithVat($qty, $unitCostBeforeVat, $vatPercent);
@@ -200,13 +202,13 @@ class MaterialRequestService
 
                 if ($addToCatalog) {
                     if ($warehouseId <= 0) {
-                        throw new RuntimeException('Vui lòng chọn kho cho vật tư ngoài kho: ' . $this->externalName((string)$item->note));
+                        throw new RuntimeException('Vui lòng chọn kho cho vật tư ngoài kho: '.$this->externalName((string) $item->note));
                     }
 
                     $productId = $this->createOrUpdateExternalProduct(
-                        materialRequestId: (int)$materialRequest->id,
+                        materialRequestId: (int) $materialRequest->id,
                         itemId: $itemId,
-                        name: $this->externalName((string)$item->note),
+                        name: $this->externalName((string) $item->note),
                         unit: $unit,
                         unitCostBeforeVat: $unitCostBeforeVat,
                         vatPercent: $vatPercent
@@ -255,9 +257,9 @@ class MaterialRequestService
             $qty = $this->toFloat($item->qty ?? 0);
             $qty = $qty > 0 ? $qty : 1;
 
-            if (!empty($item->product_id)) {
+            if (! empty($item->product_id)) {
                 $product = DB::table('crm_product_catalog')
-                    ->where('id', (int)$item->product_id)
+                    ->where('id', (int) $item->product_id)
                     ->first();
 
                 $unitCostAfterVat = $this->productUnitCostAfterVat($product);
@@ -281,6 +283,7 @@ class MaterialRequestService
                     ]));
 
                 $total += $lineTotal;
+
                 continue;
             }
 
@@ -305,7 +308,7 @@ class MaterialRequestService
                 'updated_at' => now(),
             ]));
 
-        $this->syncSiteMaterialCost((int)$materialRequest->site_id);
+        $this->syncSiteMaterialCost((int) $materialRequest->site_id);
 
         return $total;
     }
@@ -316,7 +319,7 @@ class MaterialRequestService
     private function insertRequestItems(int $materialRequestId, int $defaultWarehouseId, array $items, array $extraItems): void
     {
         foreach ($items as $row) {
-            $productId = (int)($row['product_id'] ?? 0);
+            $productId = (int) ($row['product_id'] ?? 0);
 
             if ($productId <= 0) {
                 continue;
@@ -332,7 +335,7 @@ class MaterialRequestService
             $unitCostAfterVat = $this->productUnitCostAfterVat($product);
             $vatPercent = $this->toFloat($product->cost_vat_percent ?? $product->vat_percent ?? 0);
             $unit = $product->unit ?? null;
-            $note = trim((string)($row['note'] ?? ''));
+            $note = trim((string) ($row['note'] ?? ''));
 
             $lineTotal = round($qty * $unitCostAfterVat, 2);
 
@@ -351,7 +354,7 @@ class MaterialRequestService
         }
 
         foreach ($extraItems as $row) {
-            $name = trim((string)($row['name'] ?? ''));
+            $name = trim((string) ($row['name'] ?? ''));
 
             if ($name === '') {
                 continue;
@@ -360,13 +363,13 @@ class MaterialRequestService
             $qty = $this->toFloat($row['qty'] ?? 1);
             $qty = $qty > 0 ? $qty : 1;
 
-            $unit = trim((string)($row['unit'] ?? ''));
-            $noteRaw = trim((string)($row['note'] ?? ''));
+            $unit = trim((string) ($row['unit'] ?? ''));
+            $noteRaw = trim((string) ($row['note'] ?? ''));
 
             $noteParts = [$name];
 
             if ($unit !== '') {
-                $noteParts[] = 'ĐVT: ' . $unit;
+                $noteParts[] = 'ĐVT: '.$unit;
             }
 
             if ($noteRaw !== '') {
@@ -424,8 +427,8 @@ class MaterialRequestService
         float $unitCostBeforeVat,
         float $vatPercent
     ): int {
-        $name = trim($name) !== '' ? trim($name) : ('Vật tư ngoài kho #' . $itemId);
-        $unit = trim((string)$unit);
+        $name = trim($name) !== '' ? trim($name) : ('Vật tư ngoài kho #'.$itemId);
+        $unit = trim((string) $unit);
         $unitCostAfterVat = $this->unitCostAfterVat($unitCostBeforeVat, $vatPercent);
 
         $existing = DB::table('crm_product_catalog')
@@ -446,14 +449,14 @@ class MaterialRequestService
                     'updated_at' => now(),
                 ]));
 
-            return (int)$existing->id;
+            return (int) $existing->id;
         }
 
         $sku = $this->makeUniqueSku($name, $materialRequestId, $itemId);
 
-        return (int)DB::table('crm_product_catalog')->insertGetId($this->filterColumns('crm_product_catalog', [
+        return (int) DB::table('crm_product_catalog')->insertGetId($this->filterColumns('crm_product_catalog', [
             'name' => $name,
-            'description' => 'Tạo tự động từ đơn vật tư #' . $materialRequestId . ', dòng #' . $itemId,
+            'description' => 'Tạo tự động từ đơn vật tư #'.$materialRequestId.', dòng #'.$itemId,
             'sku' => $sku,
             'is_serialized' => 0,
             'unit' => $unit !== '' ? $unit : null,
@@ -466,7 +469,7 @@ class MaterialRequestService
             'price_retail' => 0,
             'price_retail_vat' => null,
             'vat_percent' => $vatPercent,
-            'note' => 'Tạo tự động khi kho duyệt đơn vật tư #' . $materialRequestId,
+            'note' => 'Tạo tự động khi kho duyệt đơn vật tư #'.$materialRequestId,
             'quantity' => 0,
             'is_active' => 1,
             'created_at' => now(),
@@ -488,7 +491,7 @@ class MaterialRequestService
             return;
         }
 
-        $stockQty = (int)round($qty);
+        $stockQty = (int) round($qty);
         if ($stockQty <= 0) {
             $stockQty = 1;
         }
@@ -499,13 +502,13 @@ class MaterialRequestService
          */
         if (Schema::hasTable('crm_product_stock_lots')) {
             $product = \App\Models\Inventory\Catalog\Product::find($productId);
-            if (!$product) {
+            if (! $product) {
                 return;
             }
 
             $companyId = $this->warehouseCompanyId($warehouseId);
-            $costBeforeVat = (float)($product->price_agent ?? $product->price ?? 0);
-            $vatPercent = (float)($product->cost_vat_percent ?? $product->vat_percent ?? 0);
+            $costBeforeVat = (float) ($product->price_agent ?? $product->price ?? 0);
+            $vatPercent = (float) ($product->cost_vat_percent ?? $product->vat_percent ?? 0);
 
             $lotId = app(\App\Services\StockLotService::class)->receiveLot(
                 $product,
@@ -518,8 +521,8 @@ class MaterialRequestService
                 [
                     'source_type' => 'material_external_import',
                     'reference_type' => 'material_request',
-                    'source_id' => (int)$materialRequest->id,
-                    'reason' => 'Nhập vật tư ngoài kho từ đơn vật tư #' . (int)$materialRequest->id,
+                    'source_id' => (int) $materialRequest->id,
+                    'reason' => 'Nhập vật tư ngoài kho từ đơn vật tư #'.(int) $materialRequest->id,
                     'note' => 'Nhập vật tư ngoài kho trước khi xuất cho công trình',
                 ]
             );
@@ -530,18 +533,19 @@ class MaterialRequestService
                 $warehouseId,
                 $stockQty,
                 [
-                    'reason' => 'Xuất kho cho công trình / đơn vật tư #' . (int)$materialRequest->id,
+                    'reason' => 'Xuất kho cho công trình / đơn vật tư #'.(int) $materialRequest->id,
                     'reference_type' => 'material_request',
-                    'reference_id' => (int)$materialRequest->id,
-                    'note' => 'Xuất vật tư ngoài kho sau khi nhập tự động. Lot #' . $lotId,
+                    'reference_id' => (int) $materialRequest->id,
+                    'note' => 'Xuất vật tư ngoài kho sau khi nhập tự động. Lot #'.$lotId,
                 ]
             );
 
             $this->refreshProductTotalQty($productId);
+
             return;
         }
 
-        if (!Schema::hasTable('crm_product_stock')) {
+        if (! Schema::hasTable('crm_product_stock')) {
             return;
         }
 
@@ -553,7 +557,7 @@ class MaterialRequestService
             ->lockForUpdate()
             ->first();
 
-        if (!$stock) {
+        if (! $stock) {
             DB::table('crm_product_stock')->insert($this->filterColumns('crm_product_stock', [
                 'product_id' => $productId,
                 'warehouse_id' => $warehouseId,
@@ -572,7 +576,7 @@ class MaterialRequestService
                 ->first();
         }
 
-        $currentQty = (int)($stock->qty ?? 0);
+        $currentQty = (int) ($stock->qty ?? 0);
 
         DB::table('crm_product_stock')
             ->where('id', $stock->id)
@@ -587,7 +591,7 @@ class MaterialRequestService
             warehouseId: $warehouseId,
             changeQty: $stockQty,
             reason: 'material_external_import',
-            referenceId: (int)$materialRequest->id,
+            referenceId: (int) $materialRequest->id,
             qtyBefore: $currentQty,
             qtyAfter: $currentQty + $stockQty,
             referenceType: 'material_request',
@@ -610,7 +614,7 @@ class MaterialRequestService
             warehouseId: $warehouseId,
             changeQty: -$stockQty,
             reason: 'material_request_export',
-            referenceId: (int)$materialRequest->id,
+            referenceId: (int) $materialRequest->id,
             qtyBefore: $afterImport,
             qtyAfter: $afterExport,
             referenceType: 'material_request',
@@ -620,19 +624,18 @@ class MaterialRequestService
         $this->refreshProductTotalQty($productId);
     }
 
-
     /**
      * Xuất kho vật tư theo FIFO lô, fallback trừ thẳng tồn nếu chưa có bảng lô.
      */
     private function exportStockProduct(MaterialRequest $materialRequest, int $productId, float $qty): void
     {
-        $warehouseId = (int)($materialRequest->warehouse_id ?? 0);
+        $warehouseId = (int) ($materialRequest->warehouse_id ?? 0);
 
         if ($warehouseId <= 0 || $productId <= 0) {
             return;
         }
 
-        $stockQty = (int)round($qty);
+        $stockQty = (int) round($qty);
         if ($stockQty <= 0) {
             $stockQty = 1;
         }
@@ -651,18 +654,19 @@ class MaterialRequestService
                 $warehouseId,
                 $stockQty,
                 [
-                    'reason' => 'Xuất kho cho công trình / đơn vật tư #' . (int)$materialRequest->id,
+                    'reason' => 'Xuất kho cho công trình / đơn vật tư #'.(int) $materialRequest->id,
                     'reference_type' => 'material_request',
-                    'reference_id' => (int)$materialRequest->id,
+                    'reference_id' => (int) $materialRequest->id,
                     'note' => 'Xuất kho cho công trình / đơn vật tư',
                 ]
             );
 
             $this->refreshProductTotalQty($productId);
+
             return;
         }
 
-        if (!Schema::hasTable('crm_product_stock')) {
+        if (! Schema::hasTable('crm_product_stock')) {
             return;
         }
 
@@ -672,10 +676,10 @@ class MaterialRequestService
             ->lockForUpdate()
             ->first();
 
-        $qtyBefore = (int)($stock->qty ?? 0);
+        $qtyBefore = (int) ($stock->qty ?? 0);
 
         if ($qtyBefore < $stockQty) {
-            throw new RuntimeException('Không đủ tồn kho để xuất vật tư. Tồn hiện tại ' . $qtyBefore . ', cần ' . $stockQty . '.');
+            throw new RuntimeException('Không đủ tồn kho để xuất vật tư. Tồn hiện tại '.$qtyBefore.', cần '.$stockQty.'.');
         }
 
         $qtyAfter = $qtyBefore - $stockQty;
@@ -693,7 +697,7 @@ class MaterialRequestService
             warehouseId: $warehouseId,
             changeQty: -$stockQty,
             reason: 'material_request_export',
-            referenceId: (int)$materialRequest->id,
+            referenceId: (int) $materialRequest->id,
             qtyBefore: $qtyBefore,
             qtyAfter: $qtyAfter,
             referenceType: 'material_request',
@@ -702,7 +706,6 @@ class MaterialRequestService
 
         $this->refreshProductTotalQty($productId);
     }
-
 
     /**
      * Ghi bản ghi biến động tồn kho nếu bảng movements tồn tại.
@@ -718,7 +721,7 @@ class MaterialRequestService
         ?string $referenceType = null,
         ?string $note = null
     ): void {
-        if (!Schema::hasTable('crm_stock_movements')) {
+        if (! Schema::hasTable('crm_stock_movements')) {
             return;
         }
 
@@ -748,15 +751,15 @@ class MaterialRequestService
      */
     private function refreshProductTotalQty(int $productId): void
     {
-        if (!Schema::hasTable('crm_product_stock') || !Schema::hasTable('crm_product_catalog')) {
+        if (! Schema::hasTable('crm_product_stock') || ! Schema::hasTable('crm_product_catalog')) {
             return;
         }
 
-        if (!Schema::hasColumn('crm_product_catalog', 'quantity')) {
+        if (! Schema::hasColumn('crm_product_catalog', 'quantity')) {
             return;
         }
 
-        $totalQty = (int)DB::table('crm_product_stock')
+        $totalQty = (int) DB::table('crm_product_stock')
             ->where('product_id', $productId)
             ->sum('qty');
 
@@ -773,11 +776,11 @@ class MaterialRequestService
      */
     private function syncSiteMaterialCost(int $siteId): void
     {
-        if ($siteId <= 0 || !Schema::hasTable('sites')) {
+        if ($siteId <= 0 || ! Schema::hasTable('sites')) {
             return;
         }
 
-        $totalCost = (float)DB::table('material_requests')
+        $totalCost = (float) DB::table('material_requests')
             ->where('site_id', $siteId)
             ->where('status', MaterialRequestStatus::EXPORTED->value)
             ->sum('total_cost');
@@ -805,7 +808,7 @@ class MaterialRequestService
     private function pickWarehouseId(array $items, array $extraItems, int $fallback = 0): int
     {
         foreach ($items as $row) {
-            $warehouseId = (int)($row['warehouse_id'] ?? 0);
+            $warehouseId = (int) ($row['warehouse_id'] ?? 0);
 
             if ($warehouseId > 0) {
                 return $warehouseId;
@@ -813,7 +816,7 @@ class MaterialRequestService
         }
 
         foreach ($extraItems as $row) {
-            $warehouseId = (int)($row['warehouse_id'] ?? 0);
+            $warehouseId = (int) ($row['warehouse_id'] ?? 0);
 
             if ($warehouseId > 0) {
                 return $warehouseId;
@@ -830,7 +833,7 @@ class MaterialRequestService
                 ->value('id');
 
             if ($firstWarehouse) {
-                return (int)$firstWarehouse;
+                return (int) $firstWarehouse;
             }
         }
 
@@ -842,11 +845,11 @@ class MaterialRequestService
      */
     private function warehouseCompanyId(int $warehouseId): ?int
     {
-        if (!Schema::hasTable('crm_warehouses')) {
+        if (! Schema::hasTable('crm_warehouses')) {
             return null;
         }
 
-        if (!Schema::hasColumn('crm_warehouses', 'company_id')) {
+        if (! Schema::hasColumn('crm_warehouses', 'company_id')) {
             return null;
         }
 
@@ -854,7 +857,7 @@ class MaterialRequestService
             ->where('id', $warehouseId)
             ->value('company_id');
 
-        return $companyId ? (int)$companyId : null;
+        return $companyId ? (int) $companyId : null;
     }
 
     /**
@@ -862,7 +865,7 @@ class MaterialRequestService
      */
     private function productUnitCostAfterVat(?object $product): float
     {
-        if (!$product) {
+        if (! $product) {
             return 0.0;
         }
 
@@ -929,7 +932,7 @@ class MaterialRequestService
 
         foreach ($parts as $part) {
             if (preg_match('/^ĐVT:\s*(.*)$/u', $part, $matches)) {
-                return trim((string)($matches[1] ?? ''));
+                return trim((string) ($matches[1] ?? ''));
             }
         }
 
@@ -943,7 +946,7 @@ class MaterialRequestService
     {
         $note = preg_replace('/^\[(Thiết bị chính - Trong kho|Vật tư phụ - Trong kho|Thiết bị chính - Ngoài kho|Vật tư phụ - Ngoài kho)\]\s*/u', '', $note);
 
-        return trim((string)$note);
+        return trim((string) $note);
     }
 
     /**
@@ -958,13 +961,13 @@ class MaterialRequestService
         }
 
         $base = substr($base, 0, 55);
-        $sku = $base . '-MR' . $materialRequestId . '-' . $itemId;
+        $sku = $base.'-MR'.$materialRequestId.'-'.$itemId;
 
         $original = $sku;
         $i = 1;
 
         while (DB::table('crm_product_catalog')->where('sku', $sku)->exists()) {
-            $sku = $original . '-' . $i;
+            $sku = $original.'-'.$i;
             $i++;
         }
 
@@ -976,7 +979,7 @@ class MaterialRequestService
      */
     private function defaultProductCategoryId(): ?int
     {
-        if (!Schema::hasTable('crm_product_categories')) {
+        if (! Schema::hasTable('crm_product_categories')) {
             return null;
         }
 
@@ -988,14 +991,14 @@ class MaterialRequestService
             ->value('id');
 
         if ($categoryId) {
-            return (int)$categoryId;
+            return (int) $categoryId;
         }
 
         $firstCategoryId = DB::table('crm_product_categories')
             ->orderBy('id')
             ->value('id');
 
-        return $firstCategoryId ? (int)$firstCategoryId : null;
+        return $firstCategoryId ? (int) $firstCategoryId : null;
     }
 
     /**
@@ -1003,7 +1006,7 @@ class MaterialRequestService
      */
     private function filterColumns(string $table, array $data): array
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return $data;
         }
 
@@ -1022,10 +1025,10 @@ class MaterialRequestService
     private function toFloat(mixed $value): float
     {
         if (is_numeric($value)) {
-            return (float)$value;
+            return (float) $value;
         }
 
-        $value = trim((string)$value);
+        $value = trim((string) $value);
 
         if ($value === '') {
             return 0.0;
@@ -1033,12 +1036,12 @@ class MaterialRequestService
 
         $value = str_replace(' ', '', $value);
 
-        if (str_contains($value, ',') && !str_contains($value, '.')) {
+        if (str_contains($value, ',') && ! str_contains($value, '.')) {
             $value = str_replace(',', '.', $value);
         } else {
             $value = preg_replace('/[^\d.\-]/', '', $value);
         }
 
-        return is_numeric($value) ? (float)$value : 0.0;
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

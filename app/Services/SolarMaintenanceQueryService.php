@@ -84,7 +84,7 @@ class SolarMaintenanceQueryService
 
         return Site::withoutGlobalScopes()
             ->select($this->siteColumns())
-            ->when($companyId > 0 && !SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
             ->orderByDesc('id')
             ->limit(50)
             ->get();
@@ -99,9 +99,9 @@ class SolarMaintenanceQueryService
 
         return Site::withoutGlobalScopes()
             ->select($this->siteColumns())
-            ->when($companyId > 0 && !SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
             ->when($keyword !== '', function ($q) use ($keyword) {
-                $like = '%' . $keyword . '%';
+                $like = '%'.$keyword.'%';
                 $q->where(function ($sub) use ($like) {
                     $sub->where('name', 'like', $like)
                         ->orWhere('contact_name', 'like', $like)
@@ -188,7 +188,7 @@ class SolarMaintenanceQueryService
     {
         $companyId = EgoCompanyScope::currentId();
 
-        if ($companyId > 0 && !SolarMaintenanceAccess::isAdmin($user)) {
+        if ($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
             $query->where(function (Builder $companyQuery) use ($companyId, $user) {
                 $companyQuery->where('solar_maintenance_schedules.company_id', $companyId)
                     ->orWhere(function (Builder $fallback) use ($companyId) {
@@ -244,7 +244,7 @@ class SolarMaintenanceQueryService
 
         if ($search !== '') {
             $query->where(function (Builder $q) use ($search) {
-                $like = '%' . $search . '%';
+                $like = '%'.$search.'%';
                 $q->where('schedule_code', 'like', $like)
                     ->orWhere('site_name', 'like', $like)
                     ->orWhere('customer_name', 'like', $like)

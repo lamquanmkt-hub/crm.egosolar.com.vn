@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Finance;
 
+use App\Contracts\Services\SupplierDebtServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\SupplierDebtPaymentRoundRequest;
 use App\Http\Requests\Finance\SupplierDebtRequest;
-use App\Services\Finance\SupplierDebtService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -21,7 +21,7 @@ class SupplierDebtController extends Controller
      * Khởi tạo controller, inject service nghiệp vụ công nợ nhà cung cấp.
      */
     public function __construct(
-        private readonly SupplierDebtService $supplierDebtService,
+        private readonly SupplierDebtServiceInterface $supplierDebtService,
     ) {}
 
     /**

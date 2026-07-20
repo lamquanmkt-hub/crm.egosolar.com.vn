@@ -33,9 +33,9 @@ class SolarMaintenanceAttachmentController extends Controller
 
         foreach ($request->file('files', []) as $file) {
             $extension = strtolower((string) $file->getClientOriginalExtension());
-            $fileName = Str::uuid()->toString() . ($extension ? '.' . $extension : '');
-            $directory = 'solar-maintenance/private/' . ($schedule->company_id ?: 'unknown')
-                . '/schedules/' . $schedule->id;
+            $fileName = Str::uuid()->toString().($extension ? '.'.$extension : '');
+            $directory = 'solar-maintenance/private/'.($schedule->company_id ?: 'unknown')
+                .'/schedules/'.$schedule->id;
             $path = $file->storeAs($directory, $fileName, 'local');
 
             $schedule->attachments()->create([
@@ -79,9 +79,9 @@ class SolarMaintenanceAttachmentController extends Controller
 
         foreach ($request->file('files', []) as $file) {
             $extension = strtolower((string) $file->getClientOriginalExtension());
-            $fileName = Str::uuid()->toString() . ($extension ? '.' . $extension : '');
-            $directory = 'solar-maintenance/private/' . ($siteModel->company_id ?: 'unknown')
-                . '/sites/' . $siteModel->id;
+            $fileName = Str::uuid()->toString().($extension ? '.'.$extension : '');
+            $directory = 'solar-maintenance/private/'.($siteModel->company_id ?: 'unknown')
+                .'/sites/'.$siteModel->id;
             $path = $file->storeAs($directory, $fileName, 'local');
 
             SolarSiteDocument::create([
@@ -109,6 +109,7 @@ class SolarMaintenanceAttachmentController extends Controller
     {
         $attachment->load('schedule');
         $this->authorize('view', $attachment->schedule);
+
         return $this->serve($attachment->disk, $attachment->file_path, $attachment->original_name, true);
     }
 
@@ -119,6 +120,7 @@ class SolarMaintenanceAttachmentController extends Controller
     {
         $attachment->load('schedule');
         $this->authorize('view', $attachment->schedule);
+
         return Storage::disk($attachment->disk)->download($attachment->file_path, $attachment->original_name);
     }
 
@@ -130,7 +132,7 @@ class SolarMaintenanceAttachmentController extends Controller
         $attachment->load('schedule');
         abort_unless($request->user()->can('uploadAttachment', $attachment->schedule), 403);
 
-        if ($attachment->schedule->status === 'completed' && !SolarMaintenanceAccess::isManager($request->user())) {
+        if ($attachment->schedule->status === 'completed' && ! SolarMaintenanceAccess::isManager($request->user())) {
             abort(403, 'Chỉ Trưởng phòng kỹ thuật hoặc Admin được xóa file của lịch đã hoàn thành.');
         }
 
@@ -147,6 +149,7 @@ class SolarMaintenanceAttachmentController extends Controller
     {
         abort_unless(SolarMaintenanceAccess::canViewAny($request->user()), 403);
         $this->assertDocumentCompany($document);
+
         return $this->serve($document->disk, $document->file_path, $document->original_name, true);
     }
 
@@ -157,6 +160,7 @@ class SolarMaintenanceAttachmentController extends Controller
     {
         abort_unless(SolarMaintenanceAccess::canViewAny($request->user()), 403);
         $this->assertDocumentCompany($document);
+
         return Storage::disk($document->disk)->download($document->file_path, $document->original_name);
     }
 
@@ -185,13 +189,13 @@ class SolarMaintenanceAttachmentController extends Controller
         $mime = Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream';
         $canInline = $inline && (str_starts_with($mime, 'image/') || $mime === 'application/pdf');
 
-        if (!$canInline) {
+        if (! $canInline) {
             return Storage::disk($disk)->download($path, $name);
         }
 
         return response()->file(Storage::disk($disk)->path($path), [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+            'Content-Disposition' => 'inline; filename="'.addslashes($name).'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

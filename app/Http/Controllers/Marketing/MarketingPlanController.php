@@ -43,7 +43,7 @@ class MarketingPlanController extends Controller
      */
     private function filterCols(string $table, array $data): array
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return $data;
         }
 
@@ -57,6 +57,7 @@ class MarketingPlanController extends Controller
     {
         $value = trim((string) $value);
         $value = str_replace([' ', ',', 'đ', 'Đ', 'vnd', 'VND', 'vnđ', 'VNĐ'], '', $value);
+
         return is_numeric($value) ? (float) $value : 0;
     }
 
@@ -97,7 +98,7 @@ class MarketingPlanController extends Controller
                     $query->where('month', $monthDate);
                 } elseif ($this->hasCol($table, 'start_date')) {
                     $query->whereDate('start_date', '<=', Carbon::parse($monthDate)->endOfMonth()->toDateString())
-                          ->whereDate('end_date', '>=', $monthDate);
+                        ->whereDate('end_date', '>=', $monthDate);
                 }
             } catch (\Throwable $e) {
                 //
@@ -153,7 +154,7 @@ class MarketingPlanController extends Controller
         $monthDate = Carbon::createFromFormat('Y-m', $request->month)->startOfMonth()->toDateString();
 
         $data = [
-            'name' => $request->name ?: ('Kế hoạch Marketing ' . Carbon::parse($monthDate)->format('m/Y')),
+            'name' => $request->name ?: ('Kế hoạch Marketing '.Carbon::parse($monthDate)->format('m/Y')),
             'month' => $monthDate,
             'start_date' => $monthDate,
             'end_date' => Carbon::parse($monthDate)->endOfMonth()->toDateString(),
@@ -188,7 +189,7 @@ class MarketingPlanController extends Controller
         $table = $this->planTable();
 
         $plan = DB::table($table)->where('id', $id)->first();
-        abort_if(!$plan, 404);
+        abort_if(! $plan, 404);
 
         $attachments = $this->attachments($id);
 
@@ -203,7 +204,7 @@ class MarketingPlanController extends Controller
         $table = $this->planTable();
 
         $plan = DB::table($table)->where('id', $id)->first();
-        abort_if(!$plan, 404);
+        abort_if(! $plan, 404);
 
         $attachments = $this->attachments($id);
 
@@ -218,7 +219,7 @@ class MarketingPlanController extends Controller
         $table = $this->planTable();
 
         $plan = DB::table($table)->where('id', $id)->first();
-        abort_if(!$plan, 404);
+        abort_if(! $plan, 404);
 
         $request->validate([
             'month' => ['required', 'date_format:Y-m'],
@@ -235,7 +236,7 @@ class MarketingPlanController extends Controller
         $monthDate = Carbon::createFromFormat('Y-m', $request->month)->startOfMonth()->toDateString();
 
         $data = [
-            'name' => $request->name ?: ('Kế hoạch Marketing ' . Carbon::parse($monthDate)->format('m/Y')),
+            'name' => $request->name ?: ('Kế hoạch Marketing '.Carbon::parse($monthDate)->format('m/Y')),
             'month' => $monthDate,
             'start_date' => $monthDate,
             'end_date' => Carbon::parse($monthDate)->endOfMonth()->toDateString(),
@@ -308,9 +309,9 @@ class MarketingPlanController extends Controller
         abort_unless(Schema::hasTable('mkt_plan_attachments'), 404);
 
         $att = DB::table('mkt_plan_attachments')->where('id', $file)->first();
-        abort_if(!$att, 404);
+        abort_if(! $att, 404);
 
-        $path = storage_path('app/public/' . $att->file_path);
+        $path = storage_path('app/public/'.$att->file_path);
         abort_unless(is_file($path), 404);
 
         $mime = $att->file_mime ?: 'application/octet-stream';
@@ -318,7 +319,7 @@ class MarketingPlanController extends Controller
 
         return response()->file($path, [
             'Content-Type' => $mime,
-            'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
+            'Content-Disposition' => 'inline; filename="'.addslashes($name).'"',
         ]);
     }
 
@@ -327,7 +328,7 @@ class MarketingPlanController extends Controller
      */
     private function attachments(int $planId)
     {
-        if (!Schema::hasTable('mkt_plan_attachments')) {
+        if (! Schema::hasTable('mkt_plan_attachments')) {
             return collect();
         }
 
@@ -342,16 +343,16 @@ class MarketingPlanController extends Controller
      */
     private function storeAttachments(Request $request, int $planId): void
     {
-        if (!$request->hasFile('attachments') || !Schema::hasTable('mkt_plan_attachments')) {
+        if (! $request->hasFile('attachments') || ! Schema::hasTable('mkt_plan_attachments')) {
             return;
         }
 
         foreach ($request->file('attachments') as $file) {
-            if (!$file) {
+            if (! $file) {
                 continue;
             }
 
-            $path = $file->store('marketing_plan_attachments/' . $planId, 'public');
+            $path = $file->store('marketing_plan_attachments/'.$planId, 'public');
 
             DB::table('mkt_plan_attachments')->insert([
                 'plan_id' => $planId,
@@ -371,7 +372,7 @@ class MarketingPlanController extends Controller
      */
     private function deleteAttachments(array $ids, int $planId): void
     {
-        if (empty($ids) || !Schema::hasTable('mkt_plan_attachments')) {
+        if (empty($ids) || ! Schema::hasTable('mkt_plan_attachments')) {
             return;
         }
 

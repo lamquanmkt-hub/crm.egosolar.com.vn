@@ -2,14 +2,14 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\RolePermission\PageAccessService;
+use App\Contracts\Services\PageAccessServiceInterface;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnforcePageAccess
 {
-    public function __construct(private readonly PageAccessService $pageAccess) {}
+    public function __construct(private readonly PageAccessServiceInterface $pageAccess) {}
 
     public function handle(Request $request, Closure $next): Response
     {

@@ -88,7 +88,7 @@ class HrDocumentController extends Controller
     /**
      * Cập nhật một dòng dữ liệu vận hành theo ID.
      *
-     * @param int $item ID dòng dữ liệu
+     * @param  int  $item  ID dòng dữ liệu
      */
     public function updateOperationItem(Request $request, int $item)
     {
@@ -130,7 +130,7 @@ class HrDocumentController extends Controller
     /**
      * Xoá một dòng dữ liệu vận hành theo ID.
      *
-     * @param int $item ID dòng dữ liệu
+     * @param  int  $item  ID dòng dữ liệu
      */
     public function deleteOperationItem(int $item)
     {
@@ -184,7 +184,7 @@ class HrDocumentController extends Controller
 
         $data = $request->validate([
             'folder_id' => ['required', 'integer'],
-            'file' => ['required', 'file', ],
+            'file' => ['required', 'file'],
         ]);
 
         $folder = DB::table('hr_document_folders')
@@ -197,9 +197,9 @@ class HrDocumentController extends Controller
         $file = $request->file('file');
         $original = $file->getClientOriginalName();
         $ext = $file->getClientOriginalExtension();
-        $safeName = now()->format('YmdHis') . '_' . Str::random(12) . ($ext ? '.' . $ext : '');
+        $safeName = now()->format('YmdHis').'_'.Str::random(12).($ext ? '.'.$ext : '');
 
-        $path = $file->storeAs('public/hr-documents/' . $category . '/' . $folder->id, $safeName);
+        $path = $file->storeAs('public/hr-documents/'.$category.'/'.$folder->id, $safeName);
 
         DB::table('hr_document_files')->insert([
             'folder_id' => $folder->id,
@@ -219,7 +219,7 @@ class HrDocumentController extends Controller
     /**
      * Tải xuống file tài liệu theo ID.
      *
-     * @param int $file ID file
+     * @param  int  $file  ID file
      */
     public function downloadFile(int $file)
     {
@@ -234,7 +234,7 @@ class HrDocumentController extends Controller
     /**
      * Xoá file tài liệu (cả file vật lý và bản ghi DB).
      *
-     * @param int $file ID file
+     * @param  int  $file  ID file
      */
     public function deleteFile(int $file)
     {
@@ -242,7 +242,7 @@ class HrDocumentController extends Controller
 
         abort_unless($row, 404);
 
-        if (!empty($row->stored_path) && Storage::exists($row->stored_path)) {
+        if (! empty($row->stored_path) && Storage::exists($row->stored_path)) {
             Storage::delete($row->stored_path);
         }
 
@@ -254,14 +254,14 @@ class HrDocumentController extends Controller
     /**
      * Xoá folder tài liệu cùng toàn bộ file bên trong.
      *
-     * @param int $folder ID folder
+     * @param  int  $folder  ID folder
      */
     public function deleteFolder(int $folder)
     {
         $files = DB::table('hr_document_files')->where('folder_id', $folder)->get();
 
         foreach ($files as $file) {
-            if (!empty($file->stored_path) && Storage::exists($file->stored_path)) {
+            if (! empty($file->stored_path) && Storage::exists($file->stored_path)) {
                 Storage::delete($file->stored_path);
             }
         }
@@ -277,7 +277,7 @@ class HrDocumentController extends Controller
      */
     private function folders(string $category)
     {
-        if (!Schema::hasTable('hr_document_folders') || !Schema::hasTable('hr_document_files')) {
+        if (! Schema::hasTable('hr_document_folders') || ! Schema::hasTable('hr_document_files')) {
             return collect();
         }
 
@@ -294,6 +294,7 @@ class HrDocumentController extends Controller
 
         return $folders->map(function ($folder) use ($files) {
             $folder->files = $files->get($folder->id, collect());
+
             return $folder;
         });
     }
@@ -301,7 +302,7 @@ class HrDocumentController extends Controller
     /**
      * Tính thống kê chung (số nhân viên, phòng ban, chức vụ, chấm công hôm nay) cho các trang tài liệu.
      *
-     * @param bool $attendance Có tính số liệu chấm công hôm nay hay không
+     * @param  bool  $attendance  Có tính số liệu chấm công hôm nay hay không
      */
     private function stats(bool $attendance = false): array
     {
@@ -346,8 +347,6 @@ class HrDocumentController extends Controller
         return $stats;
     }
 
-
-
     /**
      * Thêm nhóm dữ liệu vận hành mới với group_key duy nhất.
      */
@@ -365,7 +364,7 @@ class HrDocumentController extends Controller
         $i = 2;
 
         while (DB::table('hr_operation_groups')->where('group_key', $key)->exists()) {
-            $key = $baseKey . '_' . $i;
+            $key = $baseKey.'_'.$i;
             $i++;
         }
 
@@ -385,7 +384,7 @@ class HrDocumentController extends Controller
     /**
      * Cập nhật tên / thứ tự nhóm dữ liệu vận hành.
      *
-     * @param int $group ID nhóm
+     * @param  int  $group  ID nhóm
      */
     public function updateOperationGroup(Request $request, int $group)
     {
@@ -410,7 +409,7 @@ class HrDocumentController extends Controller
     /**
      * Xoá nhóm dữ liệu vận hành nếu không còn dữ liệu sử dụng.
      *
-     * @param int $group ID nhóm
+     * @param  int  $group  ID nhóm
      */
     public function deleteOperationGroup(int $group)
     {
@@ -433,7 +432,6 @@ class HrDocumentController extends Controller
         return back()->with('success', 'Đã xóa nhóm dữ liệu.');
     }
 
-
     /**
      * Thêm trạng thái dữ liệu vận hành mới với status_key duy nhất và màu hợp lệ.
      */
@@ -452,7 +450,7 @@ class HrDocumentController extends Controller
         $i = 2;
 
         while (DB::table('hr_operation_statuses')->where('status_key', $key)->exists()) {
-            $key = $baseKey . '_' . $i;
+            $key = $baseKey.'_'.$i;
             $i++;
         }
 
@@ -473,7 +471,7 @@ class HrDocumentController extends Controller
     /**
      * Cập nhật tên / màu / thứ tự trạng thái dữ liệu vận hành.
      *
-     * @param int $status ID trạng thái
+     * @param  int  $status  ID trạng thái
      */
     public function updateOperationStatus(Request $request, int $status)
     {
@@ -500,7 +498,7 @@ class HrDocumentController extends Controller
     /**
      * Xoá trạng thái dữ liệu vận hành nếu không còn dữ liệu sử dụng.
      *
-     * @param int $status ID trạng thái
+     * @param  int  $status  ID trạng thái
      */
     public function deleteOperationStatus(int $status)
     {
@@ -548,7 +546,6 @@ class HrDocumentController extends Controller
 
         return $rows->pluck('name', 'group_key')->toArray();
     }
-
 
     /**
      * Lấy danh sách trạng thái dữ liệu vận hành (status_key => tên), tự seed mặc định nếu trống.
@@ -599,13 +596,12 @@ class HrDocumentController extends Controller
         });
     }
 
-
     /**
      * Tạo bảng hr_operation_groups nếu chưa có và seed nhóm mặc định khi trống.
      */
     private function ensureOperationGroupsTable(): void
     {
-        if (!Schema::hasTable('hr_operation_groups')) {
+        if (! Schema::hasTable('hr_operation_groups')) {
             Schema::create('hr_operation_groups', function (\Illuminate\Database\Schema\Blueprint $table) {
                 $table->id();
                 $table->string('group_key', 80)->unique();
@@ -620,13 +616,12 @@ class HrDocumentController extends Controller
         }
     }
 
-
     /**
      * Tạo bảng hr_operation_statuses nếu chưa có, bổ sung cột color và seed trạng thái mặc định khi trống.
      */
     private function ensureOperationStatusesTable(): void
     {
-        if (!Schema::hasTable('hr_operation_statuses')) {
+        if (! Schema::hasTable('hr_operation_statuses')) {
             Schema::create('hr_operation_statuses', function (\Illuminate\Database\Schema\Blueprint $table) {
                 $table->id();
                 $table->string('status_key', 80)->unique();
@@ -637,7 +632,7 @@ class HrDocumentController extends Controller
             });
         }
 
-        if (Schema::hasTable('hr_operation_statuses') && !Schema::hasColumn('hr_operation_statuses', 'color')) {
+        if (Schema::hasTable('hr_operation_statuses') && ! Schema::hasColumn('hr_operation_statuses', 'color')) {
             Schema::table('hr_operation_statuses', function (\Illuminate\Database\Schema\Blueprint $table) {
                 $table->string('color', 30)->default('slate')->after('name');
             });
@@ -661,7 +656,7 @@ class HrDocumentController extends Controller
         ];
 
         foreach ($defaults as $row) {
-            if (!DB::table('hr_operation_statuses')->where('status_key', $row['status_key'])->exists()) {
+            if (! DB::table('hr_operation_statuses')->where('status_key', $row['status_key'])->exists()) {
                 DB::table('hr_operation_statuses')->insert([
                     'status_key' => $row['status_key'],
                     'name' => $row['name'],
@@ -687,7 +682,7 @@ class HrDocumentController extends Controller
         ];
 
         foreach ($defaults as $row) {
-            if (!DB::table('hr_operation_groups')->where('group_key', $row['group_key'])->exists()) {
+            if (! DB::table('hr_operation_groups')->where('group_key', $row['group_key'])->exists()) {
                 DB::table('hr_operation_groups')->insert([
                     'group_key' => $row['group_key'],
                     'name' => $row['name'],
@@ -708,13 +703,13 @@ class HrDocumentController extends Controller
         $key = preg_replace('/[^a-z0-9_]/', '', strtolower($key));
         $key = trim($key, '_');
 
-        return $key !== '' ? substr($key, 0, 70) : 'group_' . time();
+        return $key !== '' ? substr($key, 0, 70) : 'group_'.time();
     }
 
     /**
      * Chuyển chuỗi tiền tệ (có đ, dấu phẩy, khoảng trắng) về số float.
      *
-     * @param mixed $value Giá trị tiền nhập vào
+     * @param  mixed  $value  Giá trị tiền nhập vào
      */
     private function moneyToNumber($value): float
     {
@@ -728,7 +723,6 @@ class HrDocumentController extends Controller
 
         return $value === '' ? 0 : (float) $value;
     }
-
 
     /**
      * Chuẩn hoá màu trạng thái về danh sách cho phép, mặc định 'slate'.

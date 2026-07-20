@@ -27,7 +27,7 @@ class HcOperationController extends Controller
         $allowedTabs = ['overview', 'expenses', 'assets', 'suppliers', 'tasks', 'maintenance'];
         $tab = $request->get('tab', 'overview');
 
-        if (!in_array($tab, $allowedTabs, true)) {
+        if (! in_array($tab, $allowedTabs, true)) {
             $tab = 'overview';
         }
 
@@ -103,12 +103,12 @@ class HcOperationController extends Controller
             + $maintenanceTasks->whereIn('status', ['pending', 'processing'])->count();
 
         $overdueTasks = $tasks->filter(function ($row) {
-            return !empty($row->deadline)
+            return ! empty($row->deadline)
                 && $row->deadline < now()->toDateString()
                 && in_array($row->status, ['pending', 'processing'], true);
         })->count()
             + $maintenanceTasks->filter(function ($row) {
-                return !empty($row->deadline)
+                return ! empty($row->deadline)
                     && $row->deadline < now()->toDateString()
                     && in_array($row->status, ['pending', 'processing'], true);
             })->count();
@@ -195,7 +195,7 @@ class HcOperationController extends Controller
     /**
      * Cập nhật khoản chi phí vận hành theo ID.
      *
-     * @param int|string $id ID khoản chi
+     * @param  int|string  $id  ID khoản chi
      */
     public function updateExpense(Request $request, $id)
     {
@@ -222,7 +222,7 @@ class HcOperationController extends Controller
     /**
      * Xoá khoản chi phí vận hành theo ID.
      *
-     * @param int|string $id ID khoản chi
+     * @param  int|string  $id  ID khoản chi
      */
     public function destroyExpense($id)
     {
@@ -259,7 +259,7 @@ class HcOperationController extends Controller
     /**
      * Cập nhật thông tin tài sản theo ID.
      *
-     * @param int|string $id ID tài sản
+     * @param  int|string  $id  ID tài sản
      */
     public function updateAsset(Request $request, $id)
     {
@@ -285,7 +285,7 @@ class HcOperationController extends Controller
     /**
      * Xoá tài sản theo ID.
      *
-     * @param int|string $id ID tài sản
+     * @param  int|string  $id  ID tài sản
      */
     public function destroyAsset($id)
     {
@@ -320,7 +320,7 @@ class HcOperationController extends Controller
     /**
      * Cập nhật thông tin nhà cung cấp theo ID.
      *
-     * @param int|string $id ID nhà cung cấp
+     * @param  int|string  $id  ID nhà cung cấp
      */
     public function updateSupplier(Request $request, $id)
     {
@@ -344,7 +344,7 @@ class HcOperationController extends Controller
     /**
      * Xoá nhà cung cấp theo ID.
      *
-     * @param int|string $id ID nhà cung cấp
+     * @param  int|string  $id  ID nhà cung cấp
      */
     public function destroySupplier($id)
     {
@@ -383,7 +383,7 @@ class HcOperationController extends Controller
     /**
      * Cập nhật công việc hành chính phát sinh theo ID.
      *
-     * @param int|string $id ID công việc
+     * @param  int|string  $id  ID công việc
      */
     public function updateTask(Request $request, $id)
     {
@@ -409,7 +409,7 @@ class HcOperationController extends Controller
     /**
      * Xoá công việc hành chính phát sinh theo ID.
      *
-     * @param int|string $id ID công việc
+     * @param  int|string  $id  ID công việc
      */
     public function destroyTask($id)
     {
@@ -448,7 +448,7 @@ class HcOperationController extends Controller
     /**
      * Cập nhật yêu cầu bảo trì thiết bị theo ID.
      *
-     * @param int|string $id ID yêu cầu bảo trì
+     * @param  int|string  $id  ID yêu cầu bảo trì
      */
     public function updateMaintenance(Request $request, $id)
     {
@@ -474,7 +474,7 @@ class HcOperationController extends Controller
     /**
      * Xoá yêu cầu bảo trì thiết bị theo ID.
      *
-     * @param int|string $id ID yêu cầu bảo trì
+     * @param  int|string  $id  ID yêu cầu bảo trì
      */
     public function destroyMaintenance($id)
     {
@@ -486,8 +486,8 @@ class HcOperationController extends Controller
     /**
      * Redirect về trang vận hành HC đúng tab kèm thông báo thành công.
      *
-     * @param string $tab Tab cần quay về
-     * @param string $message Thông báo hiển thị
+     * @param  string  $tab  Tab cần quay về
+     * @param  string  $message  Thông báo hiển thị
      */
     private function backTo($tab, $message)
     {

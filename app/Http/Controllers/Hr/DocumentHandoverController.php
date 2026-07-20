@@ -15,28 +15,28 @@ use Illuminate\Support\Facades\Storage;
 class DocumentHandoverController extends Controller
 {
     protected array $statuses = [
-        'created'   => 'Tạo hồ sơ',
-        'assigned'  => 'Giao HS',
-        'received'  => 'Nhận HS',
-        'sent'      => 'Gửi HS',
-        'returned'  => 'Trả HS',
+        'created' => 'Tạo hồ sơ',
+        'assigned' => 'Giao HS',
+        'received' => 'Nhận HS',
+        'sent' => 'Gửi HS',
+        'returned' => 'Trả HS',
         'completed' => 'Hoàn tất',
-        'archived'  => 'Lưu trữ HS',
+        'archived' => 'Lưu trữ HS',
     ];
 
     protected array $priorities = [
-        'low'    => 'Thấp',
+        'low' => 'Thấp',
         'normal' => 'Bình thường',
-        'high'   => 'Cao',
+        'high' => 'Cao',
         'urgent' => 'Gấp',
     ];
 
     protected array $nextStatuses = [
-        'created'   => 'assigned',
-        'assigned'  => 'received',
-        'received'  => 'sent',
-        'sent'      => 'returned',
-        'returned'  => 'completed',
+        'created' => 'assigned',
+        'assigned' => 'received',
+        'received' => 'sent',
+        'sent' => 'returned',
+        'returned' => 'completed',
         'completed' => 'archived',
     ];
 
@@ -56,11 +56,11 @@ class DocumentHandoverController extends Controller
             $q = trim((string) $request->q);
 
             $query->where(function ($x) use ($q) {
-                $x->where('h.code', 'like', '%' . $q . '%')
-                    ->orWhere('h.title', 'like', '%' . $q . '%')
-                    ->orWhere('h.customer_name', 'like', '%' . $q . '%')
-                    ->orWhere('h.department_name', 'like', '%' . $q . '%')
-                    ->orWhere('h.document_type', 'like', '%' . $q . '%');
+                $x->where('h.code', 'like', '%'.$q.'%')
+                    ->orWhere('h.title', 'like', '%'.$q.'%')
+                    ->orWhere('h.customer_name', 'like', '%'.$q.'%')
+                    ->orWhere('h.department_name', 'like', '%'.$q.'%')
+                    ->orWhere('h.document_type', 'like', '%'.$q.'%');
             });
         }
 
@@ -97,7 +97,7 @@ class DocumentHandoverController extends Controller
     /**
      * Hiển thị chi tiết hồ sơ bàn giao kèm lịch sử xử lý và danh sách file.
      *
-     * @param int|string $id ID hồ sơ
+     * @param  int|string  $id  ID hồ sơ
      */
     public function show($id)
     {
@@ -147,7 +147,7 @@ class DocumentHandoverController extends Controller
         $data = $this->validateMain($request);
 
         $priority = $data['priority'] ?? 'normal';
-        if (!array_key_exists($priority, $this->priorities)) {
+        if (! array_key_exists($priority, $this->priorities)) {
             $priority = 'normal';
         }
 
@@ -184,7 +184,7 @@ class DocumentHandoverController extends Controller
     /**
      * Cập nhật thông tin hồ sơ bàn giao và ghi lịch sử thay đổi.
      *
-     * @param int|string $id ID hồ sơ
+     * @param  int|string  $id  ID hồ sơ
      */
     public function update(Request $request, $id)
     {
@@ -196,7 +196,7 @@ class DocumentHandoverController extends Controller
         $data = $this->validateMain($request);
 
         $priority = $data['priority'] ?? 'normal';
-        if (!array_key_exists($priority, $this->priorities)) {
+        if (! array_key_exists($priority, $this->priorities)) {
             $priority = 'normal';
         }
 
@@ -228,7 +228,7 @@ class DocumentHandoverController extends Controller
     /**
      * Upload thêm file đính kèm cho hồ sơ và ghi lịch sử.
      *
-     * @param int|string $id ID hồ sơ
+     * @param  int|string  $id  ID hồ sơ
      */
     public function uploadFiles(Request $request, $id)
     {
@@ -253,7 +253,7 @@ class DocumentHandoverController extends Controller
     /**
      * Chuyển trạng thái hồ sơ, cập nhật mốc thời gian / người giữ hồ sơ tương ứng và ghi lịch sử.
      *
-     * @param int|string $id ID hồ sơ
+     * @param  int|string  $id  ID hồ sơ
      */
     public function changeStatus(Request $request, $id)
     {
@@ -316,13 +316,13 @@ class DocumentHandoverController extends Controller
 
         return redirect()
             ->route('hr.document-handovers.show', $id)
-            ->with('success', 'Đã chuyển trạng thái: ' . ($this->statuses[$status] ?? $status));
+            ->with('success', 'Đã chuyển trạng thái: '.($this->statuses[$status] ?? $status));
     }
 
     /**
      * Xoá hồ sơ bàn giao cùng file vật lý, bản ghi file và lịch sử (trong transaction).
      *
-     * @param int|string $id ID hồ sơ
+     * @param  int|string  $id  ID hồ sơ
      */
     public function destroy($id)
     {
@@ -332,7 +332,7 @@ class DocumentHandoverController extends Controller
 
         DB::transaction(function () use ($id, $files) {
             foreach ($files as $file) {
-                if (!empty($file->path)) {
+                if (! empty($file->path)) {
                     Storage::disk('public')->delete($file->path);
                 }
             }
@@ -350,8 +350,8 @@ class DocumentHandoverController extends Controller
     /**
      * Xoá một file đính kèm của hồ sơ và ghi lịch sử.
      *
-     * @param int|string $id ID hồ sơ
-     * @param int|string $fileId ID file
+     * @param  int|string  $id  ID hồ sơ
+     * @param  int|string  $fileId  ID file
      */
     public function deleteFile($id, $fileId)
     {
@@ -364,7 +364,7 @@ class DocumentHandoverController extends Controller
 
         abort_unless($file, 404);
 
-        if (!empty($file->path)) {
+        if (! empty($file->path)) {
             Storage::disk('public')->delete($file->path);
         }
 
@@ -381,8 +381,8 @@ class DocumentHandoverController extends Controller
     /**
      * Tải xuống file đính kèm của hồ sơ.
      *
-     * @param int|string $id ID hồ sơ
-     * @param int|string $fileId ID file
+     * @param  int|string  $id  ID hồ sơ
+     * @param  int|string  $fileId  ID file
      */
     public function downloadFile($id, $fileId)
     {
@@ -402,8 +402,8 @@ class DocumentHandoverController extends Controller
     /**
      * Xem trước file đính kèm (ảnh, PDF, text) dưới dạng trang HTML nhúng.
      *
-     * @param int|string $id ID hồ sơ
-     * @param int|string $fileId ID file
+     * @param  int|string  $id  ID hồ sơ
+     * @param  int|string  $fileId  ID file
      */
     public function previewFile($id, $fileId)
     {
@@ -423,24 +423,27 @@ class DocumentHandoverController extends Controller
         $mime = $file->mime_type ?: (@mime_content_type($real) ?: 'application/octet-stream');
 
         $downloadUrl = route('hr.document-handovers.files.download', [$id, $fileId]);
-        $header = '<div class="pv-top"><strong>' . e($name) . '</strong><a href="' . e($downloadUrl) . '">Tải xuống</a></div>';
+        $header = '<div class="pv-top"><strong>'.e($name).'</strong><a href="'.e($downloadUrl).'">Tải xuống</a></div>';
 
         if (str_starts_with($mime, 'image/') || in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'], true)) {
             $data = base64_encode(file_get_contents($real));
-            return response($this->previewPage($name, $header . '<div class="pv-body pv-img-wrap"><img src="data:' . e($mime) . ';base64,' . $data . '"></div>'));
+
+            return response($this->previewPage($name, $header.'<div class="pv-body pv-img-wrap"><img src="data:'.e($mime).';base64,'.$data.'"></div>'));
         }
 
         if ($ext === 'pdf' || $mime === 'application/pdf') {
             $data = base64_encode(file_get_contents($real));
-            return response($this->previewPage($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'));
+
+            return response($this->previewPage($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'));
         }
 
         if (in_array($ext, ['txt', 'log', 'csv'], true)) {
             $text = htmlspecialchars((string) file_get_contents($real), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-            return response($this->previewPage($name, $header . '<div class="pv-body"><pre>' . $text . '</pre></div>'));
+
+            return response($this->previewPage($name, $header.'<div class="pv-body"><pre>'.$text.'</pre></div>'));
         }
 
-        return response($this->previewPage($name, $header . '<div class="pv-body"><div class="pv-notice">Định dạng này chưa hỗ trợ xem trước. Anh bấm Tải xuống để mở file.</div></div>'));
+        return response($this->previewPage($name, $header.'<div class="pv-body"><div class="pv-notice">Định dạng này chưa hỗ trợ xem trước. Anh bấm Tải xuống để mở file.</div></div>'));
     }
 
     /**
@@ -470,16 +473,16 @@ class DocumentHandoverController extends Controller
      */
     protected function storeFiles(Request $request, int $handoverId): void
     {
-        if (!$request->hasFile('attachments')) {
+        if (! $request->hasFile('attachments')) {
             return;
         }
 
         foreach ((array) $request->file('attachments') as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
-            $path = $file->store('hr-document-handovers/' . $handoverId, 'public');
+            $path = $file->store('hr-document-handovers/'.$handoverId, 'public');
 
             DB::table('hr_document_handover_files')->insert([
                 'handover_id' => $handoverId,
@@ -499,7 +502,7 @@ class DocumentHandoverController extends Controller
      */
     protected function ensureTables(): void
     {
-        if (!Schema::hasTable('hr_document_handovers')) {
+        if (! Schema::hasTable('hr_document_handovers')) {
             Schema::create('hr_document_handovers', function ($table) {
                 $table->id();
                 $table->string('code', 80)->nullable()->index();
@@ -526,7 +529,7 @@ class DocumentHandoverController extends Controller
             });
         }
 
-        if (!Schema::hasTable('hr_document_handover_histories')) {
+        if (! Schema::hasTable('hr_document_handover_histories')) {
             Schema::create('hr_document_handover_histories', function ($table) {
                 $table->id();
                 $table->unsignedBigInteger('handover_id')->index();
@@ -538,7 +541,7 @@ class DocumentHandoverController extends Controller
             });
         }
 
-        if (!Schema::hasTable('hr_document_handover_files')) {
+        if (! Schema::hasTable('hr_document_handover_files')) {
             Schema::create('hr_document_handover_files', function ($table) {
                 $table->id();
                 $table->unsignedBigInteger('handover_id')->index();
@@ -557,9 +560,10 @@ class DocumentHandoverController extends Controller
      */
     protected function makeCode(): string
     {
-        $prefix = 'HS-' . now()->format('Y') . '-';
-        $count = DB::table('hr_document_handovers')->where('code', 'like', $prefix . '%')->count() + 1;
-        return $prefix . str_pad((string) $count, 5, '0', STR_PAD_LEFT);
+        $prefix = 'HS-'.now()->format('Y').'-';
+        $count = DB::table('hr_document_handovers')->where('code', 'like', $prefix.'%')->count() + 1;
+
+        return $prefix.str_pad((string) $count, 5, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -603,7 +607,7 @@ class DocumentHandoverController extends Controller
      */
     protected function previewPage(string $title, string $body): string
     {
-        return '<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title>
+        return '<!doctype html><html><head><meta charset="utf-8"><title>'.e($title).'</title>
         <style>
             *{box-sizing:border-box}
             html,body{margin:0;min-height:100%;font-family:Arial,"DejaVu Sans",sans-serif;background:#f8fafc;color:#0f172a}
@@ -616,6 +620,6 @@ class DocumentHandoverController extends Controller
             .pv-img-wrap img{max-width:min(100%,920px);max-height:calc(100vh - 90px);object-fit:contain;border-radius:14px;box-shadow:0 18px 45px rgba(15,23,42,.16);background:#fff}
             pre{white-space:pre-wrap;background:#fff;border:1px solid #dbe3ef;border-radius:14px;padding:16px;line-height:1.6}
             .pv-notice{max-width:680px;margin:70px auto;padding:24px;border-radius:18px;border:1px solid #dbe3ef;background:#fff;text-align:center;color:#475569;font-weight:800}
-        </style></head><body>' . $body . '</body></html>';
+        </style></head><body>'.$body.'</body></html>';
     }
 }

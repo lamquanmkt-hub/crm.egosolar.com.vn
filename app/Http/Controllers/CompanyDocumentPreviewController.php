@@ -24,22 +24,22 @@ class CompanyDocumentPreviewController extends Controller
 
         $found = $this->findFile($id, $desiredName);
 
-        if (!$found) {
-            return $this->page('Không tìm thấy file', $this->notice('Không tìm thấy file ID #' . $id . ' trong database/storage.'));
+        if (! $found) {
+            return $this->page('Không tìm thấy file', $this->notice('Không tìm thấy file ID #'.$id.' trong database/storage.'));
         }
 
-        $name = $found['name'] ?: ('File #' . $id);
+        $name = $found['name'] ?: ('File #'.$id);
         $real = $found['real'] ?? null;
         $url = $found['url'] ?? null;
 
         $header = $this->header($name, $id);
 
         if ($url) {
-            return $this->page($name, $header . '<iframe src="' . e($url) . '"></iframe>');
+            return $this->page($name, $header.'<iframe src="'.e($url).'"></iframe>');
         }
 
-        if (!$real || !is_file($real)) {
-            return $this->page($name, $header . $this->notice('Không tìm thấy file gốc trong storage.'));
+        if (! $real || ! is_file($real)) {
+            return $this->page($name, $header.$this->notice('Không tìm thấy file gốc trong storage.'));
         }
 
         $ext = strtolower(pathinfo($name ?: $real, PATHINFO_EXTENSION));
@@ -48,26 +48,26 @@ class CompanyDocumentPreviewController extends Controller
         }
 
         if (in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'], true)) {
-            $mime = @mime_content_type($real) ?: 'image/' . ($ext === 'jpg' ? 'jpeg' : $ext);
+            $mime = @mime_content_type($real) ?: 'image/'.($ext === 'jpg' ? 'jpeg' : $ext);
             $data = base64_encode(file_get_contents($real));
 
-            return $this->page($name, $header . '<div class="preview-body"><img class="preview-img" src="data:' . e($mime) . ';base64,' . $data . '"></div>');
+            return $this->page($name, $header.'<div class="preview-body"><img class="preview-img" src="data:'.e($mime).';base64,'.$data.'"></div>');
         }
 
         if ($ext === 'pdf') {
             $data = base64_encode(file_get_contents($real));
 
-            return $this->page($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>');
+            return $this->page($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>');
         }
 
         if (in_array($ext, ['txt', 'log'], true)) {
             $text = htmlspecialchars((string) file_get_contents($real), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-            return $this->page($name, $header . '<div class="preview-body"><pre class="text-preview">' . $text . '</pre></div>');
+            return $this->page($name, $header.'<div class="preview-body"><pre class="text-preview">'.$text.'</pre></div>');
         }
 
         if ($ext === 'csv') {
-            return $this->page($name, $header . '<div class="preview-body"><div class="excel-wrap">' . $this->csvToTable($real) . '</div></div>');
+            return $this->page($name, $header.'<div class="preview-body"><div class="excel-wrap">'.$this->csvToTable($real).'</div></div>');
         }
 
         if (in_array($ext, ['xlsx', 'xls', 'ods'], true)) {
@@ -78,17 +78,18 @@ class CompanyDocumentPreviewController extends Controller
             $html = $this->docxToHtml($real);
 
             if ($html) {
-                return $this->page($name, $header . '<div class="preview-body">' . $html . '</div>');
+                return $this->page($name, $header.'<div class="preview-body">'.$html.'</div>');
             }
 
             $pdf = $this->convertOfficeToPdf($real);
 
             if ($pdf && is_file($pdf)) {
                 $data = base64_encode(file_get_contents($pdf));
-                return $this->page($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>');
+
+                return $this->page($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>');
             }
 
-            return $this->page($name, $header . $this->notice('Không đọc được file DOCX này. Anh kiểm tra file có bị lỗi hoặc đặt lại tên không dấu rồi thử lại.'));
+            return $this->page($name, $header.$this->notice('Không đọc được file DOCX này. Anh kiểm tra file có bị lỗi hoặc đặt lại tên không dấu rồi thử lại.'));
         }
 
         if ($ext === 'doc') {
@@ -96,13 +97,14 @@ class CompanyDocumentPreviewController extends Controller
 
             if ($pdf && is_file($pdf)) {
                 $data = base64_encode(file_get_contents($pdf));
-                return $this->page($name, $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>');
+
+                return $this->page($name, $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>');
             }
 
-            return $this->page($name, $header . $this->notice('File .doc cũ cần LibreOffice trên server để xem trước. DOCX hiện đã hỗ trợ xem trực tiếp.'));
+            return $this->page($name, $header.$this->notice('File .doc cũ cần LibreOffice trên server để xem trước. DOCX hiện đã hỗ trợ xem trực tiếp.'));
         }
 
-        return $this->page($name, $header . $this->notice('Định dạng này chưa hỗ trợ xem trước: .' . e($ext)));
+        return $this->page($name, $header.$this->notice('Định dạng này chưa hỗ trợ xem trước: .'.e($ext)));
     }
 
     /**
@@ -142,13 +144,13 @@ class CompanyDocumentPreviewController extends Controller
 
         foreach ($tables as $table) {
             try {
-                if (!Schema::hasTable($table) || !Schema::hasColumn($table, 'id')) {
+                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'id')) {
                     continue;
                 }
 
                 $row = DB::table($table)->where('id', $id)->first();
 
-                if (!$row) {
+                if (! $row) {
                     continue;
                 }
 
@@ -157,12 +159,22 @@ class CompanyDocumentPreviewController extends Controller
 
                 $score = 0;
 
-                if (stripos($table, 'company') !== false) $score += 300;
-                if (stripos($table, 'document') !== false) $score += 250;
-                if (stripos($table, 'file') !== false) $score += 150;
+                if (stripos($table, 'company') !== false) {
+                    $score += 300;
+                }
+                if (stripos($table, 'document') !== false) {
+                    $score += 250;
+                }
+                if (stripos($table, 'file') !== false) {
+                    $score += 150;
+                }
 
-                if ($desiredBase !== '' && strpos($allText, $desiredBase) !== false) $score += 700;
-                if ($desiredExt !== '' && strpos($allText, '.' . $desiredExt) !== false) $score += 500;
+                if ($desiredBase !== '' && strpos($allText, $desiredBase) !== false) {
+                    $score += 700;
+                }
+                if ($desiredExt !== '' && strpos($allText, '.'.$desiredExt) !== false) {
+                    $score += 500;
+                }
 
                 $paths = [];
 
@@ -181,7 +193,7 @@ class CompanyDocumentPreviewController extends Controller
                     'original_name',
                     'name',
                 ] as $field) {
-                    if (!empty($values[$field])) {
+                    if (! empty($values[$field])) {
                         $paths[] = trim((string) $values[$field]);
                     }
                 }
@@ -199,7 +211,7 @@ class CompanyDocumentPreviewController extends Controller
                 foreach ($paths as $path) {
                     $resolved = $this->resolvePath($path);
 
-                    if (!$resolved) {
+                    if (! $resolved) {
                         continue;
                     }
 
@@ -239,7 +251,7 @@ class CompanyDocumentPreviewController extends Controller
         $name = $desiredName ?: basename(parse_url($path, PHP_URL_PATH) ?: $path);
 
         foreach (['original_name', 'file_name', 'filename', 'name', 'title'] as $field) {
-            if (!empty($values[$field]) && preg_match('/\.(docx?|xlsx?|ods|csv|pdf|png|jpg|jpeg|webp|gif|svg)$/i', (string) $values[$field])) {
+            if (! empty($values[$field]) && preg_match('/\.(docx?|xlsx?|ods|csv|pdf|png|jpg|jpeg|webp|gif|svg)$/i', (string) $values[$field])) {
                 $name = basename((string) $values[$field]);
                 break;
             }
@@ -278,26 +290,26 @@ class CompanyDocumentPreviewController extends Controller
 
         $candidates = [
             base_path($clean),
-            storage_path('app/' . $clean),
-            storage_path('app/public/' . $clean),
-            storage_path('app/public/' . $cleanNoStorage),
-            storage_path('app/public/' . $cleanNoPublic),
+            storage_path('app/'.$clean),
+            storage_path('app/public/'.$clean),
+            storage_path('app/public/'.$cleanNoStorage),
+            storage_path('app/public/'.$cleanNoPublic),
             public_path($clean),
-            public_path('storage/' . $clean),
-            public_path('storage/' . $cleanNoStorage),
+            public_path('storage/'.$clean),
+            public_path('storage/'.$cleanNoStorage),
 
-            storage_path('app/public/company-documents/' . $base),
-            storage_path('app/public/company_documents/' . $base),
-            storage_path('app/company-documents/' . $base),
-            storage_path('app/company_documents/' . $base),
+            storage_path('app/public/company-documents/'.$base),
+            storage_path('app/public/company_documents/'.$base),
+            storage_path('app/company-documents/'.$base),
+            storage_path('app/company_documents/'.$base),
 
-            public_path('storage/company-documents/' . $base),
-            public_path('storage/company_documents/' . $base),
-            public_path('company-documents/' . $base),
-            public_path('company_documents/' . $base),
+            public_path('storage/company-documents/'.$base),
+            public_path('storage/company_documents/'.$base),
+            public_path('company-documents/'.$base),
+            public_path('company_documents/'.$base),
 
-            storage_path('app/public/uploads/' . $base),
-            public_path('uploads/' . $base),
+            storage_path('app/public/uploads/'.$base),
+            public_path('uploads/'.$base),
         ];
 
         foreach (array_unique($candidates) as $candidate) {
@@ -314,11 +326,11 @@ class CompanyDocumentPreviewController extends Controller
      */
     protected function docxToHtml(string $real): ?string
     {
-        if (!class_exists(\ZipArchive::class)) {
+        if (! class_exists(\ZipArchive::class)) {
             return null;
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
 
         if ($zip->open($real) !== true) {
             return null;
@@ -326,18 +338,20 @@ class CompanyDocumentPreviewController extends Controller
 
         $documentXml = $zip->getFromName('word/document.xml');
 
-        if (!$documentXml) {
+        if (! $documentXml) {
             $zip->close();
+
             return null;
         }
 
         $rels = $this->docxRelationships($zip);
 
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         $dom->preserveWhiteSpace = false;
 
-        if (!@$dom->loadXML($documentXml)) {
+        if (! @$dom->loadXML($documentXml)) {
             $zip->close();
+
             return null;
         }
 
@@ -346,15 +360,16 @@ class CompanyDocumentPreviewController extends Controller
 
         $body = $xp->query('//w:body')->item(0);
 
-        if (!$body) {
+        if (! $body) {
             $zip->close();
+
             return null;
         }
 
         $html = '<div class="docx-page">';
 
         foreach ($body->childNodes as $node) {
-            if (!$node instanceof \DOMElement) {
+            if (! $node instanceof \DOMElement) {
                 continue;
             }
 
@@ -380,13 +395,13 @@ class CompanyDocumentPreviewController extends Controller
         $relsXml = $zip->getFromName('word/_rels/document.xml.rels');
         $rels = [];
 
-        if (!$relsXml) {
+        if (! $relsXml) {
             return $rels;
         }
 
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
 
-        if (!@$dom->loadXML($relsXml)) {
+        if (! @$dom->loadXML($relsXml)) {
             return $rels;
         }
 
@@ -431,7 +446,7 @@ class CompanyDocumentPreviewController extends Controller
         if ($jc instanceof \DOMElement) {
             $val = $jc->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'val');
             if (in_array($val, ['center', 'right', 'both'], true)) {
-                $align = $val === 'both' ? 'text-align:justify;' : 'text-align:' . $val . ';';
+                $align = $val === 'both' ? 'text-align:justify;' : 'text-align:'.$val.';';
             }
         }
 
@@ -449,11 +464,15 @@ class CompanyDocumentPreviewController extends Controller
 
         $tag = 'p';
 
-        if (preg_match('/heading1|title/i', $styleVal)) $tag = 'h1';
-        elseif (preg_match('/heading2/i', $styleVal)) $tag = 'h2';
-        elseif (preg_match('/heading3/i', $styleVal)) $tag = 'h3';
+        if (preg_match('/heading1|title/i', $styleVal)) {
+            $tag = 'h1';
+        } elseif (preg_match('/heading2/i', $styleVal)) {
+            $tag = 'h2';
+        } elseif (preg_match('/heading3/i', $styleVal)) {
+            $tag = 'h3';
+        }
 
-        return '<' . $tag . ' style="' . e($align) . '">' . $inner . '</' . $tag . '>';
+        return '<'.$tag.' style="'.e($align).'">'.$inner.'</'.$tag.'>';
     }
 
     /**
@@ -464,7 +483,7 @@ class CompanyDocumentPreviewController extends Controller
         $content = '';
 
         foreach ($xp->query('.//w:t|.//w:tab|.//w:br', $run) as $node) {
-            if (!$node instanceof \DOMElement) {
+            if (! $node instanceof \DOMElement) {
                 continue;
             }
 
@@ -478,7 +497,7 @@ class CompanyDocumentPreviewController extends Controller
         }
 
         foreach ($xp->query('.//a:blip', $run) as $blip) {
-            if (!$blip instanceof \DOMElement) {
+            if (! $blip instanceof \DOMElement) {
                 continue;
             }
 
@@ -495,15 +514,21 @@ class CompanyDocumentPreviewController extends Controller
 
         $style = '';
 
-        if ($xp->query('./w:rPr/w:b', $run)->length) $style .= 'font-weight:700;';
-        if ($xp->query('./w:rPr/w:i', $run)->length) $style .= 'font-style:italic;';
-        if ($xp->query('./w:rPr/w:u', $run)->length) $style .= 'text-decoration:underline;';
+        if ($xp->query('./w:rPr/w:b', $run)->length) {
+            $style .= 'font-weight:700;';
+        }
+        if ($xp->query('./w:rPr/w:i', $run)->length) {
+            $style .= 'font-style:italic;';
+        }
+        if ($xp->query('./w:rPr/w:u', $run)->length) {
+            $style .= 'text-decoration:underline;';
+        }
 
         $color = $xp->query('./w:rPr/w:color', $run)->item(0);
         if ($color instanceof \DOMElement) {
             $val = $color->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'val');
             if ($val && strtolower($val) !== 'auto' && preg_match('/^[0-9a-fA-F]{6}$/', $val)) {
-                $style .= 'color:#' . $val . ';';
+                $style .= 'color:#'.$val.';';
             }
         }
 
@@ -511,11 +536,11 @@ class CompanyDocumentPreviewController extends Controller
         if ($size instanceof \DOMElement) {
             $val = (int) $size->getAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'val');
             if ($val > 0) {
-                $style .= 'font-size:' . max(8, round($val / 2)) . 'pt;';
+                $style .= 'font-size:'.max(8, round($val / 2)).'pt;';
             }
         }
 
-        return $style ? '<span style="' . e($style) . '">' . $content . '</span>' : $content;
+        return $style ? '<span style="'.e($style).'">'.$content.'</span>' : $content;
     }
 
     /**
@@ -526,11 +551,11 @@ class CompanyDocumentPreviewController extends Controller
         $target = str_replace('\\', '/', $target);
 
         if (preg_match('/^https?:\/\//i', $target)) {
-            return '<img class="docx-img" src="' . e($target) . '">';
+            return '<img class="docx-img" src="'.e($target).'">';
         }
 
         $paths = [
-            'word/' . ltrim($target, '/'),
+            'word/'.ltrim($target, '/'),
             ltrim($target, '/'),
         ];
 
@@ -559,7 +584,7 @@ class CompanyDocumentPreviewController extends Controller
             default => 'image/png',
         };
 
-        return '<img class="docx-img" src="data:' . e($mime) . ';base64,' . base64_encode($data) . '">';
+        return '<img class="docx-img" src="data:'.e($mime).';base64,'.base64_encode($data).'">';
     }
 
     /**
@@ -570,21 +595,21 @@ class CompanyDocumentPreviewController extends Controller
         $html = '<table class="docx-table">';
 
         foreach ($xp->query('./w:tr', $tbl) as $tr) {
-            if (!$tr instanceof \DOMElement) {
+            if (! $tr instanceof \DOMElement) {
                 continue;
             }
 
             $html .= '<tr>';
 
             foreach ($xp->query('./w:tc', $tr) as $tc) {
-                if (!$tc instanceof \DOMElement) {
+                if (! $tc instanceof \DOMElement) {
                     continue;
                 }
 
                 $cell = '';
 
                 foreach ($tc->childNodes as $child) {
-                    if (!$child instanceof \DOMElement) {
+                    if (! $child instanceof \DOMElement) {
                         continue;
                     }
 
@@ -595,7 +620,7 @@ class CompanyDocumentPreviewController extends Controller
                     }
                 }
 
-                $html .= '<td>' . $cell . '</td>';
+                $html .= '<td>'.$cell.'</td>';
             }
 
             $html .= '</tr>';
@@ -605,7 +630,6 @@ class CompanyDocumentPreviewController extends Controller
 
         return $html;
     }
-
 
     /**
      * Convert file Office sang PDF bằng LibreOffice headless, có cache theo hash file.
@@ -620,25 +644,25 @@ class CompanyDocumentPreviewController extends Controller
 
         $cacheDir = storage_path('app/preview-cache/company-documents');
 
-        if (!is_dir($cacheDir)) {
+        if (! is_dir($cacheDir)) {
             @mkdir($cacheDir, 0775, true);
         }
 
-        $hash = md5($real . '|' . @filemtime($real) . '|' . @filesize($real));
-        $pdfPath = $cacheDir . '/' . $hash . '.pdf';
+        $hash = md5($real.'|'.@filemtime($real).'|'.@filesize($real));
+        $pdfPath = $cacheDir.'/'.$hash.'.pdf';
 
         if (is_file($pdfPath) && filesize($pdfPath) > 0) {
             return $pdfPath;
         }
 
-        $workDir = $cacheDir . '/work-' . $hash;
-        $profileDir = $cacheDir . '/lo-profile';
+        $workDir = $cacheDir.'/work-'.$hash;
+        $profileDir = $cacheDir.'/lo-profile';
 
-        if (!is_dir($workDir)) {
+        if (! is_dir($workDir)) {
             @mkdir($workDir, 0775, true);
         }
 
-        if (!is_dir($profileDir)) {
+        if (! is_dir($profileDir)) {
             @mkdir($profileDir, 0775, true);
         }
 
@@ -656,31 +680,31 @@ class CompanyDocumentPreviewController extends Controller
             }
         }
 
-        $tmpInput = $workDir . '/input.' . $ext;
+        $tmpInput = $workDir.'/input.'.$ext;
 
-        if (!@copy($real, $tmpInput)) {
+        if (! @copy($real, $tmpInput)) {
             return null;
         }
 
-        $profileUrl = 'file://' . str_replace('%2F', '/', rawurlencode($profileDir));
+        $profileUrl = 'file://'.str_replace('%2F', '/', rawurlencode($profileDir));
 
-        $cmd = 'HOME=' . escapeshellarg($profileDir) . ' '
-            . escapeshellarg($bin)
-            . ' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
-            . escapeshellarg('--env:UserInstallation=' . $profileUrl)
-            . ' --convert-to pdf --outdir '
-            . escapeshellarg($workDir) . ' '
-            . escapeshellarg($tmpInput)
-            . ' 2>&1';
+        $cmd = 'HOME='.escapeshellarg($profileDir).' '
+            .escapeshellarg($bin)
+            .' --headless --nologo --nofirststartwizard --nolockcheck --nodefault '
+            .escapeshellarg('--env:UserInstallation='.$profileUrl)
+            .' --convert-to pdf --outdir '
+            .escapeshellarg($workDir).' '
+            .escapeshellarg($tmpInput)
+            .' 2>&1';
 
         @exec($cmd, $out, $code);
 
-        $generated = glob($workDir . '/*.pdf') ?: [];
+        $generated = glob($workDir.'/*.pdf') ?: [];
 
-        if (!empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
+        if (! empty($generated[0]) && is_file($generated[0]) && filesize($generated[0]) > 0) {
             @rename($generated[0], $pdfPath);
 
-            foreach (glob($workDir . '/*') ?: [] as $f) {
+            foreach (glob($workDir.'/*') ?: [] as $f) {
                 if (is_file($f)) {
                     @unlink($f);
                 }
@@ -694,16 +718,12 @@ class CompanyDocumentPreviewController extends Controller
         return null;
     }
 
-
-
-
-
     /**
      * Xem trước Excel bằng PhpSpreadsheet (chọn sheet, render HTML), lỗi thì fallback PDF LibreOffice.
      */
     protected function excelPreview(string $name, string $real, string $header)
     {
-        if (!class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+        if (! class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
             $pdf = $this->convertOfficeToPdf($real);
 
             if ($pdf && is_file($pdf)) {
@@ -711,13 +731,13 @@ class CompanyDocumentPreviewController extends Controller
 
                 return $this->page(
                     $name,
-                    $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'
+                    $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'
                 );
             }
 
             return $this->page(
                 $name,
-                $header . $this->notice('Server chưa có PhpSpreadsheet/LibreOffice nên chưa xem trước được file Excel này. Anh vẫn có thể bấm Tải xuống để mở file.')
+                $header.$this->notice('Server chưa có PhpSpreadsheet/LibreOffice nên chưa xem trước được file Excel này. Anh vẫn có thể bấm Tải xuống để mở file.')
             );
         }
 
@@ -760,7 +780,7 @@ class CompanyDocumentPreviewController extends Controller
                 $sheetNames = [];
             }
 
-            if (!empty($sheetNames)) {
+            if (! empty($sheetNames)) {
                 if ($sheetIndex >= count($sheetNames)) {
                     $sheetIndex = 0;
                 }
@@ -785,13 +805,13 @@ class CompanyDocumentPreviewController extends Controller
 
                     return $this->page(
                         $name,
-                        $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'
+                        $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'
                     );
                 }
 
                 return $this->page(
                     $name,
-                    $header . $this->notice('Không đọc được Excel. Chi tiết: ' . $e->getMessage())
+                    $header.$this->notice('Không đọc được Excel. Chi tiết: '.$e->getMessage())
                 );
             }
 
@@ -804,7 +824,7 @@ class CompanyDocumentPreviewController extends Controller
             }
 
             if (empty($sheetNames)) {
-                return $this->page($name, $header . $this->notice('File Excel không có sheet để hiển thị.'));
+                return $this->page($name, $header.$this->notice('File Excel không có sheet để hiển thị.'));
             }
 
             $tabs = '<div class="excel-tabs">';
@@ -812,7 +832,7 @@ class CompanyDocumentPreviewController extends Controller
             foreach ($sheetNames as $i => $sheetName) {
                 $href = request()->fullUrlWithQuery(['sheet' => $i]);
 
-                $tabs .= '<a class="excel-tab ' . ($i === $sheetIndex ? 'active' : '') . '" href="' . e($href) . '">' . e($sheetName) . '</a>';
+                $tabs .= '<a class="excel-tab '.($i === $sheetIndex ? 'active' : '').'" href="'.e($href).'">'.e($sheetName).'</a>';
             }
 
             $tabs .= '</div>';
@@ -820,7 +840,7 @@ class CompanyDocumentPreviewController extends Controller
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Html($spreadsheet);
 
             // Nếu đã load riêng 1 sheet thì index trong workbook tạm là 0.
-            $writer->setSheetIndex(!empty($sheetNames) && method_exists($reader, 'setLoadSheetsOnly') ? 0 : $sheetIndex);
+            $writer->setSheetIndex(! empty($sheetNames) && method_exists($reader, 'setLoadSheetsOnly') ? 0 : $sheetIndex);
             $writer->setUseInlineCss(true);
 
             ob_start();
@@ -891,7 +911,7 @@ class CompanyDocumentPreviewController extends Controller
 
             return $this->page(
                 $name,
-                $header . '<div class="preview-body excel-preview-body">' . $extraCss . $tabs . '<div class="excel-wrap">' . $html . '</div></div>'
+                $header.'<div class="preview-body excel-preview-body">'.$extraCss.$tabs.'<div class="excel-wrap">'.$html.'</div></div>'
             );
         } catch (\Throwable $e) {
             error_reporting($oldReporting);
@@ -903,19 +923,16 @@ class CompanyDocumentPreviewController extends Controller
 
                 return $this->page(
                     $name,
-                    $header . '<iframe src="data:application/pdf;base64,' . $data . '#toolbar=1"></iframe>'
+                    $header.'<iframe src="data:application/pdf;base64,'.$data.'#toolbar=1"></iframe>'
                 );
             }
 
             return $this->page(
                 $name,
-                $header . $this->notice('Không đọc được Excel. Chi tiết: ' . $e->getMessage())
+                $header.$this->notice('Không đọc được Excel. Chi tiết: '.$e->getMessage())
             );
         }
     }
-
-
-
 
     /**
      * Đọc file CSV và dựng bảng HTML (dòng đầu làm header).
@@ -924,7 +941,7 @@ class CompanyDocumentPreviewController extends Controller
     {
         $handle = fopen($real, 'r');
 
-        if (!$handle) {
+        if (! $handle) {
             return '<div class="notice">Không đọc được CSV.</div>';
         }
 
@@ -936,7 +953,7 @@ class CompanyDocumentPreviewController extends Controller
 
             foreach ($row as $cell) {
                 $tag = $rowIndex === 0 ? 'th' : 'td';
-                $html .= '<' . $tag . '>' . htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</' . $tag . '>';
+                $html .= '<'.$tag.'>'.htmlspecialchars((string) $cell, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</'.$tag.'>';
             }
 
             $html .= '</tr>';
@@ -945,9 +962,8 @@ class CompanyDocumentPreviewController extends Controller
 
         fclose($handle);
 
-        return $html . '</table>';
+        return $html.'</table>';
     }
-
 
     /**
      * Header trang xem trước (hiện trả rỗng vì modal bên ngoài đã có tiêu đề).
@@ -958,13 +974,12 @@ class CompanyDocumentPreviewController extends Controller
         return '';
     }
 
-
     /**
      * Dựng khối thông báo (lỗi/không hỗ trợ) trong trang xem trước.
      */
     protected function notice(string $message): string
     {
-        return '<div class="preview-body"><div class="notice">' . e($message) . '</div></div>';
+        return '<div class="preview-body"><div class="notice">'.e($message).'</div></div>';
     }
 
     /**
@@ -998,6 +1013,6 @@ class CompanyDocumentPreviewController extends Controller
             .docx-img{display:block;max-width:100%;height:auto;margin:10px auto}
         </style>';
 
-        return response('<!doctype html><html><head><meta charset="utf-8"><title>' . e($title) . '</title>' . $css . '</head><body>' . $body . '</body></html>');
+        return response('<!doctype html><html><head><meta charset="utf-8"><title>'.e($title).'</title>'.$css.'</head><body>'.$body.'</body></html>');
     }
 }

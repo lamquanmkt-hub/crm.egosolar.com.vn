@@ -46,7 +46,7 @@ class LeaveRequestController extends Controller
 
         // Nhân viên thường chỉ thấy đơn của mình hoặc đơn mình được chọn duyệt.
         // Role admin/accounting/hr xem full toàn bộ đơn.
-        if (!$canManageHr) {
+        if (! $canManageHr) {
             $query->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id);
 
@@ -169,7 +169,7 @@ class LeaveRequestController extends Controller
     {
         $user = auth()->user();
 
-        if (!$this->canApprove($user, $leave)) {
+        if (! $this->canApprove($user, $leave)) {
             abort(403, 'Bạn không có quyền duyệt đơn này.');
         }
 
@@ -200,7 +200,7 @@ class LeaveRequestController extends Controller
     {
         $user = auth()->user();
 
-        if (!$this->canApprove($user, $leave)) {
+        if (! $this->canApprove($user, $leave)) {
             abort(403, 'Bạn không có quyền từ chối đơn này.');
         }
 
@@ -243,12 +243,13 @@ class LeaveRequestController extends Controller
 
         return (int) $leave->approver_id === (int) $user->id;
     }
+
     /**
      * Kiểm tra user thuộc nhóm quản lý HR (admin / accounting / hr) qua nhiều cơ chế role khác nhau.
      */
     private function egoCanManageHr($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -270,6 +271,4 @@ class LeaveRequestController extends Controller
 
         return in_array($rawRole, $roles, true);
     }
-
-
 }

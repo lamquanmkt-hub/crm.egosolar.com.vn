@@ -22,10 +22,10 @@ class PlanKpiCalculator
 
         return [
             'actual_roas' => $roas,
-            'actual_cpl'  => $cpl,
+            'actual_cpl' => $cpl,
             'progress_budget' => $this->percent($actual['spend'], $target['budget']),
-            'progress_leads'  => $this->percent($actual['leads'], $target['leads']),
-            'progress_rev'    => $this->percent($actual['revenue'], $target['revenue']),
+            'progress_leads' => $this->percent($actual['leads'], $target['leads']),
+            'progress_rev' => $this->percent($actual['revenue'], $target['revenue']),
         ];
     }
 
@@ -34,7 +34,10 @@ class PlanKpiCalculator
      */
     private function percent($a, $b)
     {
-        if (!$b || $b == 0) return 0;
+        if (! $b || $b == 0) {
+            return 0;
+        }
+
         return round(($a / $b) * 100, 1);
     }
 }

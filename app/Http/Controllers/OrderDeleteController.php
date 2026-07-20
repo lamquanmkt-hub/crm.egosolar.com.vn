@@ -98,7 +98,7 @@ class OrderDeleteController extends Controller
      */
     private function canDeleteOrder($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

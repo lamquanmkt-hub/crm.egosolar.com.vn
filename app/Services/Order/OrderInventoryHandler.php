@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Order;
 
+use App\Contracts\Repositories\OrderRepositoryInterface;
 use App\Enums\OrderDepartment;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderApproval;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
 use App\Services\NotificationService;
 use App\Services\OrderService;
 use Illuminate\Support\Carbon;

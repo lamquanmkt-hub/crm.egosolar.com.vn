@@ -9,7 +9,6 @@ use App\Support\EgoCompanyScope;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -42,7 +41,7 @@ final class ExecutiveDashboardService
         $filters = $this->normaliseFilters($rawFilters, $access, $user);
         $companyId = EgoCompanyScope::currentId();
 
-        $cacheKey = 'executive-dashboard:v3:' . sha1(json_encode([
+        $cacheKey = 'executive-dashboard:v3:'.sha1(json_encode([
             'company_id' => $companyId,
             'user_id' => $user->id,
             'roles' => $access['roles'],
@@ -182,7 +181,7 @@ final class ExecutiveDashboardService
         }
 
         foreach (['role', 'type'] as $field) {
-            if (!empty($user->{$field})) {
+            if (! empty($user->{$field})) {
                 $roles->push((string) $user->{$field});
             }
         }
@@ -202,7 +201,7 @@ final class ExecutiveDashboardService
         $salesRoles = collect(['sales', 'sale', 'kinh_doanh', 'nhan_vien_kinh_doanh']);
         $isExecutive = $roles->intersect($executiveRoles)->isNotEmpty();
         $isSales = $roles->intersect($salesRoles)->isNotEmpty();
-        $ownOnly = $isSales && !$isExecutive;
+        $ownOnly = $isSales && ! $isExecutive;
 
         return [
             'roles' => $roles->all(),
@@ -230,7 +229,7 @@ final class ExecutiveDashboardService
         $salesId = null;
         if ($access['own_only']) {
             $salesId = (int) $user->id;
-        } elseif ($access['can_filter_sales'] && !empty($raw['sales_id'])) {
+        } elseif ($access['can_filter_sales'] && ! empty($raw['sales_id'])) {
             $salesId = max(1, (int) $raw['sales_id']);
         }
 
@@ -284,8 +283,8 @@ final class ExecutiveDashboardService
             'to' => $to,
             'previous_from' => $previousFrom,
             'previous_to' => $previousTo,
-            'label' => $from->format('d/m/Y') . ' – ' . $to->format('d/m/Y'),
-            'previous_label' => $previousFrom->format('d/m/Y') . ' – ' . $previousTo->format('d/m/Y'),
+            'label' => $from->format('d/m/Y').' – '.$to->format('d/m/Y'),
+            'previous_label' => $previousFrom->format('d/m/Y').' – '.$previousTo->format('d/m/Y'),
             'days' => $days,
         ];
     }
@@ -355,7 +354,7 @@ final class ExecutiveDashboardService
                 if ($dateColumn) {
                     $receiptQuery = DB::table('receipts as r')
                         ->join('sites as s', 's.id', '=', 'r.site_id')
-                        ->whereBetween('r.' . $dateColumn, [
+                        ->whereBetween('r.'.$dateColumn, [
                             $from->toDateTimeString(),
                             $to->toDateTimeString(),
                         ]);
@@ -423,8 +422,8 @@ final class ExecutiveDashboardService
         $empty = $this->emptyDebtPayload();
 
         if (
-            !$this->hasTable('crm_customer_debts')
-            || !$this->hasColumn('crm_customer_debts', 'debt_amount')
+            ! $this->hasTable('crm_customer_debts')
+            || ! $this->hasColumn('crm_customer_debts', 'debt_amount')
         ) {
             return $this->derivedOrderReceivables($user, $access, $filters);
         }
@@ -444,10 +443,10 @@ final class ExecutiveDashboardService
             $day30 = now()->addDays(30)->toDateString();
 
             $agingRow = (clone $query)->selectRaw(
-                "SUM(CASE WHEN d.due_date IS NULL OR d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS current_amount,
+                'SUM(CASE WHEN d.due_date IS NULL OR d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS current_amount,
                  SUM(CASE WHEN d.due_date < ? AND d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS d1_7,
                  SUM(CASE WHEN d.due_date < ? AND d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS d8_30,
-                 SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS over_30",
+                 SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS over_30',
                 [
                     $today,
                     $today, now()->subDays(7)->toDateString(),
@@ -457,16 +456,16 @@ final class ExecutiveDashboardService
             )->first();
 
             $forecastRow = (clone $query)->selectRaw(
-                "SUM(CASE WHEN d.due_date = ? THEN d.debt_amount ELSE 0 END) AS today_amount,
+                'SUM(CASE WHEN d.due_date = ? THEN d.debt_amount ELSE 0 END) AS today_amount,
                  SUM(CASE WHEN d.due_date > ? AND d.due_date <= ? THEN d.debt_amount ELSE 0 END) AS next_7,
-                 SUM(CASE WHEN d.due_date > ? AND d.due_date <= ? THEN d.debt_amount ELSE 0 END) AS next_30",
+                 SUM(CASE WHEN d.due_date > ? AND d.due_date <= ? THEN d.debt_amount ELSE 0 END) AS next_30',
                 [$today, $today, $day7, $today, $day30]
             )->first();
 
             $topDebtors = (clone $query)
                 ->selectRaw("COALESCE(c.name, CONCAT('Khách #', d.customer_id)) AS customer_name")
                 ->selectRaw('SUM(d.debt_amount) AS debt_amount')
-                ->selectRaw("SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS overdue_amount", [$today])
+                ->selectRaw('SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS overdue_amount', [$today])
                 ->selectRaw('MIN(d.due_date) AS nearest_due_date')
                 ->groupBy('d.customer_id', 'c.name')
                 ->orderByDesc('debt_amount')
@@ -510,7 +509,7 @@ final class ExecutiveDashboardService
     private function derivedOrderReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
-        if (!$this->hasTable('crm_orders') || !$this->hasTable('crm_payments')) {
+        if (! $this->hasTable('crm_orders') || ! $this->hasTable('crm_payments')) {
             return $empty;
         }
 
@@ -559,7 +558,7 @@ final class ExecutiveDashboardService
     private function projectReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
-        if (!$this->hasTable('site_payment_terms') || !$this->hasTable('sites')) {
+        if (! $this->hasTable('site_payment_terms') || ! $this->hasTable('sites')) {
             return $empty;
         }
 
@@ -815,6 +814,7 @@ final class ExecutiveDashboardService
 
         usort($items, static function (array $a, array $b): int {
             $priority = ['urgent' => 0, 'warning' => 1, 'notice' => 2];
+
             return ($priority[$a['severity']] ?? 9) <=> ($priority[$b['severity']] ?? 9);
         });
 
@@ -877,7 +877,7 @@ final class ExecutiveDashboardService
                     try {
                         $query = DB::table('crm_payments as p')
                             ->join('crm_orders as o', 'o.id', '=', 'p.order_id')
-                            ->whereBetween('p.' . $paymentDate, [
+                            ->whereBetween('p.'.$paymentDate, [
                                 $range['from']->toDateTimeString(),
                                 $range['to']->toDateTimeString(),
                             ]);
@@ -917,7 +917,7 @@ final class ExecutiveDashboardService
                     try {
                         $query = DB::table('receipts as r')
                             ->join('sites as s', 's.id', '=', 'r.site_id')
-                            ->whereBetween('r.' . $receiptDate, [
+                            ->whereBetween('r.'.$receiptDate, [
                                 $range['from']->toDateTimeString(),
                                 $range['to']->toDateTimeString(),
                             ]);
@@ -965,7 +965,7 @@ final class ExecutiveDashboardService
             'completed' => 'Hoàn thành',
         ];
 
-        if (!$this->hasTable('crm_orders')) {
+        if (! $this->hasTable('crm_orders')) {
             return collect($definitions)->map(fn ($label, $key) => [
                 'key' => $key, 'label' => $label, 'count' => 0, 'value' => 0, 'overdue' => 0,
             ])->values()->all();
@@ -984,6 +984,7 @@ final class ExecutiveDashboardService
 
             return collect($definitions)->map(function (string $label, string $key) use ($rows): array {
                 $row = $rows->get($key);
+
                 return [
                     'key' => $key,
                     'label' => $label,
@@ -1023,7 +1024,7 @@ final class ExecutiveDashboardService
             'url' => $this->routeUrl('warehouses.index'),
         ];
 
-        if (!$this->hasTable('crm_product_stock')) {
+        if (! $this->hasTable('crm_product_stock')) {
             return $payload;
         }
 
@@ -1141,7 +1142,7 @@ final class ExecutiveDashboardService
      */
     private function teamPerformance(User $user, array $access, array $filters, array $range): array
     {
-        if (!$this->hasTable('crm_orders') || !$this->hasTable('users')) {
+        if (! $this->hasTable('crm_orders') || ! $this->hasTable('users')) {
             return [];
         }
 
@@ -1210,8 +1211,8 @@ final class ExecutiveDashboardService
                 ]) as $row) {
                     $items->push([
                         'type' => 'order',
-                        'title' => 'Đơn hàng mới ' . ($row->order_code ?: ('#' . $row->id)),
-                        'description' => 'Giá trị ' . $this->money((float) $row->total_amount),
+                        'title' => 'Đơn hàng mới '.($row->order_code ?: ('#'.$row->id)),
+                        'description' => 'Giá trị '.$this->money((float) $row->total_amount),
                         'actor' => (string) ($row->actor ?? 'Hệ thống'),
                         'time' => $row->created_at,
                         'url' => $this->routeUrl('orders.show', ['id' => $row->id]),
@@ -1231,7 +1232,7 @@ final class ExecutiveDashboardService
                 ]) as $row) {
                     $items->push([
                         'type' => 'payment',
-                        'title' => 'Ghi nhận thanh toán ' . ($row->order_code ?: ('#' . $row->order_id)),
+                        'title' => 'Ghi nhận thanh toán '.($row->order_code ?: ('#'.$row->order_id)),
                         'description' => $this->money((float) $row->amount),
                         'actor' => (string) ($row->actor ?? 'Hệ thống'),
                         'time' => $row->created_at,
@@ -1248,8 +1249,8 @@ final class ExecutiveDashboardService
                 foreach ($query->get(['r.id', 'r.return_code', 'r.status', 'r.created_at']) as $row) {
                     $items->push([
                         'type' => 'return',
-                        'title' => 'Yêu cầu đổi trả ' . ($row->return_code ?: ('#' . $row->id)),
-                        'description' => 'Trạng thái: ' . (string) $row->status,
+                        'title' => 'Yêu cầu đổi trả '.($row->return_code ?: ('#'.$row->id)),
+                        'description' => 'Trạng thái: '.(string) $row->status,
                         'actor' => 'Hậu mãi',
                         'time' => $row->created_at,
                         'url' => $this->routeUrl('order-returns.show', ['orderReturn' => $row->id]),
@@ -1265,7 +1266,7 @@ final class ExecutiveDashboardService
                 foreach ($query->get(['m.id', 'm.schedule_code', 'm.site_name', 'm.status', 'm.updated_at']) as $row) {
                     $items->push([
                         'type' => 'maintenance',
-                        'title' => 'Lịch kỹ thuật ' . ($row->schedule_code ?: ('#' . $row->id)),
+                        'title' => 'Lịch kỹ thuật '.($row->schedule_code ?: ('#'.$row->id)),
                         'description' => (string) ($row->site_name ?: $row->status),
                         'actor' => 'Kỹ thuật',
                         'time' => $row->updated_at,
@@ -1283,6 +1284,7 @@ final class ExecutiveDashboardService
             ->values()
             ->map(function (array $item): array {
                 $item['time_label'] = $this->relativeTime($item['time'] ?? null);
+
                 return $item;
             })
             ->all();
@@ -1293,7 +1295,7 @@ final class ExecutiveDashboardService
      */
     private function salesUsers(User $user, array $access): array
     {
-        if (!$access['can_filter_sales'] || !$this->hasTable('users')) {
+        if (! $access['can_filter_sales'] || ! $this->hasTable('users')) {
             return [];
         }
 
@@ -1328,7 +1330,7 @@ final class ExecutiveDashboardService
 
         $dateColumn = $this->firstColumn('crm_orders', ['order_date', 'created_at']);
         if ($dateColumn) {
-            $query->whereBetween('o.' . $dateColumn, [
+            $query->whereBetween('o.'.$dateColumn, [
                 $from->toDateTimeString(),
                 $to->toDateTimeString(),
             ]);
@@ -1382,11 +1384,11 @@ final class ExecutiveDashboardService
 
         $salesId = $access['own_only'] ? (int) $user->id : ($filters['sales_id'] ?? null);
         if ($salesId && $this->hasColumn('crm_orders', 'created_by')) {
-            $query->where($alias . '.created_by', (int) $salesId);
+            $query->where($alias.'.created_by', (int) $salesId);
         }
 
         if ($this->hasColumn('crm_orders', 'deleted_at')) {
-            $query->whereNull($alias . '.deleted_at');
+            $query->whereNull($alias.'.deleted_at');
         }
     }
 
@@ -1402,7 +1404,7 @@ final class ExecutiveDashboardService
     ): void {
         $salesId = $access['own_only'] ? (int) $user->id : ($filters['sales_id'] ?? null);
         if ($salesId && $this->hasColumn('sites', 'created_by')) {
-            $query->where($alias . '.created_by', (int) $salesId);
+            $query->where($alias.'.created_by', (int) $salesId);
         }
     }
 
@@ -1413,8 +1415,8 @@ final class ExecutiveDashboardService
     {
         if ($this->hasColumn('crm_orders', 'current_department')) {
             $query->where(function (Builder $sub) use ($alias): void {
-                $sub->whereNull($alias . '.current_department')
-                    ->orWhereNotIn($alias . '.current_department', [
+                $sub->whereNull($alias.'.current_department')
+                    ->orWhereNotIn($alias.'.current_department', [
                         'cancelled', 'canceled', 'da_huy', 'huy',
                     ]);
             });
@@ -1441,7 +1443,7 @@ final class ExecutiveDashboardService
         $columns = [];
         foreach (['contract_signed_at', 'created_at'] as $column) {
             if ($this->hasColumn('sites', $column)) {
-                $columns[] = $alias . '.' . $column;
+                $columns[] = $alias.'.'.$column;
             }
         }
 
@@ -1451,7 +1453,7 @@ final class ExecutiveDashboardService
 
         return count($columns) === 1
             ? $columns[0]
-            : 'COALESCE(' . implode(', ', $columns) . ')';
+            : 'COALESCE('.implode(', ', $columns).')';
     }
 
     /**
@@ -1517,7 +1519,8 @@ final class ExecutiveDashboardService
      */
     private function hasColumn(string $table, string $column): bool
     {
-        $key = $table . '.' . $column;
+        $key = $table.'.'.$column;
+
         return $this->columnCache[$key]
             ??= (function () use ($table, $column): bool {
                 try {
@@ -1533,7 +1536,7 @@ final class ExecutiveDashboardService
      */
     private function safeDate(mixed $value): ?string
     {
-        if (!is_string($value) || trim($value) === '') {
+        if (! is_string($value) || trim($value) === '') {
             return null;
         }
 
@@ -1580,7 +1583,7 @@ final class ExecutiveDashboardService
      */
     private function money(float $value): string
     {
-        return number_format($value, 0, ',', '.') . ' đ';
+        return number_format($value, 0, ',', '.').' đ';
     }
 
     /**
@@ -1588,7 +1591,7 @@ final class ExecutiveDashboardService
      */
     private function relativeTime(mixed $date): string
     {
-        if (!$date) {
+        if (! $date) {
             return 'Không rõ thời gian';
         }
 

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\ProductCategoryRepositoryInterface;
 use App\Contracts\Services\ProductCategoryServiceInterface;
 use App\Models\Inventory\Catalog\ProductCategory;
-use App\Repositories\Interfaces\ProductCategoryRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
@@ -22,7 +22,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Dependency Injection - Constructor Injection
-     * @param ProductCategoryRepositoryInterface $repository
      */
     public function __construct(ProductCategoryRepositoryInterface $repository)
     {
@@ -31,8 +30,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Lấy danh sách categories có phân trang
-     * @param int $perPage
-     * @return LengthAwarePaginator
      */
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
@@ -41,7 +38,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Lấy tất cả categories (không phân trang)
-     * @return EloquentCollection
      */
     public function getAll(): EloquentCollection
     {
@@ -50,17 +46,16 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Lấy danh sách categories dạng tree (hierarchical)
-     * @return EloquentCollection
      */
     public function getTree(): EloquentCollection
     {
         $categories = $this->repository->all();
+
         return $this->buildTree($categories);
     }
 
     /**
      * Lấy danh sách categories dạng flat với parent name
-     * @return EloquentCollection
      */
     public function getAllWithParent(): EloquentCollection
     {
@@ -69,8 +64,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Tìm category theo ID
-     * @param int $id
-     * @return ProductCategory|null
      */
     public function find(int $id): ?ProductCategory
     {
@@ -79,8 +72,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Tìm category với products
-     * @param int $id
-     * @return ProductCategory|null
      */
     public function findWithProducts(int $id): ?ProductCategory
     {
@@ -89,8 +80,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Tạo category mới
-     * @param array $data
-     * @return ProductCategory
      */
     public function create(array $data): ProductCategory
     {
@@ -104,9 +93,7 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Cập nhật category
-     * @param int $id
-     * @param array $data
-     * @return bool
+     *
      * @throws \Exception
      */
     public function update(int $id, array $data): bool
@@ -121,15 +108,14 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Xóa category
-     * @param int $id
-     * @return bool
+     *
      * @throws \Exception
      */
     public function delete(int $id): bool
     {
         $category = $this->repository->find($id);
 
-        if (!$category) {
+        if (! $category) {
             throw new \Exception('Category không tồn tại');
         }
 
@@ -148,9 +134,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Xây dựng cây phân cấp từ collection
-     * @param EloquentCollection $categories
-     * @param int|null $parentId
-     * @return EloquentCollection
      */
     protected function buildTree(EloquentCollection $categories, ?int $parentId = null): EloquentCollection
     {
@@ -158,15 +141,14 @@ class ProductCategoryService implements ProductCategoryServiceInterface
             return $category->parent_id == $parentId;
         })->map(function ($category) use ($categories) {
             $category->children = $this->buildTree($categories, $category->id);
+
             return $category;
         });
     }
 
     /**
      * Validate parent_id không được trỏ vào chính nó hoặc con của nó
-     * @param int $parentId
-     * @param int|null $excludeId
-     * @return void
+     *
      * @throws \Exception
      */
     protected function validateParentId(int $parentId, ?int $excludeId = null): void
@@ -188,8 +170,6 @@ class ProductCategoryService implements ProductCategoryServiceInterface
 
     /**
      * Lấy tất cả descendants của một category
-     * @param ProductCategory $category
-     * @return EloquentCollection
      */
     protected function getDescendants(ProductCategory $category): EloquentCollection
     {
@@ -204,4 +184,3 @@ class ProductCategoryService implements ProductCategoryServiceInterface
         return $descendants;
     }
 }
-

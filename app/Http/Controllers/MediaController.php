@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\Services\MediaUploadServiceInterface;
 use App\Models\Media\MediaFile;
-use App\Services\MediaUploadService;
 use Illuminate\Http\Request;
 
 /**
@@ -11,12 +11,12 @@ use Illuminate\Http\Request;
  */
 class MediaController extends Controller
 {
-    protected MediaUploadService $uploader;
+    protected MediaUploadServiceInterface $uploader;
 
     /**
      * Khởi tạo controller với service upload media và yêu cầu đăng nhập.
      */
-    public function __construct(MediaUploadService $uploader)
+    public function __construct(MediaUploadServiceInterface $uploader)
     {
         $this->middleware('auth');
         $this->uploader = $uploader;

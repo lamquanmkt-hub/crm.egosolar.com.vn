@@ -26,8 +26,7 @@ class SolarMaintenanceController extends Controller
     public function __construct(
         private readonly SolarMaintenanceQueryService $queryService,
         private readonly SolarMaintenanceService $service,
-    ) {
-    }
+    ) {}
 
     /**
      * Hiển thị trang danh sách lịch bảo trì kèm bộ lọc, thống kê và quyền thao tác.
@@ -82,7 +81,7 @@ class SolarMaintenanceController extends Controller
 
         return back()->with(
             'success',
-            'Đã tạo ' . $created->count() . ' đợt bảo trì / bảo hành và ghi lịch sử đầy đủ.'
+            'Đã tạo '.$created->count().' đợt bảo trì / bảo hành và ghi lịch sử đầy đủ.'
         );
     }
 
@@ -93,7 +92,7 @@ class SolarMaintenanceController extends Controller
     {
         $schedule->load(['site', 'assignees.user', 'statusHistories.user']);
 
-        if (!$request->user()->can('view', $schedule)) {
+        if (! $request->user()->can('view', $schedule)) {
             return response()->json([
                 'message' => 'Bạn chưa có quyền xem đợt bảo trì này.',
             ], 403);
@@ -129,7 +128,7 @@ class SolarMaintenanceController extends Controller
                 ? route('ky-thuat.maintenance.site', ['site' => $schedule->site_id])
                 : null,
             'schedule_detail_url' => route('ky-thuat.maintenance.show', ['schedule' => $schedule->id]),
-            'round_label' => 'Đợt ' . ((int) ($schedule->round_no ?: 1)) . '/' . ((int) ($schedule->total_rounds ?: 1)),
+            'round_label' => 'Đợt '.((int) ($schedule->round_no ?: 1)).'/'.((int) ($schedule->total_rounds ?: 1)),
             'history' => $schedule->statusHistories->take(20)->map(fn ($item) => [
                 'from_status' => $item->from_status,
                 'to_status' => $item->to_status,
@@ -160,8 +159,8 @@ class SolarMaintenanceController extends Controller
             'items' => $sites->map(fn ($site) => [
                 'value' => $site->id,
                 'text' => $site->name
-                    . ($site->contact_name ? ' — ' . $site->contact_name : '')
-                    . ($site->contact_phone ? ' — ' . $site->contact_phone : ''),
+                    .($site->contact_name ? ' — '.$site->contact_name : '')
+                    .($site->contact_phone ? ' — '.$site->contact_phone : ''),
                 'name' => $site->name,
                 'contact_name' => $site->contact_name,
                 'contact_phone' => $site->contact_phone,

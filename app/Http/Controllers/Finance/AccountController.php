@@ -23,8 +23,8 @@ class AccountController extends Controller
             $keyword = trim($request->keyword);
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
-                  ->orWhere('code', 'like', "%{$keyword}%")
-                  ->orWhere('note', 'like', "%{$keyword}%");
+                    ->orWhere('code', 'like', "%{$keyword}%")
+                    ->orWhere('note', 'like', "%{$keyword}%");
             });
         }
 
@@ -102,7 +102,7 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:100', 'unique:accounts,code,' . $account->id],
+            'code' => ['nullable', 'string', 'max:100', 'unique:accounts,code,'.$account->id],
             'type' => ['required', 'in:cash,bank,ewallet'],
             'note' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],

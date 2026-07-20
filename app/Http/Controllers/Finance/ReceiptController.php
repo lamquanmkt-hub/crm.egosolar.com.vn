@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-use App\Models\Receipt;
 use App\Models\Account;
+use App\Models\Receipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -36,10 +36,10 @@ class ReceiptController extends Controller
             $keyword = trim($request->q);
 
             $query->where(function ($sub) use ($keyword) {
-                $sub->where('code', 'like', '%' . $keyword . '%')
-                    ->orWhere('payer_name', 'like', '%' . $keyword . '%')
-                    ->orWhere('payer_phone', 'like', '%' . $keyword . '%')
-                    ->orWhere('note', 'like', '%' . $keyword . '%');
+                $sub->where('code', 'like', '%'.$keyword.'%')
+                    ->orWhere('payer_name', 'like', '%'.$keyword.'%')
+                    ->orWhere('payer_phone', 'like', '%'.$keyword.'%')
+                    ->orWhere('note', 'like', '%'.$keyword.'%');
             });
         }
 
@@ -143,10 +143,10 @@ class ReceiptController extends Controller
      */
     private function generateReceiptCode(): string
     {
-        $prefix = 'PT' . now()->format('Ymd');
+        $prefix = 'PT'.now()->format('Ymd');
 
         $last = Receipt::query()
-            ->where('code', 'like', $prefix . '-%')
+            ->where('code', 'like', $prefix.'-%')
             ->latest('id')
             ->value('code');
 
@@ -156,7 +156,7 @@ class ReceiptController extends Controller
             $number = ((int) $matches[1]) + 1;
         }
 
-        return $prefix . '-' . str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+        return $prefix.'-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
     }
 
     /**

@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ProductSerialManagementController extends Controller
 {
     private array $soldStates = ['sold', 'delivered', 'shipped', 'issued', 'out'];
+
     private array $stockStates = ['in_stock', 'returned', 'reserved', 'damaged'];
 
     private array $stateLabels = [
@@ -92,7 +93,7 @@ class ProductSerialManagementController extends Controller
         $query = $this->baseQuery();
         $this->applyFilters($query, $filters);
 
-        $fileName = 'quan-ly-seri-' . now()->format('Ymd-His') . '.csv';
+        $fileName = 'quan-ly-seri-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($query) {
             echo "\xEF\xBB\xBF";
@@ -147,7 +148,7 @@ class ProductSerialManagementController extends Controller
     private function ensureSerialTables(): void
     {
         foreach (['crm_serial_units', 'crm_serial_identifiers', 'crm_serial_unit_identifiers', 'crm_serial_unit_states'] as $table) {
-            abort_unless(Schema::hasTable($table), 500, 'Thiếu bảng dữ liệu serial: ' . $table);
+            abort_unless(Schema::hasTable($table), 500, 'Thiếu bảng dữ liệu serial: '.$table);
         }
     }
 
@@ -274,9 +275,9 @@ class ProductSerialManagementController extends Controller
             'oi.id as order_item_id',
             'oisu.id as order_serial_link_id',
         ])
-            ->selectRaw($companyParts ? 'COALESCE(' . implode(',', $companyParts) . ') as company_name' : 'NULL as company_name')
-            ->selectRaw($customerNameParts ? 'COALESCE(' . implode(',', $customerNameParts) . ') as customer_name' : 'NULL as customer_name')
-            ->selectRaw($customerPhoneParts ? 'COALESCE(' . implode(',', $customerPhoneParts) . ') as customer_phone' : 'NULL as customer_phone');
+            ->selectRaw($companyParts ? 'COALESCE('.implode(',', $companyParts).') as company_name' : 'NULL as company_name')
+            ->selectRaw($customerNameParts ? 'COALESCE('.implode(',', $customerNameParts).') as customer_name' : 'NULL as customer_name')
+            ->selectRaw($customerPhoneParts ? 'COALESCE('.implode(',', $customerPhoneParts).') as customer_phone' : 'NULL as customer_phone');
 
         if (Schema::hasColumn('crm_serial_units', 'deleted_at')) {
             $query->whereNull('su.deleted_at');
@@ -294,26 +295,26 @@ class ProductSerialManagementController extends Controller
             $q = $filters['q'];
 
             $query->where(function ($x) use ($q) {
-                $x->where('pc.code', 'like', '%' . $q . '%')
-                    ->orWhere('p.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    ->orWhere('w.name', 'like', '%' . $q . '%')
-                    ->orWhere('o.order_code', 'like', '%' . $q . '%');
+                $x->where('pc.code', 'like', '%'.$q.'%')
+                    ->orWhere('p.name', 'like', '%'.$q.'%')
+                    ->orWhere('p.sku', 'like', '%'.$q.'%')
+                    ->orWhere('w.name', 'like', '%'.$q.'%')
+                    ->orWhere('o.order_code', 'like', '%'.$q.'%');
 
                 if (Schema::hasTable('crm_customers')) {
                     if (Schema::hasColumn('crm_customers', 'name')) {
-                        $x->orWhere('cwa.name', 'like', '%' . $q . '%');
+                        $x->orWhere('cwa.name', 'like', '%'.$q.'%');
 
                         if (Schema::hasTable('crm_leads') && Schema::hasColumn('crm_leads', 'customer_id')) {
-                            $x->orWhere('clead.name', 'like', '%' . $q . '%');
+                            $x->orWhere('clead.name', 'like', '%'.$q.'%');
                         }
                     }
 
                     if (Schema::hasColumn('crm_customers', 'phone')) {
-                        $x->orWhere('cwa.phone', 'like', '%' . $q . '%');
+                        $x->orWhere('cwa.phone', 'like', '%'.$q.'%');
 
                         if (Schema::hasTable('crm_leads') && Schema::hasColumn('crm_leads', 'customer_id')) {
-                            $x->orWhere('clead.phone', 'like', '%' . $q . '%');
+                            $x->orWhere('clead.phone', 'like', '%'.$q.'%');
                         }
                     }
                 }
@@ -341,30 +342,30 @@ class ProductSerialManagementController extends Controller
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
                     $hasAnyCompanyColumn = true;
                     $x->orWhere('st.company_id', $companyId)
-                      ->orWhereNull('st.company_id');
+                        ->orWhereNull('st.company_id');
                 }
 
                 if (Schema::hasColumn('crm_product_catalog', 'company_id')) {
                     $hasAnyCompanyColumn = true;
                     $x->orWhere('p.company_id', $companyId)
-                      ->orWhereNull('p.company_id');
+                        ->orWhereNull('p.company_id');
                 }
 
                 if (Schema::hasColumn('crm_warehouses', 'company_id')) {
                     $hasAnyCompanyColumn = true;
                     $x->orWhere('w.company_id', $companyId)
-                      ->orWhereNull('w.company_id');
+                        ->orWhereNull('w.company_id');
                 }
 
                 if (Schema::hasColumn('crm_orders', 'company_id')) {
                     $hasAnyCompanyColumn = true;
                     $x->orWhere('o.company_id', $companyId)
-                      ->orWhereNull('o.company_id');
+                        ->orWhereNull('o.company_id');
                 }
 
                 // Nếu serial cũ chưa có cột/cấu trúc công ty thì cho hiện toàn bộ,
                 // vì đây là dữ liệu nhập kho cũ.
-                if (!$hasAnyCompanyColumn) {
+                if (! $hasAnyCompanyColumn) {
                     $x->whereRaw('1 = 1');
                 }
             });
@@ -375,18 +376,18 @@ class ProductSerialManagementController extends Controller
                 $x->whereIn('st.state', $this->stockStates)
                     ->orWhere(function ($y) {
                         $y->whereNotNull('st.warehouse_id')
-                          ->where(function ($z) {
-                              $z->whereNull('st.state')->orWhere('st.state', '')->orWhere('st.state', 'unknown');
-                          });
+                            ->where(function ($z) {
+                                $z->whereNull('st.state')->orWhere('st.state', '')->orWhere('st.state', 'unknown');
+                            });
                     });
             }),
             'available' => $query->where(function ($x) {
                 $x->where('st.state', 'in_stock')
                     ->orWhere(function ($y) {
                         $y->whereNotNull('st.warehouse_id')
-                          ->where(function ($z) {
-                              $z->whereNull('st.state')->orWhere('st.state', '')->orWhere('st.state', 'unknown');
-                          });
+                            ->where(function ($z) {
+                                $z->whereNull('st.state')->orWhere('st.state', '')->orWhere('st.state', 'unknown');
+                            });
                     });
             }),
             'sold' => $query->where(function ($x) {

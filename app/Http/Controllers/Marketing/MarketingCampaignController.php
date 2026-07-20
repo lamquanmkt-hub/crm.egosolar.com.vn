@@ -18,9 +18,9 @@ class MarketingCampaignController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'     => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'platform' => 'required|string|max:50',
-            'note'     => 'nullable|string|max:255',
+            'note' => 'nullable|string|max:255',
         ]);
 
         $data['created_by'] = Auth::id();

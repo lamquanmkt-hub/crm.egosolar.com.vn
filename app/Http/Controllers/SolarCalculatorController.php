@@ -14,10 +14,15 @@ use Illuminate\Support\Facades\Schema;
 class SolarCalculatorController extends Controller
 {
     private const DEFAULT_ELECTRICITY_PRICE = 3000;
+
     private const DEFAULT_PANEL_POWER_WP = 630;
+
     private const DEFAULT_PANEL_AREA_M2 = 2.7;
+
     private const DEFAULT_PANEL_PRICE = 2709000;
+
     private const DEFAULT_GENERATION_PER_KWP_YEAR = 1800;
+
     private const DEFAULT_DC_AC_RATIO = 1.15;
 
     /**
@@ -196,19 +201,19 @@ class SolarCalculatorController extends Controller
             $selectedBatteryId
         );
 
-        $inverterQtyText = ((int) ($package['inverter_qty'] ?? 1) > 1 ? ((int) $package['inverter_qty']) . ' x ' : '');
-        $batteryQtyText = ((int) ($package['battery_qty'] ?? 0) > 1 ? ((int) $package['battery_qty']) . ' x ' : '');
-        $configurationText = $panelCount . ' tấm pin ' . number_format($panelPowerWp, 0, ',', '.') . 'Wp'
-            . ' + ' . $inverterQtyText . ($package['inverter_product']['short_name'] ?? $package['inverter_product']['display_name'] ?? 'Inverter phù hợp')
-            . ($package['battery_capacity'] > 0 ? ' + ' . $batteryQtyText . 'Pin lưu trữ ' . number_format($package['battery_capacity'], 1, ',', '.') . 'kWh' : '');
+        $inverterQtyText = ((int) ($package['inverter_qty'] ?? 1) > 1 ? ((int) $package['inverter_qty']).' x ' : '');
+        $batteryQtyText = ((int) ($package['battery_qty'] ?? 0) > 1 ? ((int) $package['battery_qty']).' x ' : '');
+        $configurationText = $panelCount.' tấm pin '.number_format($panelPowerWp, 0, ',', '.').'Wp'
+            .' + '.$inverterQtyText.($package['inverter_product']['short_name'] ?? $package['inverter_product']['display_name'] ?? 'Inverter phù hợp')
+            .($package['battery_capacity'] > 0 ? ' + '.$batteryQtyText.'Pin lưu trữ '.number_format($package['battery_capacity'], 1, ',', '.').'kWh' : '');
 
         $advice = [
-            'Giá điện trung bình đang tính: ' . number_format($electricityPrice, 0, ',', '.') . ' VNĐ/kWh.',
-            'Chỉ cần nhập tiền điện, hệ thống quy đổi ra khoảng ' . number_format($monthlyKwh, 0, ',', '.') . ' kWh/tháng và đề xuất gói ' . number_format($recommendedKwp, 2, ',', '.') . ' kWp.',
+            'Giá điện trung bình đang tính: '.number_format($electricityPrice, 0, ',', '.').' VNĐ/kWh.',
+            'Chỉ cần nhập tiền điện, hệ thống quy đổi ra khoảng '.number_format($monthlyKwh, 0, ',', '.').' kWh/tháng và đề xuất gói '.number_format($recommendedKwp, 2, ',', '.').' kWp.',
             'Dự toán đang tách rõ: tấm pin, inverter, pin lưu trữ, vật tư phụ, tủ điện, nhân công và giao hàng.',
-            'Công suất tấm pin DC được tính cao hơn inverter AC khoảng ' . number_format(self::DEFAULT_DC_AC_RATIO, 2, ',', '.') . ' lần để đúng cấu hình thực tế.',
-            ((int) ($package['inverter_qty'] ?? 1) > 1 ? 'Inverter đang được ghép ' . ((int) $package['inverter_qty']) . ' bộ cùng pha do công suất/tồn kho.' : 'Inverter được chọn đúng pha: 1 pha chỉ dùng inverter 1 pha, 3 pha chỉ dùng inverter 3 pha.'),
-            ((int) ($package['battery_qty'] ?? 0) > 1 ? 'Pin lưu trữ đang được ghép ' . ((int) $package['battery_qty']) . ' cục theo mức tiền điện/thói quen dùng điện.' : 'Dung lượng pin lưu trữ được tính theo tiền điện, không cố định một mức.'),
+            'Công suất tấm pin DC được tính cao hơn inverter AC khoảng '.number_format(self::DEFAULT_DC_AC_RATIO, 2, ',', '.').' lần để đúng cấu hình thực tế.',
+            ((int) ($package['inverter_qty'] ?? 1) > 1 ? 'Inverter đang được ghép '.((int) $package['inverter_qty']).' bộ cùng pha do công suất/tồn kho.' : 'Inverter được chọn đúng pha: 1 pha chỉ dùng inverter 1 pha, 3 pha chỉ dùng inverter 3 pha.'),
+            ((int) ($package['battery_qty'] ?? 0) > 1 ? 'Pin lưu trữ đang được ghép '.((int) $package['battery_qty']).' cục theo mức tiền điện/thói quen dùng điện.' : 'Dung lượng pin lưu trữ được tính theo tiền điện, không cố định một mức.'),
             $roofFit === false ? 'Diện tích mái đang nhập chưa đủ, nên giảm công suất hoặc khảo sát thêm mái.' : 'Thông số hiển thị ở mức cơ bản để sales tư vấn nhanh cho khách.',
         ];
 
@@ -229,7 +234,7 @@ class SolarCalculatorController extends Controller
                 'panel_power_wp' => round($panelPowerWp, 0),
                 'panel_unit_price' => round($package['panel_unit_price'], 0),
                 'panel_cost' => round($package['panel_cost'], 0),
-                'panel_product_name' => $package['panel_product']['display_name'] ?? 'Tấm pin NLMT ' . number_format($panelPowerWp, 0, ',', '.') . 'Wp',
+                'panel_product_name' => $package['panel_product']['display_name'] ?? 'Tấm pin NLMT '.number_format($panelPowerWp, 0, ',', '.').'Wp',
                 'estimated_area' => $estimatedArea,
                 'roof_area' => $roofArea,
                 'roof_fit' => $roofFit,
@@ -334,12 +339,12 @@ class SolarCalculatorController extends Controller
         $inverterBundle = $this->resolveInverterBundle($targetInverterKw, $phase, $systemType, $selectedInverterId, $inverters);
         $inverterProduct = $inverterBundle['product'] ?? null;
 
-        if (!$inverterProduct) {
+        if (! $inverterProduct) {
             $fallbackCapacity = $this->fallbackInverterCapacity($recommendedKwp);
             $inverterProduct = [
                 'id' => 0,
-                'display_name' => 'Inverter Hybrid ' . number_format($fallbackCapacity, 1, ',', '.') . 'kW',
-                'short_name' => number_format($fallbackCapacity, 1, ',', '.') . 'kW',
+                'display_name' => 'Inverter Hybrid '.number_format($fallbackCapacity, 1, ',', '.').'kW',
+                'short_name' => number_format($fallbackCapacity, 1, ',', '.').'kW',
                 'capacity_kw' => $fallbackCapacity,
                 'phase' => $phase === '3' ? '3' : '1',
                 'price' => $this->fallbackInverterPrice($fallbackCapacity),
@@ -373,12 +378,12 @@ class SolarCalculatorController extends Controller
             $batteryBundle = $this->resolveBatteryBundle($targetBatteryKwh, $selectedBatteryId, $batteries);
             $batteryProduct = $batteryBundle['product'] ?? null;
 
-            if (!$batteryProduct) {
+            if (! $batteryProduct) {
                 $fallbackUnitCapacity = $targetBatteryKwh <= 6 ? 5.12 : 16;
                 $batteryQty = max(1, (int) ceil(($targetBatteryKwh * 0.92) / max($fallbackUnitCapacity, 1)));
                 $batteryProduct = [
                     'id' => 0,
-                    'display_name' => 'Pin lưu trữ ' . number_format($fallbackUnitCapacity, 2, ',', '.') . 'kWh',
+                    'display_name' => 'Pin lưu trữ '.number_format($fallbackUnitCapacity, 2, ',', '.').'kWh',
                     'capacity_kwh' => $fallbackUnitCapacity,
                     'price' => $fallbackUnitCapacity <= 6 ? 12000000 : 47000000,
                     'stock_qty' => 0,
@@ -408,20 +413,20 @@ class SolarCalculatorController extends Controller
         $selfConsumptionRatio = $this->getSelfConsumptionRatio($usageType, $systemType);
 
         $inverterNote = trim(($inverterProduct['display_name'] ?? 'Inverter phù hợp')
-            . ' - Tổng AC ' . number_format($inverterTotalCapacity, 2, ',', '.') . 'kW'
-            . ' - ' . $this->getPhaseLabel($phase, $inverterProduct['phase'] ?? ''));
+            .' - Tổng AC '.number_format($inverterTotalCapacity, 2, ',', '.').'kW'
+            .' - '.$this->getPhaseLabel($phase, $inverterProduct['phase'] ?? ''));
         if ($inverterQty > 1) {
-            $inverterNote .= ' - ghép ' . $inverterQty . ' bộ do cấu hình/tồn kho';
+            $inverterNote .= ' - ghép '.$inverterQty.' bộ do cấu hình/tồn kho';
         }
 
         $batteryNote = $systemType === 'on_grid'
             ? 'Không dùng pin lưu trữ'
             : trim(($batteryProduct['display_name'] ?? 'Pin lưu trữ')
-                . ' - mục tiêu khoảng ' . number_format($targetBatteryKwh, 1, ',', '.') . 'kWh'
-                . ($batteryQty > 1 ? ' - ghép ' . $batteryQty . ' cục' : ''));
+                .' - mục tiêu khoảng '.number_format($targetBatteryKwh, 1, ',', '.').'kWh'
+                .($batteryQty > 1 ? ' - ghép '.$batteryQty.' cục' : ''));
 
         $quoteItems = [
-            $this->quoteItem('Tấm pin NLMT', 'Tấm', $panelCount, $panelUnitPrice, $panelCost, $panelProduct['display_name'] ?? ('Tấm pin ' . number_format($panelPowerWp, 0, ',', '.') . 'Wp')),
+            $this->quoteItem('Tấm pin NLMT', 'Tấm', $panelCount, $panelUnitPrice, $panelCost, $panelProduct['display_name'] ?? ('Tấm pin '.number_format($panelPowerWp, 0, ',', '.').'Wp')),
             $this->quoteItem('Inverter', 'Bộ', $inverterQty, $inverterUnitPrice, $inverterCost, $inverterNote),
             $this->quoteItem('Pin lưu trữ', 'Bộ', $batteryQty, $batteryUnitPrice, $batteryCost, $batteryNote),
             $this->quoteItem('Vật tư phụ', 'Hệ', 1, $materialCost, $materialCost, 'Dây AC/DC, MC4, rail, kẹp, ống điện, phụ kiện lắp tấm'),
@@ -511,7 +516,7 @@ class SolarCalculatorController extends Controller
             return [
                 'panel_count' => $count,
                 'kwp' => $kwp,
-                'inverter_name' => ((int) ($package['inverter_qty'] ?? 1) > 1 ? ((int) $package['inverter_qty']) . ' x ' : '') . ($package['inverter_product']['short_name'] ?? $package['inverter_product']['display_name'] ?? '-'),
+                'inverter_name' => ((int) ($package['inverter_qty'] ?? 1) > 1 ? ((int) $package['inverter_qty']).' x ' : '').($package['inverter_product']['short_name'] ?? $package['inverter_product']['display_name'] ?? '-'),
                 'dc_ac_ratio' => round(((float) ($package['inverter_total_capacity'] ?? 0)) > 0 ? $kwp / (float) ($package['inverter_total_capacity'] ?? 1) : 0, 2),
                 'battery_capacity' => $package['battery_capacity'],
                 'total_investment' => round($package['total_investment'], 0),
@@ -554,7 +559,7 @@ class SolarCalculatorController extends Controller
      */
     private function getSolarProductOptions(): array
     {
-        if (!Schema::hasTable('crm_product_catalog')) {
+        if (! Schema::hasTable('crm_product_catalog')) {
             return ['panels' => [], 'inverters' => [], 'batteries' => []];
         }
 
@@ -593,7 +598,7 @@ class SolarCalculatorController extends Controller
             'name', 'sku', 'description', 'category_id', 'brand_id', 'price', 'price_agent', 'price_agent_vat',
             'price_retail', 'price_retail_vat', 'vat_percent', 'cost_vat_percent', 'quantity', 'is_active',
         ] as $col) {
-            $selects[] = $has($col) ? ('p.' . $col) : DB::raw('NULL as ' . $col);
+            $selects[] = $has($col) ? ('p.'.$col) : DB::raw('NULL as '.$col);
         }
 
         $selects[] = $hasBrands ? DB::raw('b.name as brand_name') : DB::raw('NULL as brand_name');
@@ -633,7 +638,7 @@ class SolarCalculatorController extends Controller
         $batteries = [];
 
         foreach ($rows as $row) {
-            $text = trim((string) ($row->name ?? '') . ' ' . (string) ($row->sku ?? '') . ' ' . (string) ($row->description ?? '') . ' ' . (string) ($row->category_name ?? ''));
+            $text = trim((string) ($row->name ?? '').' '.(string) ($row->sku ?? '').' '.(string) ($row->description ?? '').' '.(string) ($row->category_name ?? ''));
             $type = $this->detectSolarProductType($row, $text);
 
             if ($type === null) {
@@ -643,7 +648,7 @@ class SolarCalculatorController extends Controller
             $price = $tierPrices[(int) $row->id] ?? $this->resolveProductSalePrice($row);
             $brandName = trim((string) ($row->brand_name ?? ''));
             $sku = trim((string) ($row->sku ?? ''));
-            $name = trim((string) ($row->name ?? 'Sản phẩm #' . $row->id));
+            $name = trim((string) ($row->name ?? 'Sản phẩm #'.$row->id));
             $stockQty = (float) ($row->stock_qty ?? 0);
             if ($stockQty <= 0 && isset($row->quantity)) {
                 $stockQty = (float) $row->quantity;
@@ -654,7 +659,7 @@ class SolarCalculatorController extends Controller
                 'name' => $name,
                 'sku' => $sku,
                 'brand_name' => $brandName,
-                'display_name' => trim(($brandName ? $brandName . ' - ' : '') . $name . ($sku ? ' (' . $sku . ')' : '')),
+                'display_name' => trim(($brandName ? $brandName.' - ' : '').$name.($sku ? ' ('.$sku.')' : '')),
                 'price' => round($price, 0),
                 'stock_qty' => $stockQty,
             ];
@@ -677,7 +682,7 @@ class SolarCalculatorController extends Controller
                     'capacity_kw' => round($capacityKw, 2),
                     'phase' => $phase,
                     'phase_label' => $this->getPhaseLabel($phase),
-                    'short_name' => number_format($capacityKw, 1, ',', '.') . 'kW',
+                    'short_name' => number_format($capacityKw, 1, ',', '.').'kW',
                 ]);
             }
 
@@ -702,13 +707,13 @@ class SolarCalculatorController extends Controller
      */
     private function getRetailTierPrices(array $productIds): array
     {
-        if (empty($productIds) || !Schema::hasTable('crm_product_prices')) {
+        if (empty($productIds) || ! Schema::hasTable('crm_product_prices')) {
             return [];
         }
 
         $priceColumns = Schema::getColumnListing('crm_product_prices');
         foreach (['product_id', 'price_tier_id', 'price'] as $required) {
-            if (!in_array($required, $priceColumns, true)) {
+            if (! in_array($required, $priceColumns, true)) {
                 return [];
             }
         }
@@ -721,7 +726,7 @@ class SolarCalculatorController extends Controller
                 $text = '';
                 foreach (['name', 'code', 'description'] as $col) {
                     if (in_array($col, $tierColumns, true)) {
-                        $text .= ' ' . mb_strtolower((string) ($tier->{$col} ?? ''), 'UTF-8');
+                        $text .= ' '.mb_strtolower((string) ($tier->{$col} ?? ''), 'UTF-8');
                     }
                 }
                 if (str_contains($text, 'bán lẻ') || str_contains($text, 'ban le') || str_contains($text, 'retail')) {
@@ -869,6 +874,7 @@ class SolarCalculatorController extends Controller
             $bScore = abs((float) ($b['power_wp'] ?? 0) - self::DEFAULT_PANEL_POWER_WP);
             $aStock = (float) ($a['stock_qty'] ?? 0) > 0 ? 0 : 1;
             $bStock = (float) ($b['stock_qty'] ?? 0) > 0 ? 0 : 1;
+
             return [$aScore, $aStock, $a['display_name']] <=> [$bScore, $bStock, $b['display_name']];
         });
 
@@ -894,6 +900,7 @@ class SolarCalculatorController extends Controller
             if ((float) ($product['capacity_kw'] ?? 0) <= 0) {
                 return false;
             }
+
             return $this->isPhaseCompatible($product, $phase);
         }));
 
@@ -902,19 +909,20 @@ class SolarCalculatorController extends Controller
         }
 
         $preferHybrid = in_array($systemType, ['hybrid', 'battery'], true);
-        if ($preferHybrid && !empty($candidates)) {
+        if ($preferHybrid && ! empty($candidates)) {
             $hybridCandidates = array_values(array_filter($candidates, function ($product) {
-                $text = mb_strtolower(($product['name'] ?? '') . ' ' . ($product['sku'] ?? '') . ' ' . ($product['display_name'] ?? ''), 'UTF-8');
+                $text = mb_strtolower(($product['name'] ?? '').' '.($product['sku'] ?? '').' '.($product['display_name'] ?? ''), 'UTF-8');
+
                 return str_contains($text, 'hybrid') || str_contains($text, '-es') || str_contains($text, '-et') || str_contains($text, 'ess2');
             }));
-            if (!empty($hybridCandidates)) {
+            if (! empty($hybridCandidates)) {
                 $candidates = $hybridCandidates;
             }
         }
 
-        $hasAnyStock = !empty(array_filter($candidates, fn ($product) => (float) ($product['stock_qty'] ?? 0) > 0));
+        $hasAnyStock = ! empty(array_filter($candidates, fn ($product) => (float) ($product['stock_qty'] ?? 0) > 0));
 
-        if ($selectedProduct && (!$hasAnyStock || (float) ($selectedProduct['stock_qty'] ?? 0) > 0)) {
+        if ($selectedProduct && (! $hasAnyStock || (float) ($selectedProduct['stock_qty'] ?? 0) > 0)) {
             return $this->makeInverterBundle($selectedProduct, $targetKw, $hasAnyStock, true);
         }
 
@@ -1028,9 +1036,9 @@ class SolarCalculatorController extends Controller
         }
 
         $candidates = array_values(array_filter($batteries, fn ($product) => (float) ($product['capacity_kwh'] ?? 0) > 0));
-        $hasAnyStock = !empty(array_filter($candidates, fn ($product) => (float) ($product['stock_qty'] ?? 0) > 0));
+        $hasAnyStock = ! empty(array_filter($candidates, fn ($product) => (float) ($product['stock_qty'] ?? 0) > 0));
 
-        if ($selectedProduct && (!$hasAnyStock || (float) ($selectedProduct['stock_qty'] ?? 0) > 0)) {
+        if ($selectedProduct && (! $hasAnyStock || (float) ($selectedProduct['stock_qty'] ?? 0) > 0)) {
             return $this->makeBatteryBundle($selectedProduct, $targetKwh, $hasAnyStock, true);
         }
 
@@ -1053,7 +1061,7 @@ class SolarCalculatorController extends Controller
                 $totalCap = round($cap * $qty, 2);
                 $enough = $totalCap >= ($targetKwh * 0.92);
                 $stockScore = $stockQty >= $qty ? 0 : 1;
-                $text = mb_strtolower(($product['display_name'] ?? '') . ' ' . ($product['sku'] ?? ''), 'UTF-8');
+                $text = mb_strtolower(($product['display_name'] ?? '').' '.($product['sku'] ?? ''), 'UTF-8');
                 $brandScore = str_contains($text, 'dyness') ? 0 : (str_contains($text, 'goodwe') ? 1 : 2);
 
                 $bundles[] = [
@@ -1112,6 +1120,7 @@ class SolarCalculatorController extends Controller
         }
 
         $productPhase = (string) ($product['phase'] ?? '');
+
         return $productPhase !== '' && $productPhase === (string) $phase;
     }
 
@@ -1120,7 +1129,8 @@ class SolarCalculatorController extends Controller
      */
     private function isHybridInverterProduct(array $product): bool
     {
-        $text = mb_strtolower(($product['name'] ?? '') . ' ' . ($product['sku'] ?? '') . ' ' . ($product['display_name'] ?? ''), 'UTF-8');
+        $text = mb_strtolower(($product['name'] ?? '').' '.($product['sku'] ?? '').' '.($product['display_name'] ?? ''), 'UTF-8');
+
         return str_contains($text, 'hybrid') || str_contains($text, '-es') || str_contains($text, '-et') || str_contains($text, 'ess2');
     }
 
@@ -1135,6 +1145,7 @@ class SolarCalculatorController extends Controller
         if (preg_match('/(\d{3,4})\s*w\b/i', $text, $match)) {
             return (float) $match[1];
         }
+
         return 0;
     }
 
@@ -1145,6 +1156,7 @@ class SolarCalculatorController extends Controller
     {
         if (preg_match('/ESS2-(\d+(?:[\.,]\d+)?)K/i', $text, $match)) {
             $value = (float) str_replace(',', '.', $match[1]);
+
             return abs($value - 6) < 0.2 ? 6.6 : $value;
         }
         if (preg_match('/GW(\d{4,5})/i', $text, $match)) {
@@ -1159,6 +1171,7 @@ class SolarCalculatorController extends Controller
         if (preg_match('/(\d+(?:[\.,]\d+)?)\s*(?:kwp|kw)\b/i', $text, $match)) {
             return (float) str_replace(',', '.', $match[1]);
         }
+
         return 0;
     }
 
@@ -1182,6 +1195,7 @@ class SolarCalculatorController extends Controller
         if (preg_match('/LX\s*A(\d+(?:[\.,]\d+)?)/i', $text, $match)) {
             return (float) str_replace(',', '.', $match[1]);
         }
+
         return 0;
     }
 
@@ -1203,6 +1217,7 @@ class SolarCalculatorController extends Controller
         if (preg_match('/GW\d+K-ES|GW\d{4}-ES|ESS2-\d+K1P/i', $text)) {
             return '1';
         }
+
         return '';
     }
 
@@ -1211,11 +1226,22 @@ class SolarCalculatorController extends Controller
      */
     private function fallbackInverterCapacity(float $kwp): float
     {
-        if ($kwp <= 7.6) return 6.6;
-        if ($kwp <= 9) return 8;
-        if ($kwp <= 11) return 10;
-        if ($kwp <= 13) return 12;
-        if ($kwp <= 16) return 15;
+        if ($kwp <= 7.6) {
+            return 6.6;
+        }
+        if ($kwp <= 9) {
+            return 8;
+        }
+        if ($kwp <= 11) {
+            return 10;
+        }
+        if ($kwp <= 13) {
+            return 12;
+        }
+        if ($kwp <= 16) {
+            return 15;
+        }
+
         return 20;
     }
 
@@ -1224,11 +1250,22 @@ class SolarCalculatorController extends Controller
      */
     private function fallbackInverterPrice(float $capacityKw): float
     {
-        if ($capacityKw <= 6.6) return 18000000;
-        if ($capacityKw <= 8) return 36000000;
-        if ($capacityKw <= 10) return 38000000;
-        if ($capacityKw <= 12) return 42000000;
-        if ($capacityKw <= 15) return 45000000;
+        if ($capacityKw <= 6.6) {
+            return 18000000;
+        }
+        if ($capacityKw <= 8) {
+            return 36000000;
+        }
+        if ($capacityKw <= 10) {
+            return 38000000;
+        }
+        if ($capacityKw <= 12) {
+            return 42000000;
+        }
+        if ($capacityKw <= 15) {
+            return 45000000;
+        }
+
         return 60000000;
     }
 
@@ -1237,7 +1274,7 @@ class SolarCalculatorController extends Controller
      */
     private function fallbackBatteryPrice(?array $batteryProduct, float $targetKwh): float
     {
-        $text = mb_strtolower(($batteryProduct['display_name'] ?? '') . ' ' . ($batteryProduct['sku'] ?? ''), 'UTF-8');
+        $text = mb_strtolower(($batteryProduct['display_name'] ?? '').' '.($batteryProduct['sku'] ?? ''), 'UTF-8');
         if (str_contains($text, 'smart power') || str_contains($text, 'sp 314')) {
             return 37000000;
         }
@@ -1247,6 +1284,7 @@ class SolarCalculatorController extends Controller
         if ($targetKwh <= 6) {
             return 12000000;
         }
+
         return 47000000;
     }
 
@@ -1261,6 +1299,7 @@ class SolarCalculatorController extends Controller
         if ($systemType === 'battery') {
             return $usageType === 'night' ? 0.95 : 0.92;
         }
+
         return $usageType === 'night' ? 0.90 : 0.88;
     }
 
@@ -1270,6 +1309,7 @@ class SolarCalculatorController extends Controller
     private function getPhaseLabel(?string $phase, ?string $fallbackPhase = null): string
     {
         $value = $phase && $phase !== 'auto' ? $phase : ($fallbackPhase ?: '');
+
         return match ((string) $value) {
             '1' => '1 pha',
             '3' => '3 pha',

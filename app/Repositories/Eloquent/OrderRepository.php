@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\CRM\Orders\Order;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
+use App\Contracts\Repositories\OrderRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;

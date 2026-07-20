@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\BrandRepositoryInterface;
 use App\Contracts\Services\BrandServiceInterface;
 use App\Models\Inventory\Catalog\Brand;
-use App\Repositories\Interfaces\BrandRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

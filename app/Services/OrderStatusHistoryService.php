@@ -15,12 +15,7 @@ class OrderStatusHistoryService
     /**
      * Ghi lại thay đổi trạng thái
      *
-     * @param Order $order
-     * @param string $from
-     * @param string $to
-     * @param string $type [APPROVAL, REJECTION, SHIPPING, PAYMENT, ...]
-     * @param string $note
-     * @return OrderStatusHistory
+     * @param  string  $type  [APPROVAL, REJECTION, SHIPPING, PAYMENT, ...]
      */
     public function record(
         Order $order,
@@ -42,7 +37,6 @@ class OrderStatusHistoryService
     /**
      * Lấy timeline của đơn hàng
      *
-     * @param Order $order
      * @return mixed
      */
     public function getTimeline(Order $order)

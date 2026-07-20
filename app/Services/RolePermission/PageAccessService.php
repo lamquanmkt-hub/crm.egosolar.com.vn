@@ -2,6 +2,7 @@
 
 namespace App\Services\RolePermission;
 
+use App\Contracts\Services\PageAccessServiceInterface;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
 /**
  * Service kiểm soát quyền truy cập trang theo role/permission (page.*) từ cấu hình role_permissions.
  */
-class PageAccessService
+class PageAccessService implements PageAccessServiceInterface
 {
     private ?bool $rolesHavePageFlag = null;
 
@@ -29,7 +30,7 @@ class PageAccessService
     public function permissionForRequest(Request $request): ?string
     {
         $routeName = optional($request->route())->getName();
-        $path = '/' . ltrim($request->path(), '/');
+        $path = '/'.ltrim($request->path(), '/');
         $path = $path === '//' ? '/' : $path;
 
         foreach ($this->definitions() as $permission => $definition) {
@@ -44,8 +45,8 @@ class PageAccessService
             }
 
             foreach ($definition['path_prefixes'] ?? [] as $prefix) {
-                $prefix = '/' . trim($prefix, '/');
-                if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+                $prefix = '/'.trim($prefix, '/');
+                if ($path === $prefix || str_starts_with($path, $prefix.'/')) {
                     return $permission;
                 }
             }
@@ -79,7 +80,7 @@ class PageAccessService
             );
         }
 
-        if (!config('role_permissions.legacy_compatibility', true)) {
+        if (! config('role_permissions.legacy_compatibility', true)) {
             return true;
         }
 
@@ -96,7 +97,7 @@ class PageAccessService
             return true;
         }
 
-        if (!$this->pageControlEnabled($user)) {
+        if (! $this->pageControlEnabled($user)) {
             return true;
         }
 
@@ -108,14 +109,14 @@ class PageAccessService
      */
     public function canSatisfyLegacyRole(User $user, Request $request, string $roleExpression): bool
     {
-        if (!$this->pageControlEnabled($user)) {
+        if (! $this->pageControlEnabled($user)) {
             return false;
         }
 
         $allowedExpressions = collect(config('role_permissions.legacy_role_fallbacks', []))
             ->map(fn ($item) => $this->normalizeRoleExpression((string) $item));
 
-        if (!$allowedExpressions->contains($this->normalizeRoleExpression($roleExpression))) {
+        if (! $allowedExpressions->contains($this->normalizeRoleExpression($roleExpression))) {
             return false;
         }
 
@@ -129,7 +130,7 @@ class PageAccessService
      */
     public function deniedNavigationRules(User $user): array
     {
-        if (!$this->pageControlEnabled($user)) {
+        if (! $this->pageControlEnabled($user)) {
             return [];
         }
 
@@ -168,7 +169,7 @@ class PageAccessService
 
             $groupKey = $isPage ? '__page_access' : ($meta['group_key'] ?? 'other');
 
-            if (!isset($groups[$groupKey])) {
+            if (! isset($groups[$groupKey])) {
                 $groups[$groupKey] = [
                     'key' => $groupKey,
                     'label' => $isPage ? 'Quyền truy cập trang' : ($meta['group_label'] ?? 'Quyền khác'),
@@ -201,7 +202,7 @@ class PageAccessService
      */
     public function displayRoleName($role): string
     {
-        if (!empty($role->display_name)) {
+        if (! empty($role->display_name)) {
             return $role->display_name;
         }
 
@@ -237,9 +238,9 @@ class PageAccessService
         $actionKey = str_replace('.', '_', $action);
         $actionLabel = config("role_permissions.action_labels.{$actionKey}");
 
-        if (!$actionLabel) {
+        if (! $actionLabel) {
             $last = end($parts) ?: $name;
-            $actionLabel = config('role_permissions.action_labels.' . str_replace('-', '_', $last));
+            $actionLabel = config('role_permissions.action_labels.'.str_replace('-', '_', $last));
         }
 
         return [

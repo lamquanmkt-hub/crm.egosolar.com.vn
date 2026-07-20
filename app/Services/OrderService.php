@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\OrderRepositoryInterface;
+use App\Contracts\Services\NotificationServiceInterface;
 use App\Contracts\Services\OrderServiceInterface;
 use App\Enums\OrderDepartment;
 use App\Enums\OrderStatusCode;
@@ -16,7 +18,6 @@ use App\Models\CRM\Orders\OrderNotification;
 use App\Models\CRM\Orders\OrderStatusHistory;
 use App\Models\CRM\Orders\OrderStatusType;
 use App\Models\Payments\Payment;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
 use App\Services\Order\OrderApprovalHandler;
 use App\Services\Order\OrderInventoryHandler;
 use App\Services\Order\OrderItemCalculator;
@@ -40,7 +41,7 @@ class OrderService implements OrderServiceInterface
     public function __construct(
         protected OrderRepositoryInterface $orderRepo,
         protected \App\Contracts\Services\ProductStockServiceInterface $stockService,
-        protected NotificationService $notificationService,
+        protected NotificationServiceInterface $notificationService,
         protected \App\Contracts\Services\PricingServiceInterface $pricingService,
         protected OrderApprovalHandler $approvalHandler,
         protected OrderInventoryHandler $inventoryHandler,

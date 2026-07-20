@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Position;
+use Illuminate\Http\Request;
 
 /**
  * Controller quản lý chức vụ (Position) trong module HR.
@@ -51,7 +51,7 @@ class PositionController extends Controller
     /**
      * Hiển thị form chỉnh sửa chức vụ.
      *
-     * @param int $id ID chức vụ
+     * @param  int  $id  ID chức vụ
      */
     public function edit($id)
     {
@@ -63,7 +63,7 @@ class PositionController extends Controller
     /**
      * Cập nhật thông tin chức vụ.
      *
-     * @param int $id ID chức vụ
+     * @param  int  $id  ID chức vụ
      */
     public function update(Request $request, $id)
     {
@@ -86,7 +86,7 @@ class PositionController extends Controller
     /**
      * Xoá chức vụ theo ID.
      *
-     * @param int $id ID chức vụ
+     * @param  int  $id  ID chức vụ
      */
     public function destroy($id)
     {

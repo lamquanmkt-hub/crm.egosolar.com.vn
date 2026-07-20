@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\Services\NotificationServiceInterface;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\Payments\Payment;
@@ -23,14 +24,14 @@ class OrderPaymentService
      * Khởi tạo service với service thông báo.
      */
     public function __construct(
-        protected NotificationService $notificationService
+        protected NotificationServiceInterface $notificationService
     ) {}
 
     /**
      * Ghi nhận thanh toán
      *
-     * @param Order $order
-     * @param array $data [payment_date, amount, method_id, ...]
+     * @param  array  $data  [payment_date, amount, method_id, ...]
+     *
      * @throws \Exception
      */
     public function recordPayment(Order $order, array $data): void
@@ -74,7 +75,7 @@ class OrderPaymentService
     {
         $debt = CustomerDebt::where('order_id', $order->id)->first();
 
-        if (!$debt) {
+        if (! $debt) {
             return;
         }
 

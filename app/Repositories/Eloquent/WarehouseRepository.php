@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\Core\Warehouse;
-use App\Repositories\Interfaces\WarehouseRepositoryInterface;
+use App\Contracts\Repositories\WarehouseRepositoryInterface;
 
 /**
  * Repository Eloquent thao tác dữ liệu kho.

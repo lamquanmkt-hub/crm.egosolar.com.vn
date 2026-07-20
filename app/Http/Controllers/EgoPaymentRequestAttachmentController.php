@@ -57,7 +57,7 @@ class EgoPaymentRequestAttachmentController extends Controller
      */
     private function hasRole($user, array $roles): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -87,7 +87,7 @@ class EgoPaymentRequestAttachmentController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -141,18 +141,18 @@ class EgoPaymentRequestAttachmentController extends Controller
 
         $files = $request->file('attachments', []);
 
-        if (!is_array($files)) {
+        if (! is_array($files)) {
             $files = [$files];
         }
 
         $count = 0;
 
         foreach ($files as $file) {
-            if (!$file || !$file->isValid()) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
-            $path = $file->store('payment_requests/' . (int) $paymentRequest, 'public');
+            $path = $file->store('payment_requests/'.(int) $paymentRequest, 'public');
 
             DB::table('payment_attachments')->insert([
                 'payment_request_id' => (int) $paymentRequest,
@@ -167,7 +167,7 @@ class EgoPaymentRequestAttachmentController extends Controller
             $count++;
         }
 
-        return $this->ok($request, 'Da them ' . $count . ' chung tu.');
+        return $this->ok($request, 'Da them '.$count.' chung tu.');
     }
 
     /**
@@ -187,11 +187,11 @@ class EgoPaymentRequestAttachmentController extends Controller
 
         $file = $request->file('attachment');
 
-        if (!empty($att->path) && Storage::disk('public')->exists($att->path)) {
+        if (! empty($att->path) && Storage::disk('public')->exists($att->path)) {
             Storage::disk('public')->delete($att->path);
         }
 
-        $path = $file->store('payment_requests/' . (int) $paymentRequest, 'public');
+        $path = $file->store('payment_requests/'.(int) $paymentRequest, 'public');
 
         DB::table('payment_attachments')
             ->where('id', (int) $attachment)
@@ -218,7 +218,7 @@ class EgoPaymentRequestAttachmentController extends Controller
 
         $att = $this->getAttachment($paymentRequest, $attachment);
 
-        if (!empty($att->path) && Storage::disk('public')->exists($att->path)) {
+        if (! empty($att->path) && Storage::disk('public')->exists($att->path)) {
             Storage::disk('public')->delete($att->path);
         }
 
@@ -239,7 +239,7 @@ class EgoPaymentRequestAttachmentController extends Controller
 
         $att = $this->getAttachment($paymentRequest, $attachment);
 
-        abort_unless(!empty($att->path) && Storage::disk('public')->exists($att->path), 404, 'Khong thay file chung tu.');
+        abort_unless(! empty($att->path) && Storage::disk('public')->exists($att->path), 404, 'Khong thay file chung tu.');
 
         return Storage::disk('public')->download($att->path, $att->original_name ?: basename($att->path));
     }

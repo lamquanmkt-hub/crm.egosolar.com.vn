@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\ProductCategoryRepositoryInterface;
+use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\Inventory\Pricing\PriceTier;
@@ -15,8 +17,6 @@ use App\Models\Inventory\Serial\SerialUnitState;
 use App\Models\Inventory\Stock\InventoryEvent;
 use App\Models\Inventory\Stock\ProductStock;
 use App\Models\Media\MediaFile;
-use App\Repositories\Interfaces\ProductCategoryRepositoryInterface;
-use App\Repositories\Interfaces\ProductRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;

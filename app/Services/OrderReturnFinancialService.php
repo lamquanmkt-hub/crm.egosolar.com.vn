@@ -22,7 +22,7 @@ class OrderReturnFinancialService
     {
         return DB::transaction(function () use ($return, $user, $data) {
             $return = OrderReturn::query()->lockForUpdate()->findOrFail($return->id);
-            if (!in_array($return->status, ['stocked_in', 'pending_refund'], true)) {
+            if (! in_array($return->status, ['stocked_in', 'pending_refund'], true)) {
                 throw ValidationException::withMessages(['status' => 'Cần hoàn tất xử lý kho trước khi tạo phiếu hoàn tiền.']);
             }
             $max = max(0, (float) $return->total_return_amount - (float) $return->restocking_fee - (float) $return->shipping_fee);
@@ -32,7 +32,7 @@ class OrderReturnFinancialService
                 throw ValidationException::withMessages(['amount' => 'Số tiền hoàn vượt giá trị còn có thể xử lý.']);
             }
             $refund = OrderRefund::create([
-                'refund_code' => 'RF-' . now()->format('YmdHis') . '-' . $return->id . '-' . random_int(100, 999),
+                'refund_code' => 'RF-'.now()->format('YmdHis').'-'.$return->id.'-'.random_int(100, 999),
                 'order_return_id' => $return->id,
                 'order_id' => $return->order_id,
                 'amount' => $amount,
@@ -44,7 +44,8 @@ class OrderReturnFinancialService
                 'note' => $data['note'] ?? null,
             ]);
             $return->update(['financial_status' => 'pending', 'status' => 'pending_refund']);
-            app(OrderReturnService::class)->history($return, 'stocked_in', 'pending_refund', 'create_refund', 'Tạo phiếu hoàn tiền ' . $refund->refund_code, $user);
+            app(OrderReturnService::class)->history($return, 'stocked_in', 'pending_refund', 'create_refund', 'Tạo phiếu hoàn tiền '.$refund->refund_code, $user);
+
             return $refund;
         });
     }
@@ -58,6 +59,7 @@ class OrderReturnFinancialService
             throw ValidationException::withMessages(['status' => 'Phiếu hoàn tiền không ở trạng thái chờ duyệt.']);
         }
         $refund->update(['status' => 'approved', 'approved_by' => $user->id, 'approved_at' => now()]);
+
         return $refund->fresh();
     }
 
@@ -91,7 +93,8 @@ class OrderReturnFinancialService
                 'completed_by' => $return->inventory_status === 'posted' && $remaining <= 0 ? $user->id : $return->completed_by,
                 'completed_at' => $return->inventory_status === 'posted' && $remaining <= 0 ? now() : $return->completed_at,
             ]);
-            app(OrderReturnService::class)->history($return, 'pending_refund', $return->status, 'refund_paid', 'Đã xử lý ' . $refund->refund_code, $user);
+            app(OrderReturnService::class)->history($return, 'pending_refund', $return->status, 'refund_paid', 'Đã xử lý '.$refund->refund_code, $user);
+
             return $refund->fresh();
         });
     }
@@ -102,7 +105,9 @@ class OrderReturnFinancialService
     private function adjustDebt(OrderReturn $return, float $amount): void
     {
         $debt = DB::table('crm_customer_debts')->where('order_id', $return->order_id)->lockForUpdate()->first();
-        if (!$debt) return;
+        if (! $debt) {
+            return;
+        }
         $targetObligation = max(0, (float) $debt->total_amount - $amount);
         $safeTotal = max((float) $debt->paid_amount, $targetObligation);
         $newDebt = max(0, $safeTotal - (float) $debt->paid_amount);

@@ -27,10 +27,10 @@ class SiteController extends Controller
         private readonly SiteService $siteService
     ) {}
 
-        /**
-         * Danh sách công trình có tìm kiếm, lọc trạng thái/công ty/ngày, giới hạn theo sales.
-         */
-        public function index(Request $request): View
+    /**
+     * Danh sách công trình có tìm kiếm, lọc trạng thái/công ty/ngày, giới hạn theo sales.
+     */
+    public function index(Request $request): View
     {
         $query = Site::query();
 
@@ -76,7 +76,7 @@ class SiteController extends Controller
                         $subQuery->orWhere(
                             $column,
                             'like',
-                            '%' . $keyword . '%'
+                            '%'.$keyword.'%'
                         );
                     }
                 }
@@ -203,7 +203,6 @@ class SiteController extends Controller
 
         $site = $this->siteService->create($data);
 
-
         // Insert devices -> site_devices
         $this->siteService->syncDevices($site, $devices);
 
@@ -225,9 +224,8 @@ class SiteController extends Controller
     {
         $site = $this->siteService->find($id);
 
-        
         $this->egoAbortIfSalesCannotAccessSite($site);
-$devices = $this->siteService->getDevices($site);
+        $devices = $this->siteService->getDevices($site);
         $planned = $this->siteService->getPlannedMaterials($site);
         $paymentTerms = $this->siteService->getPaymentTerms($site);
         $financeSummary = $this->siteService->getFinanceSummary($site);
@@ -318,7 +316,7 @@ $devices = $this->siteService->getDevices($site);
                 return (float) ($item->line_total ?? 0);
             }),
             'stock_rows' => $actualMaterials->filter(function ($item) {
-                return !empty($item->product_id);
+                return ! empty($item->product_id);
             })->count(),
             'external_rows' => $actualMaterials->filter(function ($item) {
                 return empty($item->product_id);
@@ -345,11 +343,10 @@ $devices = $this->siteService->getDevices($site);
     {
         $site = $this->siteService->find($id);
 
-        
         $this->egoAbortIfSalesCannotAccessSite($site);
-$devices = $this->siteService->getEditDevices($site);
-$planned = $this->siteService->getEditPlannedMaterials($site);
-$paymentTerms = $this->siteService->getPaymentTerms($site);
+        $devices = $this->siteService->getEditDevices($site);
+        $planned = $this->siteService->getEditPlannedMaterials($site);
+        $paymentTerms = $this->siteService->getPaymentTerms($site);
 
         return view('sites.edit', compact(
             'site',
@@ -366,9 +363,8 @@ $paymentTerms = $this->siteService->getPaymentTerms($site);
     {
         $site = $this->siteService->find($id);
 
-        
         $this->egoAbortIfSalesCannotAccessSite($site);
-$data = $request->validated();
+        $data = $request->validated();
 
         if (
             Schema::hasColumn('sites', 'company_id')
@@ -461,7 +457,7 @@ $data = $request->validated();
             $forceUpdate['updated_at'] = now();
         }
 
-        if (!empty($forceUpdate)) {
+        if (! empty($forceUpdate)) {
             DB::table($siteTable)
                 ->where('id', $site->id)
                 ->update($forceUpdate);
@@ -469,9 +465,8 @@ $data = $request->validated();
 
         $site = $this->siteService->find($id);
 
-        
         $this->egoAbortIfSalesCannotAccessSite($site);
-$this->siteService->syncDevices($site, $devices);
+        $this->siteService->syncDevices($site, $devices);
         $this->siteService->syncPlannedMaterials($site, $planned);
         $this->siteService->syncPaymentTerms($site, $paymentTerms);
 
@@ -480,7 +475,7 @@ $this->siteService->syncDevices($site, $devices);
         | Force update lan 2 sau sync de tranh bi ghi de.
         |--------------------------------------------------------------------------
         */
-        if (!empty($forceUpdate)) {
+        if (! empty($forceUpdate)) {
             DB::table($siteTable)
                 ->where('id', $site->id)
                 ->update($forceUpdate);
@@ -491,35 +486,35 @@ $this->siteService->syncDevices($site, $devices);
             ->with('success', 'Đã cập nhật công trình!');
     }
 
-   /**
-    * Ghi nhận thanh toán cho một đợt thanh toán của công trình (tạo phiếu thu).
-    */
-   public function recordPayment(\Illuminate\Http\Request $request, $id)
+    /**
+     * Ghi nhận thanh toán cho một đợt thanh toán của công trình (tạo phiếu thu).
+     */
+    public function recordPayment(\Illuminate\Http\Request $request, $id)
     {
         $siteId = (int) $id;
-        $redirectUrl = route('sites.show', $siteId) . '#ghi-nhan-thanh-toan';
+        $redirectUrl = route('sites.show', $siteId).'#ghi-nhan-thanh-toan';
 
         $site = Site::query()->findOrFail($siteId);
         $this->egoAbortIfSalesCannotAccessSite($site);
 
-        if (!\Illuminate\Support\Facades\Schema::hasTable('site_payment_terms')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('site_payment_terms')) {
             return redirect($redirectUrl)
                 ->withInput()
                 ->with('error', 'Chưa có bảng đợt thanh toán công trình.');
         }
 
-        if (!\Illuminate\Support\Facades\Schema::hasTable('receipts')) {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('receipts')) {
             return redirect($redirectUrl)
                 ->withInput()
                 ->with('error', 'Chưa có bảng phiếu thu receipts.');
         }
 
         if (
-            !\Illuminate\Support\Facades\Schema::hasColumn(
+            ! \Illuminate\Support\Facades\Schema::hasColumn(
                 'receipts',
                 'site_id'
             )
-            || !\Illuminate\Support\Facades\Schema::hasColumn(
+            || ! \Illuminate\Support\Facades\Schema::hasColumn(
                 'receipts',
                 'site_payment_term_id'
             )
@@ -529,7 +524,7 @@ $this->siteService->syncDevices($site, $devices);
                 ->with(
                     'error',
                     'Thiếu cột liên kết phiếu thu. '
-                    . 'Vui lòng chạy php artisan migrate trước.'
+                    .'Vui lòng chạy php artisan migrate trước.'
                 );
         }
 
@@ -559,7 +554,7 @@ $this->siteService->syncDevices($site, $devices);
             ->where('site_id', $siteId)
             ->first();
 
-        if (!$term) {
+        if (! $term) {
             return redirect($redirectUrl)
                 ->withInput()
                 ->with('error', 'Đợt thanh toán không hợp lệ hoặc không thuộc công trình này.');
@@ -582,7 +577,7 @@ $this->siteService->syncDevices($site, $devices);
         if ($amount > $remain + 0.5) {
             return redirect($redirectUrl)
                 ->withInput()
-                ->with('error', 'Số tiền thu vượt quá số còn lại của đợt: ' . number_format($remain, 0, ',', '.') . ' đ.');
+                ->with('error', 'Số tiền thu vượt quá số còn lại của đợt: '.number_format($remain, 0, ',', '.').' đ.');
         }
 
         try {
@@ -655,14 +650,12 @@ $this->siteService->syncDevices($site, $devices);
         } catch (\Throwable $e) {
             return redirect($redirectUrl)
                 ->withInput()
-                ->with('error', 'Không lưu được thanh toán: ' . $e->getMessage());
+                ->with('error', 'Không lưu được thanh toán: '.$e->getMessage());
         }
 
         return redirect($redirectUrl)
-            ->with('success', 'Đã ghi nhận thanh toán cho công trình #' . $siteId . '.');
+            ->with('success', 'Đã ghi nhận thanh toán cho công trình #'.$siteId.'.');
     }
-
-
 
     /**
      * Xóa công trình nếu chưa phát sinh dữ liệu liên quan (phiếu thu, vật tư...).
@@ -692,9 +685,9 @@ $this->siteService->syncDevices($site, $devices);
                 return back()->with(
                     'error',
                     'Không thể xóa công trình vì đã phát sinh '
-                    . 'dữ liệu liên quan trong bảng '
-                    . $table
-                    . '.'
+                    .'dữ liệu liên quan trong bảng '
+                    .$table
+                    .'.'
                 );
             }
         }
@@ -713,7 +706,7 @@ $this->siteService->syncDevices($site, $devices);
     private function egoCurrentUserIsSalesOnly(): bool
     {
         try {
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return false;
             }
 
@@ -722,7 +715,7 @@ $this->siteService->syncDevices($site, $devices);
             $roleTexts = [];
 
             foreach (['role', 'type', 'position', 'department'] as $field) {
-                if (!empty($user->{$field})) {
+                if (! empty($user->{$field})) {
                     $roleTexts[] = mb_strtolower((string) $user->{$field});
                 }
             }
@@ -755,7 +748,7 @@ $this->siteService->syncDevices($site, $devices);
                 return false;
             };
 
-            $isAdmin = ((int)($user->is_admin ?? 0) === 1)
+            $isAdmin = ((int) ($user->is_admin ?? 0) === 1)
                 || $hasRole(['admin', 'administrator', 'super_admin']);
 
             $isAccounting = $hasRole([
@@ -763,7 +756,7 @@ $this->siteService->syncDevices($site, $devices);
                 'ketoan',
                 'ke_toan',
                 'kế toán',
-                'ketoan_truong'
+                'ketoan_truong',
             ]);
 
             $isTechnicalOrWarehouse = $hasRole([
@@ -771,7 +764,7 @@ $this->siteService->syncDevices($site, $devices);
                 'kỹ thuật',
                 'technical',
                 'warehouse',
-                'kho'
+                'kho',
             ]);
 
             $isSales = $hasRole([
@@ -780,10 +773,10 @@ $this->siteService->syncDevices($site, $devices);
                 'sales_manager',
                 'kinh_doanh',
                 'kinh doanh',
-                'nhan_vien_kinh_doanh'
+                'nhan_vien_kinh_doanh',
             ]);
 
-            return $isSales && !$isAdmin && !$isAccounting && !$isTechnicalOrWarehouse;
+            return $isSales && ! $isAdmin && ! $isAccounting && ! $isTechnicalOrWarehouse;
         } catch (\Throwable $e) {
             return false;
         }
@@ -795,15 +788,15 @@ $this->siteService->syncDevices($site, $devices);
     private function egoAbortIfSalesCannotAccessSite($site): void
     {
         try {
-            if (!$this->egoCurrentUserIsSalesOnly()) {
+            if (! $this->egoCurrentUserIsSalesOnly()) {
                 return;
             }
 
-            if (!Schema::hasColumn('sites', 'created_by')) {
+            if (! Schema::hasColumn('sites', 'created_by')) {
                 abort(403);
             }
 
-            if ((int)($site->created_by ?? 0) !== (int)auth()->id()) {
+            if ((int) ($site->created_by ?? 0) !== (int) auth()->id()) {
                 abort(403);
             }
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
@@ -813,7 +806,6 @@ $this->siteService->syncDevices($site, $devices);
         }
     }
     /* EGO_SITE_CONTROLLER_SALES_SCOPE_END */
-
 
     /* EGO_SITE_PAYMENT_TERM_ONLY_START */
     /**
@@ -849,7 +841,7 @@ $this->siteService->syncDevices($site, $devices);
             ->where('site_id', (int) $site->id)
             ->first();
 
-        if (!$term) {
+        if (! $term) {
             return back()->withInput()->with('error', 'Đợt thanh toán không hợp lệ hoặc không thuộc công trình này.');
         }
 
@@ -868,7 +860,7 @@ $this->siteService->syncDevices($site, $devices);
         $remainAllow = max(0, (float) $term->amount - $paidOther);
 
         if ($amount > $remainAllow) {
-            return back()->withInput()->with('error', 'Số tiền thu vượt quá số còn lại của đợt: ' . number_format($remainAllow, 0, ',', '.') . ' đ.');
+            return back()->withInput()->with('error', 'Số tiền thu vượt quá số còn lại của đợt: '.number_format($remainAllow, 0, ',', '.').' đ.');
         }
 
         $oldTermId = $receiptRow->site_payment_term_id ? (int) $receiptRow->site_payment_term_id : null;
@@ -1026,10 +1018,10 @@ $this->siteService->syncDevices($site, $devices);
      */
     private function egoSiteNextReceiptCode(): string
     {
-        $prefix = 'PT-' . date('Ymd') . '-';
+        $prefix = 'PT-'.date('Ymd').'-';
 
         $lastCode = \Illuminate\Support\Facades\DB::table('receipts')
-            ->where('code', 'like', $prefix . '%')
+            ->where('code', 'like', $prefix.'%')
             ->orderByDesc('id')
             ->value('code');
 
@@ -1039,7 +1031,7 @@ $this->siteService->syncDevices($site, $devices);
             $next = ((int) $m[1]) + 1;
         }
 
-        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -1049,7 +1041,7 @@ $this->siteService->syncDevices($site, $devices);
     {
         $term = \Illuminate\Support\Facades\DB::table('site_payment_terms')->where('id', $termId)->first();
 
-        if (!$term) {
+        if (! $term) {
             return;
         }
 

@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
-
-use App\Models\User;
 use App\Models\AttendanceRecord;
 use App\Models\LeaveRequest;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Controller trang tổng quan (dashboard) của module HR.
@@ -69,9 +68,9 @@ class DashboardController extends Controller
                 ->count();
 
             $lateCount = AttendanceRecord::whereBetween('work_date', [
-                    $fromDate->toDateString(),
-                    $toDate->toDateString()
-                ])
+                $fromDate->toDateString(),
+                $toDate->toDateString(),
+            ])
                 ->where('late_minutes', '>', 0)
                 ->count();
 
@@ -87,17 +86,17 @@ class DashboardController extends Controller
                     DB::raw('COUNT(attendance_records.id) as total_records'),
                     DB::raw('SUM(CASE WHEN attendance_records.check_in_at IS NOT NULL THEN 1 ELSE 0 END) as total_checkin_days'),
                     DB::raw("SUM(CASE WHEN attendance_records.status = 'completed' THEN 1 ELSE 0 END) as completed_days"),
-                    DB::raw("SUM(CASE WHEN attendance_records.late_minutes > 0 THEN 1 ELSE 0 END) as late_days"),
+                    DB::raw('SUM(CASE WHEN attendance_records.late_minutes > 0 THEN 1 ELSE 0 END) as late_days'),
                     DB::raw("SUM(CASE WHEN attendance_records.status = 'early_leave' THEN 1 ELSE 0 END) as early_leave_days"),
                     DB::raw("SUM(CASE WHEN attendance_records.status IN ('checked_in', 'incomplete') THEN 1 ELSE 0 END) as incomplete_days"),
                     DB::raw('SUM(attendance_records.work_minutes) as total_work_minutes'),
-                    DB::raw("SUM(CASE WHEN attendance_records.late_minutes = 0 AND attendance_records.check_in_at IS NOT NULL THEN 1 ELSE 0 END) as ontime_days"),
+                    DB::raw('SUM(CASE WHEN attendance_records.late_minutes = 0 AND attendance_records.check_in_at IS NOT NULL THEN 1 ELSE 0 END) as ontime_days'),
                 ])
                 ->join('users', 'users.id', '=', 'attendance_records.user_id')
                 ->leftJoin('departments', 'departments.id', '=', 'users.department_id')
                 ->whereBetween('attendance_records.work_date', [
                     $fromDate->toDateString(),
-                    $toDate->toDateString()
+                    $toDate->toDateString(),
                 ])
                 ->groupBy('attendance_records.user_id', 'users.name', 'departments.name')
                 ->orderByDesc('total_checkin_days')

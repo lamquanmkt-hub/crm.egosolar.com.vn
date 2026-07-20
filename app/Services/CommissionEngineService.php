@@ -2,24 +2,25 @@
 
 namespace App\Services;
 
+use App\Contracts\Services\CommissionEngineServiceInterface;
 use Carbon\Carbon;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 
 /**
  * Service tính hoa hồng: quản lý chính sách, quy tắc và tính hoa hồng theo đơn hàng.
  */
-class CommissionEngineService
+class CommissionEngineService implements CommissionEngineServiceInterface
 {
     /**
      * Tạo các bảng chính sách/quy tắc/dòng hoa hồng nếu chưa tồn tại.
      */
     public function ensureSchema(): void
     {
-        if (!Schema::hasTable('crm_commission_policies')) {
+        if (! Schema::hasTable('crm_commission_policies')) {
             Schema::create('crm_commission_policies', function (Blueprint $table) {
                 $table->id();
                 $table->string('name')->nullable();
@@ -39,7 +40,7 @@ class CommissionEngineService
             });
         }
 
-        if (!Schema::hasTable('crm_commission_rules')) {
+        if (! Schema::hasTable('crm_commission_rules')) {
             Schema::create('crm_commission_rules', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('policy_id')->index();
@@ -65,7 +66,7 @@ class CommissionEngineService
             });
         }
 
-        if (!Schema::hasTable('crm_commission_lines')) {
+        if (! Schema::hasTable('crm_commission_lines')) {
             Schema::create('crm_commission_lines', function (Blueprint $table) {
                 $table->id();
                 $table->unsignedBigInteger('policy_id')->nullable()->index();
@@ -101,7 +102,6 @@ class CommissionEngineService
         }
     }
 
-
     /**
      * Tạo bảng lương cứng và bậc KPI của sales nếu chưa tồn tại.
      */
@@ -109,7 +109,7 @@ class CommissionEngineService
     {
         $this->ensureSchema();
 
-        if (!Schema::hasTable('crm_sales_salary_settings')) {
+        if (! Schema::hasTable('crm_sales_salary_settings')) {
             Schema::create('crm_sales_salary_settings', function (Blueprint $table) {
                 $table->id();
                 $table->string('period_month', 7)->index();
@@ -125,7 +125,7 @@ class CommissionEngineService
             });
         }
 
-        if (!Schema::hasTable('crm_sales_kpi_tiers')) {
+        if (! Schema::hasTable('crm_sales_kpi_tiers')) {
             Schema::create('crm_sales_kpi_tiers', function (Blueprint $table) {
                 $table->id();
                 $table->string('period_month', 7)->index();
@@ -148,7 +148,7 @@ class CommissionEngineService
      */
     private function salesUserRows(): Collection
     {
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             return collect();
         }
 
@@ -207,14 +207,14 @@ class CommissionEngineService
                         ->from('roles as r')
                         ->whereColumn('r.id', 'u.role_id')
                         ->where(function ($r) {
-                            $r->whereRaw("LOWER(r.name) LIKE ?", ['%sale%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%sales%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%kinh%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%business%']);
+                            $r->whereRaw('LOWER(r.name) LIKE ?', ['%sale%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%sales%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%kinh%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%business%']);
 
                             if (Schema::hasColumn('roles', 'code')) {
-                                $r->orWhereRaw("LOWER(r.code) LIKE ?", ['%sale%'])
-                                  ->orWhereRaw("LOWER(r.code) LIKE ?", ['%sales%']);
+                                $r->orWhereRaw('LOWER(r.code) LIKE ?', ['%sale%'])
+                                    ->orWhereRaw('LOWER(r.code) LIKE ?', ['%sales%']);
                             }
                         });
                 });
@@ -231,17 +231,17 @@ class CommissionEngineService
                         ->whereColumn('mhr.model_id', 'u.id')
                         ->where(function ($m) {
                             $m->whereNull('mhr.model_type')
-                              ->orWhereRaw("mhr.model_type LIKE ?", ['%User%']);
+                                ->orWhereRaw('mhr.model_type LIKE ?', ['%User%']);
                         })
                         ->where(function ($r) {
-                            $r->whereRaw("LOWER(r.name) LIKE ?", ['%sale%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%sales%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%kinh%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%business%']);
+                            $r->whereRaw('LOWER(r.name) LIKE ?', ['%sale%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%sales%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%kinh%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%business%']);
 
                             if (Schema::hasColumn('roles', 'code')) {
-                                $r->orWhereRaw("LOWER(r.code) LIKE ?", ['%sale%'])
-                                  ->orWhereRaw("LOWER(r.code) LIKE ?", ['%sales%']);
+                                $r->orWhereRaw('LOWER(r.code) LIKE ?', ['%sale%'])
+                                    ->orWhereRaw('LOWER(r.code) LIKE ?', ['%sales%']);
                             }
                         });
                 });
@@ -257,10 +257,10 @@ class CommissionEngineService
                         ->join('roles as r', 'r.id', '=', 'ru.role_id')
                         ->whereColumn('ru.user_id', 'u.id')
                         ->where(function ($r) {
-                            $r->whereRaw("LOWER(r.name) LIKE ?", ['%sale%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%sales%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%kinh%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%business%']);
+                            $r->whereRaw('LOWER(r.name) LIKE ?', ['%sale%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%sales%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%kinh%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%business%']);
                         });
                 });
             }
@@ -275,23 +275,22 @@ class CommissionEngineService
                         ->join('roles as r', 'r.id', '=', 'ur.role_id')
                         ->whereColumn('ur.user_id', 'u.id')
                         ->where(function ($r) {
-                            $r->whereRaw("LOWER(r.name) LIKE ?", ['%sale%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%sales%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%kinh%'])
-                              ->orWhereRaw("LOWER(r.name) LIKE ?", ['%business%']);
+                            $r->whereRaw('LOWER(r.name) LIKE ?', ['%sale%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%sales%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%kinh%'])
+                                ->orWhereRaw('LOWER(r.name) LIKE ?', ['%business%']);
                         });
                 });
             }
         });
 
         // Nếu hệ thống không có schema role rõ ràng thì không trả toàn bộ user để tránh sai.
-        if (!$hasRoleFilter) {
+        if (! $hasRoleFilter) {
             return collect();
         }
 
         return $q->orderBy('u.name')->limit(300)->get();
     }
-
 
     /**
      * Lấy thiết lập lương theo tháng cho từng sales, tự sinh giá trị mặc định nếu chưa có.
@@ -334,11 +333,11 @@ class CommissionEngineService
         $salaryRows = (array) $request->input('salary_settings', []);
 
         foreach ($salaryRows as $salesId => $row) {
-            if (!is_array($row)) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $salesId = (int)($row['sales_id'] ?? $salesId);
+            $salesId = (int) ($row['sales_id'] ?? $salesId);
             if ($salesId <= 0) {
                 continue;
             }
@@ -349,10 +348,10 @@ class CommissionEngineService
                     'sales_id' => $salesId,
                 ],
                 [
-                    'base_salary' => (float)($row['base_salary'] ?? 0),
-                    'target_revenue' => (float)($row['target_revenue'] ?? 0),
-                    'target_commission' => (float)($row['target_commission'] ?? 0),
-                    'is_active' => !empty($row['is_active']) ? 1 : 0,
+                    'base_salary' => (float) ($row['base_salary'] ?? 0),
+                    'target_revenue' => (float) ($row['target_revenue'] ?? 0),
+                    'target_commission' => (float) ($row['target_commission'] ?? 0),
+                    'is_active' => ! empty($row['is_active']) ? 1 : 0,
                     'note' => $row['note'] ?? null,
                     'updated_at' => now(),
                     'created_at' => now(),
@@ -367,13 +366,13 @@ class CommissionEngineService
         $tiers = (array) $request->input('kpi_tiers', []);
 
         foreach ($tiers as $tier) {
-            if (!is_array($tier)) {
+            if (! is_array($tier)) {
                 continue;
             }
 
-            $name = trim((string)($tier['tier_name'] ?? ''));
-            $fromRevenue = (float)($tier['from_revenue'] ?? 0);
-            $bonusAmount = (float)($tier['bonus_amount'] ?? 0);
+            $name = trim((string) ($tier['tier_name'] ?? ''));
+            $fromRevenue = (float) ($tier['from_revenue'] ?? 0);
+            $bonusAmount = (float) ($tier['bonus_amount'] ?? 0);
 
             if ($name === '' && $fromRevenue <= 0 && $bonusAmount <= 0) {
                 continue;
@@ -381,21 +380,20 @@ class CommissionEngineService
 
             DB::table('crm_sales_kpi_tiers')->insert([
                 'period_month' => $month,
-                'sales_id' => !empty($tier['sales_id']) ? (int)$tier['sales_id'] : null,
+                'sales_id' => ! empty($tier['sales_id']) ? (int) $tier['sales_id'] : null,
                 'tier_name' => $name ?: 'Bậc KPI',
                 'from_revenue' => $fromRevenue,
-                'to_revenue' => ($tier['to_revenue'] ?? '') !== '' ? (float)$tier['to_revenue'] : null,
+                'to_revenue' => ($tier['to_revenue'] ?? '') !== '' ? (float) $tier['to_revenue'] : null,
                 'bonus_type' => $tier['bonus_type'] ?? 'fixed',
                 'bonus_amount' => $bonusAmount,
-                'priority' => (int)($tier['priority'] ?? 10),
-                'is_active' => !empty($tier['is_active']) ? 1 : 0,
+                'priority' => (int) ($tier['priority'] ?? 10),
+                'is_active' => ! empty($tier['is_active']) ? 1 : 0,
                 'note' => $tier['note'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
     }
-
 
     /**
      * Lấy chính sách hoa hồng của tháng, tự tạo chính sách mặc định nếu chưa có.
@@ -412,11 +410,12 @@ class CommissionEngineService
 
         if ($policy) {
             $this->ensureCustomerStatusDefaultRules($policy);
+
             return $policy;
         }
 
         $id = DB::table('crm_commission_policies')->insertGetId([
-            'name' => 'Chính sách hoa hồng ' . $month,
+            'name' => 'Chính sách hoa hồng '.$month,
             'period_month' => $month,
             'status' => 'active',
             'project_rate_percent' => 4,
@@ -454,7 +453,7 @@ class CommissionEngineService
             ->orderByDesc('id')
             ->first();
 
-        if (!$prev) {
+        if (! $prev) {
             return;
         }
 
@@ -468,7 +467,7 @@ class CommissionEngineService
                 'only_shipped' => $prev->only_shipped,
                 'only_completed' => $prev->only_completed,
                 'hold_if_debt' => $prev->hold_if_debt,
-                'note' => 'Đã sao chép từ tháng ' . $prevMonth,
+                'note' => 'Đã sao chép từ tháng '.$prevMonth,
                 'updated_at' => now(),
             ]);
 
@@ -489,13 +488,12 @@ class CommissionEngineService
         }
     }
 
-
     /**
      * Bổ sung quy tắc mặc định cho khách lead/ADS nếu chính sách chưa có.
      */
     private function ensureCustomerStatusDefaultRules(object $policy): void
     {
-        if (!Schema::hasTable('crm_commission_rules')) {
+        if (! Schema::hasTable('crm_commission_rules')) {
             return;
         }
 
@@ -591,35 +589,35 @@ class CommissionEngineService
             'is_project' => false,
         ];
 
-        if ($orderId <= 0 || !Schema::hasTable('crm_orders')) {
+        if ($orderId <= 0 || ! Schema::hasTable('crm_orders')) {
             return $ctx;
         }
 
         try {
             $order = DB::table('crm_orders')->where('id', $orderId)->first();
 
-            if (!$order) {
+            if (! $order) {
                 return $ctx;
             }
 
             $orderCols = Schema::getColumnListing('crm_orders');
 
             foreach (['customer_status', 'customer_type', 'customer_group', 'lead_type'] as $col) {
-                if (in_array($col, $orderCols, true) && !empty($order->{$col})) {
+                if (in_array($col, $orderCols, true) && ! empty($order->{$col})) {
                     $ctx['customer_status'] = $this->normalizeCustomerStatusValue($order->{$col});
                     break;
                 }
             }
 
             foreach (['site_id', 'project_id', 'construction_id', 'site_project_id'] as $col) {
-                if (in_array($col, $orderCols, true) && !empty($order->{$col})) {
+                if (in_array($col, $orderCols, true) && ! empty($order->{$col})) {
                     $ctx['is_project'] = true;
                     break;
                 }
             }
 
             foreach (['order_type', 'type', 'source_type'] as $col) {
-                if (in_array($col, $orderCols, true) && !empty($order->{$col})) {
+                if (in_array($col, $orderCols, true) && ! empty($order->{$col})) {
                     $type = mb_strtolower(\Illuminate\Support\Str::ascii((string) $order->{$col}));
                     if (str_contains($type, 'project') || str_contains($type, 'cong trinh') || str_contains($type, 'site')) {
                         $ctx['is_project'] = true;
@@ -627,27 +625,27 @@ class CommissionEngineService
                 }
             }
 
-            if ($ctx['customer_status'] === '' && in_array('lead_id', $orderCols, true) && !empty($order->lead_id) && Schema::hasTable('crm_leads')) {
+            if ($ctx['customer_status'] === '' && in_array('lead_id', $orderCols, true) && ! empty($order->lead_id) && Schema::hasTable('crm_leads')) {
                 $lead = DB::table('crm_leads')->where('id', (int) $order->lead_id)->first();
 
                 if ($lead) {
                     $leadCols = Schema::getColumnListing('crm_leads');
 
                     foreach (['customer_status', 'customer_type', 'status', 'type', 'source_type'] as $col) {
-                        if (in_array($col, $leadCols, true) && !empty($lead->{$col})) {
+                        if (in_array($col, $leadCols, true) && ! empty($lead->{$col})) {
                             $ctx['customer_status'] = $this->normalizeCustomerStatusValue($lead->{$col});
                             break;
                         }
                     }
 
-                    if ($ctx['customer_status'] === '' && in_array('customer_id', $leadCols, true) && !empty($lead->customer_id) && Schema::hasTable('crm_customers')) {
+                    if ($ctx['customer_status'] === '' && in_array('customer_id', $leadCols, true) && ! empty($lead->customer_id) && Schema::hasTable('crm_customers')) {
                         $customer = DB::table('crm_customers')->where('id', (int) $lead->customer_id)->first();
 
                         if ($customer) {
                             $customerCols = Schema::getColumnListing('crm_customers');
 
                             foreach (['customer_status', 'customer_type', 'status', 'type', 'group_name'] as $col) {
-                                if (in_array($col, $customerCols, true) && !empty($customer->{$col})) {
+                                if (in_array($col, $customerCols, true) && ! empty($customer->{$col})) {
                                     $ctx['customer_status'] = $this->normalizeCustomerStatusValue($customer->{$col});
                                     break;
                                 }
@@ -813,7 +811,6 @@ class CommissionEngineService
         );
     }
 
-
     /**
      * Lưu toàn bộ cấu hình hoa hồng của tháng từ request và trả về tháng đã lưu.
      */
@@ -827,7 +824,7 @@ class CommissionEngineService
         DB::table('crm_commission_policies')
             ->where('id', $policy->id)
             ->update([
-                'name' => $request->input('name') ?: ('Chính sách hoa hồng ' . $month),
+                'name' => $request->input('name') ?: ('Chính sách hoa hồng '.$month),
                 'status' => $request->input('status', 'active'),
                 'project_rate_percent' => (float) $request->input('project_rate_percent', 4),
                 'trade_rate_percent' => (float) $request->input('trade_rate_percent', 1),
@@ -846,7 +843,7 @@ class CommissionEngineService
         $rules = (array) $request->input('rules', []);
 
         foreach ($rules as $rule) {
-            if (!is_array($rule)) {
+            if (! is_array($rule)) {
                 continue;
             }
 
@@ -856,13 +853,13 @@ class CommissionEngineService
 
             $hasAnyValue =
                 $commissionType !== '' ||
-                (float)($rule['rate_percent'] ?? 0) > 0 ||
-                (float)($rule['fixed_amount'] ?? 0) > 0 ||
-                (float)($rule['amount_per_unit'] ?? 0) > 0 ||
-                (float)($rule['amount_per_kwp'] ?? 0) > 0 ||
-                trim((string)($rule['target_text'] ?? '')) !== '';
+                (float) ($rule['rate_percent'] ?? 0) > 0 ||
+                (float) ($rule['fixed_amount'] ?? 0) > 0 ||
+                (float) ($rule['amount_per_unit'] ?? 0) > 0 ||
+                (float) ($rule['amount_per_kwp'] ?? 0) > 0 ||
+                trim((string) ($rule['target_text'] ?? '')) !== '';
 
-            if (!$hasAnyValue) {
+            if (! $hasAnyValue) {
                 continue;
             }
 
@@ -871,20 +868,20 @@ class CommissionEngineService
                 'period_month' => $month,
                 'commission_type' => $commissionType ?: 'trade_product',
                 'target_type' => $targetType ?: 'all',
-                'target_id' => !empty($rule['target_id']) ? (int)$rule['target_id'] : null,
+                'target_id' => ! empty($rule['target_id']) ? (int) $rule['target_id'] : null,
                 'target_text' => $rule['target_text'] ?? null,
                 'base_type' => $rule['base_type'] ?? 'revenue_before_vat',
                 'calculation_type' => $calculationType ?: 'percent',
-                'rate_percent' => (float)($rule['rate_percent'] ?? 0),
-                'fixed_amount' => (float)($rule['fixed_amount'] ?? 0),
-                'amount_per_unit' => (float)($rule['amount_per_unit'] ?? 0),
-                'amount_per_kwp' => (float)($rule['amount_per_kwp'] ?? 0),
-                'from_amount' => ($rule['from_amount'] ?? '') !== '' ? (float)$rule['from_amount'] : null,
-                'to_amount' => ($rule['to_amount'] ?? '') !== '' ? (float)$rule['to_amount'] : null,
-                'from_qty' => ($rule['from_qty'] ?? '') !== '' ? (float)$rule['from_qty'] : null,
-                'to_qty' => ($rule['to_qty'] ?? '') !== '' ? (float)$rule['to_qty'] : null,
-                'priority' => (int)($rule['priority'] ?? 10),
-                'is_active' => !empty($rule['is_active']) ? 1 : 0,
+                'rate_percent' => (float) ($rule['rate_percent'] ?? 0),
+                'fixed_amount' => (float) ($rule['fixed_amount'] ?? 0),
+                'amount_per_unit' => (float) ($rule['amount_per_unit'] ?? 0),
+                'amount_per_kwp' => (float) ($rule['amount_per_kwp'] ?? 0),
+                'from_amount' => ($rule['from_amount'] ?? '') !== '' ? (float) $rule['from_amount'] : null,
+                'to_amount' => ($rule['to_amount'] ?? '') !== '' ? (float) $rule['to_amount'] : null,
+                'from_qty' => ($rule['from_qty'] ?? '') !== '' ? (float) $rule['from_qty'] : null,
+                'to_qty' => ($rule['to_qty'] ?? '') !== '' ? (float) $rule['to_qty'] : null,
+                'priority' => (int) ($rule['priority'] ?? 10),
+                'is_active' => ! empty($rule['is_active']) ? 1 : 0,
                 'note' => $rule['note'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -907,7 +904,7 @@ class CommissionEngineService
 
         if ($request->filled('min_commission')) {
             $min = (float) $request->get('min_commission');
-            $rows = $rows->filter(fn($row) => (float)($row->commission_calc ?? 0) >= $min)->values();
+            $rows = $rows->filter(fn ($row) => (float) ($row->commission_calc ?? 0) >= $min)->values();
         }
 
         $data['rows'] = $rows;
@@ -934,23 +931,23 @@ class CommissionEngineService
      */
     private function orderBeforeVatTotalFromOrder(int $orderId): ?float
     {
-        if ($orderId <= 0 || !Schema::hasTable('crm_orders')) {
+        if ($orderId <= 0 || ! Schema::hasTable('crm_orders')) {
             return null;
         }
 
         $order = DB::table('crm_orders')->where('id', $orderId)->first();
 
-        if (!$order) {
+        if (! $order) {
             return null;
         }
 
-        $total = (float)($order->total_amount ?? 0);
+        $total = (float) ($order->total_amount ?? 0);
         $tax = 0.0;
 
-        if (isset($order->tax_amount) && (float)$order->tax_amount > 0) {
-            $tax = (float)$order->tax_amount;
-        } elseif (isset($order->vat_amount) && (float)$order->vat_amount > 0) {
-            $tax = (float)$order->vat_amount;
+        if (isset($order->tax_amount) && (float) $order->tax_amount > 0) {
+            $tax = (float) $order->tax_amount;
+        } elseif (isset($order->vat_amount) && (float) $order->vat_amount > 0) {
+            $tax = (float) $order->vat_amount;
         }
 
         if ($total > 0 && $tax > 0 && $total >= $tax) {
@@ -976,7 +973,7 @@ class CommissionEngineService
                         $lineAfter = max(0, ($unitAfter * $qty) - $discount);
                     }
 
-                    $sumBeforeVat += $this->lineBeforeVatForCommissionItem((object)[
+                    $sumBeforeVat += $this->lineBeforeVatForCommissionItem((object) [
                         'id' => $rawItem->id ?? null,
                     ], $qty, $lineAfter, $this->moneyNumber($rawItem->vat_percent ?? 0), $orderId);
                 }
@@ -998,7 +995,7 @@ class CommissionEngineService
     public function recalculateRows($rows, object $policy, Collection $rules): Collection
     {
         return collect($rows)->map(function ($row) use ($policy, $rules) {
-            $calc = $this->calculateOrderCommission((int)($row->order_id ?? 0), $policy, $rules);
+            $calc = $this->calculateOrderCommission((int) ($row->order_id ?? 0), $policy, $rules);
 
             if (($calc['item_count'] ?? 0) <= 0) {
                 return $row;
@@ -1016,7 +1013,6 @@ class CommissionEngineService
             return $row;
         })->values();
     }
-
 
     /**
      * Chuyển giá trị bất kỳ về số float tiền tệ an toàn.
@@ -1041,7 +1037,7 @@ class CommissionEngineService
      */
     private function firstExistingColumn(string $table, array $columns): ?string
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             return null;
         }
 
@@ -1061,14 +1057,14 @@ class CommissionEngineService
      */
     private function productCatalogBeforeVatPrice(int $productId, ?int $priceTierId = null): float
     {
-        if ($productId <= 0 || !Schema::hasTable('crm_product_catalog')) {
+        if ($productId <= 0 || ! Schema::hasTable('crm_product_catalog')) {
             return 0.0;
         }
 
         try {
             $product = DB::table('crm_product_catalog')->where('id', $productId)->first();
 
-            if (!$product) {
+            if (! $product) {
                 return 0.0;
             }
 
@@ -1109,16 +1105,16 @@ class CommissionEngineService
      */
     private function productPriceBeforeVatForItem(object $rawItem, int $orderId): float
     {
-        if (!Schema::hasTable('crm_product_prices')) {
+        if (! Schema::hasTable('crm_product_prices')) {
             return 0.0;
         }
 
-        $productId = (int)($rawItem->product_id ?? 0);
+        $productId = (int) ($rawItem->product_id ?? 0);
         if ($productId <= 0) {
             return 0.0;
         }
 
-        $priceTierId = (int)($rawItem->price_tier_id ?? 0);
+        $priceTierId = (int) ($rawItem->price_tier_id ?? 0);
 
         if ($priceTierId <= 0 && Schema::hasTable('crm_orders')) {
             try {
@@ -1155,7 +1151,7 @@ class CommissionEngineService
         $qty = $qty > 0 ? $qty : 1;
         $rawItem = null;
 
-        if (Schema::hasTable('crm_order_items') && !empty($item->id)) {
+        if (Schema::hasTable('crm_order_items') && ! empty($item->id)) {
             try {
                 $rawItem = DB::table('crm_order_items')->where('id', (int) $item->id)->first();
             } catch (\Throwable $e) {
@@ -1228,7 +1224,7 @@ class CommissionEngineService
             | 4. Fallback product catalog: price_agent / price_retail là trước VAT
             |--------------------------------------------------------------------------
             */
-            $catalogPrice = $this->productCatalogBeforeVatPrice((int)($rawItem->product_id ?? 0));
+            $catalogPrice = $this->productCatalogBeforeVatPrice((int) ($rawItem->product_id ?? 0));
 
             if ($catalogPrice > 0) {
                 return round($catalogPrice * $qty, 2);
@@ -1267,7 +1263,6 @@ class CommissionEngineService
         return round($lineAfter, 2);
     }
 
-
     /**
      * Tính toàn bộ hoa hồng của một đơn hàng.
      *
@@ -1282,7 +1277,7 @@ class CommissionEngineService
         $items = $this->orderItemRows($orderId);
         $orderContext = $this->orderCommissionContext($orderId);
         $customerStatus = $orderContext['customer_status'] ?? '';
-        $isProjectOrder = (bool)($orderContext['is_project'] ?? false);
+        $isProjectOrder = (bool) ($orderContext['is_project'] ?? false);
 
         $revenueBefore = 0;
         $revenueAfter = 0;
@@ -1296,17 +1291,17 @@ class CommissionEngineService
         $labels = [];
 
         foreach ($items as $item) {
-            $qty = max(0, (float)($item->quantity ?? 0));
+            $qty = max(0, (float) ($item->quantity ?? 0));
             if ($qty <= 0) {
                 $qty = 1;
             }
 
-            $vat = max(0, (float)($item->vat_percent ?? 0));
-            $lineAfter = (float)($item->line_total ?? 0);
+            $vat = max(0, (float) ($item->vat_percent ?? 0));
+            $lineAfter = (float) ($item->line_total ?? 0);
 
             if ($lineAfter <= 0) {
-                $unitPrice = (float)($item->unit_price ?? 0);
-                $discountAmount = (float)($item->discount_amount ?? 0);
+                $unitPrice = (float) ($item->unit_price ?? 0);
+                $discountAmount = (float) ($item->discount_amount ?? 0);
                 $lineAfter = max(0, ($unitPrice * $qty) - $discountAmount);
             }
 
@@ -1318,7 +1313,7 @@ class CommissionEngineService
                 $orderId
             );
 
-            $lineCost = $this->fifoCostForOrderItem((int)($item->id ?? 0));
+            $lineCost = $this->fifoCostForOrderItem((int) ($item->id ?? 0));
 
             $revenueBefore += $lineBefore;
             $revenueAfter += $lineAfter;
@@ -1327,12 +1322,12 @@ class CommissionEngineService
             $type = $isProjectOrder ? 'project' : ($this->isSolarPanel($item) ? 'solar_panel' : 'trade_product');
             $rule = $this->bestRule($rules, $type, $item, $lineBefore, $qty, $customerStatus);
 
-            if (!$rule && $type === 'solar_panel') {
+            if (! $rule && $type === 'solar_panel') {
                 $rule = $this->bestRule($rules, 'trade_product', $item, $lineBefore, $qty, $customerStatus);
                 $type = 'trade_product';
             }
 
-            if (!$rule) {
+            if (! $rule) {
                 continue;
             }
 
@@ -1347,9 +1342,15 @@ class CommissionEngineService
         $displayRate = $revenueBefore > 0 ? ($commission / $revenueBefore * 100) : 0;
 
         $parts = [];
-        if ($counts['solar_panel'] > 0) $parts[] = $counts['solar_panel'] . ' tấm pin';
-        if ($counts['trade_product'] > 0) $parts[] = $counts['trade_product'] . ' thương mại';
-        if ($counts['project'] > 0) $parts[] = $counts['project'] . ' công trình';
+        if ($counts['solar_panel'] > 0) {
+            $parts[] = $counts['solar_panel'].' tấm pin';
+        }
+        if ($counts['trade_product'] > 0) {
+            $parts[] = $counts['trade_product'].' thương mại';
+        }
+        if ($counts['project'] > 0) {
+            $parts[] = $counts['project'].' công trình';
+        }
 
         return [
             'item_count' => $items->count(),
@@ -1369,7 +1370,7 @@ class CommissionEngineService
      */
     private function orderItemRows(int $orderId): Collection
     {
-        if (!Schema::hasTable('crm_order_items') || !Schema::hasTable('crm_product_catalog')) {
+        if (! Schema::hasTable('crm_order_items') || ! Schema::hasTable('crm_product_catalog')) {
             return collect();
         }
 
@@ -1414,10 +1415,10 @@ class CommissionEngineService
     private function bestRule(Collection $rules, string $type, object $item, float $lineBefore, float $qty, string $customerStatus = ''): ?object
     {
         return $rules
-            ->filter(fn($rule) => (int)($rule->is_active ?? 0) === 1)
-            ->filter(fn($rule) => ($rule->commission_type ?? '') === $type)
-            ->filter(fn($rule) => $this->targetMatches($rule, $item, $customerStatus))
-            ->filter(fn($rule) => $this->rangeMatches($rule, $lineBefore, $qty))
+            ->filter(fn ($rule) => (int) ($rule->is_active ?? 0) === 1)
+            ->filter(fn ($rule) => ($rule->commission_type ?? '') === $type)
+            ->filter(fn ($rule) => $this->targetMatches($rule, $item, $customerStatus))
+            ->filter(fn ($rule) => $this->rangeMatches($rule, $lineBefore, $qty))
             ->sortByDesc(function ($rule) {
                 $specific = match ($rule->target_type ?? 'all') {
                     'product' => 50,
@@ -1427,7 +1428,7 @@ class CommissionEngineService
                     default => 10,
                 };
 
-                return ((int)($rule->priority ?? 0) * 100) + $specific;
+                return ((int) ($rule->priority ?? 0) * 100) + $specific;
             })
             ->first();
     }
@@ -1438,27 +1439,29 @@ class CommissionEngineService
     private function targetMatches(object $rule, object $item, string $customerStatus = ''): bool
     {
         $targetType = $rule->target_type ?? 'all';
-        $targetId = (int)($rule->target_id ?? 0);
+        $targetId = (int) ($rule->target_id ?? 0);
 
         if ($targetType === 'all') {
             return true;
         }
 
         if ($targetType === 'product') {
-            return $targetId > 0 && $targetId === (int)($item->product_id ?? 0);
+            return $targetId > 0 && $targetId === (int) ($item->product_id ?? 0);
         }
 
         if ($targetType === 'category') {
-            return $targetId > 0 && $targetId === (int)($item->category_id ?? 0);
+            return $targetId > 0 && $targetId === (int) ($item->category_id ?? 0);
         }
 
         if ($targetType === 'brand') {
-            return $targetId > 0 && $targetId === (int)($item->brand_id ?? 0);
+            return $targetId > 0 && $targetId === (int) ($item->brand_id ?? 0);
         }
 
         if ($targetType === 'keyword') {
-            $kw = mb_strtolower(trim((string)($rule->target_text ?? '')));
-            if ($kw === '') return false;
+            $kw = mb_strtolower(trim((string) ($rule->target_text ?? '')));
+            if ($kw === '') {
+                return false;
+            }
 
             $hay = mb_strtolower(implode(' ', [
                 $item->product_name ?? '',
@@ -1473,6 +1476,7 @@ class CommissionEngineService
 
         if ($targetType === 'customer_status') {
             $ruleStatus = $this->normalizeCustomerStatusValue($rule->target_text ?? '');
+
             return $ruleStatus !== '' && $customerStatus !== '' && $ruleStatus === $customerStatus;
         }
 
@@ -1489,10 +1493,18 @@ class CommissionEngineService
         $fromQty = $rule->from_qty;
         $toQty = $rule->to_qty;
 
-        if ($fromAmount !== null && $fromAmount !== '' && $amount < (float)$fromAmount) return false;
-        if ($toAmount !== null && $toAmount !== '' && $amount > (float)$toAmount) return false;
-        if ($fromQty !== null && $fromQty !== '' && $qty < (float)$fromQty) return false;
-        if ($toQty !== null && $toQty !== '' && $qty > (float)$toQty) return false;
+        if ($fromAmount !== null && $fromAmount !== '' && $amount < (float) $fromAmount) {
+            return false;
+        }
+        if ($toAmount !== null && $toAmount !== '' && $amount > (float) $toAmount) {
+            return false;
+        }
+        if ($fromQty !== null && $fromQty !== '' && $qty < (float) $fromQty) {
+            return false;
+        }
+        if ($toQty !== null && $toQty !== '' && $qty > (float) $toQty) {
+            return false;
+        }
 
         return true;
     }
@@ -1516,10 +1528,10 @@ class CommissionEngineService
         };
 
         return match ($calcType) {
-            'fixed_per_item' => $qty * max((float)($rule->fixed_amount ?? 0), (float)($rule->amount_per_unit ?? 0)),
-            'fixed_per_kwp' => $this->parseKwp($item, $qty) * max((float)($rule->fixed_amount ?? 0), (float)($rule->amount_per_kwp ?? 0)),
-            'fixed_per_order' => (float)($rule->fixed_amount ?? 0),
-            default => max(0, $base) * (float)($rule->rate_percent ?? 0) / 100,
+            'fixed_per_item' => $qty * max((float) ($rule->fixed_amount ?? 0), (float) ($rule->amount_per_unit ?? 0)),
+            'fixed_per_kwp' => $this->parseKwp($item, $qty) * max((float) ($rule->fixed_amount ?? 0), (float) ($rule->amount_per_kwp ?? 0)),
+            'fixed_per_order' => (float) ($rule->fixed_amount ?? 0),
+            default => max(0, $base) * (float) ($rule->rate_percent ?? 0) / 100,
         };
     }
 
@@ -1541,7 +1553,7 @@ class CommissionEngineService
             default => '%',
         };
 
-        return $type . ' ' . $calc . ': ' . number_format($amount, 0, ',', '.') . 'đ';
+        return $type.' '.$calc.': '.number_format($amount, 0, ',', '.').'đ';
     }
 
     /**
@@ -1571,10 +1583,10 @@ class CommissionEngineService
      */
     private function parseKwp(object $item, float $qty): float
     {
-        $text = (string) (($item->product_name ?? '') . ' ' . ($item->sku ?? ''));
+        $text = (string) (($item->product_name ?? '').' '.($item->sku ?? ''));
 
         if (preg_match('/([3-9][0-9]{2,3})\s*w/i', $text, $m)) {
-            return ($qty * (float)$m[1]) / 1000;
+            return ($qty * (float) $m[1]) / 1000;
         }
 
         return 0;
@@ -1585,32 +1597,32 @@ class CommissionEngineService
      */
     private function fifoCostForOrderItem(int $orderItemId): float
     {
-        if ($orderItemId <= 0 || !Schema::hasTable('crm_product_stock_lots')) {
+        if ($orderItemId <= 0 || ! Schema::hasTable('crm_product_stock_lots')) {
             return 0;
         }
 
         foreach (['crm_order_item_stock_allocations', 'order_item_stock_allocations'] as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
 
             $cols = Schema::getColumnListing($table);
-            if (!in_array('order_item_id', $cols, true)) {
+            if (! in_array('order_item_id', $cols, true)) {
                 continue;
             }
 
             $qtyCol = collect(['qty', 'quantity', 'allocated_qty', 'qty_allocated'])
-                ->first(fn($c) => in_array($c, $cols, true));
+                ->first(fn ($c) => in_array($c, $cols, true));
 
             $lotCol = collect(['lot_id', 'stock_lot_id', 'product_stock_lot_id'])
-                ->first(fn($c) => in_array($c, $cols, true));
+                ->first(fn ($c) => in_array($c, $cols, true));
 
-            if (!$qtyCol || !$lotCol) {
+            if (! $qtyCol || ! $lotCol) {
                 continue;
             }
 
-            return (float) DB::table($table . ' as a')
-                ->leftJoin('crm_product_stock_lots as l', 'l.id', '=', 'a.' . $lotCol)
+            return (float) DB::table($table.' as a')
+                ->leftJoin('crm_product_stock_lots as l', 'l.id', '=', 'a.'.$lotCol)
                 ->where('a.order_item_id', $orderItemId)
                 ->selectRaw("
                     COALESCE(SUM(

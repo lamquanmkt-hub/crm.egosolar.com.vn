@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
-use App\Models\CRM\Orders\Order;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSetting;
+use App\Models\CRM\Orders\Order;
 use App\Models\Department;
 use App\Models\Payroll;
 use App\Models\User;
@@ -121,12 +121,12 @@ class FinanceDashboardController extends Controller
             });
         }
 
-        if (!empty($departmentId)) {
+        if (! empty($departmentId)) {
             $employeesQuery->where('department_id', $departmentId);
         }
 
-        if (!empty($keyword)) {
-            $employeesQuery->where('name', 'like', '%' . $keyword . '%');
+        if (! empty($keyword)) {
+            $employeesQuery->where('name', 'like', '%'.$keyword.'%');
         }
 
         $employees = $employeesQuery->get();
@@ -258,8 +258,6 @@ class FinanceDashboardController extends Controller
         ]);
     }
 
-
-
     /**
      * Xuất bảng lương tháng ra Excel gồm sheet tổng hợp và chi tiết từng nhân viên.
      */
@@ -290,12 +288,12 @@ class FinanceDashboardController extends Controller
             });
         }
 
-        if (!empty($departmentId)) {
+        if (! empty($departmentId)) {
             $employeesQuery->where('department_id', $departmentId);
         }
 
-        if (!empty($keyword)) {
-            $employeesQuery->where('name', 'like', '%' . $keyword . '%');
+        if (! empty($keyword)) {
+            $employeesQuery->where('name', 'like', '%'.$keyword.'%');
         }
 
         $employees = $employeesQuery->get();
@@ -466,10 +464,10 @@ class FinanceDashboardController extends Controller
             ];
         });
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
-            ->setTitle('Bảng lương tháng ' . $month);
+            ->setTitle('Bảng lương tháng '.$month);
 
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
@@ -515,7 +513,7 @@ class FinanceDashboardController extends Controller
             }
 
             foreach ($columns as $column) {
-                $sheet->getStyle($column . $startRow . ':' . $column . $endRow)
+                $sheet->getStyle($column.$startRow.':'.$column.$endRow)
                     ->getNumberFormat()
                     ->setFormatCode('#,##0');
             }
@@ -540,10 +538,10 @@ class FinanceDashboardController extends Controller
             $i = 2;
 
             while (in_array($title, $usedTitles, true)) {
-                $suffix = ' ' . $i;
+                $suffix = ' '.$i;
                 $limit = 31 - strlen($suffix);
                 $shortBase = function_exists('mb_substr') ? mb_substr($base, 0, $limit) : substr($base, 0, $limit);
-                $title = $shortBase . $suffix;
+                $title = $shortBase.$suffix;
                 $i++;
             }
 
@@ -559,12 +557,12 @@ class FinanceDashboardController extends Controller
         $summarySheet->setTitle('Tong hop luong');
 
         $summarySheet->mergeCells('A1:R1');
-        $summarySheet->setCellValue('A1', 'BẢNG LƯƠNG NHÂN VIÊN THÁNG ' . Carbon::parse($start)->format('m/Y'));
+        $summarySheet->setCellValue('A1', 'BẢNG LƯƠNG NHÂN VIÊN THÁNG '.Carbon::parse($start)->format('m/Y'));
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
         $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $summarySheet->mergeCells('A2:R2');
-        $summarySheet->setCellValue('A2', 'Ngày công chuẩn tự động theo cài đặt chấm công: ' . $standardDaysAuto . ' công');
+        $summarySheet->setCellValue('A2', 'Ngày công chuẩn tự động theo cài đặt chấm công: '.$standardDaysAuto.' công');
         $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $headers = [
@@ -613,7 +611,7 @@ class FinanceDashboardController extends Controller
                 round($row->net_salary),
                 $row->payroll_saved ? 'Đã lưu' : 'Tự tính',
                 $row->note_text,
-            ], null, 'A' . $rowNumber);
+            ], null, 'A'.$rowNumber);
 
             $rowNumber++;
         }
@@ -623,20 +621,20 @@ class FinanceDashboardController extends Controller
         if ($lastDataRow >= 5) {
             $totalRow = $rowNumber + 1;
 
-            $summarySheet->setCellValue('A' . $totalRow, 'TỔNG');
-            $summarySheet->mergeCells('A' . $totalRow . ':H' . $totalRow);
-            $summarySheet->setCellValue('I' . $totalRow, '=SUM(I5:I' . $lastDataRow . ')');
-            $summarySheet->setCellValue('J' . $totalRow, '=SUM(J5:J' . $lastDataRow . ')');
-            $summarySheet->setCellValue('K' . $totalRow, '=SUM(K5:K' . $lastDataRow . ')');
-            $summarySheet->setCellValue('L' . $totalRow, '=SUM(L5:L' . $lastDataRow . ')');
-            $summarySheet->setCellValue('M' . $totalRow, '=SUM(M5:M' . $lastDataRow . ')');
-            $summarySheet->setCellValue('N' . $totalRow, '=SUM(N5:N' . $lastDataRow . ')');
-            $summarySheet->setCellValue('O' . $totalRow, '=SUM(O5:O' . $lastDataRow . ')');
-            $summarySheet->setCellValue('P' . $totalRow, '=SUM(P5:P' . $lastDataRow . ')');
+            $summarySheet->setCellValue('A'.$totalRow, 'TỔNG');
+            $summarySheet->mergeCells('A'.$totalRow.':H'.$totalRow);
+            $summarySheet->setCellValue('I'.$totalRow, '=SUM(I5:I'.$lastDataRow.')');
+            $summarySheet->setCellValue('J'.$totalRow, '=SUM(J5:J'.$lastDataRow.')');
+            $summarySheet->setCellValue('K'.$totalRow, '=SUM(K5:K'.$lastDataRow.')');
+            $summarySheet->setCellValue('L'.$totalRow, '=SUM(L5:L'.$lastDataRow.')');
+            $summarySheet->setCellValue('M'.$totalRow, '=SUM(M5:M'.$lastDataRow.')');
+            $summarySheet->setCellValue('N'.$totalRow, '=SUM(N5:N'.$lastDataRow.')');
+            $summarySheet->setCellValue('O'.$totalRow, '=SUM(O5:O'.$lastDataRow.')');
+            $summarySheet->setCellValue('P'.$totalRow, '=SUM(P5:P'.$lastDataRow.')');
 
-            $summarySheet->getStyle('A4:R' . $totalRow)->applyFromArray($cellStyle);
-            $summarySheet->getStyle('A' . $totalRow . ':R' . $totalRow)->getFont()->setBold(true);
-            $moneyColumns($summarySheet, ['I','J','K','L','M','N','O','P'], 5, $totalRow);
+            $summarySheet->getStyle('A4:R'.$totalRow)->applyFromArray($cellStyle);
+            $summarySheet->getStyle('A'.$totalRow.':R'.$totalRow)->getFont()->setBold(true);
+            $moneyColumns($summarySheet, ['I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'], 5, $totalRow);
         }
 
         $summarySheet->freezePane('A5');
@@ -657,24 +655,24 @@ class FinanceDashboardController extends Controller
             $sheet->setTitle($sheetTitle);
 
             $sheet->mergeCells('A1:D1');
-            $sheet->setCellValue('A1', 'CHI TIẾT LƯƠNG - ' . $row->employee_name);
+            $sheet->setCellValue('A1', 'CHI TIẾT LƯƠNG - '.$row->employee_name);
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $sheet->mergeCells('A2:D2');
-            $sheet->setCellValue('A2', 'Kỳ lương: ' . $month . ' | Công chuẩn: ' . $standardDaysAuto . ' công');
+            $sheet->setCellValue('A2', 'Kỳ lương: '.$month.' | Công chuẩn: '.$standardDaysAuto.' công');
             $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
             $currentRow = 4;
 
             $writeSection = function ($title, array $items) use ($sheet, &$currentRow, $headerStyle, $sectionStyle, $cellStyle) {
-                $sheet->mergeCells('A' . $currentRow . ':D' . $currentRow);
-                $sheet->setCellValue('A' . $currentRow, $title);
-                $sheet->getStyle('A' . $currentRow . ':D' . $currentRow)->applyFromArray($sectionStyle);
+                $sheet->mergeCells('A'.$currentRow.':D'.$currentRow);
+                $sheet->setCellValue('A'.$currentRow, $title);
+                $sheet->getStyle('A'.$currentRow.':D'.$currentRow)->applyFromArray($sectionStyle);
                 $currentRow++;
 
-                $sheet->fromArray(['Hạng mục', 'Giá trị', 'Ghi chú', ''], null, 'A' . $currentRow);
-                $sheet->getStyle('A' . $currentRow . ':D' . $currentRow)->applyFromArray($headerStyle);
+                $sheet->fromArray(['Hạng mục', 'Giá trị', 'Ghi chú', ''], null, 'A'.$currentRow);
+                $sheet->getStyle('A'.$currentRow.':D'.$currentRow)->applyFromArray($headerStyle);
                 $currentRow++;
 
                 $startItemRow = $currentRow;
@@ -685,12 +683,12 @@ class FinanceDashboardController extends Controller
                         $item[1] ?? '',
                         $item[2] ?? '',
                         $item[3] ?? '',
-                    ], null, 'A' . $currentRow);
+                    ], null, 'A'.$currentRow);
 
                     $currentRow++;
                 }
 
-                $sheet->getStyle('A' . ($startItemRow - 2) . ':D' . ($currentRow - 1))->applyFromArray($cellStyle);
+                $sheet->getStyle('A'.($startItemRow - 2).':D'.($currentRow - 1))->applyFromArray($cellStyle);
                 $currentRow++;
             };
 
@@ -747,15 +745,15 @@ class FinanceDashboardController extends Controller
                 ['Ghi chú', $row->note_text ?: '', '', ''],
             ]);
 
-            $sheet->getStyle('B1:B' . $currentRow)
+            $sheet->getStyle('B1:B'.$currentRow)
                 ->getNumberFormat()
                 ->setFormatCode('#,##0');
 
-            $sheet->getStyle('C1:C' . $currentRow)
+            $sheet->getStyle('C1:C'.$currentRow)
                 ->getAlignment()
                 ->setWrapText(true);
 
-            $sheet->getStyle('A1:D' . $currentRow)
+            $sheet->getStyle('A1:D'.$currentRow)
                 ->getAlignment()
                 ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
@@ -765,7 +763,7 @@ class FinanceDashboardController extends Controller
 
         $spreadsheet->setActiveSheetIndex(0);
 
-        $fileName = 'bang-luong-' . $month . '.xlsx';
+        $fileName = 'bang-luong-'.$month.'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
@@ -775,8 +773,6 @@ class FinanceDashboardController extends Controller
             'Cache-Control' => 'max-age=0',
         ]);
     }
-
-
 
     /**
      * Xem chi tiết lương của chính người đang đăng nhập.
@@ -863,7 +859,7 @@ class FinanceDashboardController extends Controller
 
         $standardDaysAuto = $this->calculateStandardWorkdays($month);
 
-        if (empty($rows) || !is_array($rows)) {
+        if (empty($rows) || ! is_array($rows)) {
             return back()->with('error', 'Không có dữ liệu bảng lương để lưu.');
         }
 
@@ -930,14 +926,13 @@ class FinanceDashboardController extends Controller
 
             return redirect()
                 ->route('finance.salary', ['month' => $month])
-                ->with('success', 'Đã lưu bảng lương thành công. Tổng số dòng đã lưu: ' . $saved);
+                ->with('success', 'Đã lưu bảng lương thành công. Tổng số dòng đã lưu: '.$saved);
         } catch (\Throwable $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Lưu bảng lương thất bại: ' . $e->getMessage());
+            return back()->with('error', 'Lưu bảng lương thất bại: '.$e->getMessage());
         }
     }
-
 
     /**
      * Tính số ngày công chuẩn của tháng theo cài đặt chấm công và ngày lễ.
@@ -1014,7 +1009,7 @@ class FinanceDashboardController extends Controller
                 $isWorkday = $setting ? (bool) ($setting->workday_sunday ?? false) : false;
             }
 
-            if ($isWorkday && !$holidayDates->has($dateKey)) {
+            if ($isWorkday && ! $holidayDates->has($dateKey)) {
                 $standardDays++;
             }
         }
@@ -1053,7 +1048,7 @@ class FinanceDashboardController extends Controller
         $departmentName = mb_strtolower((string) optional($employee->department)->name, 'UTF-8');
         $positionName = mb_strtolower((string) optional($employee->position)->name, 'UTF-8');
 
-        $text = $departmentName . ' ' . $positionName;
+        $text = $departmentName.' '.$positionName;
 
         if (
             str_contains($text, 'kỹ thuật') ||
@@ -1094,7 +1089,7 @@ class FinanceDashboardController extends Controller
         $monthVariants = $this->getMonthVariants($month);
 
         foreach ($tables as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 continue;
             }
 
@@ -1123,13 +1118,13 @@ class FinanceDashboardController extends Controller
                 'income',
             ]);
 
-            if (!$userColumn || !$monthColumn || !$amountColumn) {
+            if (! $userColumn || ! $monthColumn || ! $amountColumn) {
                 continue;
             }
 
             try {
                 return DB::table($table)
-                    ->select($userColumn, DB::raw('SUM(COALESCE(`' . $amountColumn . '`, 0)) as amount'))
+                    ->select($userColumn, DB::raw('SUM(COALESCE(`'.$amountColumn.'`, 0)) as amount'))
                     ->whereIn($monthColumn, $monthVariants)
                     ->groupBy($userColumn)
                     ->pluck('amount', $userColumn);
@@ -1184,36 +1179,36 @@ class FinanceDashboardController extends Controller
     {
         $query = Order::query();
 
-        if (!empty($filters['keyword'])) {
+        if (! empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
 
             $query->where(function ($q) use ($keyword) {
                 if (Schema::hasColumn('crm_orders', 'order_code')) {
-                    $q->orWhere('order_code', 'like', '%' . $keyword . '%');
+                    $q->orWhere('order_code', 'like', '%'.$keyword.'%');
                 }
 
                 if (Schema::hasColumn('crm_orders', 'customer_name')) {
-                    $q->orWhere('customer_name', 'like', '%' . $keyword . '%');
+                    $q->orWhere('customer_name', 'like', '%'.$keyword.'%');
                 }
 
                 if (Schema::hasColumn('crm_orders', 'customer_phone')) {
-                    $q->orWhere('customer_phone', 'like', '%' . $keyword . '%');
+                    $q->orWhere('customer_phone', 'like', '%'.$keyword.'%');
                 }
             });
         }
 
-        if (!empty($filters['order_status']) && Schema::hasColumn('crm_orders', 'status')) {
+        if (! empty($filters['order_status']) && Schema::hasColumn('crm_orders', 'status')) {
             $query->where('status', $filters['order_status']);
         }
 
         $dateColumn = $this->getOrderDateColumn();
 
         if ($dateColumn) {
-            if (!empty($filters['from_date'])) {
+            if (! empty($filters['from_date'])) {
                 $query->whereDate($dateColumn, '>=', $filters['from_date']);
             }
 
-            if (!empty($filters['to_date'])) {
+            if (! empty($filters['to_date'])) {
                 $query->whereDate($dateColumn, '<=', $filters['to_date']);
             }
         }
@@ -1242,7 +1237,7 @@ class FinanceDashboardController extends Controller
      */
     private function getOrderStatuses(): array
     {
-        if (!Schema::hasTable('crm_orders') || !Schema::hasColumn('crm_orders', 'status')) {
+        if (! Schema::hasTable('crm_orders') || ! Schema::hasColumn('crm_orders', 'status')) {
             return [];
         }
 
@@ -1261,7 +1256,7 @@ class FinanceDashboardController extends Controller
      */
     private function getPendingPaymentRequestsCount(array $filters): int
     {
-        if (!Schema::hasTable('payment_requests') || !Schema::hasColumn('payment_requests', 'status')) {
+        if (! Schema::hasTable('payment_requests') || ! Schema::hasColumn('payment_requests', 'status')) {
             return 0;
         }
 
@@ -1271,11 +1266,11 @@ class FinanceDashboardController extends Controller
         $dateColumn = $this->getPaymentRequestDateColumn();
 
         if ($dateColumn) {
-            if (!empty($filters['from_date'])) {
+            if (! empty($filters['from_date'])) {
                 $query->whereDate($dateColumn, '>=', $filters['from_date']);
             }
 
-            if (!empty($filters['to_date'])) {
+            if (! empty($filters['to_date'])) {
                 $query->whereDate($dateColumn, '<=', $filters['to_date']);
             }
         }
@@ -1289,9 +1284,9 @@ class FinanceDashboardController extends Controller
     private function getPendingPaymentRequestsAmount(array $filters): float
     {
         if (
-            !Schema::hasTable('payment_requests') ||
-            !Schema::hasColumn('payment_requests', 'status') ||
-            !Schema::hasColumn('payment_requests', 'amount')
+            ! Schema::hasTable('payment_requests') ||
+            ! Schema::hasColumn('payment_requests', 'status') ||
+            ! Schema::hasColumn('payment_requests', 'amount')
         ) {
             return 0;
         }
@@ -1302,11 +1297,11 @@ class FinanceDashboardController extends Controller
         $dateColumn = $this->getPaymentRequestDateColumn();
 
         if ($dateColumn) {
-            if (!empty($filters['from_date'])) {
+            if (! empty($filters['from_date'])) {
                 $query->whereDate($dateColumn, '>=', $filters['from_date']);
             }
 
-            if (!empty($filters['to_date'])) {
+            if (! empty($filters['to_date'])) {
                 $query->whereDate($dateColumn, '<=', $filters['to_date']);
             }
         }
@@ -1335,38 +1330,38 @@ class FinanceDashboardController extends Controller
      */
     private function getDebtBaseQuery(array $filters)
     {
-        if (!Schema::hasTable('crm_customer_debts')) {
+        if (! Schema::hasTable('crm_customer_debts')) {
             return null;
         }
 
         $query = DB::table('crm_customer_debts');
 
-        if (!empty($filters['keyword'])) {
+        if (! empty($filters['keyword'])) {
             $keyword = $filters['keyword'];
 
             $query->where(function ($q) use ($keyword) {
                 if (Schema::hasColumn('crm_customer_debts', 'customer_name')) {
-                    $q->orWhere('customer_name', 'like', '%' . $keyword . '%');
+                    $q->orWhere('customer_name', 'like', '%'.$keyword.'%');
                 }
 
                 if (Schema::hasColumn('crm_customer_debts', 'order_code')) {
-                    $q->orWhere('order_code', 'like', '%' . $keyword . '%');
+                    $q->orWhere('order_code', 'like', '%'.$keyword.'%');
                 }
             });
         }
 
-        if (!empty($filters['order_status']) && Schema::hasColumn('crm_customer_debts', 'status')) {
+        if (! empty($filters['order_status']) && Schema::hasColumn('crm_customer_debts', 'status')) {
             $query->where('status', $filters['order_status']);
         }
 
         $dateColumn = $this->getDebtDateColumn();
 
         if ($dateColumn) {
-            if (!empty($filters['from_date'])) {
+            if (! empty($filters['from_date'])) {
                 $query->whereDate($dateColumn, '>=', $filters['from_date']);
             }
 
-            if (!empty($filters['to_date'])) {
+            if (! empty($filters['to_date'])) {
                 $query->whereDate($dateColumn, '<=', $filters['to_date']);
             }
         }
@@ -1397,7 +1392,7 @@ class FinanceDashboardController extends Controller
     {
         $query = $this->getDebtBaseQuery($filters);
 
-        if (!$query || !Schema::hasColumn('crm_customer_debts', 'total_amount')) {
+        if (! $query || ! Schema::hasColumn('crm_customer_debts', 'total_amount')) {
             return 0;
         }
 
@@ -1411,7 +1406,7 @@ class FinanceDashboardController extends Controller
     {
         $query = $this->getDebtBaseQuery($filters);
 
-        if (!$query || !Schema::hasColumn('crm_customer_debts', 'paid_amount')) {
+        if (! $query || ! Schema::hasColumn('crm_customer_debts', 'paid_amount')) {
             return 0;
         }
 
@@ -1425,7 +1420,7 @@ class FinanceDashboardController extends Controller
     {
         $query = $this->getDebtBaseQuery($filters);
 
-        if (!$query || !Schema::hasColumn('crm_customer_debts', 'debt_amount')) {
+        if (! $query || ! Schema::hasColumn('crm_customer_debts', 'debt_amount')) {
             return 0;
         }
 
@@ -1440,9 +1435,9 @@ class FinanceDashboardController extends Controller
         $query = $this->getDebtBaseQuery($filters);
 
         if (
-            !$query ||
-            !Schema::hasColumn('crm_customer_debts', 'debt_amount') ||
-            !Schema::hasColumn('crm_customer_debts', 'status')
+            ! $query ||
+            ! Schema::hasColumn('crm_customer_debts', 'debt_amount') ||
+            ! Schema::hasColumn('crm_customer_debts', 'status')
         ) {
             return 0;
         }
@@ -1483,13 +1478,13 @@ class FinanceDashboardController extends Controller
     private function getTotalCost(array $filters): float
     {
         if (
-            !Schema::hasTable('crm_order_items') ||
-            !Schema::hasTable('crm_product_catalog') ||
-            !Schema::hasColumn('crm_order_items', 'order_id') ||
-            !Schema::hasColumn('crm_order_items', 'product_id') ||
-            !Schema::hasColumn('crm_order_items', 'quantity') ||
-            !Schema::hasColumn('crm_product_catalog', 'id') ||
-            !Schema::hasColumn('crm_product_catalog', 'price_agent')
+            ! Schema::hasTable('crm_order_items') ||
+            ! Schema::hasTable('crm_product_catalog') ||
+            ! Schema::hasColumn('crm_order_items', 'order_id') ||
+            ! Schema::hasColumn('crm_order_items', 'product_id') ||
+            ! Schema::hasColumn('crm_order_items', 'quantity') ||
+            ! Schema::hasColumn('crm_product_catalog', 'id') ||
+            ! Schema::hasColumn('crm_product_catalog', 'price_agent')
         ) {
             return 0;
         }
@@ -1513,8 +1508,8 @@ class FinanceDashboardController extends Controller
     private function getCashInPeriod(array $filters): float
     {
         if (
-            !Schema::hasTable('crm_payments') ||
-            !Schema::hasColumn('crm_payments', 'amount')
+            ! Schema::hasTable('crm_payments') ||
+            ! Schema::hasColumn('crm_payments', 'amount')
         ) {
             return 0;
         }
@@ -1523,17 +1518,17 @@ class FinanceDashboardController extends Controller
             ? 'payment_date'
             : (Schema::hasColumn('crm_payments', 'created_at') ? 'created_at' : null);
 
-        if (!$dateColumn) {
+        if (! $dateColumn) {
             return 0;
         }
 
         $query = DB::table('crm_payments');
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate($dateColumn, '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate($dateColumn, '<=', $filters['to_date']);
         }
 
@@ -1551,15 +1546,15 @@ class FinanceDashboardController extends Controller
     private function getCashOutPeriod(array $filters): float
     {
         if (
-            !Schema::hasTable('payment_requests') ||
-            !Schema::hasColumn('payment_requests', 'amount')
+            ! Schema::hasTable('payment_requests') ||
+            ! Schema::hasColumn('payment_requests', 'amount')
         ) {
             return 0;
         }
 
         $dateColumn = $this->getPaymentRequestDateColumn();
 
-        if (!$dateColumn) {
+        if (! $dateColumn) {
             return 0;
         }
 
@@ -1570,15 +1565,15 @@ class FinanceDashboardController extends Controller
                 'accounting_approved',
                 'approved',
                 'completed',
-                'paid'
+                'paid',
             ]);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate($dateColumn, '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate($dateColumn, '<=', $filters['to_date']);
         }
 
@@ -1596,9 +1591,9 @@ class FinanceDashboardController extends Controller
     private function getRecentOrderProfits(array $filters)
     {
         if (
-            !Schema::hasTable('crm_orders') ||
-            !Schema::hasTable('crm_order_items') ||
-            !Schema::hasTable('crm_product_catalog')
+            ! Schema::hasTable('crm_orders') ||
+            ! Schema::hasTable('crm_order_items') ||
+            ! Schema::hasTable('crm_product_catalog')
         ) {
             return collect();
         }
@@ -1614,7 +1609,7 @@ class FinanceDashboardController extends Controller
         ];
 
         foreach ($requiredColumns as [$table, $column]) {
-            if (!Schema::hasColumn($table, $column)) {
+            if (! Schema::hasColumn($table, $column)) {
                 return collect();
             }
         }
@@ -1634,7 +1629,7 @@ class FinanceDashboardController extends Controller
             ->selectRaw('
                 o.id as order_id,
                 o.order_code as order_code,
-                o.' . $orderDateColumn . ' as order_date,
+                o.'.$orderDateColumn.' as order_date,
                 SUM(COALESCE(oi.line_total, 0)) as sale_amount,
                 SUM(COALESCE(oi.quantity, 0) * COALESCE(p.price_agent, 0)) as cost_amount,
                 SUM(COALESCE(oi.line_total, 0)) - SUM(COALESCE(oi.quantity, 0) * COALESCE(p.price_agent, 0)) as gross_profit,
@@ -1646,8 +1641,8 @@ class FinanceDashboardController extends Controller
                     2
                 ) as margin_percent
             ')
-            ->groupBy('o.id', 'o.order_code', 'o.' . $orderDateColumn)
-            ->orderByDesc('o.' . $orderDateColumn)
+            ->groupBy('o.id', 'o.order_code', 'o.'.$orderDateColumn)
+            ->orderByDesc('o.'.$orderDateColumn)
             ->limit(10)
             ->get();
     }

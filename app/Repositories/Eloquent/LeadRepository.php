@@ -2,7 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Repositories\Interfaces\LeadRepositoryInterface;
+use App\Contracts\Repositories\LeadRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 /**

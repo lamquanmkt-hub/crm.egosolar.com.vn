@@ -40,7 +40,7 @@ class OvertimeRequestController extends Controller
             ->with(['user.department', 'approver', 'approvedBy'])
             ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()]);
 
-        if (!$canManage) {
+        if (! $canManage) {
             $query->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
                     ->orWhere('approver_id', $user->id);
@@ -64,7 +64,7 @@ class OvertimeRequestController extends Controller
         $summaryBase = OvertimeRequest::query()
             ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()]);
 
-        if (!$canManage) {
+        if (! $canManage) {
             $summaryBase->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
                     ->orWhere('approver_id', $user->id);
@@ -116,8 +116,8 @@ class OvertimeRequestController extends Controller
         ]);
 
         $date = Carbon::parse($data['overtime_date'])->toDateString();
-        $startAt = Carbon::parse($date . ' ' . $data['start_time']);
-        $endAt = Carbon::parse($date . ' ' . $data['end_time']);
+        $startAt = Carbon::parse($date.' '.$data['start_time']);
+        $endAt = Carbon::parse($date.' '.$data['end_time']);
 
         if ($endAt->lte($startAt)) {
             $endAt->addDay();
@@ -210,32 +210,32 @@ class OvertimeRequestController extends Controller
                 'work_date' => $date,
             ]);
 
-            if (!$record->exists) {
+            if (! $record->exists) {
                 $record->status = 'absent';
                 $record->late_minutes = 0;
                 $record->early_leave_minutes = 0;
                 $record->work_minutes = 0;
             }
 
-            $tagStart = '[Tăng ca #' . $overtime->id . ']';
-            $tagEnd = '[/Tăng ca #' . $overtime->id . ']';
+            $tagStart = '[Tăng ca #'.$overtime->id.']';
+            $tagEnd = '[/Tăng ca #'.$overtime->id.']';
 
             $current = (string) ($record->note ?? '');
-            $pattern = '/\s*' . preg_quote($tagStart, '/') . '.*?' . preg_quote($tagEnd, '/') . '\s*/su';
+            $pattern = '/\s*'.preg_quote($tagStart, '/').'.*?'.preg_quote($tagEnd, '/').'\s*/su';
             $clean = trim((string) preg_replace($pattern, "\n", $current));
 
             $noteText = implode(' | ', array_filter([
                 'Tăng ca đã duyệt',
-                'Ngày: ' . Carbon::parse($overtime->overtime_date)->format('d/m/Y'),
-                'Giờ: ' . Carbon::parse($overtime->start_at)->format('H:i') . ' - ' . Carbon::parse($overtime->end_at)->format('H:i'),
-                'Số giờ: ' . rtrim(rtrim(number_format((float) $overtime->hours, 2, '.', ''), '0'), '.'),
-                $overtime->reason ? 'Lý do: ' . trim($overtime->reason) : null,
-                $overtime->approvedBy?->name ? 'Người duyệt: ' . $overtime->approvedBy->name : null,
-                $overtime->approval_note ? 'Ghi chú duyệt: ' . trim($overtime->approval_note) : null,
+                'Ngày: '.Carbon::parse($overtime->overtime_date)->format('d/m/Y'),
+                'Giờ: '.Carbon::parse($overtime->start_at)->format('H:i').' - '.Carbon::parse($overtime->end_at)->format('H:i'),
+                'Số giờ: '.rtrim(rtrim(number_format((float) $overtime->hours, 2, '.', ''), '0'), '.'),
+                $overtime->reason ? 'Lý do: '.trim($overtime->reason) : null,
+                $overtime->approvedBy?->name ? 'Người duyệt: '.$overtime->approvedBy->name : null,
+                $overtime->approval_note ? 'Ghi chú duyệt: '.trim($overtime->approval_note) : null,
             ]));
 
-            $newTaggedNote = $tagStart . ' ' . $noteText . ' ' . $tagEnd;
-            $record->note = trim($clean === '' ? $newTaggedNote : ($clean . "\n" . $newTaggedNote));
+            $newTaggedNote = $tagStart.' '.$noteText.' '.$tagEnd;
+            $record->note = trim($clean === '' ? $newTaggedNote : ($clean."\n".$newTaggedNote));
             $record->save();
         });
     }
@@ -245,7 +245,7 @@ class OvertimeRequestController extends Controller
      */
     private function canApprove($user, OvertimeRequest $overtime): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -257,7 +257,7 @@ class OvertimeRequestController extends Controller
      */
     private function canManageHr($user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

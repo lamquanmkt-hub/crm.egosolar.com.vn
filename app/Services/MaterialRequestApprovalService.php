@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace App\Services;
+
 use App\Domain\MaterialRequest\States\MaterialRequestStateFactory;
 use App\Models\Projects\MaterialRequest;
 
@@ -17,6 +20,7 @@ final class MaterialRequestApprovalService
         MaterialRequestStateFactory::make($mr)
             ->accountingApprove($mr);
     }
+
     /**
      * Kế toán từ chối đơn vật tư.
      */
@@ -25,6 +29,7 @@ final class MaterialRequestApprovalService
         MaterialRequestStateFactory::make($mr)
             ->accountingReject($mr);
     }
+
     /**
      * Admin duyệt đơn vật tư.
      */
@@ -33,6 +38,7 @@ final class MaterialRequestApprovalService
         MaterialRequestStateFactory::make($mr)
             ->adminApprove($mr);
     }
+
     /**
      * Admin từ chối đơn vật tư.
      */
@@ -41,6 +47,7 @@ final class MaterialRequestApprovalService
         MaterialRequestStateFactory::make($mr)
             ->adminReject($mr);
     }
+
     /**
      * Xuất kho đơn vật tư.
      */

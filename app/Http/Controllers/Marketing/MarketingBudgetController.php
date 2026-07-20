@@ -22,27 +22,27 @@ class MarketingBudgetController extends Controller
     public function index(Request $request)
     {
         // Filters (NEW: from/to + giữ month cũ để tương thích tạm)
-        $month       = $request->get('month');        // YYYY-MM (legacy)
-        $fromRaw     = $request->get('from');         // dd/mm/yyyy hoặc yyyy-mm-dd
-        $toRaw       = $request->get('to');           // dd/mm/yyyy hoặc yyyy-mm-dd
-        $platform    = $request->get('platform');     // Facebook/Google/...
+        $month = $request->get('month');        // YYYY-MM (legacy)
+        $fromRaw = $request->get('from');         // dd/mm/yyyy hoặc yyyy-mm-dd
+        $toRaw = $request->get('to');           // dd/mm/yyyy hoặc yyyy-mm-dd
+        $platform = $request->get('platform');     // Facebook/Google/...
         $campaign_id = $request->get('campaign_id');  // id
 
         // ===== Resolve date range =====
         // Nếu UI cũ còn gửi month mà chưa gửi from/to -> map month => range tháng đó
-        if ($month && !$fromRaw && !$toRaw) {
+        if ($month && ! $fromRaw && ! $toRaw) {
             $mStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth()->startOfDay();
-            $mEnd   = (clone $mStart)->endOfMonth()->endOfDay();
+            $mEnd = (clone $mStart)->endOfMonth()->endOfDay();
             $startDate = $mStart;
-            $endDate   = $mEnd;
-            $fromView  = $mStart->format('d/m/Y');
-            $toView    = $mEnd->format('d/m/Y');
+            $endDate = $mEnd;
+            $fromView = $mStart->format('d/m/Y');
+            $toView = $mEnd->format('d/m/Y');
         } else {
             [$startDate, $endDate, $fromView, $toView] = $this->resolveDateRange($fromRaw, $toRaw);
         }
 
         $isSingleMonth = $startDate->copy()->startOfMonth()->equalTo($endDate->copy()->startOfMonth());
-        $rangeLabel = $fromView . ' - ' . $toView;
+        $rangeLabel = $fromView.' - '.$toView;
 
         // ===== BUDGET QUERY =====
         $budgetQ = MarketingBudget::with('marketingCampaign')
@@ -52,10 +52,10 @@ class MarketingBudgetController extends Controller
         // Budget là dữ liệu theo THÁNG -> filter theo các tháng giao với range
         // Lấy month từ startMonth đến endMonth (inclusive)
         $startMonthDate = $startDate->copy()->startOfMonth()->toDateString(); // YYYY-MM-01
-        $endMonthDate   = $endDate->copy()->startOfMonth()->toDateString();   // YYYY-MM-01
+        $endMonthDate = $endDate->copy()->startOfMonth()->toDateString();   // YYYY-MM-01
 
         $budgetQ->whereDate('month', '>=', $startMonthDate)
-                ->whereDate('month', '<=', $endMonthDate);
+            ->whereDate('month', '<=', $endMonthDate);
 
         if ($platform) {
             $budgetQ->where('platform', $platform);
@@ -67,7 +67,7 @@ class MarketingBudgetController extends Controller
         $rows = (clone $budgetQ)->paginate(20)->withQueryString();
 
         $totalBudget = (clone $budgetQ)->sum('budget');
-        $totalSpent  = (clone $budgetQ)->sum('actual_spent');
+        $totalSpent = (clone $budgetQ)->sum('actual_spent');
 
         $summary = (clone $budgetQ)
             ->selectRaw('month, platform, SUM(budget) as total_budget, SUM(actual_spent) as total_spent')
@@ -82,7 +82,7 @@ class MarketingBudgetController extends Controller
 
         // overlap filter: record intersects selected range
         $metricQ->whereDate('date_from', '<=', $endDate->toDateString())
-                ->whereDate('date_to', '>=', $startDate->toDateString());
+            ->whereDate('date_to', '>=', $startDate->toDateString());
 
         if ($platform) {
             $metricQ->where('platform', $platform);
@@ -95,7 +95,7 @@ class MarketingBudgetController extends Controller
         $metricRows = (clone $metricQ)->limit(20)->get();
 
         // ===== SUM METRICS (phân bổ theo overlap trong range) =====
-        $hasOrders  = Schema::hasColumn('marketing_metrics', 'orders');
+        $hasOrders = Schema::hasColumn('marketing_metrics', 'orders');
         $hasRevenue = Schema::hasColumn('marketing_metrics', 'revenue');
 
         $sumSpend = 0;
@@ -109,34 +109,36 @@ class MarketingBudgetController extends Controller
 
         foreach ($allMetrics as $m) {
             $ratio = $this->rangeAllocationRatio($m->date_from, $m->date_to, $startDate, $endDate);
-            if ($ratio <= 0) continue;
+            if ($ratio <= 0) {
+                continue;
+            }
 
-            $sumSpend += (float)($m->spend ?? 0) * $ratio;
-            $sumLeads += (float)($m->leads ?? 0) * $ratio;
-            $sumReach += (float)($m->reach ?? 0) * $ratio;
+            $sumSpend += (float) ($m->spend ?? 0) * $ratio;
+            $sumLeads += (float) ($m->leads ?? 0) * $ratio;
+            $sumReach += (float) ($m->reach ?? 0) * $ratio;
 
             if ($hasOrders) {
-                $sumOrders += (float)($m->orders ?? 0) * $ratio;
+                $sumOrders += (float) ($m->orders ?? 0) * $ratio;
             }
             if ($hasRevenue) {
-                $sumRevenue += (float)($m->revenue ?? 0) * $ratio;
+                $sumRevenue += (float) ($m->revenue ?? 0) * $ratio;
             }
         }
 
         // làm tròn đẹp
-        $sumSpend   = round($sumSpend);
-        $sumLeads   = round($sumLeads);
-        $sumReach   = round($sumReach);
-        $sumOrders  = round($sumOrders);
+        $sumSpend = round($sumSpend);
+        $sumLeads = round($sumLeads);
+        $sumReach = round($sumReach);
+        $sumOrders = round($sumOrders);
         $sumRevenue = round($sumRevenue);
 
-        $cpl  = $sumLeads  > 0 ? round($sumSpend / $sumLeads) : 0;
-        $cpo  = $sumOrders > 0 ? round($sumSpend / $sumOrders) : 0;
-        $roas = $sumSpend  > 0 ? round($sumRevenue / $sumSpend, 2) : 0;
+        $cpl = $sumLeads > 0 ? round($sumSpend / $sumLeads) : 0;
+        $cpo = $sumOrders > 0 ? round($sumSpend / $sumOrders) : 0;
+        $roas = $sumSpend > 0 ? round($sumRevenue / $sumSpend, 2) : 0;
 
         // Dropdown campaigns
         $campaigns = MarketingCampaign::query()
-            ->when($platform, fn($q) => $q->where('platform', $platform))
+            ->when($platform, fn ($q) => $q->where('platform', $platform))
             ->orderBy('name')
             ->get();
 
@@ -160,11 +162,13 @@ class MarketingBudgetController extends Controller
         $metricAgg = [];
         foreach ($allMetrics as $m) {
             $ratio = $this->rangeAllocationRatio($m->date_from, $m->date_to, $startDate, $endDate);
-            if ($ratio <= 0) continue;
+            if ($ratio <= 0) {
+                continue;
+            }
 
-            $key = ($m->platform ?? '-') . '|' . ((string)$m->campaign_id);
+            $key = ($m->platform ?? '-').'|'.((string) $m->campaign_id);
 
-            if (!isset($metricAgg[$key])) {
+            if (! isset($metricAgg[$key])) {
                 $metricAgg[$key] = [
                     'spend' => 0, 'reach' => 0, 'leads' => 0,
                     'platform' => $m->platform,
@@ -172,9 +176,9 @@ class MarketingBudgetController extends Controller
                 ];
             }
 
-            $metricAgg[$key]['spend'] += (float)($m->spend ?? 0) * $ratio;
-            $metricAgg[$key]['reach'] += (float)($m->reach ?? 0) * $ratio;
-            $metricAgg[$key]['leads'] += (float)($m->leads ?? 0) * $ratio;
+            $metricAgg[$key]['spend'] += (float) ($m->spend ?? 0) * $ratio;
+            $metricAgg[$key]['reach'] += (float) ($m->reach ?? 0) * $ratio;
+            $metricAgg[$key]['leads'] += (float) ($m->leads ?? 0) * $ratio;
         }
 
         // campaign name map
@@ -187,19 +191,19 @@ class MarketingBudgetController extends Controller
 
         // merge budgets first
         foreach ($budgetAgg as $b) {
-            $key = ($b->platform ?? '-') . '|' . ((string)$b->campaign_id);
+            $key = ($b->platform ?? '-').'|'.((string) $b->campaign_id);
             $m = $metricAgg[$key] ?? null;
 
-            $campaignCombined->push((object)[
+            $campaignCombined->push((object) [
                 'month' => $isSingleMonth ? ($b->month ?? $startMonthDate) : $rangeLabel,
                 'platform' => $b->platform,
                 'campaign_id' => $b->campaign_id,
                 'campaign_name' => $campaignMap[$b->campaign_id] ?? ($b->marketingCampaign?->name ?? '-'),
-                'budget' => (float)($b->budget ?? 0),
-                'budget_spent' => (float)($b->budget_spent ?? 0),
-                'spend' => round((float)($m['spend'] ?? 0)),
-                'reach' => round((float)($m['reach'] ?? 0)),
-                'leads' => round((float)($m['leads'] ?? 0)),
+                'budget' => (float) ($b->budget ?? 0),
+                'budget_spent' => (float) ($b->budget_spent ?? 0),
+                'spend' => round((float) ($m['spend'] ?? 0)),
+                'reach' => round((float) ($m['reach'] ?? 0)),
+                'leads' => round((float) ($m['leads'] ?? 0)),
             ]);
 
             unset($metricAgg[$key]);
@@ -207,7 +211,7 @@ class MarketingBudgetController extends Controller
 
         // metrics only (không có budget)
         foreach ($metricAgg as $m) {
-            $campaignCombined->push((object)[
+            $campaignCombined->push((object) [
                 'month' => $isSingleMonth ? $startMonthDate : $rangeLabel,
                 'platform' => $m['platform'],
                 'campaign_id' => $m['campaign_id'],
@@ -221,49 +225,49 @@ class MarketingBudgetController extends Controller
         }
 
         $campaignCombined = $campaignCombined
-            ->sortByDesc(fn($x) => ($x->budget + $x->spend))
+            ->sortByDesc(fn ($x) => ($x->budget + $x->spend))
             ->values();
 
         return view('marketing.budget', [
             // NEW for UI
             'from' => $fromView,
-            'to'   => $toView,
+            'to' => $toView,
 
             // legacy (giữ tạm cho UI cũ nếu còn dùng)
             'month' => $isSingleMonth ? $startDate->format('Y-m') : null,
 
-            'platform'    => $platform,
+            'platform' => $platform,
             'campaign_id' => $campaign_id,
 
-            'rows'        => $rows,
+            'rows' => $rows,
             'totalBudget' => $totalBudget,
-            'totalSpent'  => $totalSpent,
-            'summary'     => $summary,
+            'totalSpent' => $totalSpent,
+            'summary' => $summary,
 
-            'metricRows'  => $metricRows,
-            'sumSpend'    => $sumSpend,
-            'sumLeads'    => $sumLeads,
-            'sumReach'    => $sumReach,
-            'sumOrders'   => $sumOrders,
-            'sumRevenue'  => $sumRevenue,
-            'cpl'         => $cpl,
-            'cpo'         => $cpo,
-            'roas'        => $roas,
+            'metricRows' => $metricRows,
+            'sumSpend' => $sumSpend,
+            'sumLeads' => $sumLeads,
+            'sumReach' => $sumReach,
+            'sumOrders' => $sumOrders,
+            'sumRevenue' => $sumRevenue,
+            'cpl' => $cpl,
+            'cpo' => $cpo,
+            'roas' => $roas,
 
-            'campaigns'   => $campaigns,
+            'campaigns' => $campaigns,
             'campaignCombined' => $campaignCombined,
         ]);
     }
 
     /**
      * Parse ngày từ UI (hỗ trợ yyyy-mm-dd và dd/mm/yyyy).
-     *
-     * @return Carbon|null
      */
     private function parseUiDate(?string $value): ?Carbon
     {
-        $value = trim((string)$value);
-        if ($value === '') return null;
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
 
         // yyyy-mm-dd (input type="date")
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
@@ -286,17 +290,18 @@ class MarketingBudgetController extends Controller
     private function resolveDateRange(?string $fromRaw, ?string $toRaw): array
     {
         $from = $this->parseUiDate($fromRaw);
-        $to   = $this->parseUiDate($toRaw);
+        $to = $this->parseUiDate($toRaw);
 
         // DEFAULT: cả tháng hiện tại
-        if (!$from && !$to) {
+        if (! $from && ! $to) {
             $start = now()->startOfMonth()->startOfDay();
-            $end   = now()->endOfMonth()->endOfDay();
+            $end = now()->endOfMonth()->endOfDay();
+
             return [$start, $end, $start->format('d/m/Y'), $end->format('d/m/Y')];
         }
 
         $start = ($from ?: $to)->copy()->startOfDay();
-        $end   = ($to ?: $from)->copy()->endOfDay();
+        $end = ($to ?: $from)->copy()->endOfDay();
 
         if ($start->gt($end)) {
             [$start, $end] = [$end, $start];
@@ -310,19 +315,25 @@ class MarketingBudgetController extends Controller
      */
     private function rangeAllocationRatio($dateFrom, $dateTo, Carbon $rangeStart, Carbon $rangeEnd): float
     {
-        if (!$dateFrom || !$dateTo) return 0;
+        if (! $dateFrom || ! $dateTo) {
+            return 0;
+        }
 
         $from = Carbon::parse($dateFrom)->startOfDay();
-        $to   = Carbon::parse($dateTo)->endOfDay();
+        $to = Carbon::parse($dateTo)->endOfDay();
 
-        if ($to->lt($from)) return 0;
+        if ($to->lt($from)) {
+            return 0;
+        }
 
         $totalDays = $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) + 1;
 
         $overlapStart = $from->greaterThan($rangeStart) ? $from : $rangeStart->copy();
-        $overlapEnd   = $to->lessThan($rangeEnd) ? $to : $rangeEnd->copy();
+        $overlapEnd = $to->lessThan($rangeEnd) ? $to : $rangeEnd->copy();
 
-        if ($overlapEnd->lt($overlapStart)) return 0;
+        if ($overlapEnd->lt($overlapStart)) {
+            return 0;
+        }
 
         $overlapDays = $overlapStart->copy()->startOfDay()->diffInDays($overlapEnd->copy()->startOfDay()) + 1;
 
@@ -337,15 +348,15 @@ class MarketingBudgetController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'campaign_id'  => 'required|integer|exists:marketing_campaigns,id',
-            'platform'     => 'required|string|max:50',
-            'month'        => 'required|date_format:Y-m',
-            'budget'       => 'required|integer|min:0',
+            'campaign_id' => 'required|integer|exists:marketing_campaigns,id',
+            'platform' => 'required|string|max:50',
+            'month' => 'required|date_format:Y-m',
+            'budget' => 'required|integer|min:0',
             'actual_spent' => 'nullable|integer|min:0',
-            'note'         => 'nullable|string',
+            'note' => 'nullable|string',
         ]);
 
-        $data['month'] = $data['month'] . '-01';
+        $data['month'] = $data['month'].'-01';
         $data['actual_spent'] = $data['actual_spent'] ?? 0;
         $data['created_by'] = Auth::id();
 
@@ -373,15 +384,15 @@ class MarketingBudgetController extends Controller
         $row = MarketingBudget::findOrFail($id);
 
         $data = $request->validate([
-            'campaign_id'  => 'required|integer|exists:marketing_campaigns,id',
-            'platform'     => 'required|string|max:50',
-            'month'        => 'required|date_format:Y-m',
-            'budget'       => 'required|integer|min:0',
+            'campaign_id' => 'required|integer|exists:marketing_campaigns,id',
+            'platform' => 'required|string|max:50',
+            'month' => 'required|date_format:Y-m',
+            'budget' => 'required|integer|min:0',
             'actual_spent' => 'nullable|integer|min:0',
-            'note'         => 'nullable|string',
+            'note' => 'nullable|string',
         ]);
 
-        $data['month'] = $data['month'] . '-01';
+        $data['month'] = $data['month'].'-01';
         $data['actual_spent'] = $data['actual_spent'] ?? 0;
 
         $row->update($data);

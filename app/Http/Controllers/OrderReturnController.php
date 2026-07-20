@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Contracts\Services\OrderReturnServiceInterface;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderRefund;
 use App\Models\CRM\Orders\OrderReturn;
@@ -11,7 +12,6 @@ use App\Models\CRM\Orders\OrderReturnAttachment;
 use App\Models\User;
 use App\Services\OrderReturnFinancialService;
 use App\Services\OrderReturnInventoryService;
-use App\Services\OrderReturnService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +27,7 @@ class OrderReturnController extends Controller
      * Khởi tạo controller với các service xử lý hoàn trả.
      */
     public function __construct(
-        private readonly OrderReturnService $service,
+        private readonly OrderReturnServiceInterface $service,
         private readonly OrderReturnInventoryService $inventoryService,
         private readonly OrderReturnFinancialService $financialService,
     ) {}
@@ -40,7 +40,9 @@ class OrderReturnController extends Controller
         $this->ensureAny(['orders.return.view'], ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager', 'sales']);
         $query = OrderReturn::query()->with(['order.creator', 'requester', 'receivingWarehouse'])->latest('id');
         $this->scopeForUser($query, $request->user());
-        if ($request->filled('status')) $query->where('status', $request->string('status'));
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
         if ($request->filled('q')) {
             $q = trim((string) $request->q);
             $query->where(function ($builder) use ($q) {
@@ -69,6 +71,7 @@ class OrderReturnController extends Controller
     public function index(Order $order): View
     {
         $this->ensureCanViewOrder($order);
+
         return view('order_returns.index', [
             'order' => $order->load(['items.product', 'lead.customer', 'payments']),
             'returns' => OrderReturn::with(['items.product', 'requester'])->where('order_id', $order->id)->latest('id')->get(),
@@ -105,6 +108,7 @@ class OrderReturnController extends Controller
                 ->select('su.id', DB::raw("COALESCE(si.code, CONCAT('#', su.id)) as code"), 'st.state')
                 ->get();
         }
+
         return view('order_returns.create', [
             'order' => $order,
             'available' => $available,
@@ -154,10 +158,9 @@ class OrderReturnController extends Controller
             $inventoryIssued =
                 (bool) ($order->inventory_issued ?? false);
 
-            if (!$isCompleted || !$inventoryIssued) {
+            if (! $isCompleted || ! $inventoryIssued) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'type' =>
-                        'Chỉ có thể trả hàng đối với đơn đã hoàn thành '
+                    'type' => 'Chỉ có thể trả hàng đối với đơn đã hoàn thành '
                         .'và đã xuất kho.',
                 ]);
             }
@@ -168,10 +171,10 @@ class OrderReturnController extends Controller
         if ($request->boolean('from_order_page')) {
             return redirect()
                 ->route('orders.show', ['id' => $order->id, 'tab' => 'returns'])
-                ->with('success', 'Đã tạo yêu cầu ' . $return->return_code . '.');
+                ->with('success', 'Đã tạo yêu cầu '.$return->return_code.'.');
         }
 
-        return redirect()->route('order-returns.show', $return)->with('success', 'Đã tạo yêu cầu ' . $return->return_code . '.');
+        return redirect()->route('order-returns.show', $return)->with('success', 'Đã tạo yêu cầu '.$return->return_code.'.');
     }
 
     /**
@@ -184,6 +187,7 @@ class OrderReturnController extends Controller
             'order.items.product', 'order.lead.customer', 'items.product', 'items.orderItem', 'items.serials.serialUnit.identifiers.serialIdentifier',
             'attachments', 'approvals.approver', 'histories.user', 'refunds', 'requester', 'receivingWarehouse',
         ]);
+
         return view('order_returns.show', [
             'return' => $orderReturn,
             'warehouses' => DB::table('crm_warehouses')->when($orderReturn->company_id, fn ($q) => $q->where('company_id', $orderReturn->company_id))->orderBy('name')->get(),
@@ -197,6 +201,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureCanEdit($orderReturn);
         $this->service->submit($orderReturn, $request->user());
+
         return back()->with('success', 'Đã gửi yêu cầu phê duyệt.');
     }
 
@@ -210,7 +215,9 @@ class OrderReturnController extends Controller
         if ($updated->type === 'cancel' && $updated->status === 'approved_waiting_return') {
             DB::transaction(function () use ($updated, $request) {
                 $order = Order::query()->lockForUpdate()->findOrFail($updated->order_id);
-                if ($order->inventory_issued) abort(422, 'Đơn đã xuất kho, không thể hủy trực tiếp.');
+                if ($order->inventory_issued) {
+                    abort(422, 'Đơn đã xuất kho, không thể hủy trực tiếp.');
+                }
                 $order->update(['current_department' => 'cancelled', 'shipping_status' => 'not_shipped']);
                 $this->service->transition($updated, 'completed', 'cancel_order', 'Đã hủy đơn trước xuất kho', $request->user(), [
                     'completed_by' => $request->user()->id,
@@ -220,6 +227,7 @@ class OrderReturnController extends Controller
                 ]);
             });
         }
+
         return back()->with('success', 'Đã phê duyệt.');
     }
 
@@ -231,6 +239,7 @@ class OrderReturnController extends Controller
         $this->ensureApprovalRole($orderReturn, $request->user());
         $data = $request->validate(['comment' => ['required', 'string', 'min:3', 'max:3000']]);
         $this->service->reject($orderReturn, $request->user(), $data['comment']);
+
         return back()->with('success', 'Đã từ chối yêu cầu.');
     }
 
@@ -242,6 +251,7 @@ class OrderReturnController extends Controller
         $this->ensureApprovalRole($orderReturn, $request->user());
         $data = $request->validate(['comment' => ['required', 'string', 'min:3', 'max:3000']]);
         $this->service->requestRevision($orderReturn, $request->user(), $data['comment']);
+
         return back()->with('success', 'Đã yêu cầu chỉnh sửa.');
     }
 
@@ -252,6 +262,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureAny(['orders.return.update'], ['admin', 'sales', 'sales_manager', 'warehouse', 'kho']);
         $this->service->transition($orderReturn, 'return_in_transit', 'in_transit', 'Hàng đang vận chuyển về kho', $request->user());
+
         return back()->with('success', 'Đã cập nhật hàng đang vận chuyển về.');
     }
 
@@ -268,6 +279,7 @@ class OrderReturnController extends Controller
         ]);
         $orderReturn->update(['receiving_warehouse_id' => $data['receiving_warehouse_id']]);
         $this->service->receive($orderReturn, $request->user(), $data['received']);
+
         return back()->with('success', 'Kho đã xác nhận nhận hàng.');
     }
 
@@ -286,6 +298,7 @@ class OrderReturnController extends Controller
             'inspect.*.note' => ['nullable', 'string', 'max:2000'],
         ]);
         $this->service->inspect($orderReturn, $request->user(), $data['inspect']);
+
         return back()->with('success', 'Đã lưu kết quả kiểm tra hàng hoàn.');
     }
 
@@ -296,6 +309,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureAny(['orders.return.stock_in'], ['admin', 'warehouse', 'kho']);
         $this->inventoryService->stockIn($orderReturn, $request->user());
+
         return back()->with('success', 'Đã xử lý kho. Chỉ hàng đạt chuẩn bán lại được cộng tồn.');
     }
 
@@ -312,6 +326,7 @@ class OrderReturnController extends Controller
             'note' => ['nullable', 'string', 'max:3000'],
         ]);
         $this->financialService->createRefund($orderReturn, $request->user(), $data);
+
         return back()->with('success', 'Đã tạo phiếu hoàn tiền/cấn trừ.');
     }
 
@@ -322,6 +337,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureAny(['orders.refund.approve'], ['admin', 'management', 'accounting']);
         $this->financialService->approve($refund, $request->user());
+
         return back()->with('success', 'Đã duyệt phiếu hoàn tiền.');
     }
 
@@ -334,6 +350,7 @@ class OrderReturnController extends Controller
         $request->validate(['attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240']]);
         $path = $request->hasFile('attachment') ? $request->file('attachment')->store('order-returns/refunds', 'local') : null;
         $this->financialService->process($refund, $request->user(), $path);
+
         return back()->with('success', 'Đã ghi nhận hoàn tiền/cấn trừ thành công.');
     }
 
@@ -349,6 +366,7 @@ class OrderReturnController extends Controller
             'files.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,mp4', 'max:20480'],
         ]);
         $this->storeAttachments($request, $orderReturn);
+
         return back()->with('success', 'Đã tải hồ sơ lên.');
     }
 
@@ -359,6 +377,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureCanViewReturn($attachment->orderReturn()->firstOrFail());
         abort_unless(Storage::disk('local')->exists($attachment->file_path), 404);
+
         return Storage::disk('local')->download($attachment->file_path, $attachment->original_name);
     }
 
@@ -368,8 +387,10 @@ class OrderReturnController extends Controller
     private function storeAttachments(Request $request, OrderReturn $return): void
     {
         foreach ($request->file('attachments', $request->file('files', [])) as $file) {
-            if (!$file) continue;
-            $path = $file->store('order-returns/' . $return->id, 'local');
+            if (! $file) {
+                continue;
+            }
+            $path = $file->store('order-returns/'.$return->id, 'local');
             OrderReturnAttachment::create([
                 'order_return_id' => $return->id,
                 'category' => $request->input('category', 'evidence'),
@@ -388,7 +409,9 @@ class OrderReturnController extends Controller
     private function ensureCanViewOrder(Order $order): void
     {
         $user = request()->user();
-        if ($this->hasAnyRole($user, ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager'])) return;
+        if ($this->hasAnyRole($user, ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager'])) {
+            return;
+        }
         abort_unless($this->hasAnyRole($user, ['sales']) && (int) $order->created_by === (int) $user->id, 403);
     }
 
@@ -406,7 +429,9 @@ class OrderReturnController extends Controller
     private function ensureCanEdit(OrderReturn $return): void
     {
         $user = request()->user();
-        if ($this->hasAnyRole($user, ['admin', 'management', 'sales_manager'])) return;
+        if ($this->hasAnyRole($user, ['admin', 'management', 'sales_manager'])) {
+            return;
+        }
         abort_unless((int) $return->requested_by === (int) $user->id && in_array($return->status, ['draft', 'revision_requested'], true), 403);
     }
 
@@ -432,9 +457,14 @@ class OrderReturnController extends Controller
         $user = request()->user();
         $allowed = false;
         foreach ($permissions as $permission) {
-            if (method_exists($user, 'can') && $user->can($permission)) { $allowed = true; break; }
+            if (method_exists($user, 'can') && $user->can($permission)) {
+                $allowed = true;
+                break;
+            }
         }
-        if (!$allowed) $allowed = $this->hasAnyRole($user, $roles);
+        if (! $allowed) {
+            $allowed = $this->hasAnyRole($user, $roles);
+        }
         abort_unless($allowed, 403);
     }
 
@@ -443,9 +473,16 @@ class OrderReturnController extends Controller
      */
     private function hasAnyRole(User $user, array $roles): bool
     {
-        if (empty($roles)) return false;
-        if (method_exists($user, 'hasAnyRole')) return $user->hasAnyRole($roles);
-        if (method_exists($user, 'hasRole')) return $user->hasRole($roles);
+        if (empty($roles)) {
+            return false;
+        }
+        if (method_exists($user, 'hasAnyRole')) {
+            return $user->hasAnyRole($roles);
+        }
+        if (method_exists($user, 'hasRole')) {
+            return $user->hasRole($roles);
+        }
+
         return in_array((string) ($user->role ?? ''), $roles, true);
     }
 
@@ -454,7 +491,9 @@ class OrderReturnController extends Controller
      */
     private function scopeForUser($query, User $user): void
     {
-        if ($this->hasAnyRole($user, ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager'])) return;
+        if ($this->hasAnyRole($user, ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager'])) {
+            return;
+        }
         $query->whereHas('order', fn ($q) => $q->where('created_by', $user->id));
     }
 }

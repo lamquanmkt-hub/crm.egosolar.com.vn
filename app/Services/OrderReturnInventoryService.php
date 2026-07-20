@@ -38,7 +38,7 @@ class OrderReturnInventoryService
             if ($return->status !== 'inspected') {
                 throw ValidationException::withMessages(['status' => 'Phiếu phải được kho kiểm tra trước khi nhập hoàn.']);
             }
-            if (!$return->receiving_warehouse_id) {
+            if (! $return->receiving_warehouse_id) {
                 throw ValidationException::withMessages(['receiving_warehouse_id' => 'Chưa chọn kho nhận hàng hoàn.']);
             }
 
@@ -52,12 +52,14 @@ class OrderReturnInventoryService
                 throw ValidationException::withMessages(['company_id' => 'Không xác định được công ty để nhập kho.']);
             }
 
-            $stockRef = $return->stock_in_reference ?: ('RTN-STOCK-' . $return->id);
+            $stockRef = $return->stock_in_reference ?: ('RTN-STOCK-'.$return->id);
             $eventId = $this->createInventoryEvent($return, $user);
 
             foreach ($return->items as $item) {
                 $qtyToPost = max(0, (int) $item->accepted_quantity - (int) $item->stock_posted_quantity);
-                if ($qtyToPost <= 0) continue;
+                if ($qtyToPost <= 0) {
+                    continue;
+                }
 
                 $condition = (string) ($item->condition ?: 'sellable');
                 if ($condition === 'sellable') {
@@ -72,7 +74,7 @@ class OrderReturnInventoryService
                         ->where('warehouse_id', $return->receiving_warehouse_id)
                         ->first();
 
-                    if (!$existingLot) {
+                    if (! $existingLot) {
                         $this->stockLotService->receiveLot(
                             $product,
                             $companyId,
@@ -82,12 +84,12 @@ class OrderReturnInventoryService
                             $vatPercent,
                             0,
                             [
-                                'lot_code' => $return->return_code . '-I' . $item->id,
-                                'lot_name' => 'Hàng hoàn ' . $return->return_code,
+                                'lot_code' => $return->return_code.'-I'.$item->id,
+                                'lot_name' => 'Hàng hoàn '.$return->return_code,
                                 'source_type' => 'sales_return',
                                 'source_id' => $return->id,
                                 'reference_type' => 'order_return',
-                                'reason' => 'Nhập hoàn từ ' . $return->return_code,
+                                'reason' => 'Nhập hoàn từ '.$return->return_code,
                                 'note' => 'Hàng đạt điều kiện bán lại; không sửa ngược lô xuất cũ.',
                             ]
                         );
@@ -119,9 +121,12 @@ class OrderReturnInventoryService
      */
     private function resolveOriginalCost(int $orderItemId): array
     {
-        if (!Schema::hasTable('crm_order_item_stock_allocations')) return [0.0, 0.0];
+        if (! Schema::hasTable('crm_order_item_stock_allocations')) {
+            return [0.0, 0.0];
+        }
         $rows = DB::table('crm_order_item_stock_allocations')->where('order_item_id', $orderItemId)->get();
         $qty = max(1, (int) $rows->sum('qty'));
+
         return [
             (float) $rows->sum(fn ($r) => (float) $r->unit_cost_before_vat * (int) $r->qty) / $qty,
             (float) $rows->sum(fn ($r) => (float) $r->unit_cost_after_vat * (int) $r->qty) / $qty,
@@ -133,12 +138,14 @@ class OrderReturnInventoryService
      */
     private function createInventoryEvent(OrderReturn $return, User $user): ?int
     {
-        if (!Schema::hasTable('crm_inventory_events')) return null;
+        if (! Schema::hasTable('crm_inventory_events')) {
+            return null;
+        }
         $eventId = (int) DB::table('crm_inventory_events')->insertGetId([
             'event_type' => 'return_in',
             'occurred_at' => now(),
             'created_by' => $user->id,
-            'note' => 'Nhận hàng hoàn ' . $return->return_code,
+            'note' => 'Nhận hàng hoàn '.$return->return_code,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -151,6 +158,7 @@ class OrderReturnInventoryService
                 'updated_at' => now(),
             ]);
         }
+
         return $eventId;
     }
 
@@ -164,7 +172,7 @@ class OrderReturnInventoryService
                 ->where('order_item_id', $item->order_item_id)
                 ->where('serial_unit_id', $serial->serial_unit_id)
                 ->exists();
-            if (!$linked) {
+            if (! $linked) {
                 throw ValidationException::withMessages(['serial' => 'Có serial không thuộc đơn gốc.']);
             }
 
@@ -184,7 +192,7 @@ class OrderReturnInventoryService
                     'state' => $toState,
                     'last_event_id' => $eventId,
                     'synced_at' => now(),
-                    'note' => 'Hoàn từ ' . $return->return_code . '; condition=' . $condition,
+                    'note' => 'Hoàn từ '.$return->return_code.'; condition='.$condition,
                 ]
             );
 
@@ -215,7 +223,7 @@ class OrderReturnInventoryService
                     'customer_id' => $return->customer_id,
                     'order_id' => $return->order_id,
                     'created_by' => $user->id,
-                    'note' => 'Hoàn hàng ' . $return->return_code . '; condition=' . $condition,
+                    'note' => 'Hoàn hàng '.$return->return_code.'; condition='.$condition,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

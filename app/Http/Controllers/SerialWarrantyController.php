@@ -39,12 +39,12 @@ class SerialWarrantyController extends Controller
             ->leftJoin('crm_orders as o', 'o.id', '=', 'wa.order_id')
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($x) use ($q) {
-                    $x->where('pc.code', 'like', '%' . $q . '%')
-                        ->orWhere('p.name', 'like', '%' . $q . '%')
-                        ->orWhere('p.sku', 'like', '%' . $q . '%')
-                        ->orWhere('c.name', 'like', '%' . $q . '%')
-                        ->orWhere('c.phone', 'like', '%' . $q . '%')
-                        ->orWhere('o.order_code', 'like', '%' . $q . '%');
+                    $x->where('pc.code', 'like', '%'.$q.'%')
+                        ->orWhere('p.name', 'like', '%'.$q.'%')
+                        ->orWhere('p.sku', 'like', '%'.$q.'%')
+                        ->orWhere('c.name', 'like', '%'.$q.'%')
+                        ->orWhere('c.phone', 'like', '%'.$q.'%')
+                        ->orWhere('o.order_code', 'like', '%'.$q.'%');
                 });
             })
             ->when($state !== '', fn ($query) => $query->where('st.state', $state))
@@ -163,18 +163,18 @@ class SerialWarrantyController extends Controller
         $product = DB::table('crm_product_catalog')->where('id', $data['product_id'])->first();
         $warehouse = DB::table('crm_warehouses')->where('id', $data['warehouse_id'])->first();
 
-        if (!$product || !$warehouse) {
+        if (! $product || ! $warehouse) {
             return back()->withInput()->with('error', 'Sản phẩm hoặc kho không hợp lệ.');
         }
 
         $codes = $this->parseSerials($data['serials']);
-        if (!$codes) {
+        if (! $codes) {
             return back()->withInput()->with('error', 'Vui lòng nhập ít nhất 1 mã serial.');
         }
 
         $existing = DB::table('crm_serial_identifiers')->whereIn('code', $codes)->pluck('code')->all();
         if ($existing) {
-            return back()->withInput()->with('error', 'Không nhập được vì serial đã tồn tại: ' . implode(', ', $existing));
+            return back()->withInput()->with('error', 'Không nhập được vì serial đã tồn tại: '.implode(', ', $existing));
         }
 
         DB::transaction(function () use ($codes, $data, $warehouse) {
@@ -212,7 +212,7 @@ class SerialWarrantyController extends Controller
                     'warehouse_id' => $data['warehouse_id'],
                     'state' => 'in_stock',
                     'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                    'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                 ];
 
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
@@ -228,7 +228,7 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return redirect()->route('serial-warranty.index')->with('success', 'Đã nhập kho ' . count($codes) . ' serial.');
+        return redirect()->route('serial-warranty.index')->with('success', 'Đã nhập kho '.count($codes).' serial.');
     }
 
     /**
@@ -249,7 +249,7 @@ class SerialWarrantyController extends Controller
         ]);
 
         $codes = $this->parseSerials($data['serials']);
-        if (!$codes) {
+        if (! $codes) {
             return back()->withInput()->with('error', 'Vui lòng nhập serial cần xuất.');
         }
 
@@ -258,12 +258,12 @@ class SerialWarrantyController extends Controller
         $missing = array_values(array_diff($codes, $foundCodes));
 
         if ($missing) {
-            return back()->withInput()->with('error', 'Không tìm thấy serial trong hệ thống: ' . implode(', ', $missing));
+            return back()->withInput()->with('error', 'Không tìm thấy serial trong hệ thống: '.implode(', ', $missing));
         }
 
-        $bad = $rows->filter(fn ($r) => $r->state !== 'in_stock')->map(fn ($r) => $r->serial_code . ' (' . ($r->state ?: 'unknown') . ')')->values()->all();
+        $bad = $rows->filter(fn ($r) => $r->state !== 'in_stock')->map(fn ($r) => $r->serial_code.' ('.($r->state ?: 'unknown').')')->values()->all();
         if ($bad) {
-            return back()->withInput()->with('error', 'Chỉ được xuất serial đang trong kho. Serial không hợp lệ: ' . implode(', ', $bad));
+            return back()->withInput()->with('error', 'Chỉ được xuất serial đang trong kho. Serial không hợp lệ: '.implode(', ', $bad));
         }
 
         $orderId = (int) ($data['order_id'] ?? 0);
@@ -281,7 +281,7 @@ class SerialWarrantyController extends Controller
             }
         }
 
-        $soldAt = !empty($data['sold_at'])
+        $soldAt = ! empty($data['sold_at'])
             ? Carbon::parse($data['sold_at'])->startOfDay()
             : now()->startOfDay();
 
@@ -293,7 +293,7 @@ class SerialWarrantyController extends Controller
                         'warehouse_id' => null,
                         'state' => 'sold',
                         'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                        'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                     ]
                 );
 
@@ -347,7 +347,7 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return redirect()->route('serial-warranty.index')->with('success', 'Đã xuất ' . count($codes) . ' serial và kích hoạt bảo hành.');
+        return redirect()->route('serial-warranty.index')->with('success', 'Đã xuất '.count($codes).' serial và kích hoạt bảo hành.');
     }
 
     /**
@@ -366,12 +366,12 @@ class SerialWarrantyController extends Controller
 
         $missing = array_values(array_diff($codes, $rows->pluck('serial_code')->all()));
         if ($missing) {
-            return back()->withInput()->with('error', 'Không tìm thấy serial: ' . implode(', ', $missing));
+            return back()->withInput()->with('error', 'Không tìm thấy serial: '.implode(', ', $missing));
         }
 
         $bad = $rows->filter(fn ($r) => $r->state !== 'in_stock')->pluck('serial_code')->all();
         if ($bad) {
-            return back()->withInput()->with('error', 'Chỉ chuyển kho serial đang trong kho. Sai: ' . implode(', ', $bad));
+            return back()->withInput()->with('error', 'Chỉ chuyển kho serial đang trong kho. Sai: '.implode(', ', $bad));
         }
 
         DB::transaction(function () use ($rows, $data) {
@@ -382,7 +382,7 @@ class SerialWarrantyController extends Controller
                         'warehouse_id' => $data['to_warehouse_id'],
                         'state' => 'in_stock',
                         'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                        'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                     ]
                 );
 
@@ -397,7 +397,7 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return back()->with('success', 'Đã chuyển kho ' . count($codes) . ' serial.');
+        return back()->with('success', 'Đã chuyển kho '.count($codes).' serial.');
     }
 
     /**
@@ -416,7 +416,7 @@ class SerialWarrantyController extends Controller
 
         $missing = array_values(array_diff($codes, $rows->pluck('serial_code')->all()));
         if ($missing) {
-            return back()->withInput()->with('error', 'Không tìm thấy serial: ' . implode(', ', $missing));
+            return back()->withInput()->with('error', 'Không tìm thấy serial: '.implode(', ', $missing));
         }
 
         DB::transaction(function () use ($rows, $data) {
@@ -427,7 +427,7 @@ class SerialWarrantyController extends Controller
                         'warehouse_id' => $data['warehouse_id'],
                         'state' => 'returned',
                         'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                        'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                     ]
                 );
 
@@ -447,7 +447,7 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return back()->with('success', 'Đã nhận trả hàng ' . count($codes) . ' serial.');
+        return back()->with('success', 'Đã nhận trả hàng '.count($codes).' serial.');
     }
 
     /**
@@ -462,7 +462,7 @@ class SerialWarrantyController extends Controller
         ]);
 
         $row = $this->serialRows([$data['serial_code']])->first();
-        if (!$row) {
+        if (! $row) {
             return back()->withInput()->with('error', 'Serial không tồn tại trong hệ thống.');
         }
 
@@ -481,7 +481,7 @@ class SerialWarrantyController extends Controller
 
         $this->logEvent($row->serial_unit_id, $row->serial_code, 'warranty_claim', $row->state, $row->state, $row->warehouse_id, $row->warehouse_id, $row->customer_id ?? null, $row->order_id ?? null, $data['issue_description']);
 
-        return back()->with('success', 'Đã tiếp nhận bảo hành cho serial ' . $row->serial_code . '.');
+        return back()->with('success', 'Đã tiếp nhận bảo hành cho serial '.$row->serial_code.'.');
     }
 
     /**
@@ -518,7 +518,7 @@ class SerialWarrantyController extends Controller
      */
     private function validateSerialsAgainstOrder(int $orderId, $rows)
     {
-        if (!Schema::hasTable('crm_order_items')) {
+        if (! Schema::hasTable('crm_order_items')) {
             return true;
         }
 
@@ -529,8 +529,8 @@ class SerialWarrantyController extends Controller
             ->pluck('qty', 'product_id');
 
         foreach ($rows->groupBy('product_id') as $productId => $productRows) {
-            if (!isset($orderProducts[$productId])) {
-                return 'Serial sản phẩm ID ' . $productId . ' không thuộc đơn hàng đã chọn.';
+            if (! isset($orderProducts[$productId])) {
+                return 'Serial sản phẩm ID '.$productId.' không thuộc đơn hàng đã chọn.';
             }
 
             $allowed = (float) $orderProducts[$productId];
@@ -545,7 +545,7 @@ class SerialWarrantyController extends Controller
                 : 0;
 
             if ($already + $productRows->count() > $allowed) {
-                return 'Số serial sản phẩm ID ' . $productId . ' vượt số lượng trong đơn. Đơn có ' . $allowed . ', đã gán ' . $already . ', đang xuất thêm ' . $productRows->count() . '.';
+                return 'Số serial sản phẩm ID '.$productId.' vượt số lượng trong đơn. Đơn có '.$allowed.', đã gán '.$already.', đang xuất thêm '.$productRows->count().'.';
             }
         }
 
@@ -565,6 +565,7 @@ class SerialWarrantyController extends Controller
                 $codes[] = $code;
             }
         }
+
         return array_values(array_unique($codes));
     }
 
@@ -574,7 +575,7 @@ class SerialWarrantyController extends Controller
     private function customerIdFromOrder(int $orderId): int
     {
         $order = DB::table('crm_orders')->where('id', $orderId)->first();
-        if (!$order) {
+        if (! $order) {
             return 0;
         }
 
@@ -582,7 +583,7 @@ class SerialWarrantyController extends Controller
             return (int) $order->customer_id;
         }
 
-        if (!empty($order->lead_id) && Schema::hasTable('crm_leads')) {
+        if (! empty($order->lead_id) && Schema::hasTable('crm_leads')) {
             return (int) DB::table('crm_leads')->where('id', (int) $order->lead_id)->value('customer_id');
         }
 
@@ -594,7 +595,7 @@ class SerialWarrantyController extends Controller
      */
     private function logEvent($unitId, $code, $type, $fromState, $toState, $fromWh, $toWh, $customerId, $orderId, $note): void
     {
-        if (!Schema::hasTable('crm_serial_warranty_events')) {
+        if (! Schema::hasTable('crm_serial_warranty_events')) {
             return;
         }
 
@@ -621,10 +622,9 @@ class SerialWarrantyController extends Controller
     private function ensureBaseTables(): void
     {
         foreach (['crm_product_catalog', 'crm_warehouses', 'crm_serial_units', 'crm_serial_identifiers', 'crm_serial_unit_identifiers', 'crm_serial_unit_states', 'crm_serial_warranties'] as $table) {
-            abort_unless(Schema::hasTable($table), 500, 'Thiếu bảng hệ thống: ' . $table);
+            abort_unless(Schema::hasTable($table), 500, 'Thiếu bảng hệ thống: '.$table);
         }
     }
-
 
     /**
      * API thêm serial mới cho sản phẩm từ màn sửa sản phẩm (trả JSON).
@@ -654,8 +654,8 @@ class SerialWarrantyController extends Controller
             ->pluck('code')
             ->all();
 
-        if (!empty($exists)) {
-            return response()->json(['ok' => false, 'message' => 'Serial đã tồn tại: ' . implode(', ', $exists)], 422);
+        if (! empty($exists)) {
+            return response()->json(['ok' => false, 'message' => 'Serial đã tồn tại: '.implode(', ', $exists)], 422);
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($codes, $productId, $data) {
@@ -702,7 +702,7 @@ class SerialWarrantyController extends Controller
                         'warehouse_id' => (int) $data['warehouse_id'],
                         'state' => 'in_stock',
                         'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                        'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                     ]
                 );
 
@@ -726,9 +726,8 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return response()->json(['ok' => true, 'message' => 'Đã thêm ' . $codes->count() . ' serial.']);
+        return response()->json(['ok' => true, 'message' => 'Đã thêm '.$codes->count().' serial.']);
     }
-
 
     /**
      * API cập nhật mã serial và kho (nếu chưa bán) từ màn sản phẩm.
@@ -751,7 +750,7 @@ class SerialWarrantyController extends Controller
             ->select('sui.serial_identifier_id', 'si.code as old_code', 'st.state', 'st.warehouse_id')
             ->first();
 
-        if (!$row) {
+        if (! $row) {
             return response()->json(['ok' => false, 'message' => 'Không tìm thấy serial.'], 404);
         }
 
@@ -775,7 +774,7 @@ class SerialWarrantyController extends Controller
                     'updated_at' => now(),
                 ]);
 
-            if (!$locked && !empty($data['warehouse_id'])) {
+            if (! $locked && ! empty($data['warehouse_id'])) {
                 $warehouseId = (int) $data['warehouse_id'];
 
                 \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->updateOrInsert(
@@ -784,7 +783,7 @@ class SerialWarrantyController extends Controller
                         'warehouse_id' => $warehouseId,
                         'state' => $state ?: 'in_stock',
                         'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                        'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                     ]
                 );
 
@@ -814,7 +813,6 @@ class SerialWarrantyController extends Controller
         return response()->json(['ok' => true, 'message' => 'Đã cập nhật serial.']);
     }
 
-
     /**
      * API xóa serial chưa bán cùng toàn bộ dữ liệu liên quan.
      */
@@ -832,7 +830,7 @@ class SerialWarrantyController extends Controller
             ->select('su.id', 'st.state', 'si.code')
             ->first();
 
-        if (!$row) {
+        if (! $row) {
             return response()->json(['ok' => false, 'message' => 'Không tìm thấy serial.'], 404);
         }
 
@@ -861,7 +859,7 @@ class SerialWarrantyController extends Controller
             \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->where('serial_unit_id', $unitId)->delete();
             \Illuminate\Support\Facades\DB::table('crm_serial_unit_identifiers')->where('serial_unit_id', $unitId)->delete();
 
-            if (!empty($identifierIds)) {
+            if (! empty($identifierIds)) {
                 \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')->whereIn('id', $identifierIds)->delete();
             }
 
@@ -909,7 +907,7 @@ class SerialWarrantyController extends Controller
      */
     private function egoSerialLogEvent($unitId, $code, $type, $fromState, $toState, $fromWh, $toWh, $customerId, $orderId, $note): void
     {
-        if (!Schema::hasTable('crm_serial_warranty_events')) {
+        if (! Schema::hasTable('crm_serial_warranty_events')) {
             return;
         }
 
@@ -929,9 +927,6 @@ class SerialWarrantyController extends Controller
             'updated_at' => now(),
         ]);
     }
-
-
-
 
     /**
      * Bổ sung serial bảo hành thủ công (quên nhập kho): tạo/cập nhật serial và kích hoạt bảo hành.
@@ -953,8 +948,8 @@ class SerialWarrantyController extends Controller
         ])));
 
         $isAllowed = $user && (
-            !empty($user->is_admin)
-            || !empty($user->is_super_admin)
+            ! empty($user->is_admin)
+            || ! empty($user->is_super_admin)
             || str_contains($roleText, 'admin')
             || str_contains($roleText, 'kho')
             || str_contains($roleText, 'warehouse')
@@ -963,7 +958,7 @@ class SerialWarrantyController extends Controller
             || str_contains($roleText, 'lam quân')
         );
 
-        if (!$isAllowed) {
+        if (! $isAllowed) {
             return back()->with('error', 'Bạn không có quyền thêm serial bảo hành thủ công.');
         }
 
@@ -983,29 +978,29 @@ class SerialWarrantyController extends Controller
 
         $product = DB::table('crm_product_catalog')->where('id', (int) $data['product_id'])->first();
 
-        if (!$product) {
+        if (! $product) {
             return back()->withInput()->with('error', 'Sản phẩm không hợp lệ.');
         }
 
         $codes = $this->parseSerials($data['serials']);
 
-        if (!$codes) {
+        if (! $codes) {
             return back()->withInput()->with('error', 'Vui lòng nhập ít nhất 1 serial.');
         }
 
-        $orderId = !empty($data['order_id']) ? (int) $data['order_id'] : 0;
-        $customerId = !empty($data['customer_id']) ? (int) $data['customer_id'] : 0;
-        $siteId = !empty($data['site_id']) ? (int) $data['site_id'] : 0; // EGO_SERIAL_SITE_SAVE_PATCH
+        $orderId = ! empty($data['order_id']) ? (int) $data['order_id'] : 0;
+        $customerId = ! empty($data['customer_id']) ? (int) $data['customer_id'] : 0;
+        $siteId = ! empty($data['site_id']) ? (int) $data['site_id'] : 0; // EGO_SERIAL_SITE_SAVE_PATCH
 
         if ($orderId > 0 && $customerId <= 0) {
             $customerId = (int) $this->customerIdFromOrder($orderId);
         }
 
-        $soldAt = !empty($data['sold_at'])
+        $soldAt = ! empty($data['sold_at'])
             ? \Carbon\Carbon::parse($data['sold_at'])->startOfDay()
             : now()->startOfDay();
 
-        $startAt = !empty($data['warranty_start_at'])
+        $startAt = ! empty($data['warranty_start_at'])
             ? \Carbon\Carbon::parse($data['warranty_start_at'])->startOfDay()
             : $soldAt->copy();
 
@@ -1015,7 +1010,7 @@ class SerialWarrantyController extends Controller
         $created = 0;
         $updated = 0;
 
-        DB::transaction(function () use ($codes, $data, $product, $customerId, $orderId, $siteId, $soldAt, $startAt, $months, $endAt, &$created, &$updated) {
+        DB::transaction(function () use ($codes, $data, $customerId, $orderId, $siteId, $soldAt, $startAt, $months, $endAt, &$created, &$updated) {
             foreach ($codes as $code) {
                 $identifier = DB::table('crm_serial_identifiers')->where('code', $code)->first();
 
@@ -1086,7 +1081,7 @@ class SerialWarrantyController extends Controller
                     'warehouse_id' => null,
                     'state' => 'sold',
                     'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                    'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                 ];
 
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
@@ -1154,10 +1149,8 @@ class SerialWarrantyController extends Controller
 
         return redirect()
             ->route('serial-warranty.index')
-            ->with('success', 'Đã thêm/cập nhật bảo hành cho ' . count($codes) . ' serial. Tạo mới: ' . $created . ', cập nhật: ' . $updated . '.');
+            ->with('success', 'Đã thêm/cập nhật bảo hành cho '.count($codes).' serial. Tạo mới: '.$created.', cập nhật: '.$updated.'.');
     }
-
-
 
     /**
      * Cập nhật đầy đủ thông tin bảo hành của một serial (sản phẩm, khách, thời hạn).
@@ -1179,8 +1172,8 @@ class SerialWarrantyController extends Controller
         ])));
 
         $isAllowed = $user && (
-            !empty($user->is_admin)
-            || !empty($user->is_super_admin)
+            ! empty($user->is_admin)
+            || ! empty($user->is_super_admin)
             || str_contains($roleText, 'admin')
             || str_contains($roleText, 'kho')
             || str_contains($roleText, 'warehouse')
@@ -1189,7 +1182,7 @@ class SerialWarrantyController extends Controller
             || str_contains($roleText, 'lam quân')
         );
 
-        if (!$isAllowed) {
+        if (! $isAllowed) {
             return back()->with('error', 'Bạn không có quyền sửa thông tin bảo hành.');
         }
 
@@ -1225,7 +1218,7 @@ class SerialWarrantyController extends Controller
             )
             ->first();
 
-        if (!$serial) {
+        if (! $serial) {
             return back()->with('error', 'Không tìm thấy serial.');
         }
 
@@ -1233,34 +1226,34 @@ class SerialWarrantyController extends Controller
 
         $productExists = DB::table('crm_product_catalog')->where('id', $productId)->exists();
 
-        if (!$productExists) {
+        if (! $productExists) {
             return back()->withInput()->with('error', 'Sản phẩm không hợp lệ.');
         }
 
-        $customerId = !empty($data['customer_id'])
+        $customerId = ! empty($data['customer_id'])
             ? (int) $data['customer_id']
             : ($serial->customer_id ? (int) $serial->customer_id : null);
 
-        $orderId = !empty($data['order_id'])
+        $orderId = ! empty($data['order_id'])
             ? (int) $data['order_id']
             : ($serial->order_id ? (int) $serial->order_id : null);
 
-        if ($orderId && !$customerId) {
+        if ($orderId && ! $customerId) {
             $fromOrder = (int) $this->customerIdFromOrder($orderId);
             $customerId = $fromOrder > 0 ? $fromOrder : null;
         }
 
-        $soldAt = !empty($data['sold_at'])
+        $soldAt = ! empty($data['sold_at'])
             ? \Carbon\Carbon::parse($data['sold_at'])->startOfDay()
             : ($serial->sold_at ? \Carbon\Carbon::parse($serial->sold_at)->startOfDay() : now()->startOfDay());
 
-        $start = !empty($data['warranty_start_at'])
+        $start = ! empty($data['warranty_start_at'])
             ? \Carbon\Carbon::parse($data['warranty_start_at'])->startOfDay()
             : $soldAt->copy();
 
         $months = (int) $data['warranty_months'];
 
-        $end = !empty($data['warranty_end_at'])
+        $end = ! empty($data['warranty_end_at'])
             ? \Carbon\Carbon::parse($data['warranty_end_at'])->startOfDay()
             : $start->copy()->addMonths($months);
 
@@ -1310,16 +1303,15 @@ class SerialWarrantyController extends Controller
                     'customer_id' => $customerId,
                     'order_id' => $orderId,
                     'created_by' => auth()->id(),
-                    'note' => 'Cập nhật đầy đủ thông tin bảo hành: ' . $months . ' tháng, từ ' . $start->toDateString() . ' đến ' . $end->toDateString(),
+                    'note' => 'Cập nhật đầy đủ thông tin bảo hành: '.$months.' tháng, từ '.$start->toDateString().' đến '.$end->toDateString(),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
             }
         });
 
-        return back()->with('success', 'Đã cập nhật thông tin bảo hành cho serial ' . ($serial->code ?? ('#' . $unitId)) . '.');
+        return back()->with('success', 'Đã cập nhật thông tin bảo hành cho serial '.($serial->code ?? ('#'.$unitId)).'.');
     }
-
 
     /**
      * Ẩn serial khỏi trang tra cứu bảo hành (chuyển trạng thái removed).
@@ -1341,8 +1333,8 @@ class SerialWarrantyController extends Controller
         ])));
 
         $isAllowed = $user && (
-            !empty($user->is_admin)
-            || !empty($user->is_super_admin)
+            ! empty($user->is_admin)
+            || ! empty($user->is_super_admin)
             || str_contains($roleText, 'admin')
             || str_contains($roleText, 'kho')
             || str_contains($roleText, 'warehouse')
@@ -1351,7 +1343,7 @@ class SerialWarrantyController extends Controller
             || str_contains($roleText, 'lam quân')
         );
 
-        if (!$isAllowed) {
+        if (! $isAllowed) {
             return back()->with('error', 'Bạn không có quyền xóa serial khỏi trang tra cứu.');
         }
 
@@ -1366,7 +1358,7 @@ class SerialWarrantyController extends Controller
             ->select('su.id', 'si.code')
             ->first();
 
-        if (!$serial) {
+        if (! $serial) {
             return back()->with('error', 'Không tìm thấy serial.');
         }
 
@@ -1377,7 +1369,7 @@ class SerialWarrantyController extends Controller
                     'warehouse_id' => null,
                     'state' => 'removed',
                     'synced_at' => now(),
-                'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
+                    'note' => request()->input('note', request()->input('notes', request()->input('ghi_chu'))), // EGO_SERIAL_NOTE_SAVE_PATCH
                 ]
             );
 
@@ -1400,8 +1392,6 @@ class SerialWarrantyController extends Controller
             }
         });
 
-        return back()->with('success', 'Đã xóa serial ' . ($serial->code ?? ('#' . $unitId)) . ' khỏi trang tra cứu.');
+        return back()->with('success', 'Đã xóa serial '.($serial->code ?? ('#'.$unitId)).' khỏi trang tra cứu.');
     }
-
-
 }

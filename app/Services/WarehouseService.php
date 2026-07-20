@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Repositories\WarehouseRepositoryInterface;
 use App\Contracts\Services\WarehouseServiceInterface;
 use App\Models\Core\Warehouse;
-use App\Repositories\Interfaces\WarehouseRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 /**

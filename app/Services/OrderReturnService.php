@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Contracts\Services\OrderReturnServiceInterface;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderReturn;
 use App\Models\CRM\Orders\OrderReturnApproval;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Service vòng đời phiếu đổi/trả hàng: tạo, duyệt, nhận hàng, kiểm tra, chuyển trạng thái.
  */
-class OrderReturnService
+class OrderReturnService implements OrderReturnServiceInterface
 {
     private const CLOSED = ['rejected', 'cancelled'];
 
@@ -30,7 +31,7 @@ class OrderReturnService
             $order = Order::query()->with(['items.product', 'lead.customer'])->lockForUpdate()->findOrFail($order->id);
             $type = (string) ($data['type'] ?? 'return');
 
-            if (in_array($type, ['return', 'exchange', 'recall'], true) && !(bool) $order->inventory_issued) {
+            if (in_array($type, ['return', 'exchange', 'recall'], true) && ! (bool) $order->inventory_issued) {
                 throw ValidationException::withMessages([
                     'type' => 'Đơn chưa xuất kho. Hãy dùng loại “Hủy trước xuất kho”.',
                 ]);
@@ -65,7 +66,7 @@ class OrderReturnService
             ]);
 
             $return->update([
-                'return_code' => 'RTN-' . now()->format('Y') . '-' . str_pad((string) $return->id, 6, '0', STR_PAD_LEFT),
+                'return_code' => 'RTN-'.now()->format('Y').'-'.str_pad((string) $return->id, 6, '0', STR_PAD_LEFT),
             ]);
 
             $total = 0.0;
@@ -78,10 +79,12 @@ class OrderReturnService
 
                 foreach ($itemsData as $orderItemId => $row) {
                     $requested = (int) ($row['quantity'] ?? 0);
-                    if ($requested <= 0) continue;
+                    if ($requested <= 0) {
+                        continue;
+                    }
 
                     $orderItem = $order->items->firstWhere('id', (int) $orderItemId);
-                    if (!$orderItem) {
+                    if (! $orderItem) {
                         throw ValidationException::withMessages(['items' => 'Có sản phẩm không thuộc đơn hàng.']);
                     }
 
@@ -145,7 +148,7 @@ class OrderReturnService
                             ->where('order_item_id', $orderItem->id)
                             ->where('serial_unit_id', $serialId)
                             ->exists();
-                        if (!$isLinked) {
+                        if (! $isLinked) {
                             throw ValidationException::withMessages([
                                 "items.{$orderItemId}.serial_ids" => "Serial #{$serialId} không thuộc dòng đơn này.",
                             ]);
@@ -168,6 +171,7 @@ class OrderReturnService
             ]);
 
             $this->history($return, null, 'draft', 'create', 'Tạo yêu cầu đổi/trả', $user);
+
             return $return->fresh(['items.serials']);
         });
     }
@@ -177,9 +181,10 @@ class OrderReturnService
      */
     public function submit(OrderReturn $return, User $user): OrderReturn
     {
-        if (!in_array($return->status, ['draft', 'revision_requested'], true)) {
+        if (! in_array($return->status, ['draft', 'revision_requested'], true)) {
             throw ValidationException::withMessages(['status' => 'Phiếu không ở trạng thái có thể gửi duyệt.']);
         }
+
         return $this->transition($return, 'pending_sales_manager', 'submit', 'Gửi yêu cầu duyệt', $user, [
             'submitted_by' => $user->id,
             'submitted_at' => now(),
@@ -199,7 +204,7 @@ class OrderReturnService
             'pending_management' => 'approved_waiting_return',
             default => null,
         };
-        if (!$next) {
+        if (! $next) {
             throw ValidationException::withMessages(['status' => 'Phiếu không ở bước phê duyệt hợp lệ.']);
         }
 
@@ -232,6 +237,7 @@ class OrderReturnService
             'approver_id' => $user->id,
             'comment' => $comment,
         ]);
+
         return $this->transition($return, 'rejected', 'reject', $comment, $user);
     }
 
@@ -248,6 +254,7 @@ class OrderReturnService
             'approver_id' => $user->id,
             'comment' => $comment,
         ]);
+
         return $this->transition($return, 'revision_requested', 'request_revision', $comment, $user);
     }
 
@@ -258,7 +265,7 @@ class OrderReturnService
     {
         return DB::transaction(function () use ($return, $user, $quantities) {
             $return = OrderReturn::query()->lockForUpdate()->findOrFail($return->id);
-            if (!in_array($return->status, ['approved_waiting_return', 'return_in_transit'], true)) {
+            if (! in_array($return->status, ['approved_waiting_return', 'return_in_transit'], true)) {
                 throw ValidationException::withMessages(['status' => 'Phiếu chưa được duyệt để kho nhận hàng.']);
             }
             foreach ($return->items as $item) {
@@ -268,6 +275,7 @@ class OrderReturnService
                 }
                 $item->update(['received_quantity' => $received]);
             }
+
             return $this->transition($return, 'received', 'receive', 'Kho đã nhận hàng thực tế', $user, [
                 'received_by' => $user->id,
                 'received_at' => now(),
@@ -283,7 +291,7 @@ class OrderReturnService
     {
         return DB::transaction(function () use ($return, $user, $rows) {
             $return = OrderReturn::query()->lockForUpdate()->findOrFail($return->id);
-            if (!in_array($return->status, ['received', 'inspecting'], true)) {
+            if (! in_array($return->status, ['received', 'inspecting'], true)) {
                 throw ValidationException::withMessages(['status' => 'Kho cần xác nhận đã nhận hàng trước khi kiểm tra.']);
             }
             foreach ($return->items as $item) {
@@ -294,7 +302,7 @@ class OrderReturnService
                     throw ValidationException::withMessages(["inspect.{$item->id}" => 'Số lượng kiểm tra không hợp lệ.']);
                 }
                 $condition = (string) ($row['condition'] ?? 'sellable');
-                if (!in_array($condition, ['sellable', 'opened_box', 'defective', 'warranty_pending', 'damaged', 'scrap'], true)) {
+                if (! in_array($condition, ['sellable', 'opened_box', 'defective', 'warranty_pending', 'damaged', 'scrap'], true)) {
                     throw ValidationException::withMessages(["inspect.{$item->id}.condition" => 'Tình trạng hàng không hợp lệ.']);
                 }
                 $item->update([
@@ -312,6 +320,7 @@ class OrderReturnService
                     ]);
                 }
             }
+
             return $this->transition($return, 'inspected', 'inspect', 'Kho đã kiểm tra và phân loại hàng', $user, [
                 'inspected_by' => $user->id,
                 'inspected_at' => now(),
@@ -328,6 +337,7 @@ class OrderReturnService
         $from = $return->status;
         $return->forceFill(array_merge(['status' => $to], $extra))->save();
         $this->history($return, $from, $to, $action, $note, $user);
+
         return $return->fresh();
     }
 

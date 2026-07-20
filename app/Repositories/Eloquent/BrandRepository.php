@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\Inventory\Catalog\Brand;
-use App\Repositories\Interfaces\BrandRepositoryInterface;
+use App\Contracts\Repositories\BrandRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 

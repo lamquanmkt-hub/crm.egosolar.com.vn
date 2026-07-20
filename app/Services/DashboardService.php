@@ -2,15 +2,14 @@
 
 namespace App\Services;
 
+use App\Contracts\Repositories\CustomerRepositoryInterface;
+use App\Contracts\Repositories\LeadRepositoryInterface;
+use App\Contracts\Repositories\OrderRepositoryInterface;
+use App\Contracts\Repositories\PaymentRepositoryInterface;
 use App\Models\CRM\Orders\Order;
 use App\Models\Payments\Payment;
 use App\Models\User;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
-use App\Repositories\Interfaces\LeadRepositoryInterface;
-use App\Repositories\Interfaces\CustomerRepositoryInterface;
-use App\Repositories\Interfaces\PaymentRepositoryInterface;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Service tổng hợp số liệu dashboard chung (đơn hàng, doanh thu, lead, thanh toán).
@@ -18,8 +17,11 @@ use Illuminate\Support\Facades\DB;
 class DashboardService
 {
     protected $orderRepo;
+
     protected $leadRepo;
+
     protected $customerRepo;
+
     protected $paymentRepo;
 
     /**
@@ -31,10 +33,10 @@ class DashboardService
         CustomerRepositoryInterface $customerRepo,
         PaymentRepositoryInterface $paymentRepo
     ) {
-        $this->orderRepo    = $orderRepo;
-        $this->leadRepo     = $leadRepo;
+        $this->orderRepo = $orderRepo;
+        $this->leadRepo = $leadRepo;
         $this->customerRepo = $customerRepo;
-        $this->paymentRepo  = $paymentRepo;
+        $this->paymentRepo = $paymentRepo;
     }
 
     /**
@@ -43,10 +45,10 @@ class DashboardService
     private function parseDateRange(array $filters): array
     {
         $fromRaw = $filters['from'] ?? null; // YYYY-MM-DD
-        $toRaw   = $filters['to'] ?? null;   // YYYY-MM-DD
+        $toRaw = $filters['to'] ?? null;   // YYYY-MM-DD
 
         $from = $fromRaw ? Carbon::parse($fromRaw)->startOfDay() : now()->startOfMonth();
-        $to   = $toRaw   ? Carbon::parse($toRaw)->endOfDay()     : now()->endOfMonth();
+        $to = $toRaw ? Carbon::parse($toRaw)->endOfDay() : now()->endOfMonth();
 
         if ($from->greaterThan($to)) {
             [$from, $to] = [$to, $from];

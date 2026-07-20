@@ -128,8 +128,8 @@ class SiteQuoteController extends Controller
             $grandTotal = $beforeVat + $vatAmount;
 
             $quoteNo = $data['quote_no'] ?? null;
-            if (!$quoteNo) {
-                $quoteNo = 'BGCT-' . now()->format('Ymd') . '-' . str_pad((string) $site->id, 4, '0', STR_PAD_LEFT);
+            if (! $quoteNo) {
+                $quoteNo = 'BGCT-'.now()->format('Ymd').'-'.str_pad((string) $site->id, 4, '0', STR_PAD_LEFT);
             }
 
             DB::table('sites')->where('id', $site->id)->update([

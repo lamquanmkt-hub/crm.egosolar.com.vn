@@ -21,8 +21,8 @@ class AttendanceSettingController extends Controller
     {
         $setting = AttendanceSetting::first();
 
-        if (!$setting) {
-            $setting = new AttendanceSetting();
+        if (! $setting) {
+            $setting = new AttendanceSetting;
 
             $this->safeSet($setting, 'work_start_time', '08:30:00');
             $this->safeSet($setting, 'work_end_time', '18:00:00');
@@ -115,12 +115,12 @@ class AttendanceSettingController extends Controller
 
         $setting = AttendanceSetting::first();
 
-        if (!$setting) {
-            $setting = new AttendanceSetting();
+        if (! $setting) {
+            $setting = new AttendanceSetting;
         }
 
-        $this->safeSet($setting, 'work_start_time', $request->work_start_time . ':00');
-        $this->safeSet($setting, 'work_end_time', $request->work_end_time . ':00');
+        $this->safeSet($setting, 'work_start_time', $request->work_start_time.':00');
+        $this->safeSet($setting, 'work_end_time', $request->work_end_time.':00');
         $this->safeSet($setting, 'late_grace_minutes', (int) $request->late_grace_minutes);
         $this->safeSet($setting, 'late_penalty_per_time', (int) ($request->late_penalty_per_time ?? 0));
         $this->safeSet($setting, 'min_work_minutes', (int) $request->min_work_minutes);

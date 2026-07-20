@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\NotificationService;
+use App\Contracts\Services\NotificationServiceInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -18,7 +18,7 @@ class NotificationController extends Controller
      * Khởi tạo controller với service thông báo.
      */
     public function __construct(
-        protected NotificationService $notificationService
+        protected NotificationServiceInterface $notificationService
     ) {}
 
     /* EGO_TASK_NOTIFY_INDEX */

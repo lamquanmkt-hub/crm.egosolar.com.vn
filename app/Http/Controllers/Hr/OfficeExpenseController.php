@@ -109,7 +109,7 @@ class OfficeExpenseController extends Controller
         $i = 2;
 
         while (DB::table('hr_office_expense_categories')->where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '_' . $i;
+            $slug = $baseSlug.'_'.$i;
             $i++;
         }
 
@@ -127,7 +127,7 @@ class OfficeExpenseController extends Controller
     /**
      * Xoá hạng mục chi phí nếu chưa có khoản chi nào sử dụng.
      *
-     * @param int|string $id ID hạng mục
+     * @param  int|string  $id  ID hạng mục
      */
     public function destroyCategory($id)
     {
@@ -149,7 +149,7 @@ class OfficeExpenseController extends Controller
     /**
      * Xoá một khoản chi phí văn phòng theo ID.
      *
-     * @param int|string $id ID khoản chi
+     * @param  int|string  $id  ID khoản chi
      */
     public function destroy($id)
     {
@@ -165,7 +165,7 @@ class OfficeExpenseController extends Controller
      */
     private function categories(): array
     {
-        if (!Schema::hasTable('hr_office_expense_categories')) {
+        if (! Schema::hasTable('hr_office_expense_categories')) {
             return [
                 'van_phong_pham' => 'Văn phòng phẩm',
                 'nuoc_uong_tiep_khach' => 'Nước uống / tiếp khách',
@@ -188,7 +188,7 @@ class OfficeExpenseController extends Controller
      */
     private function ensureDefaultCategories(): void
     {
-        if (!Schema::hasTable('hr_office_expense_categories')) {
+        if (! Schema::hasTable('hr_office_expense_categories')) {
             return;
         }
 
@@ -217,7 +217,7 @@ class OfficeExpenseController extends Controller
     /**
      * Chuyển chuỗi tiền tệ (có đ, dấu phẩy, khoảng trắng) về số float.
      *
-     * @param mixed $value Giá trị tiền nhập vào
+     * @param  mixed  $value  Giá trị tiền nhập vào
      */
     private function moneyToNumber($value): float
     {

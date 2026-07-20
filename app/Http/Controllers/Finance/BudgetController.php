@@ -23,7 +23,7 @@ class BudgetController extends Controller
         |--------------------------------------------------------------------------
         */
         $month = $request->input('month', now()->format('Y-m'));
-        $monthStart = $month . '-01';
+        $monthStart = $month.'-01';
         $monthEnd = date('Y-m-t', strtotime($monthStart));
 
         /*
@@ -179,7 +179,7 @@ class BudgetController extends Controller
 
         $unmatchedExpenses = $approvedByCategory
             ->filter(function ($item, $categoryKey) use ($budgetCategoryKeys) {
-                return !in_array($categoryKey, $budgetCategoryKeys, true);
+                return ! in_array($categoryKey, $budgetCategoryKeys, true);
             })
             ->sortByDesc('total_amount')
             ->values();
@@ -325,7 +325,7 @@ class BudgetController extends Controller
         ]);
 
         DB::table('finance_budgets')->insert([
-            'month' => $data['month'] . '-01',
+            'month' => $data['month'].'-01',
             'category' => trim($data['category']),
             'budget_amount' => $data['budget_amount'],
             'note' => $data['note'] ?? null,
@@ -354,7 +354,7 @@ class BudgetController extends Controller
         DB::table('finance_budgets')
             ->where('id', $id)
             ->update([
-                'month' => $data['month'] . '-01',
+                'month' => $data['month'].'-01',
                 'category' => trim($data['category']),
                 'budget_amount' => $data['budget_amount'],
                 'note' => $data['note'] ?? null,

@@ -2,6 +2,17 @@
 
 namespace App\Providers;
 
+use App\Contracts\Repositories\BrandRepositoryInterface;
+use App\Contracts\Repositories\CustomerRepositoryInterface;
+use App\Contracts\Repositories\LeadRepositoryInterface;
+use App\Contracts\Repositories\OrderRepositoryInterface;
+use App\Contracts\Repositories\PaymentMethodRepositoryInterface;
+use App\Contracts\Repositories\PaymentRepositoryInterface;
+use App\Contracts\Repositories\PriceTierRepositoryInterface;
+use App\Contracts\Repositories\ProductCategoryRepositoryInterface;
+use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Contracts\Repositories\WarehouseRepositoryInterface;
 use App\Repositories\Eloquent\BrandRepository;
 use App\Repositories\Eloquent\CustomerRepository;
 use App\Repositories\Eloquent\LeadRepository;
@@ -13,17 +24,6 @@ use App\Repositories\Eloquent\ProductCategoryRepository;
 use App\Repositories\Eloquent\ProductRepository;
 use App\Repositories\Eloquent\UserRepository;
 use App\Repositories\Eloquent\WarehouseRepository;
-use App\Repositories\Interfaces\BrandRepositoryInterface;
-use App\Repositories\Interfaces\CustomerRepositoryInterface;
-use App\Repositories\Interfaces\LeadRepositoryInterface;
-use App\Repositories\Interfaces\OrderRepositoryInterface;
-use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
-use App\Repositories\Interfaces\PaymentRepositoryInterface;
-use App\Repositories\Interfaces\PriceTierRepositoryInterface;
-use App\Repositories\Interfaces\ProductCategoryRepositoryInterface;
-use App\Repositories\Interfaces\ProductRepositoryInterface;
-use App\Repositories\Interfaces\UserRepositoryInterface;
-use App\Repositories\Interfaces\WarehouseRepositoryInterface;
 use Illuminate\Support\ServiceProvider;
 
 class RepositoryServiceProvider extends ServiceProvider

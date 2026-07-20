@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
+use App\Models\Marketing\MarketingKpiPayActual;
+use App\Models\Marketing\MarketingKpiPayRule;
+use App\Models\Marketing\MarketingKpiPaySetting;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Models\Marketing\MarketingKpiPaySetting;
-use App\Models\Marketing\MarketingKpiPayRule;
-use App\Models\Marketing\MarketingKpiPayActual;
-use Carbon\Carbon;
 
 /**
  * Controller KPI & lương marketing: thiết lập, tính toán và hiển thị bảng lương.
@@ -48,8 +48,8 @@ class KpiPayrollController extends Controller
 
         $rule = MarketingKpiPayRule::where('period', $period)->first();
 
-        if (!$rule) {
-            $rule = new MarketingKpiPayRule();
+        if (! $rule) {
+            $rule = new MarketingKpiPayRule;
             $rule->period = $period;
 
             $rule->weight_review = 40;
@@ -82,28 +82,28 @@ class KpiPayrollController extends Controller
             ];
         }
 
-        $bonusConfig = (array)($rule->bonus_config ?? []);
+        $bonusConfig = (array) ($rule->bonus_config ?? []);
 
         // Tương thích dữ liệu cũ (livestream.m1/m2) -> livestream.tiers
         $ls = (array) data_get($bonusConfig, 'livestream', []);
-        if (!isset($ls['tiers']) || !is_array($ls['tiers'])) {
+        if (! isset($ls['tiers']) || ! is_array($ls['tiers'])) {
             $tiers = [];
 
             $m1 = (array) data_get($ls, 'm1', []);
             $m2 = (array) data_get($ls, 'm2', []);
 
-            if (!empty($m1)) {
+            if (! empty($m1)) {
                 $tiers[] = [
-                    'min_view' => (int)($m1['min_view'] ?? 0),
-                    'min_engagement' => (int)($m1['min_engagement'] ?? 0),
-                    'reward' => (int)($m1['reward'] ?? 0),
+                    'min_view' => (int) ($m1['min_view'] ?? 0),
+                    'min_engagement' => (int) ($m1['min_engagement'] ?? 0),
+                    'reward' => (int) ($m1['reward'] ?? 0),
                 ];
             }
-            if (!empty($m2)) {
+            if (! empty($m2)) {
                 $tiers[] = [
-                    'min_view' => (int)($m2['min_view'] ?? 0),
-                    'min_engagement' => (int)($m2['min_engagement'] ?? 0),
-                    'reward' => (int)($m2['reward'] ?? 0),
+                    'min_view' => (int) ($m2['min_view'] ?? 0),
+                    'min_engagement' => (int) ($m2['min_engagement'] ?? 0),
+                    'reward' => (int) ($m2['reward'] ?? 0),
                 ];
             }
 
@@ -121,7 +121,7 @@ class KpiPayrollController extends Controller
 
         // đảm bảo trend_video.tiers có
         $tv = (array) data_get($bonusConfig, 'trend_video', []);
-        if (!isset($tv['tiers']) || !is_array($tv['tiers']) || count($tv['tiers']) === 0) {
+        if (! isset($tv['tiers']) || ! is_array($tv['tiers']) || count($tv['tiers']) === 0) {
             $tv['tiers'] = [
                 ['min_view' => 30000, 'min_engagement' => 1000, 'reward' => 1000000],
             ];
@@ -144,16 +144,16 @@ class KpiPayrollController extends Controller
     {
         $request->validate([
             'period' => ['required', 'regex:/^\d{4}-\d{2}$/'],
-            'rows'   => ['nullable', 'array'],
+            'rows' => ['nullable', 'array'],
 
             'rule' => ['nullable', 'array'],
             'rule.weight_review' => ['nullable', 'numeric', 'min:0'],
-            'rule.weight_ai'     => ['nullable', 'numeric', 'min:0'],
-            'rule.weight_post'   => ['nullable', 'numeric', 'min:0'],
+            'rule.weight_ai' => ['nullable', 'numeric', 'min:0'],
+            'rule.weight_post' => ['nullable', 'numeric', 'min:0'],
 
             'rule.bonus_over_review' => ['nullable', 'numeric', 'min:0'],
-            'rule.bonus_over_ai'     => ['nullable', 'numeric', 'min:0'],
-            'rule.bonus_over_post'   => ['nullable', 'numeric', 'min:0'],
+            'rule.bonus_over_ai' => ['nullable', 'numeric', 'min:0'],
+            'rule.bonus_over_post' => ['nullable', 'numeric', 'min:0'],
 
             'bonus_config' => ['nullable', 'array'],
         ]);
@@ -161,17 +161,17 @@ class KpiPayrollController extends Controller
         $period = $request->input('period');
 
         $rows = $request->input('rows', []);
-        $ruleInput  = $request->input('rule', []);
+        $ruleInput = $request->input('rule', []);
         $bonusInput = $request->input('bonus_config', []);
 
         $ruleData = [
-            'weight_review'      => (float)($ruleInput['weight_review'] ?? 40),
-            'weight_ai'          => (float)($ruleInput['weight_ai'] ?? 30),
-            'weight_post'        => (float)($ruleInput['weight_post'] ?? 30),
+            'weight_review' => (float) ($ruleInput['weight_review'] ?? 40),
+            'weight_ai' => (float) ($ruleInput['weight_ai'] ?? 30),
+            'weight_post' => (float) ($ruleInput['weight_post'] ?? 30),
 
-            'bonus_over_review'  => (float)($ruleInput['bonus_over_review'] ?? 3),
-            'bonus_over_ai'      => (float)($ruleInput['bonus_over_ai'] ?? 1),
-            'bonus_over_post'    => (float)($ruleInput['bonus_over_post'] ?? 0.5),
+            'bonus_over_review' => (float) ($ruleInput['bonus_over_review'] ?? 3),
+            'bonus_over_ai' => (float) ($ruleInput['bonus_over_ai'] ?? 1),
+            'bonus_over_post' => (float) ($ruleInput['bonus_over_post'] ?? 0.5),
         ];
 
         $bonusConfig = [];
@@ -181,10 +181,12 @@ class KpiPayrollController extends Controller
         $tiersClean = [];
         if (is_array($tiers)) {
             foreach ($tiers as $t) {
-                $minView = (int)($t['min_view'] ?? 0);
-                $minEng  = (int)($t['min_engagement'] ?? 0);
-                $reward  = (int)($t['reward'] ?? 0);
-                if ($minView === 0 && $minEng === 0 && $reward === 0) continue;
+                $minView = (int) ($t['min_view'] ?? 0);
+                $minEng = (int) ($t['min_engagement'] ?? 0);
+                $reward = (int) ($t['reward'] ?? 0);
+                if ($minView === 0 && $minEng === 0 && $reward === 0) {
+                    continue;
+                }
 
                 $tiersClean[] = [
                     'min_view' => max(0, $minView),
@@ -198,7 +200,7 @@ class KpiPayrollController extends Controller
                 ['min_view' => 30000, 'min_engagement' => 1000, 'reward' => 1000000],
             ];
         }
-        usort($tiersClean, fn($a,$b) => ($a['min_view'] <=> $b['min_view']));
+        usort($tiersClean, fn ($a, $b) => ($a['min_view'] <=> $b['min_view']));
 
         $bonusConfig['trend_video'] = [
             'tiers' => array_values($tiersClean),
@@ -206,7 +208,7 @@ class KpiPayrollController extends Controller
 
         // LIVESTREAM (tiers dynamic)
         $lsMinDuration = (int) data_get($bonusInput, 'livestream.min_duration_min', 30);
-        $lsLeadReward  = (int) data_get($bonusInput, 'livestream.lead_reward', 8000);
+        $lsLeadReward = (int) data_get($bonusInput, 'livestream.lead_reward', 8000);
 
         $lsTiers = data_get($bonusInput, 'livestream.tiers', null);
 
@@ -215,17 +217,23 @@ class KpiPayrollController extends Controller
             $m1 = (array) data_get($bonusInput, 'livestream.m1', []);
             $m2 = (array) data_get($bonusInput, 'livestream.m2', []);
             $lsTiers = [];
-            if (!empty($m1)) $lsTiers[] = $m1;
-            if (!empty($m2)) $lsTiers[] = $m2;
+            if (! empty($m1)) {
+                $lsTiers[] = $m1;
+            }
+            if (! empty($m2)) {
+                $lsTiers[] = $m2;
+            }
         }
 
         $lsTiersClean = [];
         if (is_array($lsTiers)) {
             foreach ($lsTiers as $t) {
-                $minView = (int)($t['min_view'] ?? 0);
-                $minEng  = (int)($t['min_engagement'] ?? 0);
-                $reward  = (int)($t['reward'] ?? 0);
-                if ($minView === 0 && $minEng === 0 && $reward === 0) continue;
+                $minView = (int) ($t['min_view'] ?? 0);
+                $minEng = (int) ($t['min_engagement'] ?? 0);
+                $reward = (int) ($t['reward'] ?? 0);
+                if ($minView === 0 && $minEng === 0 && $reward === 0) {
+                    continue;
+                }
 
                 $lsTiersClean[] = [
                     'min_view' => max(0, $minView),
@@ -239,20 +247,20 @@ class KpiPayrollController extends Controller
                 ['min_view' => 50000, 'min_engagement' => 300, 'reward' => 1000000],
             ];
         }
-        usort($lsTiersClean, fn($a,$b) => ($a['min_view'] <=> $b['min_view']));
+        usort($lsTiersClean, fn ($a, $b) => ($a['min_view'] <=> $b['min_view']));
 
         $bonusConfig['livestream'] = [
             'min_duration_min' => max(0, $lsMinDuration),
-            'lead_reward'      => max(0, $lsLeadReward),
-            'tiers'            => array_values($lsTiersClean),
+            'lead_reward' => max(0, $lsLeadReward),
+            'tiers' => array_values($lsTiersClean),
         ];
 
         // ANTI FRAUD
         $penalty = (int) data_get($bonusInput, 'anti_fraud.penalty_percent', 70);
-        $keep    = (int) data_get($bonusInput, 'anti_fraud.keep_percent', 30);
+        $keep = (int) data_get($bonusInput, 'anti_fraud.keep_percent', 30);
 
         $penalty = max(0, min(100, $penalty));
-        $keep    = max(0, min(100, $keep));
+        $keep = max(0, min(100, $keep));
         if ($keep + $penalty !== 100) {
             $keep = 100 - $penalty;
             $keep = max(0, min(100, $keep));
@@ -260,18 +268,18 @@ class KpiPayrollController extends Controller
 
         $bonusConfig['anti_fraud'] = [
             'penalty_percent' => $penalty,
-            'keep_percent'    => $keep,
+            'keep_percent' => $keep,
         ];
 
         DB::transaction(function () use ($period, $rows, $ruleData, $bonusConfig) {
             foreach ($rows as $userId => $row) {
-                $userId = (int)$userId;
+                $userId = (int) $userId;
 
-                $baseSalary = (int)($row['base_salary'] ?? 0);
-                $kpiPool    = (int)($row['kpi_salary_pool'] ?? 0);
-                $tPost      = (int)($row['target_post'] ?? 0);
-                $tAi        = (int)($row['target_video_ai'] ?? 0);
-                $tReview    = (int)($row['target_video_review'] ?? 0);
+                $baseSalary = (int) ($row['base_salary'] ?? 0);
+                $kpiPool = (int) ($row['kpi_salary_pool'] ?? 0);
+                $tPost = (int) ($row['target_post'] ?? 0);
+                $tAi = (int) ($row['target_video_ai'] ?? 0);
+                $tReview = (int) ($row['target_video_review'] ?? 0);
 
                 if ($baseSalary === 0 && $kpiPool === 0 && $tPost === 0 && $tAi === 0 && $tReview === 0) {
                     continue;
@@ -328,7 +336,7 @@ class KpiPayrollController extends Controller
                 ->get();
 
             if ($request->filled('user_id')) {
-                $targetUserId = (int)$request->get('user_id');
+                $targetUserId = (int) $request->get('user_id');
                 $targetUser = User::findOrFail($targetUserId);
             }
         }
@@ -339,7 +347,7 @@ class KpiPayrollController extends Controller
             ->first();
 
         $rule = MarketingKpiPayRule::where('period', $period)->first();
-        if (!$rule) {
+        if (! $rule) {
             $rule = new MarketingKpiPayRule([
                 'period' => $period,
                 'weight_review' => 40,
@@ -352,7 +360,7 @@ class KpiPayrollController extends Controller
             ]);
         }
 
-        $bonusConfig = (array)($rule->bonus_config ?? []);
+        $bonusConfig = (array) ($rule->bonus_config ?? []);
 
         // ✅ Lấy fraud/note từ DB nếu có (còn KPI thực tế sẽ tính tự động)
         $actualDb = MarketingKpiPayActual::firstOrNew([
@@ -360,14 +368,16 @@ class KpiPayrollController extends Controller
             'user_id' => $targetUserId,
         ]);
 
-        if ($actualDb->is_fraud === null) $actualDb->is_fraud = false;
+        if ($actualDb->is_fraud === null) {
+            $actualDb->is_fraud = false;
+        }
 
         // ✅ Tính actual từ content_calendars + content_calendar_weekly_metrics (AUTO)
         $computed = $this->pullFromCalendarWithMetrics($period, $targetUserId);
 
-        $actualDb->actual_post = (int)($computed['actual_post'] ?? 0);
-        $actualDb->actual_video_ai = (int)($computed['actual_video_ai'] ?? 0);
-        $actualDb->actual_video_review = (int)($computed['actual_video_review'] ?? 0);
+        $actualDb->actual_post = (int) ($computed['actual_post'] ?? 0);
+        $actualDb->actual_video_ai = (int) ($computed['actual_video_ai'] ?? 0);
+        $actualDb->actual_video_review = (int) ($computed['actual_video_review'] ?? 0);
         $actualDb->trend_videos = $computed['trend_videos'] ?? [];
         $actualDb->livestreams = $computed['livestreams'] ?? [];
 
@@ -391,13 +401,13 @@ class KpiPayrollController extends Controller
     private function pullFromCalendarWithMetrics(string $period, int $userId): array
     {
         $start = Carbon::createFromFormat('Y-m', $period)->startOfMonth()->toDateString();
-        $end   = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->toDateString();
+        $end = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->toDateString();
 
         // chỉ lấy bài đã đăng
         $rows = DB::table('content_calendars as c')
             ->leftJoin('content_calendar_weekly_metrics as m', function ($join) {
                 $join->on('m.content_calendar_id', '=', 'c.id');
-                $join->whereRaw("m.week_start = DATE_SUB(DATE(c.publish_date), INTERVAL WEEKDAY(DATE(c.publish_date)) DAY)");
+                $join->whereRaw('m.week_start = DATE_SUB(DATE(c.publish_date), INTERVAL WEEKDAY(DATE(c.publish_date)) DAY)');
             })
             ->where('c.assignee_user_id', $userId)
             ->whereBetween('c.publish_date', [$start, $end])
@@ -422,7 +432,7 @@ class KpiPayrollController extends Controller
         $livestreams = [];
 
         foreach ($rows as $r) {
-            $ct = mb_strtolower(trim((string)($r->content_type ?? '')));
+            $ct = mb_strtolower(trim((string) ($r->content_type ?? '')));
 
             // --- COUNT KPI ---
             if (str_contains($ct, 'bài')) {
@@ -437,28 +447,29 @@ class KpiPayrollController extends Controller
                 }
             }
 
-            $views = (int)($r->views ?? 0);
-            $eng = (int)($r->likes ?? 0) + (int)($r->comments ?? 0) + (int)($r->shares ?? 0);
-            $durationMin = (int)($r->duration_min ?? 0);
+            $views = (int) ($r->views ?? 0);
+            $eng = (int) ($r->likes ?? 0) + (int) ($r->comments ?? 0) + (int) ($r->shares ?? 0);
+            $durationMin = (int) ($r->duration_min ?? 0);
 
             // livestream
             if (str_contains($ct, 'live')) {
                 $livestreams[] = [
-                    'title' => (string)($r->title ?? ''),
-                    'url' => (string)($r->link ?? ''),
+                    'title' => (string) ($r->title ?? ''),
+                    'url' => (string) ($r->link ?? ''),
                     'duration_min' => $durationMin, // ✅ lấy từ weekly_metrics
                     'views' => $views,
                     'engagement' => $eng,
-                    'lead_count' => (int)($r->leads ?? 0),
+                    'lead_count' => (int) ($r->leads ?? 0),
                 ];
+
                 continue;
             }
 
             // trend video: mọi video (bao gồm Video Review) đều được xét theo tier
             if (str_contains($ct, 'video') || str_contains($ct, 'review') || str_contains($ct, 'ai')) {
                 $trend_videos[] = [
-                    'title' => (string)($r->title ?? ''),
-                    'url' => (string)($r->link ?? ''),
+                    'title' => (string) ($r->title ?? ''),
+                    'url' => (string) ($r->link ?? ''),
                     'views' => $views,
                     'engagement' => $eng,
                 ];
@@ -485,12 +496,14 @@ class KpiPayrollController extends Controller
      */
     private function normalizeWeights($wReview, $wAi, $wPost): array
     {
-        $wReview = (float)$wReview;
-        $wAi = (float)$wAi;
-        $wPost = (float)$wPost;
+        $wReview = (float) $wReview;
+        $wAi = (float) $wAi;
+        $wPost = (float) $wPost;
 
         $sum = $wReview + $wAi + $wPost;
-        if ($sum <= 0) return [40, 30, 30];
+        if ($sum <= 0) {
+            return [40, 30, 30];
+        }
 
         $wReview = round($wReview * 100 / $sum, 4);
         $wAi = round($wAi * 100 / $sum, 4);
@@ -506,14 +519,15 @@ class KpiPayrollController extends Controller
     {
         $best = 0;
         foreach ($tiers as $t) {
-            $minView = (int)($t['min_view'] ?? 0);
-            $minEng = (int)($t['min_engagement'] ?? 0);
-            $reward = (int)($t['reward'] ?? 0);
+            $minView = (int) ($t['min_view'] ?? 0);
+            $minEng = (int) ($t['min_engagement'] ?? 0);
+            $reward = (int) ($t['reward'] ?? 0);
 
             if ($views >= $minView && $engagement >= $minEng) {
                 $best = max($best, $reward);
             }
         }
+
         return $best;
     }
 
@@ -524,26 +538,26 @@ class KpiPayrollController extends Controller
      */
     private function calcPayroll($setting, $rule, array $bonusConfig, MarketingKpiPayActual $actual): array
     {
-        $baseSalary = (int)($setting->base_salary ?? 0);
-        $pool = (int)($setting->kpi_salary_pool ?? 0);
+        $baseSalary = (int) ($setting->base_salary ?? 0);
+        $pool = (int) ($setting->kpi_salary_pool ?? 0);
 
-        $tPost = (int)($setting->target_post ?? 0);
-        $tAi = (int)($setting->target_video_ai ?? 0);
-        $tReview = (int)($setting->target_video_review ?? 0);
+        $tPost = (int) ($setting->target_post ?? 0);
+        $tAi = (int) ($setting->target_video_ai ?? 0);
+        $tReview = (int) ($setting->target_video_review ?? 0);
 
-        $aPost = (int)($actual->actual_post ?? 0);
-        $aAi = (int)($actual->actual_video_ai ?? 0);
-        $aReview = (int)($actual->actual_video_review ?? 0);
+        $aPost = (int) ($actual->actual_post ?? 0);
+        $aAi = (int) ($actual->actual_video_ai ?? 0);
+        $aReview = (int) ($actual->actual_video_review ?? 0);
 
-        $wReview = (float)($rule->weight_review ?? 40);
-        $wAi = (float)($rule->weight_ai ?? 30);
-        $wPost = (float)($rule->weight_post ?? 30);
+        $wReview = (float) ($rule->weight_review ?? 40);
+        $wAi = (float) ($rule->weight_ai ?? 30);
+        $wPost = (float) ($rule->weight_post ?? 30);
 
         [$wReview, $wAi, $wPost] = $this->normalizeWeights($wReview, $wAi, $wPost);
 
-        $boReview = (float)($rule->bonus_over_review ?? 3);
-        $boAi = (float)($rule->bonus_over_ai ?? 1);
-        $boPost = (float)($rule->bonus_over_post ?? 0.5);
+        $boReview = (float) ($rule->bonus_over_review ?? 3);
+        $boAi = (float) ($rule->bonus_over_ai ?? 1);
+        $boPost = (float) ($rule->bonus_over_post ?? 0.5);
 
         $calcOne = function (int $actualVal, int $targetVal, float $weight, float $bonusOver) {
             if ($targetVal <= 0) {
@@ -566,41 +580,45 @@ class KpiPayrollController extends Controller
             + $rReview['over'] + $rAi['over'] + $rPost['over'];
 
         $kpiRate = max(0.0, min(2.0, $kpiRate));
-        $kpiSalary = (int)round($pool * $kpiRate);
+        $kpiSalary = (int) round($pool * $kpiRate);
 
         // ✅ BONUS TREND
-        $tvTiers = (array)data_get($bonusConfig, 'trend_video.tiers', []);
+        $tvTiers = (array) data_get($bonusConfig, 'trend_video.tiers', []);
         $bonusTrend = 0;
-        foreach ((array)($actual->trend_videos ?? []) as $v) {
-            $views = (int)($v['views'] ?? $v['view'] ?? 0);
-            $eng = (int)($v['engagement'] ?? $v['engagements'] ?? 0);
+        foreach ((array) ($actual->trend_videos ?? []) as $v) {
+            $views = (int) ($v['views'] ?? $v['view'] ?? 0);
+            $eng = (int) ($v['engagement'] ?? $v['engagements'] ?? 0);
             $bonusTrend += $this->pickTierReward($tvTiers, $views, $eng);
         }
 
         // ✅ LIVESTREAM: dùng duration_min từ weekly_metrics
-        $lsMinDuration = (int)data_get($bonusConfig, 'livestream.min_duration_min', 0);
-        $lsLeadReward = (int)data_get($bonusConfig, 'livestream.lead_reward', 0);
-        $lsTiers = (array)data_get($bonusConfig, 'livestream.tiers', []);
+        $lsMinDuration = (int) data_get($bonusConfig, 'livestream.min_duration_min', 0);
+        $lsLeadReward = (int) data_get($bonusConfig, 'livestream.lead_reward', 0);
+        $lsTiers = (array) data_get($bonusConfig, 'livestream.tiers', []);
 
         $bonusLive = 0;
         $bonusLead = 0;
 
-        foreach ((array)($actual->livestreams ?? []) as $l) {
-            $duration = (int)($l['duration_min'] ?? $l['duration'] ?? 0);
-            if ($duration < $lsMinDuration) continue;
+        foreach ((array) ($actual->livestreams ?? []) as $l) {
+            $duration = (int) ($l['duration_min'] ?? $l['duration'] ?? 0);
+            if ($duration < $lsMinDuration) {
+                continue;
+            }
 
-            $views = (int)($l['views'] ?? $l['view'] ?? 0);
-            $eng = (int)($l['engagement'] ?? $l['engagements'] ?? 0);
+            $views = (int) ($l['views'] ?? $l['view'] ?? 0);
+            $eng = (int) ($l['engagement'] ?? $l['engagements'] ?? 0);
 
             $bonusLive += $this->pickTierReward($lsTiers, $views, $eng);
 
-            $leadCount = (int)($l['lead_count'] ?? $l['leads'] ?? $l['lead'] ?? 0);
-            if ($leadCount > 0) $bonusLead += $leadCount * $lsLeadReward;
+            $leadCount = (int) ($l['lead_count'] ?? $l['leads'] ?? $l['lead'] ?? 0);
+            if ($leadCount > 0) {
+                $bonusLead += $leadCount * $lsLeadReward;
+            }
         }
 
         $bonusTotal = $bonusTrend + $bonusLive + $bonusLead;
 
-        $keepPercent = (int)data_get($bonusConfig, 'anti_fraud.keep_percent', 100);
+        $keepPercent = (int) data_get($bonusConfig, 'anti_fraud.keep_percent', 100);
         $keepPercent = max(0, min(100, $keepPercent));
 
         $kpiPlusBonus = $kpiSalary + $bonusTotal;
@@ -608,8 +626,8 @@ class KpiPayrollController extends Controller
         $kpiPlusBonusAfter = $kpiPlusBonus;
         $penaltyAmount = 0;
 
-        if ((bool)$actual->is_fraud) {
-            $kpiPlusBonusAfter = (int)round($kpiPlusBonus * $keepPercent / 100);
+        if ((bool) $actual->is_fraud) {
+            $kpiPlusBonusAfter = (int) round($kpiPlusBonus * $keepPercent / 100);
             $penaltyAmount = $kpiPlusBonus - $kpiPlusBonusAfter;
         }
 

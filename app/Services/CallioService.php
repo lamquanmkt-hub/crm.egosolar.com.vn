@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\Services\CallioServiceInterface;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -9,7 +10,7 @@ use Illuminate\Support\Str;
 /**
  * Service tích hợp tổng đài Callio: lấy lịch sử cuộc gọi và link ghi âm.
  */
-class CallioService
+class CallioService implements CallioServiceInterface
 {
     /**
      * Kiểm tra Callio đã được cấu hình (base_url + token) hay chưa.
@@ -26,7 +27,7 @@ class CallioService
      */
     public function fetchCallsForDate(Carbon $date, int $page = 1, int $pageSize = 15, ?string $keyword = null): array
     {
-        if (!$this->enabled()) {
+        if (! $this->enabled()) {
             return [
                 'ok' => false,
                 'message' => 'Callio chưa được cấu hình.',
@@ -53,7 +54,7 @@ class CallioService
             $query['keyword'] = $keyword;
         }
 
-        $url = rtrim(config('services.callio.base_url'), '/') . '/call';
+        $url = rtrim(config('services.callio.base_url'), '/').'/call';
 
         $response = Http::timeout(20)
             ->acceptJson()
@@ -62,7 +63,7 @@ class CallioService
             ])
             ->get($url, $query);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return [
                 'ok' => false,
                 'message' => 'Không thể lấy dữ liệu cuộc gọi từ Callio.',
@@ -79,7 +80,7 @@ class CallioService
         $json = $response->json();
 
         $docs = collect($json['docs'] ?? [])->map(function ($item) {
-            $directionRaw = (string)($item['direction'] ?? '');
+            $directionRaw = (string) ($item['direction'] ?? '');
 
             $directionLabel = match ($directionRaw) {
                 '1' => 'Gọi vào',
@@ -88,10 +89,10 @@ class CallioService
                 default => 'Không rõ',
             };
 
-            $startTime = isset($item['startTime']) ? (int)$item['startTime'] : null;
-            $answerTime = isset($item['answerTime']) ? (int)$item['answerTime'] : null;
-            $endTime = isset($item['endTime']) ? (int)$item['endTime'] : null;
-            $duration = (int)($item['duration'] ?? 0);
+            $startTime = isset($item['startTime']) ? (int) $item['startTime'] : null;
+            $answerTime = isset($item['answerTime']) ? (int) $item['answerTime'] : null;
+            $endTime = isset($item['endTime']) ? (int) $item['endTime'] : null;
+            $duration = (int) ($item['duration'] ?? 0);
 
             $phone = match ($directionRaw) {
                 '1' => $item['fromNumber'] ?? '-', // gọi vào => số khách thường nằm ở fromNumber
@@ -124,8 +125,8 @@ class CallioService
                 'duration' => $duration,
                 'duration_human' => gmdate('H:i:s', max(0, $duration)),
                 'hangup_cause' => $item['hangupCause'] ?? null,
-                'recording_duration' => (int)($item['recordingDuration'] ?? 0),
-                'has_recording' => (int)($item['recordingDuration'] ?? 0) > 0,
+                'recording_duration' => (int) ($item['recordingDuration'] ?? 0),
+                'has_recording' => (int) ($item['recordingDuration'] ?? 0) > 0,
                 'raw' => $item,
             ];
         })->values()->all();
@@ -151,7 +152,7 @@ class CallioService
      */
     public function fetchRecordingUrl(string $callId): array
     {
-        if (!$this->enabled()) {
+        if (! $this->enabled()) {
             return [
                 'ok' => false,
                 'message' => 'Callio chưa được cấu hình.',
@@ -159,7 +160,7 @@ class CallioService
             ];
         }
 
-        $url = rtrim(config('services.callio.base_url'), '/') . '/call/' . $callId . '/recording';
+        $url = rtrim(config('services.callio.base_url'), '/').'/call/'.$callId.'/recording';
 
         $response = Http::timeout(20)
             ->acceptJson()
@@ -168,7 +169,7 @@ class CallioService
             ])
             ->get($url);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return [
                 'ok' => false,
                 'message' => 'Không thể lấy link ghi âm.',

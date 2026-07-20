@@ -3,7 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\Payments\PaymentMethod;
-use App\Repositories\Interfaces\PaymentMethodRepositoryInterface;
+use App\Contracts\Repositories\PaymentMethodRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
