@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Finance;
 
 use App\Contracts\Services\SupplierDebtServiceInterface;
+use App\Enums\SupplierDebtStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -281,19 +282,10 @@ class SupplierDebtService implements SupplierDebtServiceInterface
         }
 
         $totalAmount = (float) ($debt->total_amount ?? 0);
-        $remainAmount = max($totalAmount - $paidAmount, 0);
-
-        $status = 'unpaid';
-
-        if ($remainAmount <= 0 && $totalAmount > 0) {
-            $status = 'paid';
-        } elseif ($paidAmount > 0 || $pendingAmount > 0) {
-            $status = 'partial';
-        }
 
         $payload = [
             'paid_amount' => $paidAmount,
-            'status' => $status,
+            'status' => SupplierDebtStatus::fromAmounts($totalAmount, $paidAmount, $pendingAmount)->value,
             'updated_at' => now(),
         ];
 

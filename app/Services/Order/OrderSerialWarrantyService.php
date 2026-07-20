@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Order;
 
+use App\Enums\SerialUnitState;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -66,7 +67,7 @@ class OrderSerialWarrantyService
                 ->leftJoin('crm_warehouses as w', 'w.id', '=', 'st.warehouse_id')
                 ->where('su.product_id', (int) $item->product_id)
                 ->where('sui.is_primary', 1)
-                ->where('st.state', 'in_stock');
+                ->where('st.state', SerialUnitState::IN_STOCK->value);
 
             if ($warehouseId > 0) {
                 $serialQ->where('st.warehouse_id', $warehouseId);
@@ -185,7 +186,7 @@ class OrderSerialWarrantyService
             ['serial_unit_id' => $unitId],
             [
                 'warehouse_id' => null,
-                'state' => 'sold',
+                'state' => SerialUnitState::SOLD->value,
                 'synced_at' => now(),
             ]
         );
@@ -230,8 +231,8 @@ class OrderSerialWarrantyService
                 'serial_unit_id' => $unitId,
                 'serial_code' => $code,
                 'event_type' => 'issue',
-                'from_state' => $oldState->state ?? 'in_stock',
-                'to_state' => 'sold',
+                'from_state' => $oldState->state ?? SerialUnitState::IN_STOCK->value,
+                'to_state' => SerialUnitState::SOLD->value,
                 'from_warehouse_id' => $oldState->warehouse_id ?? null,
                 'to_warehouse_id' => null,
                 'customer_id' => $customerId ?: null,

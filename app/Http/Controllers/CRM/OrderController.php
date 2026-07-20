@@ -9,6 +9,8 @@ use App\Contracts\Services\OrderServiceInterface;
 use App\Contracts\Services\PricingServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\WarehouseServiceInterface;
+use App\DTOs\Order\WarehouseIssueDTO;
+use App\Enums\ShippingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OrderRequest;
 use App\Models\Core\Company;
@@ -761,8 +763,8 @@ class OrderController extends Controller
             ! empty($data['shipping_fee_warehouse_to_station']) ||
             ! empty($data['shipping_fee_station_to_customer']);
 
-                if ($hasShippingInput && ($order->shipping_status ?? null) !== 'shipped') {
-                    $updateData['shipping_status'] = 'ready';
+                if ($hasShippingInput && ($order->shipping_status ?? null) !== ShippingStatus::SHIPPED->value) {
+                    $updateData['shipping_status'] = ShippingStatus::READY->value;
                 }
 
                 $order->forceFill($updateData)->save();
@@ -793,7 +795,7 @@ class OrderController extends Controller
             $order->update([
                 'is_shipped' => true,
                 'shipped_at' => now(),
-                'shipping_status' => 'shipped',
+                'shipping_status' => ShippingStatus::SHIPPED->value,
             ]);
 
             return redirect()->back()->with('success', 'Đơn hàng đã được đánh dấu là đã vận chuyển.');
@@ -820,23 +822,22 @@ class OrderController extends Controller
             'warranty_months' => ['nullable', 'integer', 'min:1', 'max:240'],
         ]);
 
+        $issue = WarehouseIssueDTO::fromArray($data);
+
         try {
-            DB::transaction(function () use ($id, $data) {
+            DB::transaction(function () use ($id, $issue) {
                 $this->stockGuard->assertOrderStockAvailable((int) $id, true);
 
-                $this->serialWarrantyService->validateSerialSelection((int) $id, $data['serials'] ?? []);
+                $this->serialWarrantyService->validateSerialSelection((int) $id, $issue->serials);
 
-                $this->orderService->shipOrder((int) $id, [
-                    'shipping_note' => $data['shipping_note'] ?? null,
-                    'serials' => $data['serials'] ?? [],
-                ]);
+                $this->orderService->shipOrder((int) $id, $issue->toShipOrderPayload());
 
                 $this->serialWarrantyService->activateWarrantyForOrder(
                     (int) $id,
-                    $data['serials'] ?? [],
-                    $data['actual_ship_date'] ?? now()->toDateString(),
-                    (int) ($data['warranty_months'] ?? 60),
-                    $data['shipping_note'] ?? null
+                    $issue->serials,
+                    $issue->actualShipDate,
+                    $issue->warrantyMonths,
+                    $issue->shippingNote
                 );
             });
 

@@ -6,6 +6,8 @@ namespace App\Services\Order;
 
 use App\Contracts\Repositories\OrderRepositoryInterface;
 use App\Enums\OrderDepartment;
+use App\Enums\SerialUnitState;
+use App\Enums\ShippingStatus;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderApproval;
@@ -63,7 +65,7 @@ class OrderInventoryHandler
                 'inventory_issued' => true,
                 'inventory_issued_at' => now(),
                 'inventory_issued_by' => Auth::id(),
-                'shipping_status' => 'ready',
+                'shipping_status' => ShippingStatus::READY->value,
             ]);
             $approvalHandler = app(OrderApprovalHandler::class);
             $approvalHandler->transitionToDepartment($order, OrderDepartment::COMPLETED);
@@ -200,7 +202,7 @@ class OrderInventoryHandler
                 ->whereIn('serial_unit_id', $serialUnitIds)
                 ->where('warehouse_id', $warehouseId)
                 ->update([
-                    'state' => 'removed',
+                    'state' => SerialUnitState::REMOVED->value,
                     'synced_at' => now(),
                 ]);
         }
