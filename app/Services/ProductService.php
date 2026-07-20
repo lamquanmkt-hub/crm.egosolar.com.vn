@@ -485,7 +485,7 @@ class ProductService implements ProductServiceInterface
                     }
 
                     // Với hàng serial vẫn tạo/đồng bộ lô để có giá vốn và FIFO báo cáo.
-                    app(\App\Services\StockLotService::class)->syncManualStock(
+                    app(\App\Services\Inventory\Stock\StockLotService::class)->syncManualStock(
                         $product,
                         $companyId,
                         $warehouseId,
@@ -501,7 +501,7 @@ class ProductService implements ProductServiceInterface
                 // Tồn tổng vẫn nằm ở crm_product_stock.
                 // Nếu số lượng tăng: tạo lô mới theo giá vốn hiện tại.
                 // Nếu số lượng giảm: trừ các lô cũ nhất trước.
-                app(\App\Services\StockLotService::class)->syncManualStock(
+                app(\App\Services\Inventory\Stock\StockLotService::class)->syncManualStock(
                     $product,
                     $companyId,
                     $warehouseId,

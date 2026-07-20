@@ -143,7 +143,7 @@ class OrderInventoryHandler
         $order->loadMissing(['items.product']);
 
         foreach ($order->items as $item) {
-            app(\App\Services\StockLotService::class)->issueOrderItemFifo($order, $item);
+            app(\App\Services\Inventory\Stock\StockLotService::class)->issueOrderItemFifo($order, $item);
         }
     }
 

@@ -17,8 +17,8 @@ use Throwable;
  * - Chuyển đổi exception sang thông báo thân thiện cho user
  * - Hỗ trợ cả throw & no-throw patterns
  *
- * @used-by \App\Http\Controllers\OrderController
- * @used-by \App\Http\Controllers\CustomerController
+ * @used-by \App\Http\Controllers\CRM\OrderController
+ * @used-by \App\Http\Controllers\CRM\CustomerController
  */
 trait HandleException
 {

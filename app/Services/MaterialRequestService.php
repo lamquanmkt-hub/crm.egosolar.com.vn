@@ -510,7 +510,7 @@ class MaterialRequestService
             $costBeforeVat = (float) ($product->price_agent ?? $product->price ?? 0);
             $vatPercent = (float) ($product->cost_vat_percent ?? $product->vat_percent ?? 0);
 
-            $lotId = app(\App\Services\StockLotService::class)->receiveLot(
+            $lotId = app(\App\Services\Inventory\Stock\StockLotService::class)->receiveLot(
                 $product,
                 $companyId,
                 $warehouseId,
@@ -527,7 +527,7 @@ class MaterialRequestService
                 ]
             );
 
-            app(\App\Services\StockLotService::class)->issueLots(
+            app(\App\Services\Inventory\Stock\StockLotService::class)->issueLots(
                 $productId,
                 $companyId > 0 ? $companyId : null,
                 $warehouseId,
@@ -648,7 +648,7 @@ class MaterialRequestService
         if (Schema::hasTable('crm_product_stock_lots')) {
             $companyId = $this->warehouseCompanyId($warehouseId);
 
-            app(\App\Services\StockLotService::class)->issueLots(
+            app(\App\Services\Inventory\Stock\StockLotService::class)->issueLots(
                 $productId,
                 $companyId > 0 ? $companyId : null,
                 $warehouseId,

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth'])
     ->prefix('bao-gia')
     ->name('sales-quotations.')
-    ->controller(\App\Http\Controllers\SalesQuotationController::class)
+    ->controller(\App\Http\Controllers\CRM\SalesQuotationController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/tao', 'create')->name('create');
@@ -45,12 +45,12 @@ Route::middleware(['auth'])
 // Auth
 use App\Http\Controllers\Auth\LoginController;
 // Core
-use App\Http\Controllers\BrandController;
-use App\Http\Controllers\ChatController;
-use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DebugController;
+use App\Http\Controllers\Inventory\BrandController;
+use App\Http\Controllers\System\ChatController;
+use App\Http\Controllers\System\CompanyController;
+use App\Http\Controllers\CRM\CustomerController;
+use App\Http\Controllers\Hr\DashboardController;
+use App\Http\Controllers\System\DebugController;
 use App\Http\Controllers\Finance\AccountController;
 use App\Http\Controllers\Finance\BudgetController;
 use App\Http\Controllers\Finance\CustomerDebtController;
@@ -71,35 +71,35 @@ use App\Http\Controllers\Marketing\MarketingProgressController;
 use App\Http\Controllers\Marketing\MarketingReportController;
 use App\Http\Controllers\Marketing\WeeklyTaskController;
 // Debug & Utils (Refactored)
-use App\Http\Controllers\MaterialRequestController;
-use App\Http\Controllers\MediaController;
+use App\Http\Controllers\Projects\MaterialRequestController;
+use App\Http\Controllers\System\MediaController;
 // Marketing
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\PaymentAttachmentController;
-use App\Http\Controllers\PaymentMethodController;
-use App\Http\Controllers\PaymentRequestApprovalController;
-use App\Http\Controllers\PaymentRequestController;
-use App\Http\Controllers\PriceTierController;
-use App\Http\Controllers\ProductCategoryController;
+use App\Http\Controllers\System\NotificationController;
+use App\Http\Controllers\CRM\OrderController;
+use App\Http\Controllers\Finance\PaymentAttachmentController;
+use App\Http\Controllers\Finance\PaymentMethodController;
+use App\Http\Controllers\Finance\PaymentRequestApprovalController;
+use App\Http\Controllers\Finance\PaymentRequestController;
+use App\Http\Controllers\Inventory\PriceTierController;
+use App\Http\Controllers\Inventory\ProductCategoryController;
 // Finance
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\PushSubscriptionController;
-use App\Http\Controllers\SalesCommissionController;
-use App\Http\Controllers\SiteController;
-use App\Http\Controllers\SolarCalculatorController;
-use App\Http\Controllers\SolarSettingController;
-use App\Http\Controllers\TaskController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\Inventory\ProductController;
+use App\Http\Controllers\System\PushSubscriptionController;
+use App\Http\Controllers\CRM\SalesCommissionController;
+use App\Http\Controllers\Projects\SiteController;
+use App\Http\Controllers\Solar\SolarCalculatorController;
+use App\Http\Controllers\Solar\SolarSettingController;
+use App\Http\Controllers\Tasks\TaskController;
+use App\Http\Controllers\System\UserController;
 // Solar
-use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\Inventory\WarehouseController;
 use Illuminate\Support\Facades\Schema;
 
 /* EGO_COMPANY_CONTEXT_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
-    Route::get('/chon-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'select'])->name('company-context.select');
-    Route::post('/chon-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'store'])->name('company-context.store');
-    Route::post('/doi-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');
+    Route::get('/chon-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'select'])->name('company-context.select');
+    Route::post('/chon-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'store'])->name('company-context.store');
+    Route::post('/doi-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');
 });
 /* EGO_COMPANY_CONTEXT_ROUTES_END */
 
@@ -168,12 +168,12 @@ Route::middleware(['auth'])->group(function () {
 
 /* EGO_COMPANY_MANAGEMENT_START */
 Route::middleware(['auth'])->prefix('company-management')->name('company-management.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\CompanyManagementController::class, 'index'])->name('index');
-    Route::get('/create', [\App\Http\Controllers\CompanyManagementController::class, 'create'])->name('create');
-    Route::post('/', [\App\Http\Controllers\CompanyManagementController::class, 'store'])->name('store');
-    Route::get('/{company}/edit', [\App\Http\Controllers\CompanyManagementController::class, 'edit'])->name('edit');
-    Route::put('/{company}', [\App\Http\Controllers\CompanyManagementController::class, 'update'])->name('update');
-    Route::delete('/{company}', [\App\Http\Controllers\CompanyManagementController::class, 'destroy'])->name('destroy');
+    Route::get('/', [\App\Http\Controllers\System\CompanyManagementController::class, 'index'])->name('index');
+    Route::get('/create', [\App\Http\Controllers\System\CompanyManagementController::class, 'create'])->name('create');
+    Route::post('/', [\App\Http\Controllers\System\CompanyManagementController::class, 'store'])->name('store');
+    Route::get('/{company}/edit', [\App\Http\Controllers\System\CompanyManagementController::class, 'edit'])->name('edit');
+    Route::put('/{company}', [\App\Http\Controllers\System\CompanyManagementController::class, 'update'])->name('update');
+    Route::delete('/{company}', [\App\Http\Controllers\System\CompanyManagementController::class, 'destroy'])->name('destroy');
 });
 /* EGO_COMPANY_MANAGEMENT_END */
 
@@ -540,7 +540,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth'])
         ->prefix('customer-profiles')
         ->name('customer-profiles.')
-        ->controller(\App\Http\Controllers\CustomerProfileController::class)
+        ->controller(\App\Http\Controllers\CRM\CustomerProfileController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
@@ -586,7 +586,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth'])
         ->prefix('products/serials')
         ->name('products.serials.')
-        ->controller(\App\Http\Controllers\ProductSerialManagementController::class)
+        ->controller(\App\Http\Controllers\Inventory\ProductSerialManagementController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/export', 'export')->name('export');
@@ -597,7 +597,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth', 'role:admin|warehouse|accounting'])
         ->prefix('products/goods-receipts')
         ->name('product-goods-receipts.')
-        ->controller(\App\Http\Controllers\ProductGoodsReceiptController::class)
+        ->controller(\App\Http\Controllers\Inventory\ProductGoodsReceiptController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->name('store');
@@ -627,7 +627,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])
     ->prefix('orders')
     ->name('orders.')
-    ->controller(\App\Http\Controllers\OrderController::class)
+    ->controller(\App\Http\Controllers\CRM\OrderController::class)
     ->group(function () {
 
         // ✅ NEW: Search khách hàng cho dropdown (Tom Select)
@@ -644,11 +644,11 @@ Route::middleware(['auth'])
         Route::post('/{order}/invoice', 'updateInvoice')
             ->whereNumber('order')
             ->name('updateInvoice');
-        Route::get('/{order}/returns/create', [\App\Http\Controllers\OrderReturnController::class, 'create'])
+        Route::get('/{order}/returns/create', [\App\Http\Controllers\CRM\OrderReturnController::class, 'create'])
             ->whereNumber('order')
             ->name('returns.create');
 
-        Route::post('/{order}/returns', [\App\Http\Controllers\OrderReturnController::class, 'store'])
+        Route::post('/{order}/returns', [\App\Http\Controllers\CRM\OrderReturnController::class, 'store'])
             ->whereNumber('order')
             ->name('returns.store');
 
@@ -692,22 +692,22 @@ Route::middleware(['auth'])
 
 /* EGO_ORDER_AFTER_SALES_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
-    Route::get('/order-returns', [\App\Http\Controllers\OrderReturnController::class, 'dashboard'])->name('order-returns.dashboard');
-    Route::get('/orders/{order}/returns', [\App\Http\Controllers\OrderReturnController::class, 'index'])->name('orders.returns.index');
-    Route::post('/order-returns/{orderReturn}/submit', [\App\Http\Controllers\OrderReturnController::class, 'submit'])->name('order-returns.submit');
-    Route::post('/order-returns/{orderReturn}/approve', [\App\Http\Controllers\OrderReturnController::class, 'approve'])->name('order-returns.approve');
-    Route::post('/order-returns/{orderReturn}/reject', [\App\Http\Controllers\OrderReturnController::class, 'reject'])->name('order-returns.reject');
-    Route::post('/order-returns/{orderReturn}/revision', [\App\Http\Controllers\OrderReturnController::class, 'requestRevision'])->name('order-returns.revision');
-    Route::post('/order-returns/{orderReturn}/in-transit', [\App\Http\Controllers\OrderReturnController::class, 'markInTransit'])->name('order-returns.in-transit');
-    Route::post('/order-returns/{orderReturn}/receive', [\App\Http\Controllers\OrderReturnController::class, 'receive'])->name('order-returns.receive');
-    Route::post('/order-returns/{orderReturn}/inspect', [\App\Http\Controllers\OrderReturnController::class, 'inspect'])->name('order-returns.inspect');
-    Route::post('/order-returns/{orderReturn}/stock-in', [\App\Http\Controllers\OrderReturnController::class, 'stockIn'])->name('order-returns.stock-in');
-    Route::post('/order-returns/{orderReturn}/attachments', [\App\Http\Controllers\OrderReturnController::class, 'upload'])->name('order-returns.upload');
-    Route::get('/order-return-attachments/{attachment}/download', [\App\Http\Controllers\OrderReturnController::class, 'download'])->name('order-returns.attachments.download');
-    Route::post('/order-returns/{orderReturn}/refunds', [\App\Http\Controllers\OrderReturnController::class, 'createRefund'])->name('order-returns.refunds.store');
-    Route::post('/order-refunds/{refund}/approve', [\App\Http\Controllers\OrderReturnController::class, 'approveRefund'])->name('order-refunds.approve');
-    Route::post('/order-refunds/{refund}/process', [\App\Http\Controllers\OrderReturnController::class, 'processRefund'])->name('order-refunds.process');
-    Route::get('/order-returns/{orderReturn}', [\App\Http\Controllers\OrderReturnController::class, 'show'])->name('order-returns.show');
+    Route::get('/order-returns', [\App\Http\Controllers\CRM\OrderReturnController::class, 'dashboard'])->name('order-returns.dashboard');
+    Route::get('/orders/{order}/returns', [\App\Http\Controllers\CRM\OrderReturnController::class, 'index'])->name('orders.returns.index');
+    Route::post('/order-returns/{orderReturn}/submit', [\App\Http\Controllers\CRM\OrderReturnController::class, 'submit'])->name('order-returns.submit');
+    Route::post('/order-returns/{orderReturn}/approve', [\App\Http\Controllers\CRM\OrderReturnController::class, 'approve'])->name('order-returns.approve');
+    Route::post('/order-returns/{orderReturn}/reject', [\App\Http\Controllers\CRM\OrderReturnController::class, 'reject'])->name('order-returns.reject');
+    Route::post('/order-returns/{orderReturn}/revision', [\App\Http\Controllers\CRM\OrderReturnController::class, 'requestRevision'])->name('order-returns.revision');
+    Route::post('/order-returns/{orderReturn}/in-transit', [\App\Http\Controllers\CRM\OrderReturnController::class, 'markInTransit'])->name('order-returns.in-transit');
+    Route::post('/order-returns/{orderReturn}/receive', [\App\Http\Controllers\CRM\OrderReturnController::class, 'receive'])->name('order-returns.receive');
+    Route::post('/order-returns/{orderReturn}/inspect', [\App\Http\Controllers\CRM\OrderReturnController::class, 'inspect'])->name('order-returns.inspect');
+    Route::post('/order-returns/{orderReturn}/stock-in', [\App\Http\Controllers\CRM\OrderReturnController::class, 'stockIn'])->name('order-returns.stock-in');
+    Route::post('/order-returns/{orderReturn}/attachments', [\App\Http\Controllers\CRM\OrderReturnController::class, 'upload'])->name('order-returns.upload');
+    Route::get('/order-return-attachments/{attachment}/download', [\App\Http\Controllers\CRM\OrderReturnController::class, 'download'])->name('order-returns.attachments.download');
+    Route::post('/order-returns/{orderReturn}/refunds', [\App\Http\Controllers\CRM\OrderReturnController::class, 'createRefund'])->name('order-returns.refunds.store');
+    Route::post('/order-refunds/{refund}/approve', [\App\Http\Controllers\CRM\OrderReturnController::class, 'approveRefund'])->name('order-refunds.approve');
+    Route::post('/order-refunds/{refund}/process', [\App\Http\Controllers\CRM\OrderReturnController::class, 'processRefund'])->name('order-refunds.process');
+    Route::get('/order-returns/{orderReturn}', [\App\Http\Controllers\CRM\OrderReturnController::class, 'show'])->name('order-returns.show');
 });
 /* EGO_ORDER_AFTER_SALES_ROUTES_END */
 
@@ -750,7 +750,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::match(['put', 'patch'], '/payment-requests/{id}', function (\Illuminate\Http\Request $request, $id) use ($egoThaoCanFullPaymentRequest, $egoMoneyToNumber) {
         if (! $egoThaoCanFullPaymentRequest()) {
-            return app(\App\Http\Controllers\PaymentRequestController::class)->update($request, $id);
+            return app(\App\Http\Controllers\Finance\PaymentRequestController::class)->update($request, $id);
         }
 
         $id = (int) $id;
@@ -903,7 +903,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::match(['post', 'delete'], '/payment-requests/{id}', function ($id) use ($egoThaoCanFullPaymentRequest) {
         if (! $egoThaoCanFullPaymentRequest()) {
-            return app(\App\Http\Controllers\PaymentRequestController::class)->destroy($id);
+            return app(\App\Http\Controllers\Finance\PaymentRequestController::class)->destroy($id);
         }
 
         $id = (int) $id;
@@ -965,26 +965,26 @@ Route::middleware(['auth'])->group(function () {
 
 /* EGO_THAO_PR_ATTACHMENTS_START */
 Route::middleware(['auth'])->group(function () {
-    Route::get('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/download', [\App\Http\Controllers\EgoPaymentRequestAttachmentController::class, 'download'])
+    Route::get('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/download', [\App\Http\Controllers\Finance\EgoPaymentRequestAttachmentController::class, 'download'])
         ->whereNumber('paymentRequest')
         ->whereNumber('attachment')
         ->name('payment-requests.attachments-thao.download');
 
-    Route::get('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/preview', [\App\Http\Controllers\EgoPaymentRequestAttachmentPreviewController::class, 'show'])
+    Route::get('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/preview', [\App\Http\Controllers\Finance\EgoPaymentRequestAttachmentPreviewController::class, 'show'])
         ->whereNumber('paymentRequest')
         ->whereNumber('attachment')
         ->name('payment-requests.attachments-thao.preview');
 
-    Route::post('/payment-requests/{paymentRequest}/attachments-thao', [\App\Http\Controllers\EgoPaymentRequestAttachmentController::class, 'upload'])
+    Route::post('/payment-requests/{paymentRequest}/attachments-thao', [\App\Http\Controllers\Finance\EgoPaymentRequestAttachmentController::class, 'upload'])
         ->whereNumber('paymentRequest')
         ->name('payment-requests.attachments-thao.upload');
 
-    Route::post('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/cap-nhat', [\App\Http\Controllers\EgoPaymentRequestAttachmentController::class, 'replace'])
+    Route::post('/payment-requests/{paymentRequest}/attachments-thao/{attachment}/cap-nhat', [\App\Http\Controllers\Finance\EgoPaymentRequestAttachmentController::class, 'replace'])
         ->whereNumber('paymentRequest')
         ->whereNumber('attachment')
         ->name('payment-requests.attachments-thao.replace');
 
-    Route::match(['post', 'delete'], '/payment-requests/{paymentRequest}/attachments-thao/{attachment}/xoa', [\App\Http\Controllers\EgoPaymentRequestAttachmentController::class, 'destroy'])
+    Route::match(['post', 'delete'], '/payment-requests/{paymentRequest}/attachments-thao/{attachment}/xoa', [\App\Http\Controllers\Finance\EgoPaymentRequestAttachmentController::class, 'destroy'])
         ->whereNumber('paymentRequest')
         ->whereNumber('attachment')
         ->name('payment-requests.attachments-thao.destroy');
@@ -1566,31 +1566,31 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|manager'])
     ->name('ky-thuat.luong.')
     ->group(function () {
 
-        Route::get('/', [\App\Http\Controllers\TechnicalPayrollController::class, 'index'])
+        Route::get('/', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'index'])
             ->name('index');
 
-        Route::post('/luu', [\App\Http\Controllers\TechnicalPayrollController::class, 'store'])
+        Route::post('/luu', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'store'])
             ->name('store');
 
-        Route::get('/settings', [\App\Http\Controllers\TechnicalPayrollController::class, 'settings'])
+        Route::get('/settings', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'settings'])
             ->name('settings');
 
-        Route::post('/settings', [\App\Http\Controllers\TechnicalPayrollController::class, 'saveSettings'])
+        Route::post('/settings', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'saveSettings'])
             ->name('settings.save');
 
-        Route::get('/{id}', [\App\Http\Controllers\TechnicalPayrollController::class, 'show'])
+        Route::get('/{id}', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'show'])
             ->whereNumber('id')
             ->name('show');
 
-        Route::get('/{id}/edit', [\App\Http\Controllers\TechnicalPayrollController::class, 'edit'])
+        Route::get('/{id}/edit', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'edit'])
             ->whereNumber('id')
             ->name('edit');
 
-        Route::post('/{id}/update', [\App\Http\Controllers\TechnicalPayrollController::class, 'update'])
+        Route::post('/{id}/update', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'update'])
             ->whereNumber('id')
             ->name('update');
 
-        Route::post('/{id}/approve', [\App\Http\Controllers\TechnicalPayrollController::class, 'approve'])
+        Route::post('/{id}/approve', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'approve'])
             ->whereNumber('id')
             ->name('approve');
 
@@ -1639,28 +1639,28 @@ Route::middleware(['auth'])
     ->name('de-xuat.')
     ->group(function () {
 
-        Route::get('/', [\App\Http\Controllers\ProposalController::class, 'index'])
+        Route::get('/', [\App\Http\Controllers\Projects\ProposalController::class, 'index'])
             ->name('index');
 
-        Route::get('/tao', [\App\Http\Controllers\ProposalController::class, 'create'])
+        Route::get('/tao', [\App\Http\Controllers\Projects\ProposalController::class, 'create'])
             ->name('create');
 
-        Route::post('/luu', [\App\Http\Controllers\ProposalController::class, 'store'])
+        Route::post('/luu', [\App\Http\Controllers\Projects\ProposalController::class, 'store'])
             ->name('store');
 
-        Route::get('/{id}', [\App\Http\Controllers\ProposalController::class, 'show'])
+        Route::get('/{id}', [\App\Http\Controllers\Projects\ProposalController::class, 'show'])
             ->whereNumber('id')
             ->name('show');
 
-        Route::post('/{id}/duyet', [\App\Http\Controllers\ProposalController::class, 'approve'])
+        Route::post('/{id}/duyet', [\App\Http\Controllers\Projects\ProposalController::class, 'approve'])
             ->whereNumber('id')
             ->name('approve');
 
-        Route::post('/{id}/tu-choi', [\App\Http\Controllers\ProposalController::class, 'reject'])
+        Route::post('/{id}/tu-choi', [\App\Http\Controllers\Projects\ProposalController::class, 'reject'])
             ->whereNumber('id')
             ->name('reject');
 
-        Route::post('/{id}/xoa', [\App\Http\Controllers\ProposalController::class, 'destroy'])
+        Route::post('/{id}/xoa', [\App\Http\Controllers\Projects\ProposalController::class, 'destroy'])
             ->whereNumber('id')
             ->name('destroy');
     });
@@ -1692,7 +1692,7 @@ Route::middleware(['auth'])
 Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales'])
     ->prefix('cong-trinh/lap-rap-san-xuat')
     ->name('site-assemblies.')
-    ->controller(\App\Http\Controllers\SiteAssemblyController::class)
+    ->controller(\App\Http\Controllers\Projects\SiteAssemblyController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
@@ -1710,11 +1710,11 @@ require __DIR__.'/hr.php';
 //    return 'Opcache not enabled';
 // });
 
-Route::post('/ky-thuat/luong/settings/kpi-items', [\App\Http\Controllers\TechnicalPayrollController::class, 'saveKpiItems'])
+Route::post('/ky-thuat/luong/settings/kpi-items', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'saveKpiItems'])
     ->middleware(['auth', 'role:admin|accounting|manager'])
     ->name('ky-thuat.luong.settings.kpi-items');
 
-Route::delete('/ky-thuat/luong/settings/kpi-items/{id}', [\App\Http\Controllers\TechnicalPayrollController::class, 'destroyKpiItem'])
+Route::delete('/ky-thuat/luong/settings/kpi-items/{id}', [\App\Http\Controllers\TechnicalKpi\TechnicalPayrollController::class, 'destroyKpiItem'])
     ->middleware(['auth', 'role:admin|accounting|manager'])
     ->name('ky-thuat.luong.settings.kpi-items.destroy');
 
@@ -1722,7 +1722,7 @@ Route::delete('/ky-thuat/luong/settings/kpi-items/{id}', [\App\Http\Controllers\
 Route::middleware(['auth'])
     ->prefix('sales/work-reports')
     ->name('sales.work-reports.')
-    ->controller(\App\Http\Controllers\SalesWorkReportController::class)
+    ->controller(\App\Http\Controllers\CRM\SalesWorkReportController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/tao', 'create')->name('create');
@@ -2401,7 +2401,7 @@ Route::middleware(['auth'])
 Route::middleware(['auth'])
     ->prefix('serial-warranty')
     ->name('serial-warranty.')
-    ->controller(\App\Http\Controllers\SerialWarrantyController::class)
+    ->controller(\App\Http\Controllers\Inventory\SerialWarrantyController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/lookup', 'lookup')->name('lookup');
@@ -2423,7 +2423,7 @@ Route::middleware(['auth'])
 Route::middleware(['auth', 'role:admin|sales|sales_manager|marketing|marketing_manager|ky_thuat|accounting|assistant|tro_ly|management|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho'])
     ->prefix('company-documents')
     ->name('company-documents.')
-    ->controller(\App\Http\Controllers\CompanyDocumentController::class)
+    ->controller(\App\Http\Controllers\System\CompanyDocumentController::class)
     ->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/folders', 'storeFolder')->name('folders.store');
@@ -2432,7 +2432,7 @@ Route::middleware(['auth', 'role:admin|sales|sales_manager|marketing|marketing_m
         Route::post('/clipboard', 'setClipboard')->name('clipboard.set');
         Route::post('/clipboard/clear', 'clearClipboard')->name('clipboard.clear');
         Route::post('/paste', 'paste')->name('paste');
-        Route::get('/files/{file}/preview', [\App\Http\Controllers\CompanyDocumentPreviewController::class, '__invoke'])->whereNumber('file')->name('files.preview');
+        Route::get('/files/{file}/preview', [\App\Http\Controllers\System\CompanyDocumentPreviewController::class, '__invoke'])->whereNumber('file')->name('files.preview');
         Route::get('/files/{file}/download', 'download')->whereNumber('file')->name('files.download');
         Route::delete('/files/{file}', 'destroyFile')->whereNumber('file')->name('files.destroy');
     });
@@ -2440,21 +2440,21 @@ Route::middleware(['auth', 'role:admin|sales|sales_manager|marketing|marketing_m
 
 /* EGO_ORDER_DOCUMENTS_PROFILE_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
-    Route::post('/orders/{order}/documents-ego', [\App\Http\Controllers\EgoOrderDocumentController::class, 'store'])
+    Route::post('/orders/{order}/documents-ego', [\App\Http\Controllers\CRM\EgoOrderDocumentController::class, 'store'])
         ->whereNumber('order')
         ->name('orders.documents-ego.store');
 
-    Route::get('/orders/{order}/documents-ego/{document}/preview', [\App\Http\Controllers\EgoOrderDocumentController::class, 'preview'])
+    Route::get('/orders/{order}/documents-ego/{document}/preview', [\App\Http\Controllers\CRM\EgoOrderDocumentController::class, 'preview'])
         ->whereNumber('order')
         ->whereNumber('document')
         ->name('orders.documents-ego.preview');
 
-    Route::get('/orders/{order}/documents-ego/{document}/download', [\App\Http\Controllers\EgoOrderDocumentController::class, 'download'])
+    Route::get('/orders/{order}/documents-ego/{document}/download', [\App\Http\Controllers\CRM\EgoOrderDocumentController::class, 'download'])
         ->whereNumber('order')
         ->whereNumber('document')
         ->name('orders.documents-ego.download');
 
-    Route::match(['post', 'delete'], '/orders/{order}/documents-ego/{document}/xoa', [\App\Http\Controllers\EgoOrderDocumentController::class, 'destroy'])
+    Route::match(['post', 'delete'], '/orders/{order}/documents-ego/{document}/xoa', [\App\Http\Controllers\CRM\EgoOrderDocumentController::class, 'destroy'])
         ->whereNumber('order')
         ->whereNumber('document')
         ->name('orders.documents-ego.destroy');
@@ -2464,7 +2464,7 @@ Route::middleware(['auth'])->group(function () {
 /* EGO_CUSTOMER_PROFILE_DOCUMENT_PREVIEW_START */
 Route::middleware(['auth'])->get(
     '/customer-profiles/{customerProfile}/documents/{document}/preview-ego',
-    \App\Http\Controllers\EgoCustomerProfileDocumentPreviewController::class
+    \App\Http\Controllers\CRM\EgoCustomerProfileDocumentPreviewController::class
 )->whereNumber('customerProfile')->whereNumber('document')->name('customer-profiles.documents.preview-ego');
 /* EGO_CUSTOMER_PROFILE_DOCUMENT_PREVIEW_END */
 /* EGO_VPP_FUNCTION_ROUTES_START */
@@ -2576,7 +2576,7 @@ require __DIR__.'/booking_room.php';
 Route::delete(
     '/orders/{order}/soft-delete',
     [
-        \App\Http\Controllers\OrderDeleteController::class,
+        \App\Http\Controllers\CRM\OrderDeleteController::class,
         'destroy',
     ]
 )

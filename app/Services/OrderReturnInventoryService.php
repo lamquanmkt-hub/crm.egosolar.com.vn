@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Services\Inventory\Stock\StockLotService;
 use App\Models\CRM\Orders\OrderReturn;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\User;

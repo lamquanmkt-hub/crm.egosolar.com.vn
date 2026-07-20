@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Technical;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Technical\SolarMaintenanceApprovalRequest;
 use App\Models\SolarMaintenanceSchedule;
-use App\Services\SolarMaintenanceApprovalService;
+use App\Services\Technical\SolarMaintenanceApprovalService;
 use Illuminate\Http\RedirectResponse;
 
 /**

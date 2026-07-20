@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Site;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\SolarSiteDocument;
-use App\Services\SolarMaintenanceQueryService;
+use App\Services\Technical\SolarMaintenanceQueryService;
 use App\Support\EgoCompanyScope;
 use App\Support\SolarMaintenanceAccess;
 use Illuminate\Http\RedirectResponse;

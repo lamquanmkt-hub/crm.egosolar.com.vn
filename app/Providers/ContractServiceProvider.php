@@ -24,7 +24,7 @@ use App\Contracts\Services\SupplierDebtServiceInterface;
 use App\Contracts\Services\WarehouseServiceInterface;
 use App\Services\BrandService;
 use App\Services\CallioService;
-use App\Services\CommissionEngineService;
+use App\Services\CRM\Commission\CommissionEngineService;
 use App\Services\CustomerService;
 use App\Services\Finance\SupplierDebtService;
 use App\Services\MediaUploadService;
@@ -38,7 +38,7 @@ use App\Services\ProductCategoryService;
 use App\Services\ProductService;
 use App\Services\ProductStockService;
 use App\Services\RolePermission\PageAccessService;
-use App\Services\StockLotService;
+use App\Services\Inventory\Stock\StockLotService;
 use App\Services\WarehouseService;
 use Illuminate\Support\ServiceProvider;
 

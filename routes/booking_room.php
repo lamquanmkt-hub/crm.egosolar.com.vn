@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\MeetingRoomBookingController;
+use App\Http\Controllers\System\MeetingRoomBookingController;
 
 Route::middleware(['auth'])
     ->prefix('booking-phong-hop')
