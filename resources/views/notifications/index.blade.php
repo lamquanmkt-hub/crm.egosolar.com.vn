@@ -274,7 +274,11 @@
                 </div>
             @else
                 <div class="noti-list">
-                    @foreach(($notifications->data ?? $notifications) as $n)
+                    {{-- NotificationController@index luôn truyền Collection.
+                         KHÔNG dùng $notifications->data: trên Collection, truy cập
+                         thuộc tính không tồn tại sẽ NÉM exception chứ không trả null,
+                         nên `??` không đỡ được và trang trả 500 khi có thông báo. --}}
+                    @foreach($notifications as $n)
                         @php
                             $id = is_array($n) ? ($n['id'] ?? null) : ($n->id ?? null);
 

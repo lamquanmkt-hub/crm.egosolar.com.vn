@@ -17,6 +17,13 @@ use Tests\TestCase;
  * 200/302/403/404 đều hợp lệ tuỳ phân quyền và dữ liệu; 5xx thì luôn là lỗi.
  *
  * Đây là lưới an toàn cho các đợt refactor đổi namespace/di chuyển file hàng loạt.
+ *
+ * ⚠️ GIỚI HẠN ĐÃ BIẾT: test chạy trên DB gần như rỗng nên CHỈ bắt được lỗi
+ * không phụ thuộc dữ liệu. Ví dụ thật: `/notifications` từng trả 500 trên
+ * production nhưng qua được test này, vì dòng lỗi nằm trong nhánh @else của
+ * view — chỉ chạy khi CÓ thông báo (xem NotificationsPageTest).
+ * Trang nào có nhánh render khác nhau theo dữ liệu thì phải có test riêng
+ * kèm seed, đừng tin mỗi smoke test.
  */
 final class AuthenticatedPagesSmokeTest extends TestCase
 {
