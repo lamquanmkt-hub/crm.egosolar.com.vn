@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\CRM\Orders\Order;
 use App\Contracts\Repositories\OrderRepositoryInterface;
+use App\Models\CRM\Orders\Order;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;

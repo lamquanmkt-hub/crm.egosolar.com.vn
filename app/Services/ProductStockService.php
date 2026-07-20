@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\Services\ProductStockServiceInterface;
+use App\Models\Inventory\Stock\ProductStock;
+use App\Models\Inventory\Stock\StockMovement;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -195,7 +197,7 @@ class ProductStockService implements ProductStockServiceInterface
     public function getLowStockProducts($threshold = 10): Collection|array
     {
         // giữ nguyên nếu bạn đang dùng Eloquent ở nơi khác
-        return \App\Models\Inventory\Stock\ProductStock::with(['product', 'warehouse'])
+        return ProductStock::with(['product', 'warehouse'])
             ->where('qty', '<=', $threshold)
             ->where('qty', '>', 0)
             ->get();
@@ -206,7 +208,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getOutOfStockProducts(): Collection|array
     {
-        return \App\Models\Inventory\Stock\ProductStock::with(['product', 'warehouse'])
+        return ProductStock::with(['product', 'warehouse'])
             ->where('qty', '=', 0)
             ->get();
     }
@@ -216,7 +218,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getStockReportByWarehouse($warehouseId): Collection|array
     {
-        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', (int) $warehouseId)
+        return ProductStock::where('warehouse_id', (int) $warehouseId)
             ->with('product')
             ->orderBy('qty', 'asc')
             ->get();
@@ -227,7 +229,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getStockSummary(): Collection|array
     {
-        return \App\Models\Inventory\Stock\ProductStock::select(
+        return ProductStock::select(
             'product_id',
             DB::raw('SUM(qty) as total_qty'),
             DB::raw('COUNT(warehouse_id) as warehouse_count')
@@ -243,7 +245,7 @@ class ProductStockService implements ProductStockServiceInterface
      */
     public function getStockHistory($productId, $warehouseId = null, $limit = 50): array|LengthAwarePaginator
     {
-        $query = \App\Models\Inventory\Stock\StockMovement::where('product_id', (int) $productId)
+        $query = StockMovement::where('product_id', (int) $productId)
             ->with(['product', 'warehouse', 'creator']);
 
         if ($warehouseId) {

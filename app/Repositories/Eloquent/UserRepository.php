@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\User;
 use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Models\User;
 
 /**
  * Repository Eloquent thao tác dữ liệu người dùng.

@@ -630,7 +630,7 @@ class SerialWarrantyController extends Controller
     /**
      * API thêm serial mới cho sản phẩm từ màn sửa sản phẩm (trả JSON).
      */
-    public function productAddSerials(\Illuminate\Http\Request $request, $product)
+    public function productAddSerials(Request $request, $product)
     {
         $data = $request->validate([
             'serials' => ['required', 'string'],
@@ -650,7 +650,7 @@ class SerialWarrantyController extends Controller
             return response()->json(['ok' => false, 'message' => 'Vui lòng nhập serial.'], 422);
         }
 
-        $exists = \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')
+        $exists = DB::table('crm_serial_identifiers')
             ->whereIn('code', $codes)
             ->pluck('code')
             ->all();
@@ -659,9 +659,9 @@ class SerialWarrantyController extends Controller
             return response()->json(['ok' => false, 'message' => 'Serial đã tồn tại: '.implode(', ', $exists)], 422);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($codes, $productId, $data) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('crm_product_catalog', 'is_serialized')) {
-                \Illuminate\Support\Facades\DB::table('crm_product_catalog')
+        DB::transaction(function () use ($codes, $productId, $data) {
+            if (Schema::hasColumn('crm_product_catalog', 'is_serialized')) {
+                DB::table('crm_product_catalog')
                     ->where('id', $productId)
                     ->update([
                         'is_serialized' => 1,
@@ -676,20 +676,20 @@ class SerialWarrantyController extends Controller
                     'updated_at' => now(),
                 ];
 
-                if (\Illuminate\Support\Facades\Schema::hasColumn('crm_serial_units', 'warehouse_id')) {
+                if (Schema::hasColumn('crm_serial_units', 'warehouse_id')) {
                     $unitData['warehouse_id'] = (int) $data['warehouse_id'];
                 }
 
-                $unitId = \Illuminate\Support\Facades\DB::table('crm_serial_units')->insertGetId($unitData);
+                $unitId = DB::table('crm_serial_units')->insertGetId($unitData);
 
-                $identifierId = \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')->insertGetId([
+                $identifierId = DB::table('crm_serial_identifiers')->insertGetId([
                     'type' => 'serial',
                     'code' => $code,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
 
-                \Illuminate\Support\Facades\DB::table('crm_serial_unit_identifiers')->insert([
+                DB::table('crm_serial_unit_identifiers')->insert([
                     'serial_unit_id' => $unitId,
                     'serial_identifier_id' => $identifierId,
                     'is_primary' => 1,
@@ -697,7 +697,7 @@ class SerialWarrantyController extends Controller
                     'updated_at' => now(),
                 ]);
 
-                \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->updateOrInsert(
+                DB::table('crm_serial_unit_states')->updateOrInsert(
                     ['serial_unit_id' => $unitId],
                     [
                         'warehouse_id' => (int) $data['warehouse_id'],
@@ -707,8 +707,8 @@ class SerialWarrantyController extends Controller
                     ]
                 );
 
-                if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_events')) {
-                    \Illuminate\Support\Facades\DB::table('crm_serial_warranty_events')->insert([
+                if (Schema::hasTable('crm_serial_warranty_events')) {
+                    DB::table('crm_serial_warranty_events')->insert([
                         'serial_unit_id' => $unitId,
                         'serial_code' => $code,
                         'event_type' => 'receive',
@@ -733,7 +733,7 @@ class SerialWarrantyController extends Controller
     /**
      * API cập nhật mã serial và kho (nếu chưa bán) từ màn sản phẩm.
      */
-    public function productUpdateSerial(\Illuminate\Http\Request $request, $serialUnit)
+    public function productUpdateSerial(Request $request, $serialUnit)
     {
         $data = $request->validate([
             'code' => ['required', 'string', 'max:255'],
@@ -743,7 +743,7 @@ class SerialWarrantyController extends Controller
         $unitId = (int) $serialUnit;
         $newCode = trim((string) $data['code']);
 
-        $row = \Illuminate\Support\Facades\DB::table('crm_serial_unit_identifiers as sui')
+        $row = DB::table('crm_serial_unit_identifiers as sui')
             ->join('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
             ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'sui.serial_unit_id')
             ->where('sui.serial_unit_id', $unitId)
@@ -755,7 +755,7 @@ class SerialWarrantyController extends Controller
             return response()->json(['ok' => false, 'message' => 'Không tìm thấy serial.'], 404);
         }
 
-        $duplicated = \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')
+        $duplicated = DB::table('crm_serial_identifiers')
             ->where('code', $newCode)
             ->where('id', '!=', (int) $row->serial_identifier_id)
             ->exists();
@@ -767,8 +767,8 @@ class SerialWarrantyController extends Controller
         $state = (string) ($row->state ?? 'in_stock');
         $locked = in_array($state, ['sold', 'delivered', 'warranty', 'warranty_claim'], true);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($row, $unitId, $newCode, $data, $locked, $state) {
-            \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')
+        DB::transaction(function () use ($row, $unitId, $newCode, $data, $locked, $state) {
+            DB::table('crm_serial_identifiers')
                 ->where('id', (int) $row->serial_identifier_id)
                 ->update([
                     'code' => $newCode,
@@ -778,7 +778,7 @@ class SerialWarrantyController extends Controller
             if (! $locked && ! empty($data['warehouse_id'])) {
                 $warehouseId = (int) $data['warehouse_id'];
 
-                \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->updateOrInsert(
+                DB::table('crm_serial_unit_states')->updateOrInsert(
                     ['serial_unit_id' => $unitId],
                     [
                         'warehouse_id' => $warehouseId,
@@ -788,8 +788,8 @@ class SerialWarrantyController extends Controller
                     ]
                 );
 
-                if (\Illuminate\Support\Facades\Schema::hasColumn('crm_serial_units', 'warehouse_id')) {
-                    \Illuminate\Support\Facades\DB::table('crm_serial_units')
+                if (Schema::hasColumn('crm_serial_units', 'warehouse_id')) {
+                    DB::table('crm_serial_units')
                         ->where('id', $unitId)
                         ->update([
                             'warehouse_id' => $warehouseId,
@@ -798,14 +798,14 @@ class SerialWarrantyController extends Controller
                 }
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_events')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranty_events')
+            if (Schema::hasTable('crm_serial_warranty_events')) {
+                DB::table('crm_serial_warranty_events')
                     ->where('serial_unit_id', $unitId)
                     ->update(['serial_code' => $newCode]);
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_claims')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranty_claims')
+            if (Schema::hasTable('crm_serial_warranty_claims')) {
+                DB::table('crm_serial_warranty_claims')
                     ->where('serial_unit_id', $unitId)
                     ->update(['serial_code' => $newCode]);
             }
@@ -817,11 +817,11 @@ class SerialWarrantyController extends Controller
     /**
      * API xóa serial chưa bán cùng toàn bộ dữ liệu liên quan.
      */
-    public function productDeleteSerial(\Illuminate\Http\Request $request, $serialUnit)
+    public function productDeleteSerial(Request $request, $serialUnit)
     {
         $unitId = (int) $serialUnit;
 
-        $row = \Illuminate\Support\Facades\DB::table('crm_serial_units as su')
+        $row = DB::table('crm_serial_units as su')
             ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'su.id')
             ->leftJoin('crm_serial_unit_identifiers as sui', function ($join) {
                 $join->on('sui.serial_unit_id', '=', 'su.id')->where('sui.is_primary', 1);
@@ -839,32 +839,32 @@ class SerialWarrantyController extends Controller
             return response()->json(['ok' => false, 'message' => 'Serial đã bán / đã kích hoạt bảo hành nên không được xóa.'], 422);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($unitId) {
-            $identifierIds = \Illuminate\Support\Facades\DB::table('crm_serial_unit_identifiers')
+        DB::transaction(function () use ($unitId) {
+            $identifierIds = DB::table('crm_serial_unit_identifiers')
                 ->where('serial_unit_id', $unitId)
                 ->pluck('serial_identifier_id')
                 ->all();
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranties')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranties')->where('serial_unit_id', $unitId)->delete();
+            if (Schema::hasTable('crm_serial_warranties')) {
+                DB::table('crm_serial_warranties')->where('serial_unit_id', $unitId)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_claims')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $unitId)->delete();
+            if (Schema::hasTable('crm_serial_warranty_claims')) {
+                DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $unitId)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_events')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranty_events')->where('serial_unit_id', $unitId)->delete();
+            if (Schema::hasTable('crm_serial_warranty_events')) {
+                DB::table('crm_serial_warranty_events')->where('serial_unit_id', $unitId)->delete();
             }
 
-            \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->where('serial_unit_id', $unitId)->delete();
-            \Illuminate\Support\Facades\DB::table('crm_serial_unit_identifiers')->where('serial_unit_id', $unitId)->delete();
+            DB::table('crm_serial_unit_states')->where('serial_unit_id', $unitId)->delete();
+            DB::table('crm_serial_unit_identifiers')->where('serial_unit_id', $unitId)->delete();
 
             if (! empty($identifierIds)) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_identifiers')->whereIn('id', $identifierIds)->delete();
+                DB::table('crm_serial_identifiers')->whereIn('id', $identifierIds)->delete();
             }
 
-            \Illuminate\Support\Facades\DB::table('crm_serial_units')->where('id', $unitId)->delete();
+            DB::table('crm_serial_units')->where('id', $unitId)->delete();
         });
 
         return response()->json(['ok' => true, 'message' => 'Đã xóa serial.']);
@@ -932,7 +932,7 @@ class SerialWarrantyController extends Controller
     /**
      * Bổ sung serial bảo hành thủ công (quên nhập kho): tạo/cập nhật serial và kích hoạt bảo hành.
      */
-    public function manualAddSerialWarranty(\Illuminate\Http\Request $request)
+    public function manualAddSerialWarranty(Request $request)
     {
         $user = auth()->user();
 
@@ -998,11 +998,11 @@ class SerialWarrantyController extends Controller
         }
 
         $soldAt = ! empty($data['sold_at'])
-            ? \Carbon\Carbon::parse($data['sold_at'])->startOfDay()
+            ? Carbon::parse($data['sold_at'])->startOfDay()
             : now()->startOfDay();
 
         $startAt = ! empty($data['warranty_start_at'])
-            ? \Carbon\Carbon::parse($data['warranty_start_at'])->startOfDay()
+            ? Carbon::parse($data['warranty_start_at'])->startOfDay()
             : $soldAt->copy();
 
         $months = (int) $data['warranty_months'];
@@ -1156,7 +1156,7 @@ class SerialWarrantyController extends Controller
     /**
      * Cập nhật đầy đủ thông tin bảo hành của một serial (sản phẩm, khách, thời hạn).
      */
-    public function updateSerialWarranty(\Illuminate\Http\Request $request, $serialUnit)
+    public function updateSerialWarranty(Request $request, $serialUnit)
     {
         $user = auth()->user();
 
@@ -1245,17 +1245,17 @@ class SerialWarrantyController extends Controller
         }
 
         $soldAt = ! empty($data['sold_at'])
-            ? \Carbon\Carbon::parse($data['sold_at'])->startOfDay()
-            : ($serial->sold_at ? \Carbon\Carbon::parse($serial->sold_at)->startOfDay() : now()->startOfDay());
+            ? Carbon::parse($data['sold_at'])->startOfDay()
+            : ($serial->sold_at ? Carbon::parse($serial->sold_at)->startOfDay() : now()->startOfDay());
 
         $start = ! empty($data['warranty_start_at'])
-            ? \Carbon\Carbon::parse($data['warranty_start_at'])->startOfDay()
+            ? Carbon::parse($data['warranty_start_at'])->startOfDay()
             : $soldAt->copy();
 
         $months = (int) $data['warranty_months'];
 
         $end = ! empty($data['warranty_end_at'])
-            ? \Carbon\Carbon::parse($data['warranty_end_at'])->startOfDay()
+            ? Carbon::parse($data['warranty_end_at'])->startOfDay()
             : $start->copy()->addMonths($months);
 
         DB::transaction(function () use ($unitId, $serial, $productId, $customerId, $orderId, $soldAt, $start, $months, $end, $data) {
@@ -1317,7 +1317,7 @@ class SerialWarrantyController extends Controller
     /**
      * Ẩn serial khỏi trang tra cứu bảo hành (chuyển trạng thái removed).
      */
-    public function removeSerialFromLookup(\Illuminate\Http\Request $request, $serialUnit)
+    public function removeSerialFromLookup(Request $request, $serialUnit)
     {
         $user = auth()->user();
 
@@ -1350,7 +1350,7 @@ class SerialWarrantyController extends Controller
 
         $unitId = (int) $serialUnit;
 
-        $serial = \Illuminate\Support\Facades\DB::table('crm_serial_units as su')
+        $serial = DB::table('crm_serial_units as su')
             ->leftJoin('crm_serial_unit_identifiers as sui', function ($join) {
                 $join->on('sui.serial_unit_id', '=', 'su.id')->where('sui.is_primary', 1);
             })
@@ -1363,8 +1363,8 @@ class SerialWarrantyController extends Controller
             return back()->with('error', 'Không tìm thấy serial.');
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($unitId, $serial) {
-            \Illuminate\Support\Facades\DB::table('crm_serial_unit_states')->updateOrInsert(
+        DB::transaction(function () use ($unitId, $serial) {
+            DB::table('crm_serial_unit_states')->updateOrInsert(
                 ['serial_unit_id' => $unitId],
                 [
                     'warehouse_id' => null,
@@ -1374,8 +1374,8 @@ class SerialWarrantyController extends Controller
                 ]
             );
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('crm_serial_warranty_events')) {
-                \Illuminate\Support\Facades\DB::table('crm_serial_warranty_events')->insert([
+            if (Schema::hasTable('crm_serial_warranty_events')) {
+                DB::table('crm_serial_warranty_events')->insert([
                     'serial_unit_id' => $unitId,
                     'serial_code' => $serial->code ?? null,
                     'event_type' => 'remove_from_lookup',

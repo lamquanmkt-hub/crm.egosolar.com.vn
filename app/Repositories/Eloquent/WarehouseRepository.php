@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\Core\Warehouse;
 use App\Contracts\Repositories\WarehouseRepositoryInterface;
+use App\Models\Core\Warehouse;
 
 /**
  * Repository Eloquent thao tác dữ liệu kho.

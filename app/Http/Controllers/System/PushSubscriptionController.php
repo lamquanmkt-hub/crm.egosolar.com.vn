@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\System;
 
-use App\Http\Controllers\Controller;
 use App\DTO\PushSubscriptionData;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Push\SubscribePushSubscriptionRequest;
 use App\Http\Requests\Push\UnsubscribePushSubscriptionRequest;
 use App\Services\Push\PushSubscriptionService;

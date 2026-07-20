@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Content\ContentCalendar;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,7 +19,7 @@ class ContentFeedback extends Model
 
     public function content(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Content\ContentCalendar::class, 'content_calendar_id');
+        return $this->belongsTo(ContentCalendar::class, 'content_calendar_id');
     }
 
     public function user(): BelongsTo

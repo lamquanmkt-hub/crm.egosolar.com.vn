@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\CRM\Customers\Customer;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -77,7 +78,7 @@ class StoreCustomerRequest extends FormRequest
                 return;
             }
 
-            $existing = \App\Models\CRM\Customers\Customer::query()
+            $existing = Customer::query()
                 ->with('assignedUser')
                 ->where('phone', $phone)
                 ->first();

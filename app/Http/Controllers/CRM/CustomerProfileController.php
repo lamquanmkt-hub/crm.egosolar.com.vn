@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Http\Controllers\Controller;
 use App\Models\CustomerProfile;
 use App\Models\CustomerProfileDocument;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -585,7 +586,7 @@ class CustomerProfileController extends Controller
         abort_unless(Schema::hasTable('customer_profile_documents'), 500, 'Chưa có bảng customer_profile_documents. Vui lòng chạy php artisan migrate.');
 
         if (! Schema::hasTable('customer_profile_shippings')) {
-            Schema::create('customer_profile_shippings', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('customer_profile_shippings', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
                 $table->string('phone', 80)->nullable();

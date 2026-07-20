@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\ProductCategoryServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductCategoryRequest;
 use App\Models\Inventory\Catalog\ProductCategory;
 use Illuminate\Http\RedirectResponse;

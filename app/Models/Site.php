@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Công trình điện mặt trời (site) — thông tin dự án, hệ thống, tài chính và báo giá.
@@ -86,7 +88,7 @@ class Site extends Model
         static::creating(function ($site) {
             try {
                 if (auth()->check()
-                    && \Illuminate\Support\Facades\Schema::hasColumn($site->getTable(), 'created_by')
+                    && Schema::hasColumn($site->getTable(), 'created_by')
                     && empty($site->created_by)) {
                     $site->created_by = auth()->id();
                 }
@@ -100,7 +102,7 @@ class Site extends Model
         static::creating(function ($site) {
             try {
                 if (auth()->check()
-                    && \Illuminate\Support\Facades\Schema::hasColumn($site->getTable(), 'created_by')
+                    && Schema::hasColumn($site->getTable(), 'created_by')
                     && empty($site->created_by)) {
                     $site->created_by = auth()->id();
                 }
@@ -109,7 +111,7 @@ class Site extends Model
             }
         });
 
-        static::addGlobalScope('ego_sales_only_own_sites', function (\Illuminate\Database\Eloquent\Builder $builder) {
+        static::addGlobalScope('ego_sales_only_own_sites', function (Builder $builder) {
             try {
                 if (app()->runningInConsole() || ! auth()->check()) {
                     return;
@@ -152,7 +154,7 @@ class Site extends Model
                 if ($isSales && ! $isAdmin && ! $isAccounting && ! $isTechnicalOrWarehouse) {
                     $table = $builder->getModel()->getTable();
 
-                    if (\Illuminate\Support\Facades\Schema::hasColumn($table, 'created_by')) {
+                    if (Schema::hasColumn($table, 'created_by')) {
                         $builder->where($table.'.created_by', $user->id);
                     }
                 }

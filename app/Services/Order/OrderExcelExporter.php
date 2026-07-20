@@ -6,6 +6,14 @@ namespace App\Services\Order;
 
 use App\Models\CRM\Orders\Order;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -61,7 +69,7 @@ class OrderExcelExporter
             });
         }
 
-        if (! empty($filters['company_id']) && \Illuminate\Support\Facades\Schema::hasColumn('crm_orders', 'company_id')) {
+        if (! empty($filters['company_id']) && Schema::hasColumn('crm_orders', 'company_id')) {
             $query->where('company_id', $filters['company_id']);
         }
 
@@ -128,7 +136,7 @@ class OrderExcelExporter
                     }
 
                     try {
-                        return \Carbon\Carbon::parse($order->order_date)->lte(now()->subDays(30));
+                        return Carbon::parse($order->order_date)->lte(now()->subDays(30));
                     } catch (\Throwable $e) {
                         return false;
                     }
@@ -138,7 +146,7 @@ class OrderExcelExporter
             })->values();
         }
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Danh sách đơn hàng');
@@ -146,25 +154,25 @@ class OrderExcelExporter
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'EAF6FF'],
             ],
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'CBD5E1'],
                 ],
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
         $sectionStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '0891B2'],
             ],
         ];
@@ -172,12 +180,12 @@ class OrderExcelExporter
         $cellStyle = [
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'E2E8F0'],
                 ],
             ],
             'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
@@ -329,11 +337,11 @@ class OrderExcelExporter
         $summarySheet->mergeCells('A1:S1');
         $summarySheet->setCellValue('A1', 'DANH SÁCH ĐƠN HÀNG');
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $summarySheet->mergeCells('A2:S2');
         $summarySheet->setCellValue('A2', 'Xuất lúc: '.now()->format('d/m/Y H:i').' | Số đơn: '.$orders->count());
-        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $headers = [
             'STT',
@@ -373,7 +381,7 @@ class OrderExcelExporter
             $summarySheet->fromArray([
                 $index + 1,
                 $order->order_code,
-                $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('d/m/Y') : '',
+                $order->order_date ? Carbon::parse($order->order_date)->format('d/m/Y') : '',
                 $customer->name ?? '-',
                 $customer->phone ?? '-',
                 optional($order->company)->name ?? '-',
@@ -405,7 +413,7 @@ class OrderExcelExporter
                     ->setUrl("sheet://'{$escapedSheetTitle}'!A1");
 
                 $summarySheet->getStyle($cell)->getFont()
-                    ->setUnderline(\PhpOffice\PhpSpreadsheet\Style\Font::UNDERLINE_SINGLE)
+                    ->setUnderline(Font::UNDERLINE_SINGLE)
                     ->getColor()
                     ->setRGB('0563C1');
             }
@@ -453,12 +461,12 @@ class OrderExcelExporter
             $sheet->mergeCells('A1:I1');
             $sheet->setCellValue('A1', 'CHI TIẾT ĐƠN HÀNG - '.($order->order_code ?? $order->id));
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-            $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->setCellValue('A2', '← Về tổng hợp');
             $sheet->getCell('A2')->getHyperlink()->setUrl("sheet://'Tong hop don hang'!A1");
             $sheet->getStyle('A2')->getFont()
-                ->setUnderline(\PhpOffice\PhpSpreadsheet\Style\Font::UNDERLINE_SINGLE)
+                ->setUnderline(Font::UNDERLINE_SINGLE)
                 ->getColor()
                 ->setRGB('0563C1');
 
@@ -498,7 +506,7 @@ class OrderExcelExporter
 
             $writeSection('1. Thông tin đơn hàng', [
                 ['Mã đơn', $order->order_code, ''],
-                ['Ngày đặt', $order->order_date ? \Carbon\Carbon::parse($order->order_date)->format('d/m/Y') : '', ''],
+                ['Ngày đặt', $order->order_date ? Carbon::parse($order->order_date)->format('d/m/Y') : '', ''],
                 ['Công ty', optional($order->company)->name ?? '-', ''],
                 ['Người tạo', optional($order->creator)->name ?? '-', ''],
                 ['Trạng thái', $statusLabel($order, $paid, $remain), ''],
@@ -639,7 +647,7 @@ class OrderExcelExporter
             foreach ($order->payments ?? [] as $paymentIndex => $payment) {
                 $sheet->fromArray([
                     $paymentIndex + 1,
-                    $payment->payment_date ? \Carbon\Carbon::parse($payment->payment_date)->format('d/m/Y') : '',
+                    $payment->payment_date ? Carbon::parse($payment->payment_date)->format('d/m/Y') : '',
                     optional($payment->method)->name ?? '-',
                     round((float) ($payment->amount ?? 0)),
                     optional($payment->recordedBy)->name ?? '-',
@@ -674,7 +682,7 @@ class OrderExcelExporter
         $fileName = 'danh-sach-don-hang-'.now()->format('Ymd-His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\EgoCompanyContextMiddleware;
 use App\Models\Tasks\Task;
 use App\Policies\TaskPolicy;
 use App\Services\Debug\SchemaInspector;
@@ -26,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         try {
-            app('router')->pushMiddlewareToGroup('web', \App\Http\Middleware\EgoCompanyContextMiddleware::class);
+            app('router')->pushMiddlewareToGroup('web', EgoCompanyContextMiddleware::class);
         } catch (\Throwable $e) {
             // Ignore middleware registration issues during artisan optimize/package discovery.
         }

@@ -73,7 +73,7 @@ final class SchemaInspector
             return $this->reader->allTables();
         }
 
-        return \Illuminate\Support\Facades\Cache::remember(
+        return Cache::remember(
             'debug_schema:all_tables',
             $ttl,
             fn () => $this->reader->allTables()

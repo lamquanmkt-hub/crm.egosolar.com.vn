@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\WarehouseServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\WarehouseRequest;
 use App\Models\Core\Company;
 use App\Models\Core\Warehouse;

@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Controller báo cáo marketing: ads (KPI, nhập liệu, import Excel/CSV), SEO và tổng quan.
@@ -587,7 +588,7 @@ class MarketingReportController extends Controller
                 'ngay ket thuc',
             ]);
 
-            $date = $this->parseAdsDate($endRaw) ?: $this->parseAdsDate($startRaw) ?: \Carbon\Carbon::today()->toDateString();
+            $date = $this->parseAdsDate($endRaw) ?: $this->parseAdsDate($startRaw) ?: Carbon::today()->toDateString();
             $startDate = $this->parseAdsDate($startRaw) ?: $date;
             $endDate = $this->parseAdsDate($endRaw) ?: $date;
 
@@ -668,8 +669,8 @@ class MarketingReportController extends Controller
         $message = 'Đã import '.$imported.' chiến dịch. Bỏ qua '.$skipped.' dòng. Tổng chi tiêu: '.number_format($totalSpend, 0, ',', '.').' đ, tổng leads: '.number_format($totalLeads, 0, ',', '.');
 
         return redirect(url('/marketing/report/ads').'?'.http_build_query([
-            'from' => $fromMin ?: \Carbon\Carbon::today()->startOfMonth()->toDateString(),
-            'to' => $toMax ?: \Carbon\Carbon::today()->toDateString(),
+            'from' => $fromMin ?: Carbon::today()->startOfMonth()->toDateString(),
+            'to' => $toMax ?: Carbon::today()->toDateString(),
             'channel' => $channelDefault,
         ]))->with('success', $message);
     }
@@ -915,7 +916,7 @@ class MarketingReportController extends Controller
      */
     private function adsNorm(string $value): string
     {
-        $value = \Illuminate\Support\Str::ascii(trim($value));
+        $value = Str::ascii(trim($value));
         $value = strtolower($value);
         $value = preg_replace('/[^a-z0-9]+/', ' ', $value);
 
@@ -975,14 +976,14 @@ class MarketingReportController extends Controller
 
         if (is_numeric($value)) {
             try {
-                return \Carbon\Carbon::create(1899, 12, 30)->addDays((int) $value)->toDateString();
+                return Carbon::create(1899, 12, 30)->addDays((int) $value)->toDateString();
             } catch (\Throwable $e) {
                 return null;
             }
         }
 
         try {
-            return \Carbon\Carbon::parse((string) $value)->toDateString();
+            return Carbon::parse((string) $value)->toDateString();
         } catch (\Throwable $e) {
             return null;
         }

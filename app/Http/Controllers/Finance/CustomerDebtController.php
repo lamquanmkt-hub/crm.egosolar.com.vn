@@ -7,6 +7,8 @@ use App\Models\CRM\Orders\Order;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Theo dõi công nợ khách hàng dựa trên đơn hàng CRM.
@@ -342,8 +344,8 @@ class CustomerDebtController extends Controller
         $paidFromDebtTable = 0.0;
 
         try {
-            if ($orderId > 0 && \Illuminate\Support\Facades\Schema::hasTable('crm_payments')) {
-                $paidFromPayments = (float) \Illuminate\Support\Facades\DB::table('crm_payments')
+            if ($orderId > 0 && Schema::hasTable('crm_payments')) {
+                $paidFromPayments = (float) DB::table('crm_payments')
                     ->where('order_id', $orderId)
                     ->sum('amount');
             }
@@ -352,8 +354,8 @@ class CustomerDebtController extends Controller
         }
 
         try {
-            if ($orderId > 0 && \Illuminate\Support\Facades\Schema::hasTable('crm_customer_debts')) {
-                $paidFromDebtTable = (float) \Illuminate\Support\Facades\DB::table('crm_customer_debts')
+            if ($orderId > 0 && Schema::hasTable('crm_customer_debts')) {
+                $paidFromDebtTable = (float) DB::table('crm_customer_debts')
                     ->where('order_id', $orderId)
                     ->max('paid_amount');
             }

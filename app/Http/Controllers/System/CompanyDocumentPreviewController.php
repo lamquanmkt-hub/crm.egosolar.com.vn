@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Writer\Html;
 
 /**
  * Xem trước tài liệu công ty đa định dạng: ảnh, PDF, TXT/CSV, Excel, DOCX (kể cả convert qua LibreOffice).
@@ -724,7 +726,7 @@ class CompanyDocumentPreviewController extends Controller
      */
     protected function excelPreview(string $name, string $real, string $header)
     {
-        if (! class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $pdf = $this->convertOfficeToPdf($real);
 
             if ($pdf && is_file($pdf)) {
@@ -761,7 +763,7 @@ class CompanyDocumentPreviewController extends Controller
         try {
             $sheetIndex = max(0, (int) request()->query('sheet', 0));
 
-            $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($real);
+            $reader = IOFactory::createReaderForFile($real);
 
             // Quan trọng: .xls cũ phải đọc dataOnly để tránh lỗi iconv/style encoding.
             $reader->setReadDataOnly(true);
@@ -838,7 +840,7 @@ class CompanyDocumentPreviewController extends Controller
 
             $tabs .= '</div>';
 
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Html($spreadsheet);
+            $writer = new Html($spreadsheet);
 
             // Nếu đã load riêng 1 sheet thì index trong workbook tạm là 0.
             $writer->setSheetIndex(! empty($sheetNames) && method_exists($reader, 'setLoadSheetsOnly') ? 0 : $sheetIndex);

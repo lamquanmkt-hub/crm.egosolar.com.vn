@@ -15,13 +15,11 @@ class OrderFactory
 {
     /**
      * Tạo order code unique
-     *
-     * @return string
      */
     public static function generateOrderCode(): string
     {
         do {
-            $code = 'ORD-' . now()->format('Ymd') . '-' . Str::random(6);
+            $code = 'ORD-'.now()->format('Ymd').'-'.Str::random(6);
         } while (Order::where('order_code', $code)->exists());
 
         return $code;
@@ -29,9 +27,6 @@ class OrderFactory
 
     /**
      * Tạo Order từ data
-     *
-     * @param array $data
-     * @return Order
      */
     public static function createOrder(array $data): Order
     {
@@ -58,10 +53,6 @@ class OrderFactory
 
     /**
      * Tạo OrderItem từ order và items data
-     *
-     * @param Order $order
-     * @param array $itemsData
-     * @return void
      */
     public static function createOrderItems(Order $order, array $itemsData): void
     {
@@ -83,16 +74,12 @@ class OrderFactory
 
     /**
      * Tính line total = qty * price * (1 - discount%)
-     *
-     * @param int $qty
-     * @param float $price
-     * @param float $discountPercent
-     * @return float
      */
     private static function calculateLineTotal(int $qty, float $price, float $discountPercent): float
     {
         $subtotal = $qty * $price;
         $discount = $subtotal * ($discountPercent / 100);
+
         return max(0, round($subtotal - $discount, 2));
     }
 }

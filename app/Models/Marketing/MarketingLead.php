@@ -2,6 +2,7 @@
 
 namespace App\Models\Marketing;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -49,11 +50,11 @@ class MarketingLead extends Model
 
     public function assignedUser()
     {
-        return $this->belongsTo(\App\Models\User::class, 'assigned_user_id');
+        return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
     public function importedBy()
     {
-        return $this->belongsTo(\App\Models\User::class, 'imported_by');
+        return $this->belongsTo(User::class, 'imported_by');
     }
 }

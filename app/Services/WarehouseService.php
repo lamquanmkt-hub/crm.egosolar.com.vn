@@ -7,6 +7,9 @@ namespace App\Services;
 use App\Contracts\Repositories\WarehouseRepositoryInterface;
 use App\Contracts\Services\WarehouseServiceInterface;
 use App\Models\Core\Warehouse;
+use App\Models\CRM\Orders\Order;
+use App\Models\Inventory\Stock\ProductStock;
+use App\Models\Inventory\Stock\StockMovement;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -118,7 +121,7 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getStockReport($warehouseId)
     {
-        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        return ProductStock::where('warehouse_id', $warehouseId)
             ->with('product')
             ->orderBy('qty', 'desc')
             ->get();
@@ -129,7 +132,7 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getTotalStockValue($warehouseId)
     {
-        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        return ProductStock::where('warehouse_id', $warehouseId)
             ->join('crm_product_catalog', 'crm_product_stock.product_id', '=', 'crm_product_catalog.id')
             ->sum(DB::raw('crm_product_stock.qty * crm_product_catalog.price'));
     }
@@ -139,7 +142,7 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getTotalProducts($warehouseId)
     {
-        return \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        return ProductStock::where('warehouse_id', $warehouseId)
             ->where('qty', '>', 0)
             ->count();
     }
@@ -149,7 +152,7 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getOrders($warehouseId, array $filters = [])
     {
-        $query = \App\Models\CRM\Orders\Order::where('warehouse_id', $warehouseId)
+        $query = Order::where('warehouse_id', $warehouseId)
             ->with(['lead.customer', 'creator']);
 
         if (! empty($filters['from_date'])) {
@@ -168,16 +171,16 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getStatistics($warehouseId)
     {
-        $stockCount = \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        $stockCount = ProductStock::where('warehouse_id', $warehouseId)
             ->where('qty', '>', 0)
             ->count();
 
-        $totalQty = \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        $totalQty = ProductStock::where('warehouse_id', $warehouseId)
             ->sum('qty');
 
         $totalValue = $this->getTotalStockValue($warehouseId);
 
-        $ordersCount = \App\Models\CRM\Orders\Order::where('warehouse_id', $warehouseId)
+        $ordersCount = Order::where('warehouse_id', $warehouseId)
             ->where('current_department', 'completed')
             ->count();
 
@@ -194,7 +197,7 @@ class WarehouseService implements WarehouseServiceInterface
      */
     public function getStockMovements($warehouseId, array $filters = [])
     {
-        $query = \App\Models\Inventory\Stock\StockMovement::where('warehouse_id', $warehouseId)
+        $query = StockMovement::where('warehouse_id', $warehouseId)
             ->with(['product', 'creator']);
 
         if (! empty($filters['product_id'])) {
@@ -223,7 +226,7 @@ class WarehouseService implements WarehouseServiceInterface
             return true;
         }
 
-        $currentQty = \App\Models\Inventory\Stock\ProductStock::where('warehouse_id', $warehouseId)
+        $currentQty = ProductStock::where('warehouse_id', $warehouseId)
             ->sum('qty');
 
         return ($currentQty + $additionalQty) <= $warehouse->max_capacity;

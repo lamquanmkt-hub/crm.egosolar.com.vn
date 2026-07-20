@@ -7,7 +7,9 @@ use App\Models\Department;
 use App\Models\Tasks\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -127,7 +129,7 @@ class TaskController extends Controller
     private function taskNotificationLink(Task $task): string
     {
         try {
-            if (\Illuminate\Support\Facades\Route::has('tasks.show')) {
+            if (Route::has('tasks.show')) {
                 return route('tasks.show', $task);
             }
         } catch (\Throwable $e) {
@@ -153,7 +155,7 @@ class TaskController extends Controller
 
             if (! empty($task->due_at)) {
                 try {
-                    $dueText = ' - Hạn: '.\Illuminate\Support\Carbon::parse($task->due_at)->format('d/m/Y H:i');
+                    $dueText = ' - Hạn: '.Carbon::parse($task->due_at)->format('d/m/Y H:i');
                 } catch (\Throwable $e) {
                     $dueText = ' - Hạn: '.(string) $task->due_at;
                 }
@@ -721,7 +723,7 @@ class TaskController extends Controller
         $task->completed_at = now();
 
         if (in_array($oldStatus, ['revision', 'rejected'], true)) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'resubmitted_at')) {
+            if (Schema::hasColumn('tasks', 'resubmitted_at')) {
                 $task->resubmitted_at = now();
             }
         }

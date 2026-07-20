@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Http\Controllers\Controller;
 use App\Models\SalesQuotation;
 use App\Models\SalesQuotationItem;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -199,13 +200,13 @@ class SalesQuotationController extends Controller
     {
         $salesQuotation->load('items');
 
-        if (! class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+        if (! class_exists(Pdf::class)) {
             return redirect()
                 ->route('sales-quotations.pdf', $salesQuotation)
                 ->with('success', 'Máy chủ chưa cài gói xuất PDF tải về. Tạm thời dùng chức năng Xuất PDF bằng trình duyệt.');
         }
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales_quotations.pdf', [
+        $pdf = Pdf::loadView('sales_quotations.pdf', [
             'quotation' => $salesQuotation,
             'downloadMode' => true,
         ])->setPaper('a4', 'portrait');
@@ -454,7 +455,7 @@ class SalesQuotationController extends Controller
     /**
      * Chuẩn hóa các trường số trong request báo giá.
      */
-    private function normalizeSalesQuotationNumbers(\Illuminate\Http\Request $request): void
+    private function normalizeSalesQuotationNumbers(Request $request): void
     {
         $merge = [];
 
@@ -544,7 +545,7 @@ class SalesQuotationController extends Controller
     /**
      * Ép làm sạch mọi trường số trong request báo giá.
      */
-    private function forceCleanQuoteRequestNumbers(\Illuminate\Http\Request $request): void
+    private function forceCleanQuoteRequestNumbers(Request $request): void
     {
         $merge = [];
 

@@ -909,11 +909,11 @@ class TechnicalPayrollController extends Controller
     /**
      * Lưu danh sách dòng KPI chi tiết tùy chỉnh (thêm/sửa/xóa), chỉ cho admin/kế toán/manager.
      */
-    public function saveKpiItems(\Illuminate\Http\Request $request)
+    public function saveKpiItems(Request $request)
     {
         abort_unless(auth()->user()->hasAnyRole(['admin', 'accounting', 'manager']), 403);
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
+        if (! Schema::hasTable('technical_payroll_kpi_items')) {
             return back()->with('error', 'Chưa có bảng technical_payroll_kpi_items. Hãy chạy migration trước.');
         }
 
@@ -925,7 +925,7 @@ class TechnicalPayrollController extends Controller
             $delete = (int) ($row['delete'] ?? 0) === 1;
 
             if ($delete && $id) {
-                \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
+                DB::table('technical_payroll_kpi_items')
                     ->where('id', $id)
                     ->delete();
 
@@ -952,12 +952,12 @@ class TechnicalPayrollController extends Controller
             ];
 
             if ($id) {
-                \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
+                DB::table('technical_payroll_kpi_items')
                     ->where('id', $id)
                     ->update($payload);
             } else {
                 $payload['created_at'] = $now;
-                \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
+                DB::table('technical_payroll_kpi_items')
                     ->insert($payload);
             }
         }
@@ -972,7 +972,7 @@ class TechnicalPayrollController extends Controller
     {
         abort_unless(auth()->user()->hasAnyRole(['admin', 'accounting', 'manager']), 403);
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('technical_payroll_kpi_items')) {
+        if (! Schema::hasTable('technical_payroll_kpi_items')) {
             if (request()->expectsJson()) {
                 return response()->json([
                     'ok' => false,
@@ -983,7 +983,7 @@ class TechnicalPayrollController extends Controller
             return back()->with('error', 'Chưa có bảng technical_payroll_kpi_items.');
         }
 
-        $item = \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
+        $item = DB::table('technical_payroll_kpi_items')
             ->where('id', (int) $id)
             ->first();
 
@@ -998,7 +998,7 @@ class TechnicalPayrollController extends Controller
             return back()->with('error', 'Dòng KPI không tồn tại hoặc đã bị xóa.');
         }
 
-        \Illuminate\Support\Facades\DB::table('technical_payroll_kpi_items')
+        DB::table('technical_payroll_kpi_items')
             ->where('id', (int) $id)
             ->delete();
 

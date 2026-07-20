@@ -2,6 +2,7 @@
 
 namespace App\Models\Payments;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class PaymentRequest extends Model
@@ -61,19 +62,19 @@ class PaymentRequest extends Model
     // Người tạo
     public function creator()
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // Giám đốc duyệt
     public function director()
     {
-        return $this->belongsTo(\App\Models\User::class, 'admin_approved_by');
+        return $this->belongsTo(User::class, 'admin_approved_by');
     }
 
     // Kế toán duyệt/chi
     public function accountant()
     {
-        return $this->belongsTo(\App\Models\User::class, 'accounting_approved_by');
+        return $this->belongsTo(User::class, 'accounting_approved_by');
     }
 
     public function attachments()

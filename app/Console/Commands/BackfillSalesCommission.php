@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 class BackfillSalesCommission extends Command
 {
     protected $signature = 'commission:backfill';
+
     protected $description = 'Tạo hoa hồng cho các đơn đã thanh toán đủ';
 
     public function handle()
@@ -33,7 +34,7 @@ class BackfillSalesCommission extends Command
                 ->where('id', $order->lead_id)
                 ->value('customer_id');
 
-            if (!$customerId) {
+            if (! $customerId) {
                 continue;
             }
 
@@ -44,20 +45,20 @@ class BackfillSalesCommission extends Command
 
             $salesUserId = $order->assigned_user_id ?? $order->created_by;
 
-            if (!$salesUserId) {
+            if (! $salesUserId) {
                 continue;
             }
 
             DB::table('sales_commissions')->insert([
-                'order_id'          => $order->id,
-                'customer_id'       => $customerId,
-                'sales_user_id'     => $salesUserId,
-                'base_amount'       => $baseAmount,
-                'rate'              => $rate,
+                'order_id' => $order->id,
+                'customer_id' => $customerId,
+                'sales_user_id' => $salesUserId,
+                'base_amount' => $baseAmount,
+                'rate' => $rate,
                 'commission_amount' => $commissionAmount,
-                'status'            => 'auto',
-                'created_at'        => now(),
-                'updated_at'        => now(),
+                'status' => 'auto',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             $count++;

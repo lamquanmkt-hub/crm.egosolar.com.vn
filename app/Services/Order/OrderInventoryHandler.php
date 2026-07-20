@@ -9,6 +9,7 @@ use App\Enums\OrderDepartment;
 use App\Models\CRM\Customers\CustomerDebt;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderApproval;
+use App\Services\Inventory\Stock\StockLotService;
 use App\Services\NotificationService;
 use App\Services\OrderService;
 use Illuminate\Support\Carbon;
@@ -143,7 +144,7 @@ class OrderInventoryHandler
         $order->loadMissing(['items.product']);
 
         foreach ($order->items as $item) {
-            app(\App\Services\Inventory\Stock\StockLotService::class)->issueOrderItemFifo($order, $item);
+            app(StockLotService::class)->issueOrderItemFifo($order, $item);
         }
     }
 

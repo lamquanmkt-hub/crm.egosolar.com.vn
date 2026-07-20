@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Http\Controllers\Controller;
 use App\Models\SalesDailyKpi;
 use App\Models\User;
+use App\Services\CRM\Commission\CommissionEngineService;
 use App\Services\Sales\SalesCommissionExcelExporter;
 use App\Services\Sales\SalesCommissionScope;
 use App\Services\Sales\SalesKpiSettingsService;
@@ -89,7 +90,7 @@ class SalesCommissionController extends Controller
                 ->from('model_has_roles as mhr')
                 ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                 ->whereColumn('mhr.model_id', $salesColumn)
-                ->where('mhr.model_type', \App\Models\User::class)
+                ->where('mhr.model_type', User::class)
                 ->whereIn('r.name', ['sales', 'sales_manager']);
         });
     }
@@ -606,7 +607,7 @@ class SalesCommissionController extends Controller
 
         $policy = $defaultPolicy;
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('crm_commission_policies')) {
+        if (Schema::hasTable('crm_commission_policies')) {
             $policyRow = DB::table('crm_commission_policies')
                 ->where('period_month', $month)
                 ->orderByDesc('id')
@@ -619,7 +620,7 @@ class SalesCommissionController extends Controller
 
         $rules = collect();
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('crm_commission_rules') && isset($policy->id)) {
+        if (Schema::hasTable('crm_commission_rules') && isset($policy->id)) {
             $rules = DB::table('crm_commission_rules')
                 ->where('policy_id', (int) $policy->id)
                 ->where('is_active', 1)
@@ -643,7 +644,7 @@ class SalesCommissionController extends Controller
                     ->from('model_has_roles as mhr')
                     ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                     ->whereColumn('mhr.model_id', 'users.id')
-                    ->where('mhr.model_type', \App\Models\User::class)
+                    ->where('mhr.model_type', User::class)
                     ->whereIn('r.name', ['sales', 'sales_manager']);
             })
             ->orderBy('users.name')
@@ -691,7 +692,7 @@ class SalesCommissionController extends Controller
             ->orderByDesc('completed_date')
             ->get();
 
-        $engine = app(\App\Services\CRM\Commission\CommissionEngineService::class);
+        $engine = app(CommissionEngineService::class);
         $engine->ensureSchema();
         $month = $request->get('month', now()->format('Y-m'));
         $policy = $engine->currentPolicy($month);
@@ -723,7 +724,7 @@ class SalesCommissionController extends Controller
     public function commissionSettings(Request $request)
     {
         $month = $request->get('month', now()->format('Y-m'));
-        $engine = app(\App\Services\CRM\Commission\CommissionEngineService::class);
+        $engine = app(CommissionEngineService::class);
 
         if ((int) $request->get('copy_previous', 0) === 1) {
             $engine->copyPreviousMonth($month);
@@ -741,10 +742,10 @@ class SalesCommissionController extends Controller
      */
     public function commissionSettingsSave(Request $request)
     {
-        $engine = app(\App\Services\CRM\Commission\CommissionEngineService::class);
+        $engine = app(CommissionEngineService::class);
         $month = $engine->saveSettings($request);
 
-        \Illuminate\Support\Facades\Cache::flush();
+        Cache::flush();
 
         return redirect()
             ->route('sales.commissions.settings', ['month' => $month])
@@ -848,7 +849,7 @@ class SalesCommissionController extends Controller
                 DB::raw("GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') as role_names"),
                 DB::raw("MIN(CASE WHEN r.name = 'sales_manager' THEN 0 ELSE 1 END) as role_sort")
             )
-            ->where('mhr.model_type', \App\Models\User::class)
+            ->where('mhr.model_type', User::class)
             ->whereIn('r.name', ['sales_manager', 'sales'])
             ->groupBy('mhr.model_id');
 

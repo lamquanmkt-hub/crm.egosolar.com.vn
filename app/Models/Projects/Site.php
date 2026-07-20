@@ -2,6 +2,9 @@
 
 namespace App\Models\Projects;
 
+use App\Models\Payment;
+use App\Models\Payments\PaymentRequest;
+use App\Models\Receipt;
 use Illuminate\Database\Eloquent\Model;
 
 class Site extends Model
@@ -104,7 +107,7 @@ class Site extends Model
     public function receipts()
     {
         return $this->hasMany(
-            \App\Models\Receipt::class,
+            Receipt::class,
             'site_id'
         );
     }
@@ -112,7 +115,7 @@ class Site extends Model
     public function payments()
     {
         return $this->hasMany(
-            \App\Models\Payment::class,
+            Payment::class,
             'site_id'
         );
     }
@@ -120,7 +123,7 @@ class Site extends Model
     public function paymentRequests()
     {
         return $this->hasMany(
-            \App\Models\Payments\PaymentRequest::class,
+            PaymentRequest::class,
             'site_id'
         );
     }

@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\Inventory\Catalog\ProductCategory;
 use App\Contracts\Repositories\ProductCategoryRepositoryInterface;
+use App\Models\Inventory\Catalog\ProductCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 /**

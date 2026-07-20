@@ -21,11 +21,11 @@ class SyncItemsAction
         foreach ($items as $item) {
             $rows[] = [
                 'material_request_id' => $materialRequest->id,
-                'product_id'          => !empty($item['product_id']) ? (int) $item['product_id'] : null,
-                'qty'                 => (float) ($item['qty'] ?? 0),
-                'note'                => $item['note'] ?? null,
-                'created_at'          => $now,
-                'updated_at'          => $now,
+                'product_id' => ! empty($item['product_id']) ? (int) $item['product_id'] : null,
+                'qty' => (float) ($item['qty'] ?? 0),
+                'note' => $item['note'] ?? null,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 

@@ -13,6 +13,11 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Dashboard tài chính: tổng quan thu chi, công nợ và bảng lương.
@@ -464,7 +469,7 @@ class FinanceDashboardController extends Controller
             ];
         });
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Bảng lương tháng '.$month);
@@ -472,25 +477,25 @@ class FinanceDashboardController extends Controller
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'EAF6FF'],
             ],
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'CBD5E1'],
                 ],
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
         $sectionStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '2563EB'],
             ],
         ];
@@ -498,12 +503,12 @@ class FinanceDashboardController extends Controller
         $cellStyle = [
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'E2E8F0'],
                 ],
             ],
             'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
@@ -559,11 +564,11 @@ class FinanceDashboardController extends Controller
         $summarySheet->mergeCells('A1:R1');
         $summarySheet->setCellValue('A1', 'BẢNG LƯƠNG NHÂN VIÊN THÁNG '.Carbon::parse($start)->format('m/Y'));
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $summarySheet->mergeCells('A2:R2');
         $summarySheet->setCellValue('A2', 'Ngày công chuẩn tự động theo cài đặt chấm công: '.$standardDaysAuto.' công');
-        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $headers = [
             'STT',
@@ -657,11 +662,11 @@ class FinanceDashboardController extends Controller
             $sheet->mergeCells('A1:D1');
             $sheet->setCellValue('A1', 'CHI TIẾT LƯƠNG - '.$row->employee_name);
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-            $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->mergeCells('A2:D2');
             $sheet->setCellValue('A2', 'Kỳ lương: '.$month.' | Công chuẩn: '.$standardDaysAuto.' công');
-            $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $currentRow = 4;
 
@@ -755,7 +760,7 @@ class FinanceDashboardController extends Controller
 
             $sheet->getStyle('A1:D'.$currentRow)
                 ->getAlignment()
-                ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+                ->setVertical(Alignment::VERTICAL_CENTER);
 
             $sheet->freezePane('A4');
             $autoSize($sheet, 'D');
@@ -766,7 +771,7 @@ class FinanceDashboardController extends Controller
         $fileName = 'bang-luong-'.$month.'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

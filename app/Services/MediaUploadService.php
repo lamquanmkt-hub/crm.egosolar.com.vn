@@ -8,6 +8,7 @@ use App\Models\Media\MediaMetadata;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManagerStatic;
 use Intervention\Image\ImageManagerStatic as Image;
 
 /**
@@ -47,7 +48,7 @@ class MediaUploadService implements MediaUploadServiceInterface
             try {
                 if (str_starts_with($file->getClientMimeType(), 'image/')) {
                     // If Intervention is available
-                    if (class_exists(\Intervention\Image\ImageManagerStatic::class)) {
+                    if (class_exists(ImageManagerStatic::class)) {
                         $img = Image::make($file->getRealPath());
                         $meta['width'] = $img->width();
                         $meta['height'] = $img->height();

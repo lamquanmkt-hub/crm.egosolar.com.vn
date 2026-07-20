@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -582,7 +583,7 @@ class HrDocumentController extends Controller
             return;
         }
 
-        Schema::create('hr_operation_items', function (\Illuminate\Database\Schema\Blueprint $table) {
+        Schema::create('hr_operation_items', function (Blueprint $table) {
             $table->id();
             $table->string('group_key', 80)->index();
             $table->string('title');
@@ -602,7 +603,7 @@ class HrDocumentController extends Controller
     private function ensureOperationGroupsTable(): void
     {
         if (! Schema::hasTable('hr_operation_groups')) {
-            Schema::create('hr_operation_groups', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('hr_operation_groups', function (Blueprint $table) {
                 $table->id();
                 $table->string('group_key', 80)->unique();
                 $table->string('name', 190);
@@ -622,7 +623,7 @@ class HrDocumentController extends Controller
     private function ensureOperationStatusesTable(): void
     {
         if (! Schema::hasTable('hr_operation_statuses')) {
-            Schema::create('hr_operation_statuses', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('hr_operation_statuses', function (Blueprint $table) {
                 $table->id();
                 $table->string('status_key', 80)->unique();
                 $table->string('name', 190);
@@ -633,7 +634,7 @@ class HrDocumentController extends Controller
         }
 
         if (Schema::hasTable('hr_operation_statuses') && ! Schema::hasColumn('hr_operation_statuses', 'color')) {
-            Schema::table('hr_operation_statuses', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::table('hr_operation_statuses', function (Blueprint $table) {
                 $table->string('color', 30)->default('slate')->after('name');
             });
         }
@@ -699,7 +700,7 @@ class HrDocumentController extends Controller
      */
     private function makeGroupKey(string $name): string
     {
-        $key = \Illuminate\Support\Str::slug($name, '_');
+        $key = Str::slug($name, '_');
         $key = preg_replace('/[^a-z0-9_]/', '', strtolower($key));
         $key = trim($key, '_');
 

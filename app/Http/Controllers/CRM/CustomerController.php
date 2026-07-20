@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\CRM;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\CustomerServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Core\Region;

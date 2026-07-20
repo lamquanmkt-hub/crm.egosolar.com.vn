@@ -4,7 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services\Sales;
 
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -26,7 +37,7 @@ class SalesCommissionExcelExporter
     public function download(string $requestedMonth, int $filterSalesId): Response
     {
 
-        if (! class_exists(\PhpOffice\PhpSpreadsheet\Spreadsheet::class)) {
+        if (! class_exists(Spreadsheet::class)) {
             return response(
                 'Server chưa có PhpSpreadsheet. Chạy: composer require phpoffice/phpspreadsheet',
                 500
@@ -37,7 +48,7 @@ class SalesCommissionExcelExporter
         $month = $requestedMonth !== '' ? $requestedMonth : now()->format('Y-m');
 
         try {
-            $periodStart = \Carbon\Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
+            $periodStart = Carbon::createFromFormat('Y-m-d', $month.'-01')->startOfMonth();
         } catch (\Throwable $e) {
             $month = now()->format('Y-m');
             $periodStart = now()->startOfMonth();
@@ -47,8 +58,8 @@ class SalesCommissionExcelExporter
         $periodFrom = $periodStart->format('Y-m-d 00:00:00');
         $periodTo = $periodEnd->format('Y-m-d 23:59:59');
 
-        $hasTable = fn ($t) => \Illuminate\Support\Facades\Schema::hasTable($t);
-        $hasCol = fn ($t, $c) => $hasTable($t) && \Illuminate\Support\Facades\Schema::hasColumn($t, $c);
+        $hasTable = fn ($t) => Schema::hasTable($t);
+        $hasCol = fn ($t, $c) => $hasTable($t) && Schema::hasColumn($t, $c);
 
         $firstCol = function ($table, array $cols) use ($hasCol) {
             foreach ($cols as $c) {
@@ -63,8 +74,8 @@ class SalesCommissionExcelExporter
         $normalize = function ($value) {
             $value = trim((string) ($value ?? ''));
 
-            if (class_exists(\Illuminate\Support\Str::class)) {
-                $value = \Illuminate\Support\Str::ascii($value);
+            if (class_exists(Str::class)) {
+                $value = Str::ascii($value);
             }
 
             $value = strtolower($value);
@@ -79,7 +90,7 @@ class SalesCommissionExcelExporter
 
         $findTable = function (array $candidates) {
             try {
-                $tables = collect(\Illuminate\Support\Facades\DB::select('SHOW TABLES'))
+                $tables = collect(DB::select('SHOW TABLES'))
                     ->map(fn ($r) => array_values((array) $r)[0] ?? null)
                     ->filter()
                     ->values();
@@ -126,21 +137,21 @@ class SalesCommissionExcelExporter
         $salesUsers = collect();
 
         try {
-            $salesUsers = \Illuminate\Support\Facades\DB::table('users')
+            $salesUsers = DB::table('users')
                 ->select('users.id', 'users.name', 'users.email')
                 ->where('users.name', '!=', SalesCommissionScope::EXCLUDED_SALES_NAME)
                 ->whereExists(function ($sub) {
-                    $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                    $sub->select(DB::raw(1))
                         ->from('model_has_roles as mhr')
                         ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                         ->whereColumn('mhr.model_id', 'users.id')
-                        ->where('mhr.model_type', \App\Models\User::class)
+                        ->where('mhr.model_type', User::class)
                         ->whereIn('r.name', ['sales', 'sales_manager']);
                 })
                 ->orderBy('users.name')
                 ->get();
         } catch (\Throwable $e) {
-            $salesUsers = \Illuminate\Support\Facades\DB::table('users')
+            $salesUsers = DB::table('users')
                 ->select('id', 'name', 'email')
                 ->where('name', '!=', SalesCommissionScope::EXCLUDED_SALES_NAME)
                 ->orderBy('name')
@@ -150,7 +161,7 @@ class SalesCommissionExcelExporter
         $validSalesIds = $salesUsers->pluck('id')->map(fn ($id) => (int) $id)->filter()->values()->all();
         $salesMap = $salesUsers->keyBy('id');
 
-        $ordersQ = \Illuminate\Support\Facades\DB::table($orderTable)
+        $ordersQ = DB::table($orderTable)
             ->whereBetween($orderDateCol, [$periodFrom, $periodTo]);
 
         if ($filterSalesId > 0) {
@@ -189,7 +200,7 @@ class SalesCommissionExcelExporter
 
         if ($paymentTable && $paymentOrderCol && $paymentAmountCol && ! empty($orderIds)) {
             try {
-                $paymentsByOrder = \Illuminate\Support\Facades\DB::table($paymentTable)
+                $paymentsByOrder = DB::table($paymentTable)
                     ->whereIn($paymentOrderCol, $orderIds)
                     ->get()
                     ->groupBy($paymentOrderCol);
@@ -205,7 +216,7 @@ class SalesCommissionExcelExporter
 
         if ($itemTable && $itemOrderCol && ! empty($orderIds)) {
             try {
-                $iq = \Illuminate\Support\Facades\DB::table($itemTable.' as oi')
+                $iq = DB::table($itemTable.' as oi')
                     ->whereIn('oi.'.$itemOrderCol, $orderIds);
 
                 $selects = ['oi.*'];
@@ -221,7 +232,7 @@ class SalesCommissionExcelExporter
                         'vat_percent' => 'ego_product_vat_percent',
                     ] as $col => $alias) {
                         if ($hasCol('crm_product_catalog', $col)) {
-                            $selects[] = \Illuminate\Support\Facades\DB::raw('pc.`'.$col.'` as '.$alias);
+                            $selects[] = DB::raw('pc.`'.$col.'` as '.$alias);
                         }
                     }
                 }
@@ -275,7 +286,7 @@ class SalesCommissionExcelExporter
                     }
 
                     try {
-                        $row = \Illuminate\Support\Facades\DB::table($table)->where('id', $id)->first();
+                        $row = DB::table($table)->where('id', $id)->first();
                         if ($row) {
                             $customerCache[$id] = (object) [
                                 'name' => $row->{$firstCol($table, ['name', 'company_name', 'full_name', 'customer_name'])} ?? '-',
@@ -317,7 +328,7 @@ class SalesCommissionExcelExporter
                         }
 
                         try {
-                            $lead = \Illuminate\Support\Facades\DB::table($leadTable)->where('id', $leadId)->first();
+                            $lead = DB::table($leadTable)->where('id', $leadId)->first();
 
                             if ($lead) {
                                 $leadCache[$leadId] = $lead;
@@ -445,7 +456,7 @@ class SalesCommissionExcelExporter
 
         if ($hasTable('crm_commission_policies')) {
             try {
-                $policyRow = \Illuminate\Support\Facades\DB::table('crm_commission_policies')
+                $policyRow = DB::table('crm_commission_policies')
                     ->where('period_month', $month)
                     ->orderByDesc('id')
                     ->first();
@@ -462,7 +473,7 @@ class SalesCommissionExcelExporter
 
         if ($hasTable('crm_commission_rules') && isset($policy->id)) {
             try {
-                $rules = \Illuminate\Support\Facades\DB::table('crm_commission_rules')
+                $rules = DB::table('crm_commission_rules')
                     ->where('policy_id', (int) $policy->id)
                     ->where('is_active', 1)
                     ->orderByDesc('priority')
@@ -805,7 +816,7 @@ class SalesCommissionExcelExporter
             ->sortByDesc('commission')
             ->values();
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Hoa hồng Sales '.$month)
@@ -814,18 +825,18 @@ class SalesCommissionExcelExporter
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'EAF6FF'],
             ],
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'CBD5E1'],
                 ],
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
                 'wrapText' => true,
             ],
         ];
@@ -833,12 +844,12 @@ class SalesCommissionExcelExporter
         $cellStyle = [
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'E2E8F0'],
                 ],
             ],
             'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
                 'wrapText' => true,
             ],
         ];
@@ -846,12 +857,12 @@ class SalesCommissionExcelExporter
         $titleStyle = [
             'font' => ['bold' => true, 'size' => 15, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '0891B2'],
             ],
         ];
 
-        $colLetter = fn ($index) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index);
+        $colLetter = fn ($index) => Coordinate::stringFromColumnIndex($index);
 
         $autoSize = function ($sheet, int $count) use ($colLetter) {
             for ($i = 1; $i <= $count; $i++) {
@@ -990,7 +1001,7 @@ class SalesCommissionExcelExporter
             $sheet->fromArray([
                 $i + 1,
                 $row->order_code,
-                $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                 $row->sales_name,
                 $row->customer_name,
                 $row->customer_status,
@@ -1047,7 +1058,7 @@ class SalesCommissionExcelExporter
             $sheet->fromArray([
                 $i + 1,
                 $row->order_code,
-                $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                 $row->sales_name,
                 $row->customer_name,
                 $row->customer_phone,
@@ -1107,7 +1118,7 @@ class SalesCommissionExcelExporter
                 $sheet->fromArray([
                     $stt++,
                     $row->order_code,
-                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                     $row->sales_name,
                     $row->customer_name,
                     '',
@@ -1132,7 +1143,7 @@ class SalesCommissionExcelExporter
                 $sheet->fromArray([
                     $stt++,
                     $row->order_code,
-                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                     $row->sales_name,
                     $row->customer_name,
                     $item->ego_product_code ?? ($item->sku ?? ($item->barcode ?? '')),
@@ -1187,7 +1198,7 @@ class SalesCommissionExcelExporter
                 $sheet->fromArray([
                     $stt++,
                     $row->order_code,
-                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                     $row->sales_name,
                     $row->customer_name,
                     '',
@@ -1204,10 +1215,10 @@ class SalesCommissionExcelExporter
                 $sheet->fromArray([
                     $stt++,
                     $row->order_code,
-                    $row->order_date ? \Carbon\Carbon::parse($row->order_date)->format('d/m/Y') : '',
+                    $row->order_date ? Carbon::parse($row->order_date)->format('d/m/Y') : '',
                     $row->sales_name,
                     $row->customer_name,
-                    $paymentDateCol && ! empty($p->{$paymentDateCol}) ? \Carbon\Carbon::parse($p->{$paymentDateCol})->format('d/m/Y') : '',
+                    $paymentDateCol && ! empty($p->{$paymentDateCol}) ? Carbon::parse($p->{$paymentDateCol})->format('d/m/Y') : '',
                     round((float) ($p->{$paymentAmountCol} ?? 0)),
                     $paymentNoteCol ? (string) ($p->{$paymentNoteCol} ?? '') : '',
                 ], null, 'A'.$r);
@@ -1299,14 +1310,14 @@ class SalesCommissionExcelExporter
         $exportSalesPart = 'tat-ca';
 
         if ($filterSalesId > 0 && isset($salesMap) && $salesMap->has($filterSalesId)) {
-            $exportSalesPart = \Illuminate\Support\Str::slug((string) ($salesMap->get($filterSalesId)->name ?? ('sales-'.$filterSalesId)));
+            $exportSalesPart = Str::slug((string) ($salesMap->get($filterSalesId)->name ?? ('sales-'.$filterSalesId)));
         }
 
         $fileName = 'hoa-hong-sales-'.$exportSalesPart.'-'.$month.'-'.now()->format('Ymd-His').'.xlsx';
         /* EGO_EXPORT_EMPLOYEE_FILENAME_END */
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
             $spreadsheet->disconnectWorksheets();
         }, $fileName, [

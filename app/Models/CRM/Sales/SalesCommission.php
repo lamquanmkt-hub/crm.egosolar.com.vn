@@ -3,6 +3,7 @@
 namespace App\Models\CRM\Sales;
 
 use App\Models\CRM;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 class SalesCommission extends Model
@@ -22,7 +23,7 @@ class SalesCommission extends Model
     // 🔹 SALES
     public function salesUser()
     {
-        return $this->belongsTo(\App\Models\User::class, 'sales_user_id');
+        return $this->belongsTo(User::class, 'sales_user_id');
     }
 
     // 🔹 ĐƠN HÀNG

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Inventory\Catalog\ProductCategory;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /**
@@ -88,7 +90,7 @@ class ProductCategoryRequest extends FormRequest
 
             // Kiểm tra không được chọn category con làm parent
             if ($parentId && $categoryId) {
-                $category = \App\Models\Inventory\Catalog\ProductCategory::find($categoryId);
+                $category = ProductCategory::find($categoryId);
                 if ($category) {
                     $descendants = $this->getDescendants($category);
                     if ($descendants->contains('id', $parentId)) {
@@ -105,7 +107,7 @@ class ProductCategoryRequest extends FormRequest
     /**
      * Lấy tất cả descendants của category
      */
-    protected function getDescendants(\App\Models\Inventory\Catalog\ProductCategory $category): \Illuminate\Support\Collection
+    protected function getDescendants(ProductCategory $category): Collection
     {
         $descendants = collect();
         $children = $category->children;

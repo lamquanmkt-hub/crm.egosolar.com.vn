@@ -27,6 +27,7 @@ use App\Services\CallioService;
 use App\Services\CRM\Commission\CommissionEngineService;
 use App\Services\CustomerService;
 use App\Services\Finance\SupplierDebtService;
+use App\Services\Inventory\Stock\StockLotService;
 use App\Services\MediaUploadService;
 use App\Services\NotificationService;
 use App\Services\OrderReturnService;
@@ -38,7 +39,6 @@ use App\Services\ProductCategoryService;
 use App\Services\ProductService;
 use App\Services\ProductStockService;
 use App\Services\RolePermission\PageAccessService;
-use App\Services\Inventory\Stock\StockLotService;
 use App\Services\WarehouseService;
 use Illuminate\Support\ServiceProvider;
 

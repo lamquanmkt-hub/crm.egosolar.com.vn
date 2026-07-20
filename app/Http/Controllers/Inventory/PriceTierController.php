@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\PriceTierServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\PriceTierRequest;
 use App\Models\Inventory\Pricing\PriceTier;
 use Illuminate\Http\Request;

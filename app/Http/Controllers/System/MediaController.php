@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\System;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\MediaUploadServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Models\Media\MediaFile;
 use Illuminate\Http\Request;
 

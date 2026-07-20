@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\Inventory\Pricing\PriceTier;
 use App\Contracts\Repositories\PriceTierRepositoryInterface;
+use App\Models\Inventory\Pricing\PriceTier;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 

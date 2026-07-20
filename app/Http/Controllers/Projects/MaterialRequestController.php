@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Projects;
 
-use App\Http\Controllers\Controller;
 use App\Enums\MaterialRequestStatus;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\MaterialRequest\StoreMaterialRequestRequest;
 use App\Http\Requests\MaterialRequest\UpdateMaterialRequestRequest;
 use App\Models\Inventory\Catalog\Product;
@@ -210,13 +210,13 @@ class MaterialRequestController extends Controller
 
             abort_unless($__egoMrId > 0, 404);
 
-            $__exists = \Illuminate\Support\Facades\DB::table('material_requests')
+            $__exists = DB::table('material_requests')
                 ->where('id', $__egoMrId)
                 ->exists();
 
             abort_unless($__exists, 404);
 
-            $__egoMrRow = \Illuminate\Support\Facades\DB::table('material_requests')
+            $__egoMrRow = DB::table('material_requests')
                 ->where('id', $__egoMrId)
                 ->first();
 
@@ -226,9 +226,9 @@ class MaterialRequestController extends Controller
                 return back()->with('error', 'Đơn vật tư đã xuất kho nên không được xóa để tránh lệch tồn kho. Hãy tạo phiếu hoàn/điều chỉnh kho nếu cần.');
             }
 
-            \Illuminate\Support\Facades\DB::transaction(function () use ($__egoMrId) {
-                $__db = \Illuminate\Support\Facades\DB::class;
-                $__schema = \Illuminate\Support\Facades\Schema::class;
+            DB::transaction(function () use ($__egoMrId) {
+                $__db = DB::class;
+                $__schema = Schema::class;
 
                 foreach (['material_request_items', 'material_request_edit_histories'] as $__table) {
                     if ($__schema::hasTable($__table) && $__schema::hasColumn($__table, 'material_request_id')) {

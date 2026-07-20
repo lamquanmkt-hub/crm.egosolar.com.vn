@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\BrandServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\BrandRequest;
 use App\Models\Inventory\Catalog\Brand;
 use Illuminate\Http\Request;

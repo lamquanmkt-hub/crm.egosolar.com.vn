@@ -26,7 +26,6 @@ class OrderValidator
      * - Có ít nhất 1 item
      * - Tổng tiền > 0
      *
-     * @param Order $order
      *
      * @throws \Exception
      */
@@ -50,7 +49,6 @@ class OrderValidator
     /**
      * Validate đơn hàng có thể duyệt.
      *
-     * @param Order $order
      *
      * @throws \Exception
      */
@@ -58,7 +56,7 @@ class OrderValidator
     {
         $dept = OrderDepartment::tryFrom($order->current_department);
 
-        if (!$dept || !$dept->isApprovable()) {
+        if (! $dept || ! $dept->isApprovable()) {
             throw new \Exception('Đơn hàng không thể duyệt ở trạng thái hiện tại');
         }
     }
@@ -66,7 +64,6 @@ class OrderValidator
     /**
      * Validate đơn hàng có thể từ chối.
      *
-     * @param Order $order
      *
      * @throws \Exception
      */
@@ -74,7 +71,7 @@ class OrderValidator
     {
         $dept = OrderDepartment::tryFrom($order->current_department);
 
-        if (!$dept || !$dept->isApprovable()) {
+        if (! $dept || ! $dept->isApprovable()) {
             throw new \Exception('Chỉ các bộ phận được phân công mới có thể từ chối');
         }
     }
@@ -82,7 +79,6 @@ class OrderValidator
     /**
      * Validate đơn hàng có thể xuất kho.
      *
-     * @param Order $order
      *
      * @throws \Exception
      */
@@ -102,7 +98,6 @@ class OrderValidator
     /**
      * Validate thông tin thanh toán.
      *
-     * @param array $data
      *
      * @throws \Exception
      */
@@ -125,7 +120,6 @@ class OrderValidator
     /**
      * Validate đơn hàng có thể hủy.
      *
-     * @param Order $order
      *
      * @throws \Exception
      */
@@ -139,7 +133,6 @@ class OrderValidator
     /**
      * Validate đơn hàng có thể xóa.
      *
-     * @param Order $order
      *
      * @throws \Exception
      */

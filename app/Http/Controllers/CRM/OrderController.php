@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\CRM;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\CustomerServiceInterface;
 use App\Contracts\Services\OrderServiceInterface;
 use App\Contracts\Services\PricingServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
 use App\Contracts\Services\WarehouseServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\OrderRequest;
 use App\Models\Core\Company;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderEditHistory;
 use App\Models\CRM\Orders\OrderNotification;
 use App\Models\Inventory\Pricing\PriceTier;
+use App\Models\Payments\Payment;
 use App\Models\Payments\PaymentMethod;
 use App\Models\User;
 use App\Services\Order\OrderExcelExporter;
@@ -586,7 +587,7 @@ class OrderController extends Controller
     public function updatePayment(Request $request, string $paymentId): RedirectResponse
     {
         try {
-            $payment = \App\Models\Payments\Payment::findOrFail($paymentId);
+            $payment = Payment::findOrFail($paymentId);
 
             $order = $this->orderService->find((int) $payment->order_id);
 
@@ -617,7 +618,7 @@ class OrderController extends Controller
     public function destroyPayment(string $paymentId): RedirectResponse
     {
         try {
-            $payment = \App\Models\Payments\Payment::findOrFail($paymentId);
+            $payment = Payment::findOrFail($paymentId);
 
             $order = $this->orderService->find((int) $payment->order_id);
 
@@ -1325,7 +1326,7 @@ class OrderController extends Controller
             return;
         }
 
-        $schema = \Illuminate\Support\Facades\Schema::class;
+        $schema = Schema::class;
 
         $orderTable = $schema::hasTable('crm_orders') ? 'crm_orders' : ($schema::hasTable('orders') ? 'orders' : null);
         $itemTable = $schema::hasTable('crm_order_items') ? 'crm_order_items' : ($schema::hasTable('order_items') ? 'order_items' : null);

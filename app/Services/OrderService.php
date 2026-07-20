@@ -7,6 +7,8 @@ namespace App\Services;
 use App\Contracts\Repositories\OrderRepositoryInterface;
 use App\Contracts\Services\NotificationServiceInterface;
 use App\Contracts\Services\OrderServiceInterface;
+use App\Contracts\Services\PricingServiceInterface;
+use App\Contracts\Services\ProductStockServiceInterface;
 use App\Enums\OrderDepartment;
 use App\Enums\OrderStatusCode;
 use App\Models\CRM\Customers\CustomerDebt;
@@ -40,9 +42,9 @@ class OrderService implements OrderServiceInterface
      */
     public function __construct(
         protected OrderRepositoryInterface $orderRepo,
-        protected \App\Contracts\Services\ProductStockServiceInterface $stockService,
+        protected ProductStockServiceInterface $stockService,
         protected NotificationServiceInterface $notificationService,
-        protected \App\Contracts\Services\PricingServiceInterface $pricingService,
+        protected PricingServiceInterface $pricingService,
         protected OrderApprovalHandler $approvalHandler,
         protected OrderInventoryHandler $inventoryHandler,
         protected OrderPaymentHandler $paymentHandler,

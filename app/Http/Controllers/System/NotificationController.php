@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\System;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\NotificationServiceInterface;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\AbstractPaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -258,11 +260,11 @@ class NotificationController extends Controller
      */
     private function normalizeNotificationItems($source)
     {
-        if ($source instanceof \Illuminate\Pagination\AbstractPaginator) {
+        if ($source instanceof AbstractPaginator) {
             return collect($source->items())->map(fn ($n) => $this->normalizeNotificationItem($n));
         }
 
-        if ($source instanceof \Illuminate\Support\Collection) {
+        if ($source instanceof Collection) {
             return $source->map(fn ($n) => $this->normalizeNotificationItem($n));
         }
 

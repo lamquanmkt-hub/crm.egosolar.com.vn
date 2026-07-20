@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\MaterialRequestStatus;
+use App\Models\Inventory\Catalog\Product;
 use App\Models\Projects\MaterialRequest;
+use App\Services\Inventory\Stock\StockLotService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -501,7 +503,7 @@ class MaterialRequestService
          * Như vậy lịch sử có đủ 2 dòng nhập/xuất, còn tồn cuối không bị ảo.
          */
         if (Schema::hasTable('crm_product_stock_lots')) {
-            $product = \App\Models\Inventory\Catalog\Product::find($productId);
+            $product = Product::find($productId);
             if (! $product) {
                 return;
             }
@@ -510,7 +512,7 @@ class MaterialRequestService
             $costBeforeVat = (float) ($product->price_agent ?? $product->price ?? 0);
             $vatPercent = (float) ($product->cost_vat_percent ?? $product->vat_percent ?? 0);
 
-            $lotId = app(\App\Services\Inventory\Stock\StockLotService::class)->receiveLot(
+            $lotId = app(StockLotService::class)->receiveLot(
                 $product,
                 $companyId,
                 $warehouseId,
@@ -527,7 +529,7 @@ class MaterialRequestService
                 ]
             );
 
-            app(\App\Services\Inventory\Stock\StockLotService::class)->issueLots(
+            app(StockLotService::class)->issueLots(
                 $productId,
                 $companyId > 0 ? $companyId : null,
                 $warehouseId,
@@ -648,7 +650,7 @@ class MaterialRequestService
         if (Schema::hasTable('crm_product_stock_lots')) {
             $companyId = $this->warehouseCompanyId($warehouseId);
 
-            app(\App\Services\Inventory\Stock\StockLotService::class)->issueLots(
+            app(StockLotService::class)->issueLots(
                 $productId,
                 $companyId > 0 ? $companyId : null,
                 $warehouseId,

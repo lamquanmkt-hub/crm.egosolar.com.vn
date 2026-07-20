@@ -5,6 +5,7 @@ namespace App\Http\Controllers\System;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserStoreRequest;
 use App\Http\Requests\UserUpdateRequest;
+use App\Models\Media;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\Request;
@@ -196,7 +197,7 @@ class UserController extends Controller
         $file = $request->file('avatar');
         $path = $file->store('avatars', 'public');
 
-        if (Schema::hasColumn('users', 'avatar_id') && class_exists(\App\Models\Media::class)) {
+        if (Schema::hasColumn('users', 'avatar_id') && class_exists(Media::class)) {
             try {
                 if ($user->avatar && is_object($user->avatar) && ! empty($user->avatar->file_path)) {
                     Storage::disk('public')->delete($user->avatar->file_path);
@@ -205,7 +206,7 @@ class UserController extends Controller
                 //
             }
 
-            $media = \App\Models\Media::create([
+            $media = Media::create([
                 'file_name' => $file->getClientOriginalName(),
                 'file_path' => $path,
                 'mime_type' => $file->getClientMimeType(),

@@ -6,8 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\Position;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -21,20 +27,20 @@ class EmployeeController extends Controller
     private function ensureEmployeeSalaryColumns(): void
     {
         try {
-            if (! \Illuminate\Support\Facades\Schema::hasTable('users')) {
+            if (! Schema::hasTable('users')) {
                 return;
             }
 
-            \Illuminate\Support\Facades\Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
-                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'official_salary')) {
+            Schema::table('users', function (Blueprint $table) {
+                if (! Schema::hasColumn('users', 'official_salary')) {
                     $table->decimal('official_salary', 15, 2)->nullable()->after('is_active');
                 }
 
-                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'probation_salary')) {
+                if (! Schema::hasColumn('users', 'probation_salary')) {
                     $table->decimal('probation_salary', 15, 2)->nullable()->after('official_salary');
                 }
 
-                if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'internship_salary')) {
+                if (! Schema::hasColumn('users', 'internship_salary')) {
                     $table->decimal('internship_salary', 15, 2)->nullable()->after('probation_salary');
                 }
             });
@@ -265,7 +271,7 @@ class EmployeeController extends Controller
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($employee->id)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($employee->id)],
             'phone_number' => ['nullable', 'string', 'max:30'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'position_id' => ['nullable', 'exists:positions,id'],
@@ -320,45 +326,45 @@ class EmployeeController extends Controller
             ];
 
             // Xóa dữ liệu phụ không ảnh hưởng lịch sử duyệt
-            if (\Illuminate\Support\Facades\Schema::hasTable('model_has_roles')) {
-                \Illuminate\Support\Facades\DB::table('model_has_roles')->where('model_id', $id)->delete();
+            if (Schema::hasTable('model_has_roles')) {
+                DB::table('model_has_roles')->where('model_id', $id)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('model_has_permissions')) {
-                \Illuminate\Support\Facades\DB::table('model_has_permissions')->where('model_id', $id)->delete();
+            if (Schema::hasTable('model_has_permissions')) {
+                DB::table('model_has_permissions')->where('model_id', $id)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('sessions')) {
-                \Illuminate\Support\Facades\DB::table('sessions')->where('user_id', $id)->delete();
+            if (Schema::hasTable('sessions')) {
+                DB::table('sessions')->where('user_id', $id)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('personal_access_tokens')) {
-                \Illuminate\Support\Facades\DB::table('personal_access_tokens')
+            if (Schema::hasTable('personal_access_tokens')) {
+                DB::table('personal_access_tokens')
                     ->where('tokenable_id', $id)
                     ->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('hr_employee_profiles')) {
-                \Illuminate\Support\Facades\DB::table('hr_employee_profiles')->where('employee_id', $id)->delete();
+            if (Schema::hasTable('hr_employee_profiles')) {
+                DB::table('hr_employee_profiles')->where('employee_id', $id)->delete();
             }
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('hr_employee_files')) {
-                $files = \Illuminate\Support\Facades\DB::table('hr_employee_files')->where('employee_id', $id)->get();
+            if (Schema::hasTable('hr_employee_files')) {
+                $files = DB::table('hr_employee_files')->where('employee_id', $id)->get();
 
                 foreach ($files as $file) {
-                    if (! empty($file->file_path) && \Illuminate\Support\Facades\Storage::disk('public')->exists($file->file_path)) {
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($file->file_path);
+                    if (! empty($file->file_path) && Storage::disk('public')->exists($file->file_path)) {
+                        Storage::disk('public')->delete($file->file_path);
                     }
                 }
 
-                \Illuminate\Support\Facades\DB::table('hr_employee_files')->where('employee_id', $id)->delete();
+                DB::table('hr_employee_files')->where('employee_id', $id)->delete();
             }
 
             $hasImportantReferences = false;
 
-            if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
+            if (Schema::hasTable('users')) {
                 try {
-                    $references = \Illuminate\Support\Facades\DB::select("
+                    $references = DB::select("
                         SELECT TABLE_NAME, COLUMN_NAME
                         FROM information_schema.KEY_COLUMN_USAGE
                         WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
@@ -374,11 +380,11 @@ class EmployeeController extends Controller
                             continue;
                         }
 
-                        if (! \Illuminate\Support\Facades\Schema::hasTable($table)) {
+                        if (! Schema::hasTable($table)) {
                             continue;
                         }
 
-                        $exists = \Illuminate\Support\Facades\DB::table($table)
+                        $exists = DB::table($table)
                             ->where($column, $id)
                             ->exists();
 
@@ -401,16 +407,16 @@ class EmployeeController extends Controller
                     return redirect()->route('hr.employees.index')->with('success', 'Đã xóa nhân viên khỏi hệ thống.');
                 }
 
-                if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
-                    \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->delete();
+                if (Schema::hasTable('users')) {
+                    DB::table('users')->where('id', $id)->delete();
 
                     return redirect()->route('hr.employees.index')->with('success', 'Đã xóa user khỏi hệ thống.');
                 }
             }
 
             // Có lịch sử liên quan: không delete cứng, chỉ ẩn + khóa tài khoản
-            if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
-                $columns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+            if (Schema::hasTable('users')) {
+                $columns = Schema::getColumnListing('users');
                 $data = [];
 
                 if (in_array('status', $columns, true)) {
@@ -446,16 +452,16 @@ class EmployeeController extends Controller
                 }
 
                 if (in_array('password', $columns, true)) {
-                    $data['password'] = \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(32));
+                    $data['password'] = Hash::make(Str::random(32));
                 }
 
                 if (in_array('name', $columns, true)) {
-                    $oldName = \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->value('name');
+                    $oldName = DB::table('users')->where('id', $id)->value('name');
                     $data['name'] = '[Đã xóa] '.($oldName ?: 'User '.$id);
                 }
 
                 if (in_array('full_name', $columns, true)) {
-                    $oldFullName = \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->value('full_name');
+                    $oldFullName = DB::table('users')->where('id', $id)->value('full_name');
                     $data['full_name'] = '[Đã xóa] '.($oldFullName ?: 'User '.$id);
                 }
 
@@ -464,7 +470,7 @@ class EmployeeController extends Controller
                 }
 
                 if (! empty($data)) {
-                    \Illuminate\Support\Facades\DB::table('users')->where('id', $id)->update($data);
+                    DB::table('users')->where('id', $id)->update($data);
                 }
             }
 

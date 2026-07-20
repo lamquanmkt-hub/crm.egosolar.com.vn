@@ -6,7 +6,9 @@ namespace App\Services;
 
 use App\Contracts\Repositories\ProductCategoryRepositoryInterface;
 use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Contracts\Services\BrandServiceInterface;
 use App\Contracts\Services\ProductServiceInterface;
+use App\Contracts\Services\WarehouseServiceInterface;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\Inventory\Pricing\PriceTier;
 use App\Models\Inventory\Pricing\ProductPrice;
@@ -17,6 +19,7 @@ use App\Models\Inventory\Serial\SerialUnitState;
 use App\Models\Inventory\Stock\InventoryEvent;
 use App\Models\Inventory\Stock\ProductStock;
 use App\Models\Media\MediaFile;
+use App\Services\Inventory\Stock\StockLotService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -144,8 +147,8 @@ class ProductService implements ProductServiceInterface
         protected ProductRepositoryInterface $repo,
         protected ProductCategoryRepositoryInterface $categories,
         protected StockService $stockService,
-        protected \App\Contracts\Services\WarehouseServiceInterface $warehouseService,
-        protected \App\Contracts\Services\BrandServiceInterface $brandService,
+        protected WarehouseServiceInterface $warehouseService,
+        protected BrandServiceInterface $brandService,
     ) {}
 
     /**
@@ -433,8 +436,8 @@ class ProductService implements ProductServiceInterface
 
         $stocksByCompany = $data['stocks'];
 
-        $hasCompanyInStock = \Illuminate\Support\Facades\Schema::hasColumn('crm_product_stock', 'company_id');
-        $hasCompanyInSerialState = \Illuminate\Support\Facades\Schema::hasColumn('crm_serial_unit_states', 'company_id');
+        $hasCompanyInStock = Schema::hasColumn('crm_product_stock', 'company_id');
+        $hasCompanyInSerialState = Schema::hasColumn('crm_serial_unit_states', 'company_id');
 
         $costBeforeVat = (float) ($data['price_agent'] ?? $product->price_agent ?? 0);
         $costVatPercent = (float) ($data['cost_vat_percent'] ?? $product->cost_vat_percent ?? $product->vat_percent ?? 0);
@@ -485,7 +488,7 @@ class ProductService implements ProductServiceInterface
                     }
 
                     // Với hàng serial vẫn tạo/đồng bộ lô để có giá vốn và FIFO báo cáo.
-                    app(\App\Services\Inventory\Stock\StockLotService::class)->syncManualStock(
+                    app(StockLotService::class)->syncManualStock(
                         $product,
                         $companyId,
                         $warehouseId,
@@ -501,7 +504,7 @@ class ProductService implements ProductServiceInterface
                 // Tồn tổng vẫn nằm ở crm_product_stock.
                 // Nếu số lượng tăng: tạo lô mới theo giá vốn hiện tại.
                 // Nếu số lượng giảm: trừ các lô cũ nhất trước.
-                app(\App\Services\Inventory\Stock\StockLotService::class)->syncManualStock(
+                app(StockLotService::class)->syncManualStock(
                     $product,
                     $companyId,
                     $warehouseId,

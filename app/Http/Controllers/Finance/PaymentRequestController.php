@@ -9,8 +9,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Controller quản lý phiếu đề nghị thanh toán: CRUD, duyệt và xuất Excel/PDF.
@@ -708,7 +711,7 @@ class PaymentRequestController extends Controller
             unset($data['attachments']);
 
             $now = now();
-            $columns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_requests');
+            $columns = Schema::getColumnListing('payment_requests');
 
             $data['created_by'] = (int) $user->id;
             $data['status'] = 'draft';
@@ -725,7 +728,7 @@ class PaymentRequestController extends Controller
             if (in_array('company_id', $columns, true)) {
                 $companyId = 0;
 
-                if (\Illuminate\Support\Facades\Schema::hasTable('companies')) {
+                if (Schema::hasTable('companies')) {
                     $companyId = (int) DB::table('companies')
                         ->where('name', $data['company'])
                         ->value('id');
@@ -770,8 +773,8 @@ class PaymentRequestController extends Controller
 
                 DB::table('payment_requests')->where('id', $id)->update($update);
 
-                if ($request->hasFile('attachments') && \Illuminate\Support\Facades\Schema::hasTable('payment_attachments')) {
-                    $attachmentColumns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_attachments');
+                if ($request->hasFile('attachments') && Schema::hasTable('payment_attachments')) {
+                    $attachmentColumns = Schema::getColumnListing('payment_attachments');
 
                     foreach ($request->file('attachments') as $file) {
                         if (! $file || ! $file->isValid()) {
@@ -811,10 +814,10 @@ class PaymentRequestController extends Controller
             return redirect()
                 ->route('payment_requests.show', $prId)
                 ->with('success', 'Đã tạo đề nghị thanh toán thành công. Phiếu mới đã được lưu và hiển thị.');
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Payment request store failed', [
+            Log::error('Payment request store failed', [
                 'user_id' => optional(auth()->user())->id,
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -921,10 +924,10 @@ class PaymentRequestController extends Controller
         }
 
         if (
-            \Illuminate\Support\Facades\Schema::hasTable('finance_supplier_debt_payments') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')
+            Schema::hasTable('finance_supplier_debt_payments') &&
+            Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')
         ) {
-            \Illuminate\Support\Facades\DB::table('finance_supplier_debt_payments')
+            DB::table('finance_supplier_debt_payments')
                 ->where('payment_request_id', (int) $item->id)
                 ->update([
                     'payment_request_id' => null,

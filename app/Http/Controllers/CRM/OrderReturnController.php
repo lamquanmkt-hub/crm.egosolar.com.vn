@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\CRM;
 
-use App\Http\Controllers\Controller;
 use App\Contracts\Services\OrderReturnServiceInterface;
+use App\Http\Controllers\Controller;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderRefund;
 use App\Models\CRM\Orders\OrderReturn;
@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -160,7 +161,7 @@ class OrderReturnController extends Controller
                 (bool) ($order->inventory_issued ?? false);
 
             if (! $isCompleted || ! $inventoryIssued) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'type' => 'Chỉ có thể trả hàng đối với đơn đã hoàn thành '
                         .'và đã xuất kho.',
                 ]);

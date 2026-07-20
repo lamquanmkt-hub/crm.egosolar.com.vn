@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Models\CRM\Customers\Customer;
 use App\Contracts\Repositories\CustomerRepositoryInterface;
+use App\Models\CRM\Customers\Customer;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**

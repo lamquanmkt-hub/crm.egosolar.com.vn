@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Service tính hoa hồng: quản lý chính sách, quy tắc và tính hoa hồng theo đơn hàng.
@@ -562,7 +563,7 @@ class CommissionEngineService implements CommissionEngineServiceInterface
             return '';
         }
 
-        $ascii = mb_strtolower(\Illuminate\Support\Str::ascii($value));
+        $ascii = mb_strtolower(Str::ascii($value));
 
         if (str_contains($ascii, 'lead') || str_contains($ascii, 'ads')) {
             return 'lead';
@@ -618,7 +619,7 @@ class CommissionEngineService implements CommissionEngineServiceInterface
 
             foreach (['order_type', 'type', 'source_type'] as $col) {
                 if (in_array($col, $orderCols, true) && ! empty($order->{$col})) {
-                    $type = mb_strtolower(\Illuminate\Support\Str::ascii((string) $order->{$col}));
+                    $type = mb_strtolower(Str::ascii((string) $order->{$col}));
                     if (str_contains($type, 'project') || str_contains($type, 'cong trinh') || str_contains($type, 'site')) {
                         $ctx['is_project'] = true;
                     }

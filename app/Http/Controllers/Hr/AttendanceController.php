@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Hr;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSetting;
+use App\Models\Department;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -12,6 +13,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Controller chấm công: check-in/out GPS, bảng công cá nhân, tổng hợp toàn công ty và xuất Excel / PDF.
@@ -130,8 +136,8 @@ class AttendanceController extends Controller
             ->withQueryString();
 
         $departments = collect();
-        if (class_exists(\App\Models\Department::class) && Schema::hasTable('departments')) {
-            $departments = \App\Models\Department::orderBy('name')->get();
+        if (class_exists(Department::class) && Schema::hasTable('departments')) {
+            $departments = Department::orderBy('name')->get();
         }
 
         $statsRaw = (clone $attendanceQuery)
@@ -688,7 +694,7 @@ class AttendanceController extends Controller
             ];
         });
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Báo cáo chấm công '.$month);
@@ -696,30 +702,30 @@ class AttendanceController extends Controller
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'EAF6FF'],
             ],
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'CBD5E1'],
                 ],
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
         $cellStyle = [
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'E2E8F0'],
                 ],
             ],
             'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
@@ -779,11 +785,11 @@ class AttendanceController extends Controller
         $summarySheet->mergeCells('A1:O1');
         $summarySheet->setCellValue('A1', 'BÁO CÁO TỔNG HỢP CHẤM CÔNG');
         $summarySheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $summarySheet->mergeCells('A2:O2');
         $summarySheet->setCellValue('A2', 'Tháng '.$start->format('m/Y').' | Công chuẩn: '.$standardDays.' | Thứ 7 đi làm: '.$saturdayWorkdays.' | Ngày nghỉ/lễ đã cấu hình: '.$holidayDeductedDays);
-        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $summarySheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $summaryHeaders = [
             'STT',
@@ -848,7 +854,7 @@ class AttendanceController extends Controller
         $calendarSheet->mergeCells('A1:F1');
         $calendarSheet->setCellValue('A1', 'LỊCH CÔNG CHUẨN THÁNG '.$start->format('m/Y'));
         $calendarSheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-        $calendarSheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $calendarSheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $calendarHeaders = [
             'Ngày',
@@ -898,11 +904,11 @@ class AttendanceController extends Controller
             $sheet->mergeCells('A1:O1');
             $sheet->setCellValue('A1', 'CHI TIẾT CHẤM CÔNG - '.$employee->name);
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-            $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->mergeCells('A2:O2');
             $sheet->setCellValue('A2', 'Tháng '.$start->format('m/Y').' | Phòng ban: '.(optional($employee->department)->name ?? '-').' | Chức vụ: '.(optional($employee->position)->name ?? '-').' | Công chuẩn: '.$standardDays);
-            $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $detailHeaders = [
                 'STT',
@@ -975,7 +981,7 @@ class AttendanceController extends Controller
         $fileName = 'bao-cao-cham-cong-'.$month.'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -5,8 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Inventory;
 
 use App\Models\Inventory\Catalog\Product;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Xuất Excel danh sách nhập kho theo lô (trang /products/input).
@@ -95,7 +101,7 @@ class ProductStockLotExcelExporter
             ->orderBy('l.id')
             ->get();
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Tồn kho theo dòng nhập');
@@ -106,11 +112,11 @@ class ProductStockLotExcelExporter
         $sheet->mergeCells('A1:R1');
         $sheet->setCellValue('A1', 'DANH SÁCH TỒN KHO THEO TỪNG DÒNG NHẬP / SKU / GIÁ VỐN');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->mergeCells('A2:R2');
         $sheet->setCellValue('A2', 'Xuất lúc: '.now()->format('d/m/Y H:i').' | Tổng dòng tồn: '.$rows->count());
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $headers = [
             'STT', 'Tên sản phẩm', 'SKU', 'Tên lô', 'Mã lô', 'Công ty', 'Kho', 'Ngày nhập',
@@ -121,7 +127,7 @@ class ProductStockLotExcelExporter
         $sheet->fromArray($headers, null, 'A4');
         $sheet->getStyle('A4:R4')->getFont()->setBold(true);
         $sheet->getStyle('A4:R4')->getFill()
-            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setRGB('EAF6FF');
 
         $rowNumber = 5;
@@ -134,7 +140,7 @@ class ProductStockLotExcelExporter
                 $row->lot_code ?: '-',
                 $row->company_name ?: '-',
                 $row->warehouse_name ?: '-',
-                $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('d/m/Y') : '-',
+                $row->received_at ? Carbon::parse($row->received_at)->format('d/m/Y') : '-',
                 (int) $row->qty_in,
                 (int) $row->qty_remaining,
                 round((float) $row->cost_before_vat),
@@ -152,7 +158,7 @@ class ProductStockLotExcelExporter
 
         $lastRow = max($rowNumber - 1, 4);
         $sheet->getStyle('A4:R'.$lastRow)->getBorders()->getAllBorders()
-            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            ->setBorderStyle(Border::BORDER_THIN);
         foreach (['K', 'M', 'N', 'O', 'P'] as $column) {
             $sheet->getStyle($column.'5:'.$column.$lastRow)->getNumberFormat()->setFormatCode('#,##0');
         }
@@ -164,7 +170,7 @@ class ProductStockLotExcelExporter
         $fileName = 'ton-kho-theo-dong-nhap-'.now()->format('Ymd-His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

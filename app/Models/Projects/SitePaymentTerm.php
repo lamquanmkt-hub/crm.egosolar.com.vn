@@ -2,6 +2,7 @@
 
 namespace App\Models\Projects;
 
+use App\Models\Receipt;
 use Illuminate\Database\Eloquent\Model;
 
 class SitePaymentTerm extends Model
@@ -29,7 +30,7 @@ class SitePaymentTerm extends Model
 
     public function receipts()
     {
-        return $this->hasMany(\App\Models\Receipt::class, 'site_payment_term_id');
+        return $this->hasMany(Receipt::class, 'site_payment_term_id');
     }
 
     public function getPaidAmountAttribute(): float

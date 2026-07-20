@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Inventory;
 
+use App\Contracts\Services\StockLotServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\Core\Warehouse;
 use App\Models\Inventory\Catalog\Brand;
@@ -11,9 +12,15 @@ use App\Models\Inventory\Stock\ProductStock;
 use App\Services\Inventory\ProductCatalogOptionsService;
 use App\Services\Inventory\ProductStockLotExcelExporter;
 use App\Services\Inventory\ProductStockLotQueryService;
+use App\Services\Inventory\Stock\StockLotService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Controller quản lý sản phẩm và tồn kho: danh mục, nhập/xuất kho, lô hàng FIFO, serial, bảng giá theo tier và lịch sử kho.
@@ -438,7 +445,7 @@ class ProductController extends Controller
                 ->groupBy('product_id');
         }
 
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
             ->setCreator(config('app.name', 'CRM'))
             ->setTitle('Sản phẩm đầu vào');
@@ -449,41 +456,41 @@ class ProductController extends Controller
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => '0F172A']],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'EAF6FF'],
             ],
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'CBD5E1'],
                 ],
             ],
             'alignment' => [
-                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
         $cellStyle = [
             'borders' => [
                 'allBorders' => [
-                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'borderStyle' => Border::BORDER_THIN,
                     'color' => ['rgb' => 'E2E8F0'],
                 ],
             ],
             'alignment' => [
-                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
         $sheet->mergeCells('A1:L1');
         $sheet->setCellValue('A1', 'DANH SÁCH SẢN PHẨM ĐẦU VÀO');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->mergeCells('A2:L2');
         $sheet->setCellValue('A2', 'Xuất lúc: '.now()->format('d/m/Y H:i').' | Tổng sản phẩm: '.$products->count());
-        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $headers = [
             'STT',
@@ -583,7 +590,7 @@ class ProductController extends Controller
         $fileName = 'san-pham-dau-vao-'.now()->format('Ymd-His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -2225,7 +2232,7 @@ class ProductController extends Controller
         $stocks = (array) $request->input('stocks', []);
 
         $hasSerialCol = Schema::hasColumn('crm_product_stock', 'serials_json');
-        $canUseLots = class_exists(\App\Services\Inventory\Stock\StockLotService::class)
+        $canUseLots = class_exists(StockLotService::class)
             && Schema::hasTable('crm_product_stock_lots');
 
         $product = Product::findOrFail($productId);
@@ -2275,7 +2282,7 @@ class ProductController extends Controller
                 | - Vẫn cập nhật crm_product_stock.qty để dropdown và báo tồn nhanh.
                 */
                 if ($canUseLots) {
-                    app(\App\Contracts\Services\StockLotServiceInterface::class)->syncManualStock(
+                    app(StockLotServiceInterface::class)->syncManualStock(
                         $product,
                         $companyId,
                         $warehouseId,
@@ -2690,7 +2697,7 @@ class ProductController extends Controller
     private function saveInitialLotsFromCreateRequest($product, $request): void
     {
         $schema = \Illuminate\Support\Facades\Schema::class;
-        $db = \Illuminate\Support\Facades\DB::class;
+        $db = DB::class;
 
         if (! $schema::hasTable('crm_product_stock_lots')) {
             return;

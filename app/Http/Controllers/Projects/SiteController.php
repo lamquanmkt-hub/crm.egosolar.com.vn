@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Projects;
 
-use App\Http\Controllers\Controller;
 use App\Enums\MaterialRequestStatus;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Site\StoreSiteRequest;
 use App\Http\Requests\Site\UpdateSiteRequest;
 use App\Models\Projects\Site;
@@ -15,6 +15,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Controller quản lý công trình điện mặt trời (CRUD, thanh toán, phân quyền sales).
@@ -490,7 +492,7 @@ class SiteController extends Controller
     /**
      * Ghi nhận thanh toán cho một đợt thanh toán của công trình (tạo phiếu thu).
      */
-    public function recordPayment(\Illuminate\Http\Request $request, $id)
+    public function recordPayment(Request $request, $id)
     {
         $siteId = (int) $id;
         $redirectUrl = route('sites.show', $siteId).'#ghi-nhan-thanh-toan';
@@ -498,24 +500,24 @@ class SiteController extends Controller
         $site = Site::query()->findOrFail($siteId);
         $this->egoAbortIfSalesCannotAccessSite($site);
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('site_payment_terms')) {
+        if (! Schema::hasTable('site_payment_terms')) {
             return redirect($redirectUrl)
                 ->withInput()
                 ->with('error', 'Chưa có bảng đợt thanh toán công trình.');
         }
 
-        if (! \Illuminate\Support\Facades\Schema::hasTable('receipts')) {
+        if (! Schema::hasTable('receipts')) {
             return redirect($redirectUrl)
                 ->withInput()
                 ->with('error', 'Chưa có bảng phiếu thu receipts.');
         }
 
         if (
-            ! \Illuminate\Support\Facades\Schema::hasColumn(
+            ! Schema::hasColumn(
                 'receipts',
                 'site_id'
             )
-            || ! \Illuminate\Support\Facades\Schema::hasColumn(
+            || ! Schema::hasColumn(
                 'receipts',
                 'site_payment_term_id'
             )
@@ -529,7 +531,7 @@ class SiteController extends Controller
                 );
         }
 
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+        $validator = Validator::make($request->all(), [
             'site_payment_term_id' => ['required', 'integer'],
             'amount' => ['required'],
             'payment_method' => ['required', 'string', 'max:255'],
@@ -550,7 +552,7 @@ class SiteController extends Controller
 
         $validated = $validator->validated();
 
-        $term = \Illuminate\Support\Facades\DB::table('site_payment_terms')
+        $term = DB::table('site_payment_terms')
             ->where('id', (int) $validated['site_payment_term_id'])
             ->where('site_id', $siteId)
             ->first();
@@ -561,7 +563,7 @@ class SiteController extends Controller
                 ->with('error', 'Đợt thanh toán không hợp lệ hoặc không thuộc công trình này.');
         }
 
-        $paidBefore = (float) \Illuminate\Support\Facades\DB::table('receipts')
+        $paidBefore = (float) DB::table('receipts')
             ->where('site_id', $siteId)
             ->where('site_payment_term_id', (int) $term->id)
             ->sum('amount');
@@ -582,8 +584,8 @@ class SiteController extends Controller
         }
 
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($site, $siteId, $term, $validated, $amount) {
-                $schema = \Illuminate\Support\Facades\Schema::class;
+            DB::transaction(function () use ($site, $siteId, $term, $validated, $amount) {
+                $schema = Schema::class;
 
                 $insert = [];
 
@@ -644,7 +646,7 @@ class SiteController extends Controller
                     $insert['updated_at'] = now();
                 }
 
-                \Illuminate\Support\Facades\DB::table('receipts')->insert($insert);
+                DB::table('receipts')->insert($insert);
 
                 $this->egoSiteSyncPaymentTermStatus((int) $term->id);
             });
@@ -800,7 +802,7 @@ class SiteController extends Controller
             if ((int) ($site->created_by ?? 0) !== (int) auth()->id()) {
                 abort(403);
             }
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
         } catch (\Throwable $e) {
             abort(403);
@@ -812,14 +814,14 @@ class SiteController extends Controller
     /**
      * Cập nhật một phiếu thu thanh toán của công trình và đồng bộ trạng thái đợt.
      */
-    public function updatePayment(\Illuminate\Http\Request $request, $id, $receipt)
+    public function updatePayment(Request $request, $id, $receipt)
     {
-        $site = \Illuminate\Support\Facades\DB::table('sites')->where('id', (int) $id)->first();
+        $site = DB::table('sites')->where('id', (int) $id)->first();
 
         abort_unless($site, 404);
         $this->egoAbortIfSalesCannotAccessSite($site);
 
-        $receiptRow = \Illuminate\Support\Facades\DB::table('receipts')
+        $receiptRow = DB::table('receipts')
             ->where('id', (int) $receipt)
             ->where('site_id', (int) $site->id)
             ->first();
@@ -837,7 +839,7 @@ class SiteController extends Controller
             'amount.required' => 'Vui lòng nhập số tiền.',
         ]);
 
-        $term = \Illuminate\Support\Facades\DB::table('site_payment_terms')
+        $term = DB::table('site_payment_terms')
             ->where('id', (int) $validated['site_payment_term_id'])
             ->where('site_id', (int) $site->id)
             ->first();
@@ -852,7 +854,7 @@ class SiteController extends Controller
             return back()->withInput()->with('error', 'Số tiền thanh toán không hợp lệ.');
         }
 
-        $paidOther = (float) \Illuminate\Support\Facades\DB::table('receipts')
+        $paidOther = (float) DB::table('receipts')
             ->where('site_id', (int) $site->id)
             ->where('site_payment_term_id', (int) $term->id)
             ->where('id', '!=', (int) $receiptRow->id)
@@ -866,8 +868,8 @@ class SiteController extends Controller
 
         $oldTermId = $receiptRow->site_payment_term_id ? (int) $receiptRow->site_payment_term_id : null;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($receiptRow, $validated, $amount, $term, $oldTermId) {
-            \Illuminate\Support\Facades\DB::table('receipts')
+        DB::transaction(function () use ($receiptRow, $validated, $amount, $term, $oldTermId) {
+            DB::table('receipts')
                 ->where('id', (int) $receiptRow->id)
                 ->update([
                     'site_payment_term_id' => (int) $term->id,
@@ -893,12 +895,12 @@ class SiteController extends Controller
      */
     public function destroyPayment($id, $receipt)
     {
-        $site = \Illuminate\Support\Facades\DB::table('sites')->where('id', (int) $id)->first();
+        $site = DB::table('sites')->where('id', (int) $id)->first();
 
         abort_unless($site, 404);
         $this->egoAbortIfSalesCannotAccessSite($site);
 
-        $receiptRow = \Illuminate\Support\Facades\DB::table('receipts')
+        $receiptRow = DB::table('receipts')
             ->where('id', (int) $receipt)
             ->where('site_id', (int) $site->id)
             ->first();
@@ -907,8 +909,8 @@ class SiteController extends Controller
 
         $oldTermId = $receiptRow->site_payment_term_id ? (int) $receiptRow->site_payment_term_id : null;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($receiptRow, $oldTermId) {
-            \Illuminate\Support\Facades\DB::table('receipts')
+        DB::transaction(function () use ($receiptRow, $oldTermId) {
+            DB::table('receipts')
                 ->where('id', (int) $receiptRow->id)
                 ->delete();
 
@@ -1021,7 +1023,7 @@ class SiteController extends Controller
     {
         $prefix = 'PT-'.date('Ymd').'-';
 
-        $lastCode = \Illuminate\Support\Facades\DB::table('receipts')
+        $lastCode = DB::table('receipts')
             ->where('code', 'like', $prefix.'%')
             ->orderByDesc('id')
             ->value('code');
@@ -1040,13 +1042,13 @@ class SiteController extends Controller
      */
     private function egoSiteSyncPaymentTermStatus(int $termId): void
     {
-        $term = \Illuminate\Support\Facades\DB::table('site_payment_terms')->where('id', $termId)->first();
+        $term = DB::table('site_payment_terms')->where('id', $termId)->first();
 
         if (! $term) {
             return;
         }
 
-        $paid = (float) \Illuminate\Support\Facades\DB::table('receipts')
+        $paid = (float) DB::table('receipts')
             ->where('site_payment_term_id', $termId)
             ->sum('amount');
 
@@ -1060,7 +1062,7 @@ class SiteController extends Controller
             $status = 'partial';
         }
 
-        \Illuminate\Support\Facades\DB::table('site_payment_terms')
+        DB::table('site_payment_terms')
             ->where('id', $termId)
             ->update([
                 'status' => $status,
