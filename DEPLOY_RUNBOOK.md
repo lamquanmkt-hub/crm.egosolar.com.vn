@@ -93,6 +93,27 @@ Xác nhận FK đã tạo (7 FK, có thể vài cái bị skip nếu phát sinh 
 php artisan tinker --execute='echo collect(DB::select("SELECT table_name,constraint_name FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND constraint_type=\"FOREIGN KEY\" AND constraint_name LIKE \"fk_%\""))->count()." FK\n";'
 ```
 
+## 3b. 🔴 ĐỔI NHÁNH TRÊN SERVER — cạm bẫy đã gây sự cố thật (2026-07-20)
+
+`git checkout main` trên server **KHÔNG** tự cập nhật nhánh: `main` local ở đó có thể còn ở commit cũ, nên checkout sẽ đưa working tree **về code cũ** trong khi config/route cache vẫn dựng từ code mới → **500 toàn site** (`Class "App\Providers\ContractServiceProvider" not found`). Đã xảy ra thật, downtime ~2 phút.
+
+Cách đúng — gộp trong MỘT kết nối SSH (server throttle SSH nặng khi gọi liên tiếp):
+```bash
+cd ~/www
+git fetch origin
+git checkout -B main origin/main        # -B ép nhánh trỏ đúng origin/main
+git rev-parse --short HEAD              # PHẢI khớp commit mong đợi TRƯỚC khi đi tiếp
+php artisan config:clear && php artisan config:cache
+php artisan route:clear  && php artisan route:cache
+php artisan view:clear   && php artisan view:cache
+```
+Sau đó **luôn** kiểm tra từ ngoài, đừng tin mỗi exit code:
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" https://crm.egosolar.vn/login   # phải 200
+```
+Nếu SSH bị chặn (`kex_exchange_identification: Connection closed`), retry bằng vòng lặp thay vì gọi dồn:
+`until ssh crmegoso@103.200.23.139 '<toàn bộ lệnh sửa>'; do sleep 20; done`
+
 ## 4. ROLLBACK (nếu có sự cố)
 
 ```bash
