@@ -1,0 +1,1660 @@
+/* EGO Leave Dashboard Alerts v1.1 */
+.ego-leave-attention {
+    --ela-accent: #f59e0b;
+    --ela-accent-2: #ea580c;
+    --ela-soft: #fff8e8;
+    --ela-border: rgba(245, 158, 11, .26);
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    overflow: hidden;
+    border: 1px solid var(--ela-border);
+    border-radius: 17px;
+    color: #3c2b11;
+    background:
+        radial-gradient(circle at 92% 0, rgba(251, 191, 36, .18), transparent 230px),
+        linear-gradient(115deg, rgba(255,255,255,.98), var(--ela-soft));
+    box-shadow: 0 13px 34px rgba(120, 72, 10, .09);
+}
+.ego-leave-attention::after {
+    content: "";
+    position: absolute;
+    top: -70px;
+    right: -48px;
+    width: 165px;
+    height: 165px;
+    border: 1px solid rgba(245, 158, 11, .14);
+    border-radius: 50%;
+    box-shadow: 0 0 0 26px rgba(245,158,11,.035), 0 0 0 52px rgba(245,158,11,.022);
+    pointer-events: none;
+}
+.ego-leave-attention--review { margin: 12px 0; }
+.ego-leave-attention--mine {
+    --ela-accent: #0ea5e9;
+    --ela-accent-2: #0f766e;
+    --ela-soft: #effbff;
+    --ela-border: rgba(14, 165, 233, .22);
+    color: #12384b;
+}
+.ego-leave-attention.is-critical {
+    --ela-accent: #ef4444;
+    --ela-accent-2: #e11d48;
+    --ela-soft: #fff1f3;
+    --ela-border: rgba(239, 68, 68, .25);
+}
+.ego-leave-attention__icon {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--ela-accent), var(--ela-accent-2));
+    box-shadow: 0 10px 23px color-mix(in srgb, var(--ela-accent) 28%, transparent);
+    font-size: 19px;
+}
+.ego-leave-attention__copy { position: relative; z-index: 1; min-width: 0; }
+.ego-leave-attention__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 3px;
+    color: var(--ela-accent-2);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+.ego-leave-attention__eyebrow::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ela-accent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ela-accent) 13%, transparent);
+    animation: egoLeavePulse 2s ease-in-out infinite;
+}
+.ego-leave-attention h3 {
+    margin: 0;
+    color: inherit;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: -.015em;
+}
+.ego-leave-attention p {
+    margin: 4px 0 0;
+    overflow: hidden;
+    color: #64748b;
+    font-size: 10.5px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ego-leave-attention__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+}
+.ego-leave-attention__meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 23px;
+    padding: 0 8px;
+    border: 1px solid rgba(100,116,139,.14);
+    border-radius: 999px;
+    color: #526779;
+    background: rgba(255,255,255,.72);
+    font-size: 9px;
+    font-weight: 750;
+}
+.ego-leave-attention__action {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 13px;
+    border-radius: 12px;
+    color: #fff !important;
+    background: linear-gradient(135deg, var(--ela-accent), var(--ela-accent-2));
+    box-shadow: 0 9px 20px color-mix(in srgb, var(--ela-accent) 22%, transparent);
+    font-size: 10px;
+    font-weight: 850;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.ego-leave-attention__action:hover { transform: translateY(-2px); box-shadow: 0 13px 25px color-mix(in srgb, var(--ela-accent) 28%, transparent); }
+
+/* Executive Action Center card */
+.exec-alert--leave {
+    --alert-color: #f59e0b;
+    --alert-soft: #fff8e8;
+}
+.exec-alert--leave.is-critical {
+    --alert-color: #ef4444;
+    --alert-soft: #fff1f3;
+}
+
+/* Sidebar */
+.ego-leave-parent-badge {
+    display: inline-flex;
+    min-width: 22px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    padding: 0 6px;
+    border: 1px solid rgba(251, 146, 60, .42);
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(135deg, #fb923c, #ef4444);
+    box-shadow: 0 0 0 0 rgba(239,68,68,.28);
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 900;
+    animation: egoLeaveBadgePulse 2.2s infinite;
+}
+
+/* Topbar */
+.crm-topbar__notification-button.has-leave-attention {
+    position: relative;
+}
+.ego-leave-topbar-badge {
+    position: absolute;
+    z-index: 4;
+    top: 3px;
+    right: 3px;
+    display: inline-flex;
+    min-width: 20px;
+    height: 17px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    box-shadow: 0 6px 13px rgba(239,68,68,.28);
+    font-size: 8px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 1;
+}
+.ego-leave-notification-card {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 13px;
+    margin: 10px 12px 4px;
+    border: 1px solid rgba(245,158,11,.24);
+    border-radius: 13px;
+    color: #263d50 !important;
+    background: linear-gradient(135deg, #fffdf7, #fff6df);
+    text-decoration: none !important;
+    transition: transform .17s ease, border-color .17s ease, box-shadow .17s ease;
+}
+.ego-leave-notification-card:hover { transform: translateY(-1px); border-color: rgba(245,158,11,.4); box-shadow: 0 11px 24px rgba(120,72,10,.08); }
+.ego-leave-notification-card--mine {
+    border-color: rgba(14,165,233,.22);
+    background: linear-gradient(135deg, #fbfeff, #edfaff);
+}
+.ego-leave-notification-card__icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 12px;
+    color: #fff;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    font-size: 15px;
+}
+.ego-leave-notification-card--mine .ego-leave-notification-card__icon { background: linear-gradient(135deg, #0ea5e9, #0f766e); }
+.ego-leave-notification-card strong,
+.ego-leave-notification-card small { display: block; }
+.ego-leave-notification-card strong { color: #1d3447; font-size: 10.5px; font-weight: 900; }
+.ego-leave-notification-card small { margin-top: 3px; overflow: hidden; color: #718596; font-size: 8.8px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.ego-leave-notification-card > i { color: #9a6a11; }
+
+@keyframes egoLeavePulse {
+    0%, 100% { opacity: .65; transform: scale(.86); }
+    50% { opacity: 1; transform: scale(1); }
+}
+@keyframes egoLeaveBadgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.22); }
+    50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+@media (max-width: 780px) {
+    .ego-leave-attention { grid-template-columns: auto minmax(0, 1fr); padding: 12px; }
+    .ego-leave-attention__action { grid-column: 1 / -1; width: 100%; }
+    .ego-leave-attention p { white-space: normal; }
+    .ego-leave-topbar-badge { top: 0; right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ego-leave-attention__eyebrow::before,
+    .ego-leave-parent-badge { animation: none !important; }
+}
+
+/* EGO_LEAVE_FLOAT_DRAWER_V120_CSS_START */
+
+/*
+|--------------------------------------------------------------------------
+| ACTION CENTER: 3 CỘT, KHÔNG CÒN Ô TRẮNG
+|--------------------------------------------------------------------------
+*/
+
+@media (min-width: 1281px) {
+    #executiveDashboard .exec-alert-grid {
+        grid-template-columns:
+            repeat(3, minmax(0, 1fr));
+    }
+
+    #executiveDashboard .exec-alert {
+        border-right:
+            1px solid var(--exec-border);
+
+        border-bottom:
+            1px solid var(--exec-border);
+    }
+
+    #executiveDashboard
+    .exec-alert:nth-child(4n) {
+        border-right:
+            1px solid var(--exec-border);
+    }
+
+    #executiveDashboard
+    .exec-alert:nth-last-child(-n + 4) {
+        border-bottom:
+            1px solid var(--exec-border);
+    }
+
+    #executiveDashboard
+    .exec-alert:nth-child(3n) {
+        border-right: 0;
+    }
+
+    #executiveDashboard
+    .exec-alert:nth-last-child(-n + 3) {
+        border-bottom: 0;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| THÔNG BÁO NGHỈ PHÉP TRƯỢT MÉP PHẢI
+|--------------------------------------------------------------------------
+*/
+
+.ego-leave-float {
+    --elf-red: #f04455;
+    --elf-red-dark: #df243d;
+    --elf-navy: #102b43;
+
+    position: fixed;
+    z-index: 1080;
+    top: 54%;
+    right: 0;
+
+    display: grid;
+    grid-template-columns: 58px 300px;
+
+    width: 358px;
+    max-width: calc(100vw - 8px);
+
+    overflow: hidden;
+
+    border:
+        1px solid rgba(240, 68, 85, .24);
+
+    border-right: 0;
+    border-radius: 20px 0 0 20px;
+
+    background:
+        rgba(255, 255, 255, .97);
+
+    box-shadow:
+        -18px 18px 52px
+        rgba(20, 42, 63, .2);
+
+    transform:
+        translateY(-50%)
+        translateX(300px);
+
+    transition:
+        transform 520ms
+        cubic-bezier(.18, .82, .18, 1),
+        box-shadow 240ms ease;
+
+    isolation: isolate;
+}
+
+.ego-leave-float.is-open {
+    transform:
+        translateY(-50%)
+        translateX(0);
+
+    box-shadow:
+        -25px 24px 70px
+        rgba(20, 42, 63, .26);
+}
+
+.ego-leave-float::before {
+    content: "";
+
+    position: absolute;
+    z-index: -1;
+    top: -90px;
+    right: -65px;
+
+    width: 210px;
+    height: 210px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(255, 111, 124, .18),
+            transparent 68%
+        );
+
+    pointer-events: none;
+}
+
+.ego-leave-float__handle {
+    position: relative;
+
+    display: flex;
+    min-width: 0;
+    height: 100%;
+    min-height: 205px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    padding: 12px 7px;
+
+    border: 0;
+    border-right:
+        1px solid rgba(255, 255, 255, .18);
+
+    color: #fff;
+
+    background:
+        linear-gradient(
+            180deg,
+            #fa5362,
+            var(--elf-red-dark)
+        );
+
+    cursor: pointer;
+
+    box-shadow:
+        7px 0 25px
+        rgba(214, 32, 58, .18);
+}
+
+.ego-leave-float__handle > i:first-of-type {
+    font-size: 20px;
+}
+
+.ego-leave-float__handle strong {
+    display: inline-flex;
+    min-width: 27px;
+    height: 23px;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0 6px;
+
+    border: 1px solid
+        rgba(255, 255, 255, .28);
+
+    border-radius: 999px;
+
+    color: #fff;
+    background:
+        rgba(255, 255, 255, .16);
+
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.ego-leave-float__handle-text {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+.ego-leave-float__arrow {
+    transition:
+        transform 360ms ease;
+}
+
+.ego-leave-float.is-open
+.ego-leave-float__arrow {
+    transform: rotate(180deg);
+}
+
+.ego-leave-float__pulse {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+
+    width: 8px;
+    height: 8px;
+
+    border: 2px solid
+        rgba(255, 255, 255, .82);
+
+    border-radius: 50%;
+
+    background: #fff;
+
+    transform: translateX(-50%);
+
+    animation:
+        egoLeaveFloatPulse
+        1.9s ease-in-out infinite;
+}
+
+.ego-leave-float__panel {
+    position: relative;
+
+    display: flex;
+    min-width: 0;
+    min-height: 205px;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 21px 22px 19px;
+
+    color: var(--elf-navy);
+
+    background:
+        radial-gradient(
+            circle at 100% 0,
+            rgba(255, 90, 108, .12),
+            transparent 175px
+        ),
+        linear-gradient(
+            140deg,
+            #ffffff,
+            #fff7f8
+        );
+}
+
+.ego-leave-float__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+
+    display: grid;
+    width: 29px;
+    height: 29px;
+    place-items: center;
+
+    border:
+        1px solid #e5edf2;
+
+    border-radius: 9px;
+
+    color: #708397;
+    background: #fff;
+
+    cursor: pointer;
+
+    transition:
+        color 170ms ease,
+        border-color 170ms ease,
+        transform 170ms ease;
+}
+
+.ego-leave-float__close:hover {
+    color: var(--elf-red);
+    border-color:
+        rgba(240, 68, 85, .28);
+
+    transform: rotate(6deg);
+}
+
+.ego-leave-float__icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+
+    margin-bottom: 11px;
+
+    border-radius: 13px;
+
+    color: #fff;
+
+    background:
+        linear-gradient(
+            135deg,
+            #fa5362,
+            var(--elf-red-dark)
+        );
+
+    box-shadow:
+        0 10px 23px
+        rgba(223, 36, 61, .22);
+
+    font-size: 17px;
+}
+
+.ego-leave-float__icon.is-mine {
+    background:
+        linear-gradient(
+            135deg,
+            #12abc6,
+            #0d988c
+        );
+
+    box-shadow:
+        0 10px 23px
+        rgba(13, 152, 140, .2);
+}
+
+.ego-leave-float__eyebrow {
+    margin-bottom: 4px;
+
+    color: var(--elf-red);
+
+    font-size: 8.5px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.ego-leave-float h3 {
+    margin: 0;
+
+    color: #102b43;
+
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: -.025em;
+    line-height: 1.3;
+}
+
+.ego-leave-float p {
+    margin: 8px 0 0;
+
+    color: #687f91;
+
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.ego-leave-float p strong,
+.ego-leave-float p span {
+    display: block;
+}
+
+.ego-leave-float p strong {
+    color: #263f54;
+    font-weight: 850;
+}
+
+.ego-leave-float__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+
+    margin-top: 10px;
+}
+
+.ego-leave-float__chips span {
+    display: inline-flex;
+    min-height: 23px;
+    align-items: center;
+    gap: 5px;
+
+    padding: 0 7px;
+
+    border:
+        1px solid rgba(240, 68, 85, .15);
+
+    border-radius: 999px;
+
+    color: #a43445;
+    background: #fff;
+
+    font-size: 8px;
+    font-weight: 750;
+}
+
+.ego-leave-float__action {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    margin-top: 13px;
+    padding: 0 12px;
+
+    border-radius: 11px;
+
+    color: #fff !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            #fa5362,
+            var(--elf-red-dark)
+        );
+
+    box-shadow:
+        0 9px 20px
+        rgba(223, 36, 61, .19);
+
+    font-size: 9.5px;
+    font-weight: 850;
+    text-decoration: none !important;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.ego-leave-float__action.is-mine {
+    background:
+        linear-gradient(
+            135deg,
+            #12abc6,
+            #0d988c
+        );
+
+    box-shadow:
+        0 9px 20px
+        rgba(13, 152, 140, .18);
+}
+
+.ego-leave-float__action:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 13px 26px
+        rgba(223, 36, 61, .25);
+}
+
+/*
+|--------------------------------------------------------------------------
+| HỖ TRỢ BIỂU ĐỒ SAU KHI ĐỔI BỐ CỤC
+|--------------------------------------------------------------------------
+*/
+
+#executiveDashboard .exec-chart {
+    min-width: 0;
+}
+
+#executiveDashboard .exec-chart canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@keyframes egoLeaveFloatPulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 0
+            rgba(255, 255, 255, .42);
+
+        transform:
+            translateX(-50%)
+            scale(.86);
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 8px
+            rgba(255, 255, 255, 0);
+
+        transform:
+            translateX(-50%)
+            scale(1);
+    }
+}
+
+@media (max-width: 780px) {
+    .ego-leave-float {
+        top: auto;
+        bottom:
+            max(
+                76px,
+                env(safe-area-inset-bottom)
+            );
+
+        width: min(
+            350px,
+            calc(100vw - 8px)
+        );
+
+        grid-template-columns:
+            54px minmax(0, 1fr);
+
+        transform:
+            translateY(0)
+            translateX(
+                calc(100% - 54px)
+            );
+    }
+
+    .ego-leave-float.is-open {
+        transform:
+            translateY(0)
+            translateX(0);
+    }
+
+    .ego-leave-float__handle {
+        min-height: 190px;
+    }
+
+    .ego-leave-float__panel {
+        min-height: 190px;
+        padding:
+            18px
+            17px
+            max(
+                17px,
+                env(safe-area-inset-bottom)
+            );
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-leave-float,
+    .ego-leave-float__arrow,
+    .ego-leave-float__action {
+        transition: none !important;
+    }
+
+    .ego-leave-float__pulse {
+        animation: none !important;
+    }
+}
+
+/* EGO_LEAVE_FLOAT_DRAWER_V120_CSS_END */
+
+/* EGO_TASK_FLOAT_DRAWER_V130_CSS_START */
+
+.ego-task-float {
+    --etf-primary: #5b5ce2;
+    --etf-secondary: #168fc6;
+    --etf-dark: #102b43;
+
+    position: fixed;
+    z-index: 1079;
+    top: 28%;
+    right: 0;
+
+    display: grid;
+    grid-template-columns: 58px 310px;
+
+    width: 368px;
+    max-width: calc(100vw - 8px);
+
+    overflow: hidden;
+
+    border:
+        1px solid rgba(91, 92, 226, .25);
+
+    border-right: 0;
+    border-radius: 20px 0 0 20px;
+
+    background:
+        rgba(255, 255, 255, .98);
+
+    box-shadow:
+        -18px 18px 52px
+        rgba(25, 43, 77, .2);
+
+    transform:
+        translateY(-50%)
+        translateX(310px);
+
+    transition:
+        transform 520ms
+        cubic-bezier(.18, .82, .18, 1),
+        box-shadow 240ms ease;
+
+    isolation: isolate;
+}
+
+.ego-task-float.is-open {
+    transform:
+        translateY(-50%)
+        translateX(0);
+
+    box-shadow:
+        -25px 24px 70px
+        rgba(25, 43, 77, .27);
+}
+
+.ego-task-float::before {
+    content: "";
+
+    position: absolute;
+    z-index: -1;
+    top: -90px;
+    right: -60px;
+
+    width: 215px;
+    height: 215px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(91, 92, 226, .16),
+            transparent 68%
+        );
+
+    pointer-events: none;
+}
+
+.ego-task-float__handle {
+    position: relative;
+
+    display: flex;
+    min-width: 0;
+    min-height: 215px;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    padding: 12px 7px;
+
+    border: 0;
+    border-right:
+        1px solid rgba(255, 255, 255, .17);
+
+    color: #fff;
+
+    background:
+        linear-gradient(
+            180deg,
+            #6670ec,
+            #4a50c9
+        );
+
+    cursor: pointer;
+
+    box-shadow:
+        7px 0 25px
+        rgba(74, 80, 201, .2);
+}
+
+.ego-task-float__handle > i:first-of-type {
+    font-size: 20px;
+}
+
+.ego-task-float__handle strong {
+    display: inline-flex;
+    min-width: 27px;
+    height: 23px;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0 6px;
+
+    border:
+        1px solid rgba(255, 255, 255, .27);
+
+    border-radius: 999px;
+
+    color: #fff;
+    background:
+        rgba(255, 255, 255, .16);
+
+    font-size: 10px;
+    font-weight: 900;
+}
+
+.ego-task-float__handle-text {
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+.ego-task-float__arrow {
+    transition:
+        transform 360ms ease;
+}
+
+.ego-task-float.is-open
+.ego-task-float__arrow {
+    transform: rotate(180deg);
+}
+
+.ego-task-float__pulse {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+
+    width: 8px;
+    height: 8px;
+
+    border:
+        2px solid rgba(255, 255, 255, .85);
+
+    border-radius: 50%;
+
+    background: #fff;
+
+    transform: translateX(-50%);
+
+    animation:
+        egoTaskFloatPulse
+        1.9s ease-in-out infinite;
+}
+
+.ego-task-float__panel {
+    position: relative;
+
+    display: flex;
+    min-width: 0;
+    min-height: 215px;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 20px 21px 18px;
+
+    color: var(--etf-dark);
+
+    background:
+        radial-gradient(
+            circle at 100% 0,
+            rgba(91, 92, 226, .12),
+            transparent 180px
+        ),
+        linear-gradient(
+            140deg,
+            #ffffff,
+            #f6f7ff
+        );
+}
+
+.ego-task-float__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+
+    display: grid;
+    width: 29px;
+    height: 29px;
+    place-items: center;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+
+    color: #708397;
+    background: #fff;
+
+    cursor: pointer;
+
+    transition:
+        color 170ms ease,
+        border-color 170ms ease,
+        transform 170ms ease;
+}
+
+.ego-task-float__close:hover {
+    color: var(--etf-primary);
+    border-color:
+        rgba(91, 92, 226, .3);
+
+    transform: rotate(6deg);
+}
+
+.ego-task-float__icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+
+    margin-bottom: 10px;
+
+    border-radius: 13px;
+
+    color: #fff;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--etf-primary),
+            var(--etf-secondary)
+        );
+
+    box-shadow:
+        0 10px 23px
+        rgba(91, 92, 226, .22);
+
+    font-size: 17px;
+}
+
+.ego-task-float__eyebrow {
+    margin-bottom: 4px;
+
+    color: var(--etf-primary);
+
+    font-size: 8.5px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.ego-task-float h3 {
+    margin: 0;
+
+    color: #102b43;
+
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: -.025em;
+    line-height: 1.3;
+}
+
+.ego-task-float__latest {
+    padding: 9px 10px;
+    margin-top: 9px;
+
+    border:
+        1px solid rgba(91, 92, 226, .13);
+
+    border-radius: 11px;
+
+    background:
+        rgba(255, 255, 255, .74);
+}
+
+.ego-task-float__latest strong {
+    display: -webkit-box;
+    overflow: hidden;
+
+    color: #263f54;
+
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1.4;
+
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+}
+
+.ego-task-float__latest p {
+    display: -webkit-box;
+    overflow: hidden;
+
+    margin: 4px 0 0;
+
+    color: #6d8193;
+
+    font-size: 9px;
+    line-height: 1.45;
+
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.ego-task-float__latest time {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+
+    margin-top: 6px;
+
+    color: #8798a6;
+
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.ego-task-float__more {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    margin-top: 8px;
+
+    color: #586e80;
+
+    font-size: 8.5px;
+    font-weight: 750;
+}
+
+.ego-task-float__more i {
+    color: var(--etf-primary);
+}
+
+.ego-task-float__actions {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr) auto;
+    gap: 7px;
+
+    margin-top: 11px;
+}
+
+.ego-task-float__action,
+.ego-task-float__all {
+    display: inline-flex;
+    min-height: 37px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    padding: 0 12px;
+
+    border-radius: 10px;
+
+    font-size: 9px;
+    font-weight: 850;
+    text-decoration: none !important;
+
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease;
+}
+
+.ego-task-float__action {
+    color: #fff !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--etf-primary),
+            var(--etf-secondary)
+        );
+
+    box-shadow:
+        0 9px 20px
+        rgba(91, 92, 226, .19);
+}
+
+.ego-task-float__all {
+    border: 1px solid #dce5ec;
+
+    color: #425e72 !important;
+    background: #fff;
+}
+
+.ego-task-float__action:hover,
+.ego-task-float__all:hover {
+    transform: translateY(-2px);
+}
+
+@keyframes egoTaskFloatPulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 0
+            rgba(255, 255, 255, .42);
+
+        transform:
+            translateX(-50%)
+            scale(.86);
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 8px
+            rgba(255, 255, 255, 0);
+
+        transform:
+            translateX(-50%)
+            scale(1);
+    }
+}
+
+@media (max-width: 780px) {
+    .ego-task-float {
+        top: auto;
+
+        bottom:
+            max(
+                292px,
+                calc(
+                    env(safe-area-inset-bottom)
+                    + 292px
+                )
+            );
+
+        width: min(
+            360px,
+            calc(100vw - 8px)
+        );
+
+        grid-template-columns:
+            54px minmax(0, 1fr);
+
+        transform:
+            translateY(0)
+            translateX(
+                calc(100% - 54px)
+            );
+    }
+
+    .ego-task-float.is-open {
+        transform:
+            translateY(0)
+            translateX(0);
+    }
+
+    .ego-task-float__handle,
+    .ego-task-float__panel {
+        min-height: 205px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-task-float,
+    .ego-task-float__arrow,
+    .ego-task-float__action,
+    .ego-task-float__all {
+        transition: none !important;
+    }
+
+    .ego-task-float__pulse {
+        animation: none !important;
+    }
+}
+
+/* EGO_TASK_FLOAT_DRAWER_V130_CSS_END */
+
+/* EGO_FLOAT_DOCK_FIX_V170_START */
+
+/*
+|--------------------------------------------------------------------------
+| DOCK POPUP NHỎ GỌN – CHÂN PHẢI
+|--------------------------------------------------------------------------
+*/
+
+@media (min-width: 992px) {
+    .ego-task-float,
+    .ego-leave-float {
+        top: auto !important;
+        right: 10px !important;
+        left: auto !important;
+
+        display: grid !important;
+        grid-template-columns:
+            42px 248px !important;
+
+        width: 290px !important;
+        max-width:
+            calc(100vw - 10px) !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+
+        align-items: stretch !important;
+
+        overflow: hidden !important;
+
+        border-radius:
+            15px 0 0 15px !important;
+
+        /*
+         * Trạng thái đóng:
+         * đẩy panel 248px ra ngoài,
+         * chỉ giữ lại tab 42px.
+         */
+        transform:
+            translateX(248px) !important;
+
+        transition:
+            transform 420ms
+            cubic-bezier(.2, .82, .2, 1),
+            box-shadow 200ms ease !important;
+
+        contain: layout paint;
+    }
+
+    .ego-task-float.is-open,
+    .ego-leave-float.is-open {
+        transform:
+            translateX(0) !important;
+    }
+
+    /*
+     * Hai tab nằm dọc tại chân phải,
+     * không chồng lên nhau.
+     */
+    .ego-leave-float {
+        bottom: 14px !important;
+        z-index: 1086 !important;
+    }
+
+    .ego-task-float {
+        bottom: 205px !important;
+        z-index: 1085 !important;
+    }
+
+    .ego-task-float__handle,
+    .ego-leave-float__handle {
+        width: 42px !important;
+        min-width: 42px !important;
+        max-width: 42px !important;
+
+        min-height: 174px !important;
+        height: auto !important;
+
+        padding: 9px 5px !important;
+        gap: 7px !important;
+
+        border-radius:
+            14px 0 0 14px !important;
+
+        box-shadow: none !important;
+    }
+
+    .ego-task-float__handle
+    > i:first-of-type,
+    .ego-leave-float__handle
+    > i:first-of-type {
+        font-size: 15px !important;
+    }
+
+    .ego-task-float__handle strong,
+    .ego-leave-float__handle strong {
+        min-width: 23px !important;
+        height: 21px !important;
+
+        padding: 0 5px !important;
+
+        font-size: 9px !important;
+    }
+
+    .ego-task-float__handle-text,
+    .ego-leave-float__handle-text {
+        font-size: 8px !important;
+        line-height: 1 !important;
+        letter-spacing: .09em !important;
+    }
+
+    .ego-task-float__arrow,
+    .ego-leave-float__arrow {
+        font-size: 11px !important;
+    }
+
+    /*
+     * Panel compact.
+     */
+    .ego-task-float__panel,
+    .ego-leave-float__panel {
+        width: 248px !important;
+        min-width: 248px !important;
+        max-width: 248px !important;
+
+        min-height: 174px !important;
+        height: auto !important;
+        max-height: 225px !important;
+
+        justify-content: center !important;
+
+        padding:
+            12px 13px !important;
+
+        overflow: hidden auto !important;
+
+        border-radius:
+            0 !important;
+
+        box-shadow: none !important;
+    }
+
+    .ego-task-float__close,
+    .ego-leave-float__close {
+        top: 7px !important;
+        right: 7px !important;
+
+        width: 25px !important;
+        height: 25px !important;
+
+        border-radius: 8px !important;
+
+        font-size: 10px !important;
+    }
+
+    .ego-task-float__icon,
+    .ego-leave-float__icon {
+        width: 31px !important;
+        height: 31px !important;
+
+        margin-bottom: 6px !important;
+
+        border-radius: 10px !important;
+
+        font-size: 13px !important;
+    }
+
+    .ego-task-float__eyebrow,
+    .ego-leave-float__eyebrow {
+        margin-bottom: 3px !important;
+
+        font-size: 7.5px !important;
+        letter-spacing: .11em !important;
+    }
+
+    .ego-task-float h3,
+    .ego-leave-float h3 {
+        padding-right: 22px !important;
+        margin: 0 !important;
+
+        font-size: 15px !important;
+        line-height: 1.2 !important;
+    }
+
+    .ego-task-float__latest {
+        padding: 7px 8px !important;
+        margin-top: 7px !important;
+
+        border-radius: 9px !important;
+    }
+
+    .ego-task-float__latest strong {
+        font-size: 9px !important;
+        line-height: 1.3 !important;
+
+        -webkit-line-clamp: 1 !important;
+    }
+
+    .ego-task-float__latest p {
+        margin-top: 3px !important;
+
+        font-size: 8px !important;
+        line-height: 1.35 !important;
+
+        -webkit-line-clamp: 1 !important;
+    }
+
+    .ego-task-float__latest time {
+        margin-top: 4px !important;
+
+        font-size: 7.5px !important;
+    }
+
+    .ego-leave-float p {
+        margin-top: 5px !important;
+
+        font-size: 8.5px !important;
+        line-height: 1.35 !important;
+    }
+
+    /*
+     * Ẩn thông tin phụ để popup thật sự gọn.
+     */
+    .ego-task-float__chips,
+    .ego-task-float__more,
+    .ego-leave-float__chips {
+        display: none !important;
+    }
+
+    .ego-task-float__actions,
+    .ego-leave-float__actions {
+        margin-top: 8px !important;
+        gap: 5px !important;
+    }
+
+    .ego-task-float__action,
+    .ego-leave-float__action {
+        min-height: 32px !important;
+
+        padding: 0 9px !important;
+
+        border-radius: 9px !important;
+
+        font-size: 8px !important;
+    }
+
+    .ego-task-float__all,
+    .ego-leave-float__all {
+        min-height: 32px !important;
+
+        padding: 0 8px !important;
+
+        border-radius: 9px !important;
+
+        font-size: 8px !important;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| MOBILE
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    .ego-task-float,
+    .ego-leave-float {
+        top: auto !important;
+        right: 6px !important;
+        left: auto !important;
+
+        display: grid !important;
+        grid-template-columns:
+            39px minmax(0, 238px) !important;
+
+        width:
+            min(
+                277px,
+                calc(100vw - 6px)
+            ) !important;
+
+        transform:
+            translateX(
+                min(
+                    238px,
+                    calc(100vw - 45px)
+                )
+            ) !important;
+
+        border-radius:
+            14px 0 0 14px !important;
+
+        overflow: hidden !important;
+
+        transition:
+            transform 380ms
+            cubic-bezier(.2, .82, .2, 1) !important;
+    }
+
+    .ego-task-float.is-open,
+    .ego-leave-float.is-open {
+        transform:
+            translateX(0) !important;
+    }
+
+    .ego-leave-float {
+        bottom:
+            max(
+                8px,
+                env(safe-area-inset-bottom)
+            ) !important;
+    }
+
+    .ego-task-float {
+        bottom:
+            max(
+                166px,
+                calc(
+                    env(safe-area-inset-bottom)
+                    + 166px
+                )
+            ) !important;
+    }
+
+    .ego-task-float__handle,
+    .ego-leave-float__handle {
+        width: 39px !important;
+        min-width: 39px !important;
+        max-width: 39px !important;
+
+        min-height: 142px !important;
+
+        padding: 7px 4px !important;
+        gap: 6px !important;
+    }
+
+    .ego-task-float__panel,
+    .ego-leave-float__panel {
+        width:
+            min(
+                238px,
+                calc(100vw - 45px)
+            ) !important;
+
+        min-width: 0 !important;
+        max-width: 238px !important;
+
+        min-height: 142px !important;
+        max-height: 205px !important;
+
+        padding: 11px !important;
+    }
+
+    .ego-task-float__chips,
+    .ego-task-float__more,
+    .ego-leave-float__chips {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-task-float,
+    .ego-leave-float {
+        transition: none !important;
+    }
+}
+
+/* EGO_FLOAT_DOCK_FIX_V170_END */
+

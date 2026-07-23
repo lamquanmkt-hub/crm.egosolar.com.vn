@@ -1,0 +1,724 @@
+/*
+|--------------------------------------------------------------------------
+| EGO MOBILE NOTICE SHEET V1.8
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    :root {
+        --ego-mobile-notice-gap: 8px;
+        --ego-mobile-notice-handle: 48px;
+        --ego-mobile-notice-width:
+            min(
+                360px,
+                calc(100vw - 16px)
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KHÓA CUỘN NỀN KHI SHEET ĐANG MỞ
+    |--------------------------------------------------------------------------
+    */
+
+    body.ego-mobile-notice-open {
+        overflow: hidden !important;
+        overscroll-behavior: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KHUNG CHUNG
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float,
+    html body .ego-leave-float {
+        position: fixed !important;
+
+        top: auto !important;
+        right: var(--ego-mobile-notice-gap) !important;
+        left: auto !important;
+
+        z-index: 2147482200 !important;
+
+        display: flex !important;
+        width: var(--ego-mobile-notice-width) !important;
+        min-width: 0 !important;
+        max-width: var(--ego-mobile-notice-width) !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+        max-height:
+            min(
+                66dvh,
+                540px
+            ) !important;
+
+        flex-direction: column !important;
+        align-items: stretch !important;
+
+        overflow: hidden !important;
+
+        border:
+            1px solid
+            rgba(117, 135, 164, .22) !important;
+
+        border-radius:
+            20px 20px 0 0 !important;
+
+        background: transparent !important;
+
+        box-shadow:
+            0 -20px 55px
+            rgba(16, 34, 53, .22),
+            0 -4px 16px
+            rgba(16, 34, 53, .10) !important;
+
+        /*
+         * Khi đóng, chỉ giữ lại hàng handle 48px.
+         */
+        transform:
+            translate3d(
+                0,
+                calc(
+                    100%
+                    - var(
+                        --ego-mobile-notice-handle
+                    )
+                ),
+                0
+            ) !important;
+
+        transition:
+            transform 420ms
+            cubic-bezier(.2, .84, .2, 1),
+            opacity 180ms ease,
+            visibility 180ms ease !important;
+
+        isolation: isolate !important;
+        contain: layout paint !important;
+    }
+
+    html body .ego-task-float {
+        bottom:
+            max(
+                8px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+    }
+
+    html body .ego-leave-float {
+        bottom:
+            max(
+                62px,
+                calc(
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                    + 62px
+                )
+            ) !important;
+    }
+
+    html body .ego-task-float.is-open,
+    html body .ego-leave-float.is-open {
+        transform:
+            translate3d(
+                0,
+                0,
+                0
+            ) !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HANDLE NGANG NHỎ GỌN
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__handle,
+    html body .ego-leave-float__handle {
+        position: relative !important;
+        order: 1 !important;
+
+        display: flex !important;
+
+        width: 148px !important;
+        min-width: 148px !important;
+        max-width: 148px !important;
+
+        height:
+            var(
+                --ego-mobile-notice-handle
+            ) !important;
+
+        min-height:
+            var(
+                --ego-mobile-notice-handle
+            ) !important;
+
+        align-self: flex-end !important;
+        flex: 0 0 auto !important;
+
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+
+        gap: 7px !important;
+
+        padding: 0 11px !important;
+
+        border: 0 !important;
+
+        border-radius:
+            16px 16px 0 0 !important;
+
+        color: #ffffff !important;
+
+        cursor: pointer !important;
+
+        box-shadow:
+            0 -8px 24px
+            rgba(19, 40, 66, .18) !important;
+    }
+
+    html body .ego-task-float__handle {
+        background:
+            linear-gradient(
+                135deg,
+                #6256df,
+                #168fd1
+            ) !important;
+    }
+
+    html body .ego-leave-float__handle {
+        background:
+            linear-gradient(
+                135deg,
+                #f34a5d,
+                #df2444
+            ) !important;
+    }
+
+    html body
+    .ego-task-float__handle
+    > i:first-of-type,
+    html body
+    .ego-leave-float__handle
+    > i:first-of-type {
+        display: grid !important;
+
+        width: 29px !important;
+        height: 29px !important;
+
+        flex: 0 0 29px !important;
+
+        place-items: center !important;
+
+        border:
+            1px solid
+            rgba(255, 255, 255, .22) !important;
+
+        border-radius: 9px !important;
+
+        background:
+            rgba(255, 255, 255, .13) !important;
+
+        font-size: 14px !important;
+    }
+
+    html body
+    .ego-task-float__handle strong,
+    html body
+    .ego-leave-float__handle strong {
+        position: static !important;
+
+        display: inline-flex !important;
+
+        min-width: 22px !important;
+        height: 22px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        padding: 0 6px !important;
+
+        border:
+            1px solid
+            rgba(255, 255, 255, .28) !important;
+
+        border-radius: 999px !important;
+
+        color: #ffffff !important;
+        background:
+            rgba(255, 255, 255, .16) !important;
+
+        font-size: 9px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+    }
+
+    html body
+    .ego-task-float__handle-text,
+    html body
+    .ego-leave-float__handle-text {
+        display: inline-flex !important;
+
+        flex: 1 1 auto !important;
+
+        color: #ffffff !important;
+
+        font-size: 9px !important;
+        font-weight: 850 !important;
+        letter-spacing: .06em !important;
+        line-height: 1 !important;
+        text-transform: uppercase !important;
+
+        writing-mode:
+            horizontal-tb !important;
+
+        transform: none !important;
+    }
+
+    html body
+    .ego-task-float__pulse,
+    html body
+    .ego-leave-float__pulse {
+        display: none !important;
+    }
+
+    html body
+    .ego-task-float__arrow,
+    html body
+    .ego-leave-float__arrow {
+        display: inline-flex !important;
+
+        margin-left: auto !important;
+
+        font-size: 11px !important;
+
+        transform:
+            rotate(90deg) !important;
+
+        transition:
+            transform 260ms ease !important;
+    }
+
+    html body
+    .ego-task-float.is-open
+    .ego-task-float__arrow,
+    html body
+    .ego-leave-float.is-open
+    .ego-leave-float__arrow {
+        transform:
+            rotate(-90deg) !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL NỘI DUNG
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__panel,
+    html body .ego-leave-float__panel {
+        position: relative !important;
+        order: 2 !important;
+
+        display: flex !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        min-height: 0 !important;
+
+        max-height:
+            calc(
+                min(
+                    66dvh,
+                    540px
+                )
+                - var(
+                    --ego-mobile-notice-handle
+                )
+            ) !important;
+
+        flex: 1 1 auto !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+
+        padding:
+            16px
+            15px
+            max(
+                17px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        border-radius:
+            20px 0 0 0 !important;
+
+        color: #102d46 !important;
+
+        background:
+            radial-gradient(
+                circle at 100% 0,
+                rgba(97, 87, 223, .12),
+                transparent 190px
+            ),
+            linear-gradient(
+                145deg,
+                #ffffff,
+                #f7f8ff
+            ) !important;
+
+        box-shadow: none !important;
+
+        overscroll-behavior:
+            contain !important;
+
+        -webkit-overflow-scrolling:
+            touch !important;
+    }
+
+    html body .ego-leave-float__panel {
+        background:
+            radial-gradient(
+                circle at 100% 0,
+                rgba(243, 74, 93, .12),
+                transparent 190px
+            ),
+            linear-gradient(
+                145deg,
+                #ffffff,
+                #fff7f8
+            ) !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚT ĐÓNG
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__close,
+    html body .ego-leave-float__close {
+        position: absolute !important;
+
+        top: 10px !important;
+        right: 10px !important;
+
+        display: grid !important;
+
+        width: 32px !important;
+        height: 32px !important;
+
+        place-items: center !important;
+
+        border:
+            1px solid #dce6ec !important;
+
+        border-radius: 10px !important;
+
+        color: #6e8292 !important;
+        background: #ffffff !important;
+
+        box-shadow:
+            0 4px 12px
+            rgba(16, 42, 65, .07) !important;
+
+        font-size: 11px !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ICON VÀ TIÊU ĐỀ
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__icon,
+    html body .ego-leave-float__icon {
+        display: grid !important;
+
+        width: 39px !important;
+        height: 39px !important;
+
+        flex: 0 0 39px !important;
+        place-items: center !important;
+
+        margin: 0 0 9px !important;
+
+        border-radius: 12px !important;
+
+        font-size: 16px !important;
+    }
+
+    html body .ego-task-float__eyebrow,
+    html body .ego-leave-float__eyebrow {
+        margin: 0 38px 3px 0 !important;
+
+        font-size: 8px !important;
+        font-weight: 900 !important;
+        letter-spacing: .12em !important;
+        line-height: 1.2 !important;
+    }
+
+    html body .ego-task-float h3,
+    html body .ego-leave-float h3 {
+        margin: 0 38px 0 0 !important;
+        padding: 0 !important;
+
+        color: #102d46 !important;
+
+        font-size: 18px !important;
+        font-weight: 900 !important;
+        letter-spacing: -.025em !important;
+        line-height: 1.22 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CÔNG VIỆC GẦN NHẤT
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__latest {
+        margin-top: 11px !important;
+        padding: 11px !important;
+
+        border:
+            1px solid
+            rgba(91, 92, 226, .14) !important;
+
+        border-radius: 13px !important;
+
+        background:
+            rgba(255, 255, 255, .84) !important;
+    }
+
+    html body
+    .ego-task-float__latest strong {
+        display: -webkit-box !important;
+
+        overflow: hidden !important;
+
+        color: #213c52 !important;
+
+        font-size: 12px !important;
+        font-weight: 850 !important;
+        line-height: 1.35 !important;
+
+        -webkit-box-orient:
+            vertical !important;
+
+        -webkit-line-clamp:
+            2 !important;
+    }
+
+    html body
+    .ego-task-float__latest p {
+        display: -webkit-box !important;
+
+        overflow: hidden !important;
+
+        margin: 5px 0 0 !important;
+
+        color: #667d8f !important;
+
+        font-size: 10px !important;
+        line-height: 1.45 !important;
+
+        -webkit-box-orient:
+            vertical !important;
+
+        -webkit-line-clamp:
+            2 !important;
+    }
+
+    html body
+    .ego-task-float__latest time {
+        display: flex !important;
+
+        align-items: center !important;
+        gap: 5px !important;
+
+        margin-top: 7px !important;
+
+        color: #8495a3 !important;
+
+        font-size: 9px !important;
+        font-weight: 700 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | THÔNG TIN PHỤ
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__chips,
+    html body .ego-leave-float__chips,
+    html body .ego-task-float__more {
+        display: none !important;
+    }
+
+    html body .ego-leave-float p {
+        margin: 8px 0 0 !important;
+
+        color: #687f91 !important;
+
+        font-size: 10px !important;
+        line-height: 1.45 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚT THAO TÁC
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__actions,
+    html body .ego-leave-float__actions {
+        display: grid !important;
+
+        grid-template-columns:
+            minmax(0, 1fr)
+            auto !important;
+
+        gap: 8px !important;
+
+        margin-top: 12px !important;
+    }
+
+    html body .ego-task-float__action,
+    html body .ego-task-float__all,
+    html body .ego-leave-float__action,
+    html body .ego-leave-float__all {
+        display: inline-flex !important;
+
+        min-height: 42px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        padding: 0 13px !important;
+
+        border-radius: 12px !important;
+
+        font-size: 10px !important;
+        font-weight: 850 !important;
+
+        text-decoration: none !important;
+    }
+
+    html body .ego-task-float__action {
+        color: #ffffff !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                #6256df,
+                #168fd1
+            ) !important;
+    }
+
+    html body .ego-leave-float__action {
+        color: #ffffff !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                #f34a5d,
+                #df2444
+            ) !important;
+    }
+
+    html body .ego-task-float__all,
+    html body .ego-leave-float__all {
+        border:
+            1px solid #dce6ec !important;
+
+        color: #405c70 !important;
+        background: #ffffff !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOPBAR PANEL ĐANG MỞ
+    |--------------------------------------------------------------------------
+    */
+
+    body.crm-topbar-panel-open
+    .ego-task-float,
+    body.crm-topbar-panel-open
+    .ego-leave-float {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MOBILE NHỎ
+    |--------------------------------------------------------------------------
+    */
+
+    @media (max-width: 390px) {
+        :root {
+            --ego-mobile-notice-width:
+                calc(100vw - 10px);
+            --ego-mobile-notice-gap: 5px;
+        }
+
+        html body
+        .ego-task-float__handle,
+        html body
+        .ego-leave-float__handle {
+            width: 140px !important;
+            min-width: 140px !important;
+            max-width: 140px !important;
+        }
+
+        html body
+        .ego-task-float__panel,
+        html body
+        .ego-leave-float__panel {
+            padding:
+                14px
+                13px
+                max(
+                    15px,
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                ) !important;
+        }
+
+        html body
+        .ego-task-float h3,
+        html body
+        .ego-leave-float h3 {
+            font-size: 17px !important;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-task-float,
+    .ego-leave-float {
+        transition: none !important;
+    }
+}

@@ -1,0 +1,555 @@
+/*
+|--------------------------------------------------------------------------
+| EGO MOBILE NOTICE SAFE V1.9
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    /*
+    |--------------------------------------------------------------------------
+    | KHÔNG KHÓA MÀN HÌNH
+    |--------------------------------------------------------------------------
+    */
+
+    html,
+    body {
+        overflow-x: hidden !important;
+    }
+
+    body.ego-mobile-notice-open {
+        overflow-y: auto !important;
+        touch-action: auto !important;
+        overscroll-behavior-y: auto !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KHUNG THÔNG BÁO CHỈ CÒN NÚT TRÒN
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float,
+    html body .ego-leave-float {
+        position: fixed !important;
+
+        top: auto !important;
+        bottom:
+            max(
+                16px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        left: auto !important;
+
+        z-index: 2147482000 !important;
+
+        display: block !important;
+
+        width: 48px !important;
+        min-width: 48px !important;
+        max-width: 48px !important;
+
+        height: 48px !important;
+        min-height: 48px !important;
+        max-height: 48px !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        overflow: visible !important;
+
+        border: 0 !important;
+        border-radius: 15px !important;
+
+        background: transparent !important;
+
+        box-shadow: none !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        transform: none !important;
+
+        pointer-events: none !important;
+
+        contain: none !important;
+        isolation: auto !important;
+    }
+
+    html body .ego-task-float {
+        right: 70px !important;
+    }
+
+    html body .ego-leave-float {
+        right: 14px !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚT CÔNG VIỆC / NHÂN SỰ
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__handle,
+    html body .ego-leave-float__handle {
+        position: absolute !important;
+        inset: 0 !important;
+
+        display: grid !important;
+
+        width: 48px !important;
+        min-width: 48px !important;
+        max-width: 48px !important;
+
+        height: 48px !important;
+        min-height: 48px !important;
+        max-height: 48px !important;
+
+        place-items: center !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+        gap: 0 !important;
+
+        overflow: visible !important;
+
+        border:
+            2px solid #ffffff !important;
+
+        border-radius: 15px !important;
+
+        color: #ffffff !important;
+
+        box-shadow:
+            0 9px 25px
+            rgba(19, 38, 59, .24) !important;
+
+        cursor: pointer !important;
+        pointer-events: auto !important;
+
+        transform: none !important;
+    }
+
+    html body .ego-task-float__handle {
+        background:
+            linear-gradient(
+                135deg,
+                #6256df,
+                #168fd1
+            ) !important;
+    }
+
+    html body .ego-leave-float__handle {
+        background:
+            linear-gradient(
+                135deg,
+                #f34b60,
+                #db2444
+            ) !important;
+    }
+
+    html body
+    .ego-task-float__handle
+    > i:first-of-type,
+    html body
+    .ego-leave-float__handle
+    > i:first-of-type {
+        display: inline-flex !important;
+
+        width: auto !important;
+        height: auto !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        border: 0 !important;
+        background: transparent !important;
+
+        font-size: 19px !important;
+    }
+
+    html body
+    .ego-task-float__handle strong,
+    html body
+    .ego-leave-float__handle strong {
+        position: absolute !important;
+
+        top: -7px !important;
+        right: -7px !important;
+
+        display: inline-flex !important;
+
+        min-width: 21px !important;
+        height: 21px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        padding: 0 5px !important;
+
+        border:
+            2px solid #ffffff !important;
+
+        border-radius: 999px !important;
+
+        color: #ffffff !important;
+
+        background: #f04455 !important;
+
+        box-shadow:
+            0 4px 10px
+            rgba(30, 46, 66, .18) !important;
+
+        font-size: 8px !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+    }
+
+    html body
+    .ego-task-float__handle-text,
+    html body
+    .ego-leave-float__handle-text,
+    html body
+    .ego-task-float__arrow,
+    html body
+    .ego-leave-float__arrow,
+    html body
+    .ego-task-float__pulse,
+    html body
+    .ego-leave-float__pulse {
+        display: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL ẨN HOÀN TOÀN KHI ĐÓNG
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__panel,
+    html body .ego-leave-float__panel {
+        position: fixed !important;
+
+        top: auto !important;
+
+        right: 10px !important;
+
+        bottom:
+            max(
+                78px,
+                calc(
+                    env(
+                        safe-area-inset-bottom,
+                        0px
+                    )
+                    + 78px
+                )
+            ) !important;
+
+        left: 10px !important;
+
+        z-index: 2147482100 !important;
+
+        display: none !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+        min-height: 0 !important;
+
+        max-height:
+            min(
+                48dvh,
+                390px
+            ) !important;
+
+        margin: 0 !important;
+
+        padding:
+            16px 15px
+            max(
+                16px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        border:
+            1px solid
+            rgba(121, 143, 161, .22) !important;
+
+        border-radius: 18px !important;
+
+        background:
+            linear-gradient(
+                145deg,
+                #ffffff,
+                #f8fbfd
+            ) !important;
+
+        box-shadow:
+            0 22px 65px
+            rgba(14, 34, 53, .25),
+            0 5px 18px
+            rgba(14, 34, 53, .10) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        transform: none !important;
+
+        pointer-events: auto !important;
+
+        overscroll-behavior:
+            contain !important;
+
+        -webkit-overflow-scrolling:
+            touch !important;
+    }
+
+    html body
+    .ego-task-float.is-open
+    .ego-task-float__panel,
+    html body
+    .ego-leave-float.is-open
+    .ego-leave-float__panel {
+        display: flex !important;
+        flex-direction: column !important;
+
+        animation:
+            egoMobileNoticeSafeIn
+            200ms
+            cubic-bezier(.2, .82, .2, 1) !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL COMPACT
+    |--------------------------------------------------------------------------
+    */
+
+    html body .ego-task-float__icon,
+    html body .ego-leave-float__icon {
+        width: 38px !important;
+        height: 38px !important;
+
+        min-width: 38px !important;
+        min-height: 38px !important;
+
+        margin: 0 0 8px !important;
+
+        border-radius: 12px !important;
+
+        font-size: 15px !important;
+    }
+
+    html body .ego-task-float__close,
+    html body .ego-leave-float__close {
+        position: absolute !important;
+
+        top: 10px !important;
+        right: 10px !important;
+
+        display: grid !important;
+
+        width: 32px !important;
+        height: 32px !important;
+
+        place-items: center !important;
+
+        border:
+            1px solid #dce6ec !important;
+
+        border-radius: 10px !important;
+
+        color: #62798b !important;
+        background: #ffffff !important;
+
+        cursor: pointer !important;
+    }
+
+    html body .ego-task-float__eyebrow,
+    html body .ego-leave-float__eyebrow {
+        margin:
+            0 38px 4px 0 !important;
+
+        font-size: 8px !important;
+        font-weight: 900 !important;
+        letter-spacing: .11em !important;
+    }
+
+    html body .ego-task-float h3,
+    html body .ego-leave-float h3 {
+        margin:
+            0 38px 0 0 !important;
+
+        padding: 0 !important;
+
+        color: #102d46 !important;
+
+        font-size: 18px !important;
+        font-weight: 900 !important;
+        line-height: 1.22 !important;
+    }
+
+    html body .ego-task-float__latest {
+        margin-top: 11px !important;
+        padding: 10px !important;
+
+        border:
+            1px solid #e0e8ee !important;
+
+        border-radius: 12px !important;
+
+        background: #ffffff !important;
+    }
+
+    html body
+    .ego-task-float__latest strong {
+        display: -webkit-box !important;
+
+        overflow: hidden !important;
+
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+
+        -webkit-box-orient:
+            vertical !important;
+
+        -webkit-line-clamp:
+            2 !important;
+    }
+
+    html body
+    .ego-task-float__latest p {
+        display: -webkit-box !important;
+
+        overflow: hidden !important;
+
+        margin: 5px 0 0 !important;
+
+        color: #657d8f !important;
+
+        font-size: 10px !important;
+        line-height: 1.4 !important;
+
+        -webkit-box-orient:
+            vertical !important;
+
+        -webkit-line-clamp:
+            2 !important;
+    }
+
+    html body
+    .ego-task-float__latest time {
+        margin-top: 6px !important;
+
+        font-size: 9px !important;
+    }
+
+    html body .ego-task-float__chips,
+    html body .ego-leave-float__chips,
+    html body .ego-task-float__more {
+        display: none !important;
+    }
+
+    html body .ego-leave-float p {
+        margin: 8px 0 0 !important;
+
+        color: #657d8f !important;
+
+        font-size: 10px !important;
+        line-height: 1.45 !important;
+    }
+
+    html body .ego-task-float__actions,
+    html body .ego-leave-float__actions {
+        display: grid !important;
+
+        grid-template-columns:
+            minmax(0, 1fr)
+            auto !important;
+
+        gap: 8px !important;
+
+        margin-top: 12px !important;
+    }
+
+    html body .ego-task-float__action,
+    html body .ego-task-float__all,
+    html body .ego-leave-float__action,
+    html body .ego-leave-float__all {
+        display: inline-flex !important;
+
+        min-height: 42px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        padding: 0 13px !important;
+
+        border-radius: 11px !important;
+
+        font-size: 10px !important;
+        font-weight: 850 !important;
+
+        text-decoration: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | KHI TOPBAR ĐANG MỞ
+    |--------------------------------------------------------------------------
+    */
+
+    body.crm-topbar-panel-open
+    .ego-task-float,
+    body.crm-topbar-panel-open
+    .ego-leave-float {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+}
+
+@keyframes egoMobileNoticeSafeIn {
+    from {
+        opacity: 0;
+
+        transform:
+            translate3d(
+                0,
+                14px,
+                0
+            )
+            scale(.985);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translate3d(
+                0,
+                0,
+                0
+            )
+            scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-task-float__panel,
+    .ego-leave-float__panel {
+        animation: none !important;
+    }
+}

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LeaveRequest extends Model
 {
@@ -13,7 +14,9 @@ class LeaveRequest extends Model
         'request_type',
         'leave_type',
         'start_date',
+        'start_time',
         'end_date',
+        'end_time',
         'days',
         'reason',
         'status',
@@ -38,6 +41,17 @@ class LeaveRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approver_id');
+    }
+
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(LeaveRequestAttachment::class);
+    }
+
+    public function approvalLogs(): HasMany
+    {
+        return $this->hasMany(LeaveRequestApprovalLog::class)->latest('id');
     }
 
     public function getStatusLabelAttribute(): string
@@ -67,6 +81,9 @@ class LeaveRequest extends Model
         return match ($this->request_type) {
             'leave' => 'Nghỉ phép',
             'wfh' => 'Làm online',
+            'business_trip' => 'Công tác',
+            'late' => 'Xin đi trễ',
+            'early_leave' => 'Xin về sớm',
             default => ucfirst((string) $this->request_type),
         };
     }
@@ -79,6 +96,9 @@ class LeaveRequest extends Model
             'sick' => 'Nghỉ ốm',
             'personal' => 'Nghỉ việc riêng',
             'wfh' => 'Làm online',
+            'business_trip' => 'Công tác',
+            'late' => 'Xin đi trễ',
+            'early_leave' => 'Xin về sớm',
             default => $this->leave_type ? ucfirst((string) $this->leave_type) : '-',
         };
     }

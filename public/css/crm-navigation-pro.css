@@ -1451,3 +1451,865 @@ html.crm-navigation-ready body #sidebar.ego-sidebar
 
 /* CRM_NAVIGATION_EFFECTS_V21_END */
 
+/* EGO_MOBILE_CORE_REPAIR_V9_START */
+
+@media (max-width: 991.98px) {
+    :root {
+        --ego-mobile-topbar-height: 58px;
+    }
+
+    html.crm-navigation-ready,
+    html.crm-navigation-ready body {
+        width: 100% !important;
+        max-width: 100% !important;
+
+        overflow-x: hidden !important;
+    }
+
+    html.crm-navigation-ready body .ego-shell,
+    html.crm-navigation-ready body .ego-page,
+    html.crm-navigation-ready body .ego-page__body,
+    html.crm-navigation-ready body .main-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+
+        overflow-x: hidden !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOPBAR
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar.crm-topbar {
+        position: sticky !important;
+
+        top: 0 !important;
+        right: 0 !important;
+        left: 0 !important;
+
+        z-index: 1300 !important;
+
+        width: 100% !important;
+        max-width: 100vw !important;
+
+        height:
+            var(
+                --ego-mobile-topbar-height
+            ) !important;
+
+        min-height:
+            var(
+                --ego-mobile-topbar-height
+            ) !important;
+
+        overflow: visible !important;
+
+        border-bottom:
+            1px solid #dbe8ee !important;
+
+        background:
+            rgba(
+                255,
+                255,
+                255,
+                .99
+            ) !important;
+
+        box-shadow:
+            0 5px 18px
+            rgba(
+                16,
+                42,
+                65,
+                .08
+            ) !important;
+
+        transform: none !important;
+        filter: none !important;
+        contain: none !important;
+
+        backdrop-filter: none !important;
+
+        -webkit-backdrop-filter:
+            none !important;
+
+        pointer-events: auto !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__inner {
+        position: relative !important;
+
+        display: grid !important;
+
+        grid-template-columns:
+            minmax(82px, 1fr)
+            auto
+            minmax(82px, 1fr) !important;
+
+        align-items: center !important;
+
+        gap: 0 !important;
+
+        width: 100% !important;
+        max-width: 100% !important;
+
+        height: 100% !important;
+
+        padding:
+            0 7px !important;
+
+        overflow: visible !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__left,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__right {
+        position: relative !important;
+
+        z-index: 4 !important;
+
+        display: flex !important;
+
+        min-width: 0 !important;
+        height: 100% !important;
+
+        align-items: center !important;
+
+        gap: 2px !important;
+
+        pointer-events: auto !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__left {
+        grid-column: 1 !important;
+
+        justify-self: start !important;
+        justify-content: flex-start !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__right {
+        grid-column: 3 !important;
+
+        justify-self: end !important;
+        justify-content: flex-end !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__center,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__module-copy,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__status-chip,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__sidebar-toggle,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__action-label,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-copy,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-chevron {
+        display: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOGO GIỮA
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    > .crm-topbar__inner
+    > .crm-topbar__mobile-brand {
+        position: relative !important;
+
+        top: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: auto !important;
+
+        z-index: 3 !important;
+
+        grid-column: 2 !important;
+
+        display: inline-flex !important;
+
+        width: 108px !important;
+        min-width: 108px !important;
+        max-width: 108px !important;
+
+        height: 42px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        justify-self: center !important;
+
+        margin: 0 !important;
+
+        overflow: hidden !important;
+
+        transform: none !important;
+
+        pointer-events: auto !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-brand img {
+        display: block !important;
+
+        width: auto !important;
+        max-width: 104px !important;
+
+        height: auto !important;
+        max-height: 34px !important;
+
+        object-fit: contain !important;
+
+        pointer-events: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__brand-fallback {
+        display: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__brand-fallback.is-visible {
+        display: inline-flex !important;
+
+        color: #0d2c44 !important;
+
+        font-size: 11px !important;
+        font-weight: 900 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚT TRÁI VÀ PHẢI
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-menu,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-more {
+        display: inline-flex !important;
+    }
+
+    /*
+     * Ẩn nút Tin nhắn desktop và nút More desktop.
+     * Tin nhắn vẫn truy cập trong bảng Tiện ích.
+     */
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__chat-wrap
+    > .crm-topbar__action-button,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__more-wrap
+    > .crm-topbar__more-toggle {
+        display: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__chat-wrap,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__more-wrap {
+        display: contents !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__icon-button,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__action-button,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-button {
+        position: relative !important;
+
+        z-index: 5 !important;
+
+        display: inline-flex !important;
+
+        width: 40px !important;
+        min-width: 40px !important;
+
+        height: 40px !important;
+        min-height: 40px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border:
+            1px solid transparent !important;
+
+        border-radius: 12px !important;
+
+        background:
+            transparent !important;
+
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+
+        -webkit-tap-highlight-color:
+            rgba(
+                9,
+                147,
+                176,
+                .14
+            ) !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__icon-button:active,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__action-button[
+        aria-expanded="true"
+    ],
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-button[
+        aria-expanded="true"
+    ] {
+        border-color:
+            #d5e7ee !important;
+
+        color: #0683a7 !important;
+
+        background:
+            #edf7fa !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__avatar {
+        width: 34px !important;
+        height: 34px !important;
+
+        border:
+            2px solid #e0ebef !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__badge {
+        top: -5px !important;
+        right: -5px !important;
+
+        min-width: 18px !important;
+        height: 18px !important;
+
+        padding: 0 4px !important;
+
+        font-size: 8px !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL TOPBAR
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel-wrap {
+        position: static !important;
+
+        overflow: visible !important;
+
+        transform: none !important;
+        contain: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel:not(.is-open),
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel[
+        aria-hidden="true"
+    ]:not(.is-open) {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+
+        pointer-events: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel.is-open,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel[
+        aria-hidden="false"
+    ] {
+        position: fixed !important;
+
+        top:
+            calc(
+                var(
+                    --ego-mobile-topbar-height
+                )
+                + 7px
+            ) !important;
+
+        right: 7px !important;
+
+        bottom:
+            max(
+                7px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        left: 7px !important;
+
+        z-index: 1310 !important;
+
+        display: flex !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+
+        max-height:
+            calc(
+                100dvh
+                - var(
+                    --ego-mobile-topbar-height
+                )
+                - 14px
+            ) !important;
+
+        flex-direction: column !important;
+
+        overflow: hidden !important;
+
+        border:
+            1px solid
+            rgba(
+                124,
+                149,
+                167,
+                .24
+            ) !important;
+
+        border-radius:
+            18px !important;
+
+        color: #102d46 !important;
+
+        background:
+            #ffffff !important;
+
+        box-shadow:
+            0 24px 72px
+            rgba(
+                10,
+                30,
+                48,
+                .28
+            ) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        pointer-events: auto !important;
+
+        transform: none !important;
+
+        animation:
+            egoMobileCorePanelIn
+            180ms
+            ease-out !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel-header,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-header {
+        flex: 0 0 auto !important;
+
+        min-height: 66px !important;
+
+        padding:
+            13px 14px !important;
+
+        border-bottom:
+            1px solid #e5edf1 !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                #ffffff,
+                #f5fbfd
+            ) !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel-close {
+        display: inline-flex !important;
+
+        width: 34px !important;
+        height: 34px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__search-row input {
+        font-size: 16px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel-list,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-menu,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__utility-list {
+        flex: 1 1 auto !important;
+
+        min-height: 0 !important;
+        max-height: none !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        overscroll-behavior:
+            contain !important;
+
+        -webkit-overflow-scrolling:
+            touch !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list {
+        display: grid !important;
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            ) !important;
+
+        gap: 8px !important;
+
+        padding: 11px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list
+    > a,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list
+    > button {
+        display: flex !important;
+
+        min-height: 80px !important;
+
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+
+        gap: 6px !important;
+
+        padding: 11px !important;
+
+        border:
+            1px solid #dfe9ee !important;
+
+        border-radius:
+            14px !important;
+
+        background:
+            #ffffff !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-item--wide {
+        grid-column:
+            1 / -1 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BACKDROP NẰM DƯỚI TOPBAR VÀ PANEL
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #crmTopbarBackdrop:not(.is-open),
+    html.crm-navigation-ready
+    body
+    #crmTopbarBackdrop[
+        aria-hidden="true"
+    ] {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+
+        pointer-events: none !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbarBackdrop.is-open,
+    html.crm-navigation-ready
+    body
+    #crmTopbarBackdrop[
+        aria-hidden="false"
+    ] {
+        position: fixed !important;
+
+        inset:
+            var(
+                --ego-mobile-topbar-height
+            )
+            0
+            0 !important;
+
+        z-index: 1200 !important;
+
+        display: block !important;
+
+        background:
+            rgba(
+                7,
+                20,
+                33,
+                .40
+            ) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        pointer-events: auto !important;
+        touch-action: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SIDEBAR MOBILE PHẢI HIỆN TRÊN TOPBAR
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    #sidebar.ego-sidebar {
+        z-index: 1600 !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    .ego-sidebar-overlay {
+        z-index: 1500 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DỌN WIDGET NỔI TRÊN MOBILE
+    |--------------------------------------------------------------------------
+    */
+
+    html.crm-navigation-ready
+    body
+    .ego-task-float,
+    html.crm-navigation-ready
+    body
+    .ego-leave-float,
+    html.crm-navigation-ready
+    body
+    #chat-float-btn,
+    html.crm-navigation-ready
+    body
+    #chat-float-box {
+        display: none !important;
+
+        pointer-events: none !important;
+    }
+}
+
+@media (max-width: 359.98px) {
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__inner {
+        grid-template-columns:
+            minmax(76px, 1fr)
+            auto
+            minmax(76px, 1fr) !important;
+
+        padding:
+            0 4px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__icon-button,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__action-button,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__account-button {
+        width: 37px !important;
+        min-width: 37px !important;
+
+        height: 37px !important;
+        min-height: 37px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    > .crm-topbar__inner
+    > .crm-topbar__mobile-brand {
+        width: 88px !important;
+        min-width: 88px !important;
+        max-width: 88px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-brand img {
+        max-width: 86px !important;
+        max-height: 30px !important;
+    }
+}
+
+@keyframes egoMobileCorePanelIn {
+    from {
+        opacity: 0;
+
+        transform:
+            translateY(-8px)
+            scale(.992);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__panel {
+        animation: none !important;
+    }
+}
+
+/* EGO_MOBILE_CORE_REPAIR_V9_END */
+

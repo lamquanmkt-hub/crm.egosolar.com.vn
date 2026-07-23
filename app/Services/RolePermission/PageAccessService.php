@@ -25,6 +25,46 @@ class PageAccessService implements PageAccessServiceInterface
     }
 
     /**
+     * Lấy định nghĩa quyền hiển thị menu từ config role_permissions.menu_permissions.
+     */
+    public function menuDefinitions(): array
+    {
+        return config('role_permissions.menu_permissions', []);
+    }
+
+    /**
+     * Kiểm tra một mục menu có được hiển thị cho người dùng hay không.
+     * Admin luôn thấy tất cả. Menu chỉ hiện khi có cả menu.* và page.* liên quan.
+     */
+    public function canSeeMenu(User $user, string $menuPermission): bool
+    {
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $definition = $this->menuDefinitions()[$menuPermission] ?? null;
+
+        if ($definition === null || ! $user->can($menuPermission)) {
+            return false;
+        }
+
+        $pagePermission = $definition['page_permission'] ?? null;
+
+        return ! $pagePermission || $this->canAccess($user, $pagePermission);
+    }
+
+    /**
+     * Danh sách menu bị từ chối, dùng để ẩn sidebar ngay từ server render.
+     */
+    public function deniedMenuPermissions(User $user): array
+    {
+        return collect(array_keys($this->menuDefinitions()))
+            ->reject(fn (string $permission): bool => $this->canSeeMenu($user, $permission))
+            ->values()
+            ->all();
+    }
+
+    /**
      * Xác định quyền trang tương ứng với request theo tên route, path chính xác hoặc prefix.
      */
     public function permissionForRequest(Request $request): ?string
@@ -95,6 +135,12 @@ class PageAccessService implements PageAccessServiceInterface
     {
         if ($this->isAdmin($user)) {
             return true;
+        }
+
+        $alwaysEnforce = config('role_permissions.always_enforce_permissions', []);
+
+        if (in_array($pagePermission, $alwaysEnforce, true)) {
+            return $user->can($pagePermission);
         }
 
         if (! $this->pageControlEnabled($user)) {

@@ -97,8 +97,10 @@ use Illuminate\Support\Facades\Schema;
 
 /* EGO_COMPANY_CONTEXT_ROUTES_START */
 Route::middleware(['auth'])->group(function () {
-    Route::get('/chon-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'select'])->name('company-context.select');
-    Route::post('/chon-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'store'])->name('company-context.store');
+    Route::get('/chon-cong-ty', \App\Http\Controllers\System\AutoCompanyContextController::class)
+        ->name('company-context.select');
+    Route::post('/chon-cong-ty', [\App\Http\Controllers\System\AutoCompanyContextController::class, 'store'])
+        ->name('company-context.store');
     Route::post('/doi-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');
 });
 /* EGO_COMPANY_CONTEXT_ROUTES_END */
@@ -177,7 +179,7 @@ Route::middleware(['auth'])->prefix('company-management')->name('company-managem
 });
 /* EGO_COMPANY_MANAGEMENT_END */
 
-Route::get('/', [DashboardController::class, 'index'])
+Route::get('/', [\App\Http\Controllers\System\RoleHomeController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
 
@@ -312,6 +314,17 @@ Route::middleware('auth')
             Route::post('/{conversation}/send', 'send')->name('chat.send');
         });
     });
+
+
+/* EGO_SITE_WORKSPACE_V2_ROUTES_START */
+Route::middleware(['auth'])
+    ->prefix('cong-trinh-moi')
+    ->name('sites-v2.')
+    ->controller(\App\Http\Controllers\Projects\SiteWorkspaceController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+    });
+/* EGO_SITE_WORKSPACE_V2_ROUTES_END */
 
 /*
 |--------------------------------------------------------------------------
@@ -534,6 +547,29 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/customers/{customer}/billing-info', [CustomerController::class, 'updateBillingInfo'])
         ->name('customers.billing-info.update');
+    /* EGO_CUSTOMER_PROMAX_V3_ROUTES_START */
+    Route::get(
+        '/customers/duplicate-check',
+        [CustomerController::class, 'duplicateCheck']
+    )->name('customers.duplicate-check');
+
+    Route::post(
+        '/customers/{customer}/interactions',
+        [CustomerController::class, 'storeInteraction']
+    )
+        ->whereNumber('customer')
+        ->name('customers.interactions.store');
+    /* EGO_CUSTOMER_PROMAX_V3_ROUTES_END */
+
+    /* EGO_CUSTOMER_HANDOVER_V32_START */
+    Route::post(
+        '/customers/{customer}/handover',
+        [CustomerController::class, 'handover']
+    )
+        ->whereNumber('customer')
+        ->name('customers.handover');
+    /* EGO_CUSTOMER_HANDOVER_V32_END */
+
     Route::resource('customers', CustomerController::class);
 
     /* EGO_CUSTOMER_PROFILES_ROUTES_START */
@@ -2585,3 +2621,8 @@ Route::delete(
 
 /* EGO_ROLE_PERMISSION_SETTINGS_ROUTES */
 require __DIR__.'/role_permissions.php';
+
+/* EGO_PROJECT_TEST_NEW_ROUTES_START */
+require __DIR__.'/project_test.php';
+/* EGO_PROJECT_TEST_NEW_ROUTES_END */
+

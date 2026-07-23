@@ -89,12 +89,23 @@
             >
                 <i class="bi bi-list" aria-hidden="true"></i>
             </button>
+            {{-- EGO_MOBILE_CORE_V9_MORE --}}
+            <button
+                type="button"
+                class="crm-topbar__icon-button crm-topbar__mobile-more"
+                data-crm-panel-toggle="more"
+                aria-controls="crmMorePanel"
+                aria-expanded="false"
+                aria-label="Mở tiện ích"
+                title="Tiện ích"
+            >
+                <i
+                    class="bi bi-three-dots"
+                    aria-hidden="true"
+                ></i>
+            </button>
 
-            <a href="{{ url('/') }}" class="crm-topbar__mobile-brand" aria-label="Trang chủ EGO Solar">
-                <span class="crm-topbar__brand-fallback" data-crm-brand-fallback>EGO</span>
-            </a>
-
-            <div class="crm-topbar__module-copy">
+<div class="crm-topbar__module-copy">
                 <span class="crm-topbar__module-eyebrow">Không gian làm việc</span>
                 <strong class="crm-topbar__module-title">{{ $topbarModuleTitle }}</strong>
             </div>
@@ -104,6 +115,28 @@
                 Chủ động phối hợp, tăng tốc hiệu suất
             </span>
         </div>
+
+
+        {{-- EGO_MOBILE_CORE_V9_BRAND --}}
+        <a
+            href="{{ url('/') }}"
+            class="crm-topbar__mobile-brand"
+            aria-label="Trang chủ EGO Solar"
+        >
+            <img
+                src="{{ asset('images/ego-logo.png') }}"
+                alt="EGO Solar"
+                data-crm-brand-logo
+                data-ego-logo-light
+            >
+
+            <span
+                class="crm-topbar__brand-fallback"
+                data-crm-brand-fallback
+            >
+                EGO SOLAR
+            </span>
+        </a>
 
         <div class="crm-topbar__center" aria-label="Điều hướng nhanh">
             <a

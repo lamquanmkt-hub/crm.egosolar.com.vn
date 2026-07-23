@@ -1,0 +1,323 @@
+:root{
+    --esp-navy:#0b2742;
+    --esp-navy-2:#123c5f;
+    --esp-cyan:#11a8cf;
+    --esp-teal:#0aa58e;
+    --esp-bg:#f4f7fb;
+    --esp-border:#dce6ef;
+    --esp-muted:#70849a;
+    --esp-danger:#d53b52;
+}
+
+.ego-settings-shell{
+    min-height:calc(100vh - 70px);
+    padding:18px 20px 34px;
+    background:
+        radial-gradient(circle at 88% 4%,rgba(17,168,207,.08),transparent 24rem),
+        linear-gradient(180deg,#f8fbfd,#f1f5f9);
+    color:#17324d;
+}
+
+.ego-settings-shell *{box-sizing:border-box}
+
+.ego-settings-hero{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    min-height:124px;
+    padding:24px 26px;
+    overflow:hidden;
+    border:1px solid var(--esp-border);
+    border-radius:20px;
+    background:linear-gradient(135deg,#fff 0%,#f8fdff 62%,#eefaff 100%);
+    box-shadow:0 18px 48px rgba(25,62,94,.08);
+}
+
+.ego-settings-hero::before{
+    content:"";
+    position:absolute;
+    inset:0 auto 0 0;
+    width:5px;
+    background:linear-gradient(180deg,var(--esp-cyan),var(--esp-teal));
+}
+
+.ego-settings-eyebrow,
+.ego-settings-section-head>div>span,
+.ego-settings-card-head>div>span{
+    color:#1684a5;
+    font-size:10.5px;
+    font-weight:900;
+    letter-spacing:.12em;
+}
+
+.ego-settings-hero h1{
+    margin:7px 0 4px;
+    color:#0b2845;
+    font-size:31px;
+    font-weight:950;
+    letter-spacing:-.045em;
+}
+
+.ego-settings-hero p,
+.ego-settings-section-head p{
+    margin:0;
+    color:var(--esp-muted);
+    font-size:13px;
+}
+
+.ego-settings-live{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    padding:10px 14px;
+    border:1px solid #cdebe5;
+    border-radius:999px;
+    color:#087a69;
+    background:#effcf9;
+    font-size:11px;
+    font-weight:850;
+    white-space:nowrap;
+}
+
+.ego-settings-live span,
+.ego-settings-health-dot{
+    width:8px;height:8px;border-radius:50%;background:#18ba8c;
+    box-shadow:0 0 0 0 rgba(24,186,140,.4);
+    animation:espPulse 1.8s ease-out infinite;
+}
+
+.ego-settings-alert{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-top:14px;
+    padding:13px 15px;
+    border-radius:14px;
+    font-size:13px;
+    font-weight:700;
+}
+.ego-settings-alert--success{color:#087a69;background:#ecfbf7;border:1px solid #c9eee4}
+.ego-settings-alert--danger{color:#a92f42;background:#fff4f6;border:1px solid #ffd4dc}
+
+.ego-settings-layout{
+    display:grid;
+    grid-template-columns:260px minmax(0,1fr);
+    gap:16px;
+    align-items:start;
+    margin-top:16px;
+}
+
+.ego-settings-nav-card,
+.ego-settings-card,
+.ego-settings-role-list-card{
+    border:1px solid var(--esp-border);
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 12px 36px rgba(25,62,94,.055);
+}
+
+.ego-settings-nav-card{
+    position:sticky;
+    top:86px;
+    padding:12px;
+}
+
+.ego-settings-nav-title{
+    padding:8px 10px 11px;
+    color:#8a9aac;
+    font-size:9.5px;
+    font-weight:900;
+    letter-spacing:.13em;
+}
+
+.ego-settings-nav{display:flex;flex-direction:column;gap:4px}
+.ego-settings-nav a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:46px;
+    padding:9px 11px;
+    border-radius:12px;
+    color:#536b82;
+    font-size:12.5px;
+    font-weight:800;
+    text-decoration:none;
+    transition:.18s ease;
+}
+.ego-settings-nav a>i:first-child{
+    display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#f1f6fa;color:#4f7898;
+}
+.ego-settings-nav a:hover{color:#087fa4;background:#f4fbfd;transform:translateX(2px)}
+.ego-settings-nav a.active{color:#fff;background:linear-gradient(135deg,#0b789c,#0aa58e);box-shadow:0 10px 24px rgba(10,140,148,.2)}
+.ego-settings-nav a.active>i:first-child{color:#fff;background:rgba(255,255,255,.15)}
+.ego-settings-nav-arrow{margin-left:auto;font-size:10px;opacity:.6}
+
+.ego-settings-principle{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:14px;
+    padding:13px;
+    border-radius:13px;
+    color:#5b7186;
+    background:#f5f9fc;
+    font-size:10.5px;
+    line-height:1.55;
+}
+.ego-settings-principle>i{color:var(--esp-cyan);font-size:16px}
+.ego-settings-principle strong{color:#27465f;font-size:11px}
+
+.ego-settings-main{min-width:0}
+.ego-settings-section-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    min-height:74px;
+    margin-bottom:12px;
+    padding:4px 2px;
+}
+.ego-settings-section-head h2{margin:5px 0 4px;color:#0d2b48;font-size:24px;font-weight:950;letter-spacing:-.035em}
+
+.ego-settings-stats{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:12px;
+}
+.ego-settings-stats article{
+    position:relative;
+    min-height:112px;
+    padding:17px;
+    overflow:hidden;
+    border:1px solid var(--esp-border);
+    border-radius:17px;
+    background:#fff;
+    box-shadow:0 10px 28px rgba(25,62,94,.05);
+}
+.ego-settings-stats article>i{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;color:#087fa4;background:#eaf8fc;font-size:17px}
+.ego-settings-stats article b{display:block;margin-top:13px;color:#0c2b47;font-size:25px;font-weight:950;line-height:1}
+.ego-settings-stats article span{display:block;margin-top:5px;color:var(--esp-muted);font-size:11px;font-weight:800}
+
+.ego-settings-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.ego-settings-overview-card{
+    display:grid;
+    grid-template-columns:48px 1fr auto;
+    gap:13px;
+    align-items:center;
+    min-height:116px;
+    padding:18px;
+    border:1px solid var(--esp-border);
+    border-radius:17px;
+    color:inherit;
+    background:#fff;
+    text-decoration:none;
+    box-shadow:0 10px 28px rgba(25,62,94,.045);
+    transition:.2s ease;
+}
+.ego-settings-overview-card:hover{color:inherit;transform:translateY(-3px);border-color:#b8dfeb;box-shadow:0 18px 38px rgba(25,82,112,.09)}
+.ego-settings-overview-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;color:#0788aa;background:linear-gradient(145deg,#ebf9fc,#e8f7f4);font-size:20px}
+.ego-settings-overview-card h3{margin:0 0 5px;color:#15344f;font-size:15px;font-weight:900}
+.ego-settings-overview-card p{margin:0;color:var(--esp-muted);font-size:11.5px;line-height:1.5}
+.ego-settings-overview-card>.bi-arrow-up-right{color:#8ba2b4}
+
+.ego-settings-health-card{margin-top:12px;padding:17px 18px;border:1px solid var(--esp-border);border-radius:17px;background:#fff}
+.ego-settings-health-card>div:first-child{display:flex;align-items:center;gap:11px}
+.ego-settings-health-card strong{display:block;color:#24455f;font-size:12px}
+.ego-settings-health-card small{display:block;margin-top:3px;color:var(--esp-muted);font-size:10.5px}
+.ego-settings-health-bar{height:6px;margin-top:14px;overflow:hidden;border-radius:99px;background:#e9f0f5}
+.ego-settings-health-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--esp-cyan),var(--esp-teal));transition:width .5s ease}
+
+.ego-settings-role-layout,.ego-settings-permission-layout{display:grid;grid-template-columns:286px minmax(0,1fr);gap:13px;align-items:start}
+.ego-settings-role-list-card{position:sticky;top:86px;overflow:hidden}
+.ego-settings-card-title{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid #edf2f6;color:#173c59;font-size:13px;font-weight:900}
+.ego-settings-card-title span{padding:3px 8px;border-radius:99px;color:#087fa4;background:#eaf8fc;font-size:10px}
+.ego-settings-role-list{max-height:calc(100vh - 210px);padding:7px;overflow-y:auto}
+.ego-settings-role-list a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 10px;border-radius:11px;color:#526a80;text-decoration:none;transition:.17s ease}
+.ego-settings-role-list a:hover{background:#f4f9fc}
+.ego-settings-role-list a.active{color:#0a728f;background:#eaf8fc;box-shadow:inset 0 0 0 1px #cbeaf3}
+.ego-settings-role-list strong,.ego-settings-role-list small{display:block}
+.ego-settings-role-list strong{font-size:12px;font-weight:900}
+.ego-settings-role-list small{margin-top:3px;color:#91a1b0;font-size:9.5px}
+.ego-settings-role-list a>span{display:grid;place-items:center;min-width:25px;height:25px;border-radius:8px;color:#53758d;background:#edf3f7;font-size:10px;font-weight:900}
+
+.ego-settings-stack{display:flex;min-width:0;flex-direction:column;gap:13px}
+.ego-settings-card{overflow:hidden}
+.ego-settings-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:65px;padding:14px 16px;border-bottom:1px solid #edf2f6}
+.ego-settings-card-head h3{margin:4px 0 0;color:#123653;font-size:16px;font-weight:950}
+.ego-settings-card-head--sticky{position:sticky;top:70px;z-index:4;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+.ego-settings-inline-actions,.ego-settings-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+.ego-settings-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:16px}
+.ego-settings-form-grid label,.ego-settings-modal label{display:flex;flex-direction:column;gap:6px}
+.ego-settings-form-grid label>span,.ego-settings-modal label>span{color:#5f7488;font-size:10.5px;font-weight:850}
+.ego-settings-form-grid input,.ego-settings-form-grid textarea,.ego-settings-modal input,.ego-settings-modal textarea,.ego-settings-modal select{
+    width:100%;min-height:43px;padding:10px 12px;border:1px solid #d8e3ec;border-radius:11px;color:#18364f;background:#fbfdff;font-size:12.5px;outline:none;transition:.16s ease
+}
+.ego-settings-form-grid input:focus,.ego-settings-form-grid textarea:focus,.ego-settings-modal input:focus,.ego-settings-modal textarea:focus,.ego-settings-modal select:focus{border-color:#72cfe1;box-shadow:0 0 0 4px rgba(17,168,207,.09)}
+.ego-settings-form-grid input[readonly]{color:#8797a6;background:#f3f6f8}
+.ego-settings-form-full{grid-column:1/-1}
+.ego-settings-form-footer{display:flex!important;align-items:center;justify-content:space-between;flex-direction:row!important;gap:12px;padding-top:4px}
+.ego-settings-state{display:inline-flex;align-items:center;gap:7px;color:#9a6d2f;font-size:10.5px;font-weight:850}
+.ego-settings-state.is-on{color:#0a8874}
+
+.ego-settings-btn,.ego-settings-icon-btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:10px;font-size:11.5px;font-weight:850;cursor:pointer;text-decoration:none;transition:.17s ease
+}
+.ego-settings-btn{min-height:40px;padding:9px 13px}
+.ego-settings-btn:hover,.ego-settings-icon-btn:hover{transform:translateY(-1px)}
+.ego-settings-btn--primary{color:#fff;background:linear-gradient(135deg,#079bc8,#0aa58e);box-shadow:0 8px 20px rgba(9,147,157,.2)}
+.ego-settings-btn--dark{color:#fff;background:#123b5c}
+.ego-settings-btn--soft{color:#087fa4;background:#edf9fc;border:1px solid #cceaf3}
+.ego-settings-btn--ghost{color:#61778b;background:#f4f7fa;border:1px solid #dce5ec}
+.ego-settings-icon-btn{width:37px;height:37px;color:#49677f;background:#f2f6f9}
+.ego-settings-icon-btn--danger{color:#bd3147;background:#fff1f4}
+
+.ego-settings-search{display:flex;align-items:center;gap:7px;min-width:210px;padding:0 10px;border:1px solid #d9e4ec;border-radius:10px;background:#f9fbfd}
+.ego-settings-search i{color:#8aa0b2;font-size:12px}
+.ego-settings-search input{width:100%;height:37px;border:0;outline:0;background:transparent;font-size:11.5px}
+
+.ego-settings-users{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:680px;padding:12px;overflow:auto;background:#f8fafc}
+.ego-settings-user-card{padding:12px;border:1px solid #dfe8ef;border-radius:14px;background:#fff}
+.ego-settings-user-head{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px}
+.ego-settings-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;color:#fff;background:linear-gradient(145deg,#0f7da0,#0aa58e);font-size:14px;font-weight:950}
+.ego-settings-user-head strong,.ego-settings-user-head small{display:block}.ego-settings-user-head strong{color:#1b3b55;font-size:11.5px}.ego-settings-user-head small{margin-top:3px;color:#8a9aaa;font-size:9.5px}
+.ego-settings-role-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.ego-settings-role-checks label{cursor:pointer}.ego-settings-role-checks input{position:absolute;opacity:0}.ego-settings-role-checks span{display:inline-flex;padding:5px 8px;border:1px solid #dfe7ed;border-radius:8px;color:#6f8192;background:#f8fafc;font-size:9.5px;font-weight:800}.ego-settings-role-checks input:checked+span{color:#087b95;border-color:#bde4ee;background:#eaf8fc}
+
+.ego-settings-explain{display:flex;align-items:flex-start;gap:11px;margin:14px;padding:13px;border:1px solid #d7e7ee;border-radius:13px;color:#587186;background:#f6fbfd}
+.ego-settings-explain>i{font-size:20px;color:#1195b8}.ego-settings-explain strong,.ego-settings-explain span{display:block}.ego-settings-explain strong{color:#24465f;font-size:11.5px}.ego-settings-explain span{margin-top:4px;font-size:10.5px;line-height:1.5}
+.ego-settings-explain--page{background:#f3fbfe}.ego-settings-explain--menu{background:#f2fbf8;border-color:#d0ece5}.ego-settings-explain--menu>i{color:#0a9d86}
+
+.ego-settings-permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+.ego-settings-permission-card{position:relative;display:grid;grid-template-columns:auto 38px 1fr;gap:11px;align-items:flex-start;min-height:122px;padding:14px;border:1px solid #dfe8ef;border-radius:14px;background:#fff;cursor:pointer;transition:.18s ease}
+.ego-settings-permission-card:hover{border-color:#b8dfe9;box-shadow:0 10px 24px rgba(23,87,111,.07);transform:translateY(-1px)}
+.ego-settings-permission-card>input{position:absolute;opacity:0}
+.ego-settings-permission-switch{position:relative;width:38px;height:21px;margin-top:2px;border-radius:99px;background:#cbd7e0;transition:.18s ease}
+.ego-settings-permission-switch::after{content:"";position:absolute;top:3px;left:3px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(20,52,75,.2);transition:.18s ease}
+.ego-settings-permission-card>input:checked+.ego-settings-permission-switch{background:linear-gradient(90deg,var(--esp-cyan),var(--esp-teal))}
+.ego-settings-permission-card>input:checked+.ego-settings-permission-switch::after{transform:translateX(17px)}
+.ego-settings-permission-card>i{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;color:#087fa4;background:#eaf8fc;font-size:16px}
+.ego-settings-permission-card strong,.ego-settings-permission-card small,.ego-settings-permission-card code{display:block}.ego-settings-permission-card strong{color:#193a54;font-size:12px}.ego-settings-permission-card small{margin-top:5px;color:#7c8e9f;font-size:10.5px;line-height:1.45}.ego-settings-permission-card code{margin-top:8px;color:#5d7890;font-size:9px;white-space:normal}
+
+.ego-settings-action-groups{display:flex;flex-direction:column;gap:9px;padding:0 14px 14px}
+.ego-settings-action-group{border:1px solid #dfe8ef;border-radius:13px;background:#fff;overflow:hidden}
+.ego-settings-action-group summary{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;color:#24455f;font-size:12px;font-weight:900;cursor:pointer;list-style:none;background:#f8fafc}
+.ego-settings-action-group summary span{display:flex;align-items:center;gap:8px}.ego-settings-action-group summary b{display:grid;place-items:center;min-width:25px;height:25px;border-radius:8px;color:#087fa4;background:#e6f7fb;font-size:9px}
+.ego-settings-action-checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:11px}
+.ego-settings-action-checks label{display:flex;align-items:flex-start;gap:8px;padding:9px;border:1px solid #e4ebf0;border-radius:10px;cursor:pointer}.ego-settings-action-checks input{margin-top:2px}.ego-settings-action-checks strong,.ego-settings-action-checks small{display:block}.ego-settings-action-checks strong{color:#39556c;font-size:10.5px}.ego-settings-action-checks small{margin-top:3px;color:#8b9aa8;font-size:8.8px;word-break:break-all}
+
+.ego-settings-savebar{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-top:1px solid #dfe8ef;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+.ego-settings-savebar>div{display:flex;align-items:center;gap:7px;color:#718598;font-size:10.5px}
+
+.ego-settings-audit-table-wrap{overflow:auto}.ego-settings-audit-table{width:100%;border-collapse:collapse}.ego-settings-audit-table th,.ego-settings-audit-table td{padding:13px 14px;border-bottom:1px solid #edf2f5;text-align:left;font-size:10.5px}.ego-settings-audit-table th{position:sticky;top:0;color:#6b8194;background:#f7fafc;font-size:9.5px;letter-spacing:.04em}.ego-settings-audit-action{display:inline-flex;padding:5px 8px;border-radius:8px;color:#087e9b;background:#eaf8fc;font-weight:850}.ego-settings-empty{text-align:center!important;color:#8a9cac;padding:40px!important}
+
+.ego-settings-modal{border:0!important;border-radius:18px!important;overflow:hidden}.ego-settings-modal .modal-header{padding:16px 18px;border-bottom:1px solid #edf2f5}.ego-settings-modal .modal-header span{color:#1286a7;font-size:9px;font-weight:900;letter-spacing:.12em}.ego-settings-modal .modal-header h5{margin:4px 0 0;color:#173752;font-weight:950}.ego-settings-modal .modal-body{display:flex;flex-direction:column;gap:12px;padding:18px}.ego-settings-modal .modal-footer{border-top:1px solid #edf2f5}
+
+@keyframes espPulse{0%{box-shadow:0 0 0 0 rgba(24,186,140,.4)}75%,100%{box-shadow:0 0 0 9px rgba(24,186,140,0)}}
+
+@media(max-width:1200px){.ego-settings-users{grid-template-columns:1fr}.ego-settings-action-checks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:991.98px){.ego-settings-shell{padding:12px}.ego-settings-layout{grid-template-columns:1fr}.ego-settings-nav-card{position:static}.ego-settings-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.ego-settings-principle{display:none}.ego-settings-role-layout,.ego-settings-permission-layout{grid-template-columns:1fr}.ego-settings-role-list-card{position:static}.ego-settings-role-list{display:flex;max-height:none;overflow-x:auto}.ego-settings-role-list a{min-width:180px}.ego-settings-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.ego-settings-hero{align-items:flex-start;flex-direction:column}.ego-settings-live{align-self:flex-start}.ego-settings-nav{grid-template-columns:1fr 1fr}.ego-settings-overview-grid,.ego-settings-permission-grid,.ego-settings-form-grid{grid-template-columns:1fr}.ego-settings-action-checks{grid-template-columns:1fr}.ego-settings-form-full{grid-column:auto}.ego-settings-card-head{align-items:flex-start;flex-direction:column}.ego-settings-toolbar{width:100%}.ego-settings-search{width:100%;min-width:0}.ego-settings-savebar{align-items:stretch;flex-direction:column}.ego-settings-savebar .ego-settings-btn{width:100%}.ego-settings-users{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.ego-settings-shell *{animation:none!important;transition:none!important}}

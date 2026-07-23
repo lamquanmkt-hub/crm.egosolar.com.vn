@@ -522,18 +522,17 @@
             <div class="pay-edit-card-body">
                 <div class="pay-edit-grid">
                     <div class="pay-edit-field">
-                        <label class="pay-edit-label">Người nhận <span class="pay-edit-required">*</span></label>
+                        <label class="pay-edit-label">Người nhận</label>
                         <input type="text"
                                name="receiver_name"
                                class="pay-edit-control"
                                value="{{ old('receiver_name', $item->receiver_name) }}"
-                               placeholder="VD: Nguyễn Văn A"
-                               required>
+                               placeholder="VD: Nguyễn Văn A">
                     </div>
 
                     <div class="pay-edit-field">
-                        <label class="pay-edit-label">Công ty <span class="pay-edit-required">*</span></label>
-                        <select name="company" class="pay-edit-control" required>
+                        <label class="pay-edit-label">Công ty</label>
+                        <select name="company" class="pay-edit-control">
                             <option value="">-- Chọn công ty --</option>
                             @foreach($companyOptions as $company)
                                 <option value="{{ $company }}" @selected(old('company', $item->company) === $company)>
@@ -553,15 +552,14 @@
                     </div>
 
                     <div class="pay-edit-field">
-                        <label class="pay-edit-label">Số tiền (VNĐ) <span class="pay-edit-required">*</span></label>
+                        <label class="pay-edit-label">Số tiền (VNĐ)</label>
                         <input type="number"
                                name="amount"
                                class="pay-edit-control"
                                value="{{ old('amount', $item->amount) }}"
-                               min="1"
+                               min="0"
                                step="1"
-                               placeholder="VD: 2500000"
-                               required>
+                               placeholder="VD: 2500000">
                     </div>
 
                     <div class="pay-edit-field">
@@ -583,11 +581,10 @@
 
                     {{-- EGO_FIX_REASON_FIELD_START --}}
                     <div class="pay-edit-field" style="grid-column:1 / -1;">
-                        <label class="pay-edit-label">Nội dung / Lý do thanh toán <span class="pay-edit-required">*</span></label>
+                        <label class="pay-edit-label">Nội dung / Lý do thanh toán</label>
                         <textarea name="reason"
                                   class="pay-edit-control"
                                   rows="3"
-                                  required
                                   placeholder="Nhập nội dung hoặc lý do thanh toán">{{ old('reason', $item->reason ?? $item->payment_content ?? 'Thanh toán theo đề nghị') }}</textarea>
                     </div>
 

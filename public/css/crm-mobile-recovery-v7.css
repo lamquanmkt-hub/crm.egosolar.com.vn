@@ -1,0 +1,224 @@
+/*
+|--------------------------------------------------------------------------
+| EGO MOBILE RECOVERY V7
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    html,
+    body {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    /*
+     * Bố cục Topbar:
+     * menu trái, logo giữa, thông báo/avatar phải.
+     */
+    #crmTopbar.crm-topbar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1060 !important;
+
+        overflow: visible !important;
+
+        transform: none !important;
+        contain: none !important;
+
+        pointer-events: auto !important;
+    }
+
+    #crmTopbar .crm-topbar__inner {
+        position: relative !important;
+
+        display: grid !important;
+        grid-template-columns:
+            1fr 1fr !important;
+
+        align-items: center !important;
+
+        width: 100% !important;
+        height: 100% !important;
+
+        padding: 0 8px !important;
+
+        overflow: visible !important;
+    }
+
+    #crmTopbar .crm-topbar__left {
+        grid-column: 1 !important;
+
+        justify-self: start !important;
+
+        position: relative !important;
+        z-index: 4 !important;
+    }
+
+    #crmTopbar .crm-topbar__right {
+        grid-column: 2 !important;
+
+        justify-self: end !important;
+
+        position: relative !important;
+        z-index: 4 !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand {
+        position: absolute !important;
+
+        top: 50% !important;
+        left: 50% !important;
+
+        z-index: 2 !important;
+
+        display: inline-flex !important;
+
+        width: 112px !important;
+        height: 42px !important;
+
+        min-width: 0 !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        transform:
+            translate(-50%, -50%) !important;
+
+        pointer-events: none !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand img {
+        display: block !important;
+
+        width: auto !important;
+        max-width: 106px !important;
+
+        height: auto !important;
+        max-height: 34px !important;
+
+        object-fit: contain !important;
+
+        pointer-events: none !important;
+    }
+
+    #crmTopbar .crm-topbar__brand-fallback {
+        display: none;
+    }
+
+    #crmTopbar .crm-topbar__mobile-menu,
+    #crmTopbar .crm-topbar__more-toggle {
+        display: inline-flex !important;
+    }
+
+    #crmTopbar button,
+    #crmTopbar a {
+        touch-action: manipulation !important;
+    }
+
+    #crmTopbar .crm-topbar__icon-button,
+    #crmTopbar .crm-topbar__action-button,
+    #crmTopbar .crm-topbar__account-button {
+        position: relative !important;
+
+        z-index: 5 !important;
+
+        pointer-events: auto !important;
+    }
+
+    /*
+     * Panel đóng phải biến mất hoàn toàn.
+     */
+    #crmTopbar .crm-topbar__panel:not(.is-open) {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+
+        pointer-events: none !important;
+    }
+
+    /*
+     * Panel mở dạng drawer phải.
+     */
+    #crmTopbar .crm-topbar__panel.is-open {
+        position: fixed !important;
+
+        top: var(--crm-topbar-height) !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: auto !important;
+
+        z-index: 1070 !important;
+
+        display: flex !important;
+        flex-direction: column !important;
+
+        width:
+            min(
+                410px,
+                calc(100vw - 12px)
+            ) !important;
+
+        max-width: none !important;
+        max-height: none !important;
+
+        overflow: hidden !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        pointer-events: auto !important;
+    }
+
+    #crmTopbarBackdrop:not(.is-open) {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+
+        pointer-events: none !important;
+    }
+
+    #crmTopbarBackdrop.is-open {
+        position: fixed !important;
+
+        inset:
+            var(--crm-topbar-height)
+            0
+            0 !important;
+
+        z-index: 1065 !important;
+
+        display: block !important;
+
+        background:
+            rgba(7, 20, 33, .34) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+
+        pointer-events: auto !important;
+    }
+
+    /*
+     * Tạm ẩn popup Công việc/Nhân sự trên mobile.
+     * Desktop vẫn hoạt động bình thường.
+     */
+    .ego-task-float,
+    .ego-leave-float {
+        display: none !important;
+
+        pointer-events: none !important;
+    }
+}
+
+@media (max-width: 370px) {
+    #crmTopbar .crm-topbar__mobile-brand {
+        width: 92px !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand img {
+        max-width: 88px !important;
+    }
+}

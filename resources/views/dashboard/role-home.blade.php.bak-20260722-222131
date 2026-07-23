@@ -1,0 +1,289 @@
+@extends('layouts.app')
+
+@section('title', $dashboard['title'].' • EGO Solar')
+
+@php
+    $d = $dashboard;
+    $cssPath = public_path('css/department-dashboard-promax.css');
+    $jsPath = public_path('js/department-dashboard-promax.js');
+    $cssVersion = file_exists($cssPath) ? filemtime($cssPath) : time();
+    $jsVersion = file_exists($jsPath) ? filemtime($jsPath) : time();
+
+    $formatValue = static function ($value, string $format = 'number'): string {
+        return match ($format) {
+            'money' => number_format((float) $value, 0, ',', '.') . ' đ',
+            'percent' => number_format((float) $value, 1, ',', '.') . '%',
+            'boolean' => (int) $value === 1 ? 'Đã check-in' : 'Chưa check-in',
+            'days' => number_format((float) $value, 1, ',', '.') . ' ngày',
+            default => number_format((float) $value, 0, ',', '.'),
+        };
+    };
+@endphp
+
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/department-dashboard-promax.css') }}?v={{ $cssVersion }}">
+@endpush
+
+@section('content')
+<main
+    class="dept-dashboard theme-{{ $d['theme'] }}"
+    id="departmentDashboard"
+    data-theme="{{ $d['theme'] }}"
+>
+    <div class="dept-dashboard__spotlight" id="deptSpotlight" aria-hidden="true"></div>
+
+    <div class="dept-dashboard__shell">
+        <section class="dept-heading dept-reveal">
+            <div class="dept-heading__main">
+                <div class="dept-heading__eyebrow">
+                    <span class="dept-heading__pulse"></span>
+                    {{ $d['eyebrow'] }}
+                </div>
+
+                <div class="dept-heading__title-row">
+                    <div>
+                        <h1>{{ $d['title'] }}</h1>
+                        <p>{{ $d['subtitle'] }}</p>
+                    </div>
+                    <span class="dept-status-pill">
+                        <span></span>
+                        Đang hoạt động
+                    </span>
+                </div>
+
+                <div class="dept-heading__chips">
+                    <span class="dept-chip dept-chip--strong">
+                        <i class="bi bi-person-badge"></i>
+                        {{ $d['user']['name'] }}
+                    </span>
+                    <span class="dept-chip">
+                        <i class="bi bi-briefcase"></i>
+                        {{ $d['role_label'] }}
+                    </span>
+                    <span class="dept-chip">
+                        <i class="bi bi-diagram-3"></i>
+                        {{ $d['user']['department'] }}
+                    </span>
+                    <span class="dept-chip">
+                        <i class="bi bi-shield-lock"></i>
+                        {{ $d['scope_label'] }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="dept-heading__aside">
+                <div class="dept-live-clock">
+                    <strong id="deptLiveTime">--:--</strong>
+                    <span id="deptLiveDate">{{ now()->format('d/m/Y') }}</span>
+                </div>
+                <button class="dept-icon-btn" type="button" id="deptThemeToggle" title="Chế độ sáng/tối" aria-label="Chế độ sáng/tối">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+                <button class="dept-icon-btn" type="button" id="deptRefresh" title="Làm mới dữ liệu" aria-label="Làm mới dữ liệu">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+        </section>
+
+        <section class="dept-filter dept-reveal">
+            <form method="GET" action="{{ route('dashboard') }}" id="deptFilterForm">
+                <div class="dept-filter__periods" role="group" aria-label="Chọn khoảng thời gian">
+                    @foreach([
+                        'today' => 'Hôm nay',
+                        'week' => 'Tuần này',
+                        'month' => 'Tháng này',
+                        'quarter' => 'Quý này',
+                        'year' => 'Năm nay',
+                    ] as $periodKey => $periodLabel)
+                        <button
+                            type="button"
+                            class="dept-period {{ $d['range']['period'] === $periodKey ? 'is-active' : '' }}"
+                            data-period="{{ $periodKey }}"
+                        >
+                            {{ $periodLabel }}
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="dept-filter__controls">
+                    <label class="dept-date-field">
+                        <span>Từ ngày</span>
+                        <input type="date" name="from" value="{{ $d['range']['from'] }}">
+                    </label>
+                    <label class="dept-date-field">
+                        <span>Đến ngày</span>
+                        <input type="date" name="to" value="{{ $d['range']['to'] }}">
+                    </label>
+                    <input type="hidden" name="period" id="deptPeriodInput" value="{{ $d['range']['period'] }}">
+                    <button class="dept-primary-btn" type="submit">
+                        <i class="bi bi-funnel"></i>
+                        Áp dụng
+                    </button>
+                    <a class="dept-icon-btn dept-icon-btn--soft" href="{{ route('dashboard') }}" title="Đặt lại">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                </div>
+            </form>
+
+            <div class="dept-filter__meta">
+                <span><i class="bi bi-calendar3"></i> {{ $d['range']['label'] }}</span>
+                <span><i class="bi bi-building"></i> {{ $d['company'] }}</span>
+                <span><i class="bi bi-clock-history"></i> Cập nhật {{ $d['generated_at'] }}</span>
+            </div>
+        </section>
+
+        <section class="dept-kpi-grid" aria-label="Chỉ số chính">
+            @foreach($d['kpis'] as $index => $kpi)
+                <a
+                    href="{{ $kpi['url'] }}"
+                    class="dept-kpi dept-kpi--{{ $kpi['tone'] }} dept-reveal"
+                    style="--delay: {{ $index * 55 }}ms"
+                >
+                    <span class="dept-kpi__accent" aria-hidden="true"></span>
+                    <div class="dept-kpi__head">
+                        <span class="dept-kpi__icon"><i class="bi {{ $kpi['icon'] }}"></i></span>
+                        <small>0{{ $index + 1 }}</small>
+                    </div>
+                    <span class="dept-kpi__label">{{ $kpi['label'] }}</span>
+                    <strong
+                        class="dept-kpi__value js-dept-counter"
+                        data-value="{{ $kpi['value'] }}"
+                        data-format="{{ $kpi['format'] }}"
+                    >{{ $formatValue($kpi['value'], $kpi['format']) }}</strong>
+                    <div class="dept-kpi__foot">
+                        <span>{{ $kpi['hint'] }}</span>
+                        <i class="bi bi-arrow-up-right"></i>
+                    </div>
+                </a>
+            @endforeach
+        </section>
+
+        <section class="dept-action-center dept-reveal">
+            <header class="dept-section-head">
+                <div>
+                    <span class="dept-section-head__eyebrow">ACTION CENTER</span>
+                    <h2>{{ $d['action_title'] }}</h2>
+                    <p>{{ $d['action_subtitle'] }}</p>
+                </div>
+                <span class="dept-count-pill">{{ count($d['action_items']) }} nhóm ưu tiên</span>
+            </header>
+
+            <div class="dept-action-grid">
+                @foreach($d['action_items'] as $item)
+                    <a href="{{ $item['url'] }}" class="dept-action dept-action--{{ $item['tone'] }}">
+                        <span class="dept-action__icon"><i class="bi {{ $item['icon'] }}"></i></span>
+                        <span class="dept-action__body">
+                            <strong>{{ $item['title'] }}</strong>
+                            <small>{{ $item['description'] }}</small>
+                        </span>
+                        <span class="dept-action__value js-dept-counter" data-value="{{ $item['value'] }}" data-format="{{ $item['format'] }}">
+                            {{ $formatValue($item['value'], $item['format']) }}
+                        </span>
+                        <i class="bi bi-arrow-up-right dept-action__arrow"></i>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+
+        <section class="dept-content-grid">
+            <article class="dept-panel dept-panel--chart dept-reveal">
+                <header class="dept-section-head dept-section-head--compact">
+                    <div>
+                        <span class="dept-section-head__eyebrow">PHÂN TÍCH NHANH</span>
+                        <h2>{{ $d['chart']['title'] }}</h2>
+                        <p>{{ $d['chart']['subtitle'] }}</p>
+                    </div>
+                    <div class="dept-chart-legend">
+                        <span></span>
+                        Dữ liệu theo kỳ
+                    </div>
+                </header>
+
+                <div class="dept-chart-wrap">
+                    <div class="dept-chart-empty" id="deptChartEmpty">
+                        <span><i class="bi bi-bar-chart-line"></i></span>
+                        <strong>Chưa có dữ liệu trong kỳ</strong>
+                        <small>Thử chọn một khoảng thời gian khác.</small>
+                    </div>
+                    <svg class="dept-line-chart" id="deptLineChart" role="img" aria-label="{{ $d['chart']['title'] }}"></svg>
+                </div>
+
+                <script type="application/json" id="deptChartData">@json([
+                    'labels' => $d['chart']['labels'] ?? [],
+                    'values' => $d['chart']['values'] ?? [],
+                    'format' => $d['chart']['format'] ?? 'number',
+                ])</script>
+            </article>
+
+            <article class="dept-panel dept-panel--watch dept-reveal">
+                <header class="dept-section-head dept-section-head--compact">
+                    <div>
+                        <span class="dept-section-head__eyebrow">CẦN QUAN TÂM</span>
+                        <h2>{{ $d['watch_title'] }}</h2>
+                        <p>{{ $d['watch_subtitle'] }}</p>
+                    </div>
+                    <span class="dept-count-badge">{{ count($d['watchlist']) }}</span>
+                </header>
+
+                <div class="dept-watch-list">
+                    @forelse($d['watchlist'] as $item)
+                        <a href="{{ $item['url'] }}" class="dept-watch-item">
+                            <span class="dept-watch-item__icon"><i class="bi {{ $item['icon'] }}"></i></span>
+                            <span class="dept-watch-item__body">
+                                <strong>{{ $item['title'] }}</strong>
+                                <small>{{ $item['meta'] }}</small>
+                            </span>
+                            <span class="dept-watch-item__aside">
+                                @if($item['value'] !== null)
+                                    <b>{{ $formatValue($item['value'], $item['format']) }}</b>
+                                @endif
+                                <em class="is-{{ $item['tone'] }}">{{ $item['status'] }}</em>
+                            </span>
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    @empty
+                        <div class="dept-empty-state">
+                            <span><i class="bi bi-check2-circle"></i></span>
+                            <strong>Chưa có mục cần theo dõi</strong>
+                            <small>Dữ liệu mới sẽ tự xuất hiện tại đây.</small>
+                        </div>
+                    @endforelse
+                </div>
+            </article>
+        </section>
+
+        <section class="dept-tools dept-reveal">
+            <header class="dept-section-head dept-section-head--compact">
+                <div>
+                    <span class="dept-section-head__eyebrow">TRUY CẬP NHANH</span>
+                    <h2>Công cụ phòng ban</h2>
+                    <p>Chỉ hiển thị chức năng liên quan đến vai trò hiện tại.</p>
+                </div>
+            </header>
+
+            <div class="dept-tools__grid">
+                @foreach($d['actions'] as $action)
+                    <a href="{{ $action['url'] }}" class="dept-tool-link">
+                        <span><i class="bi {{ $action['icon'] }}"></i></span>
+                        <strong>{{ $action['label'] }}</strong>
+                        <i class="bi bi-arrow-up-right"></i>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+
+        <section class="dept-security dept-reveal">
+            <span class="dept-security__icon"><i class="bi bi-shield-check"></i></span>
+            <div>
+                <strong>Dữ liệu đã giới hạn theo vai trò</strong>
+                <p>{{ $d['privacy'] }}</p>
+            </div>
+            <span class="dept-security__badge"><i class="bi bi-lock-fill"></i> Protected scope</span>
+        </section>
+    </div>
+</main>
+@endsection
+
+@push('scripts')
+<script src="{{ asset('js/department-dashboard-promax.js') }}?v={{ $jsVersion }}"></script>
+@endpush

@@ -9,6 +9,14 @@ return [
     */
     'legacy_compatibility' => true,
 
+    /*
+    | Các quyền nhạy cảm luôn được kiểm tra từ backend,
+    | kể cả role chưa bật toàn bộ ma trận quyền truy cập trang.
+    */
+    'always_enforce_permissions' => [
+        'page.orders',
+    ],
+
     'protected_roles' => [
         'admin',
         'management',
@@ -81,9 +89,9 @@ return [
             'description' => 'Truy cập công trình, lắp ráp và quy trình đơn vật tư.',
             'icon' => 'bi-building-gear',
             'group' => 'Truy cập trang',
-            'routes' => ['sites.*', 'material-requests.*', 'site-assemblies.*'],
+            'routes' => ['sites.*', 'sites-v2.*', 'project-test.*', 'material-requests.*', 'site-assemblies.*'],
             'exact_paths' => ['/theo-doi-trang-thai'],
-            'path_prefixes' => ['/cong-trinh', '/don-vat-tu'],
+            'path_prefixes' => ['/cong-trinh', '/cong-trinh-moi', '/cong-trinh-test-new', '/don-vat-tu'],
         ],
         'page.payment_requests' => [
             'label' => 'Đề nghị thanh toán',
@@ -146,7 +154,7 @@ return [
             'group' => 'Truy cập trang',
             'routes' => ['products.*', 'categories.*', 'brands.*', 'price-tiers.*', 'media.*', 'product-goods-receipts.*'],
             'exact_paths' => [],
-            'path_prefixes' => ['/products', '/categories', '/brands', '/price-tiers', '/media'],
+            'path_prefixes' => ['/products', '/san-pham-kho', '/categories', '/brands', '/price-tiers', '/media'],
         ],
         'page.warehouses' => [
             'label' => 'Kho hàng',
@@ -213,13 +221,126 @@ return [
             'path_prefixes' => ['/users'],
         ],
         'page.settings' => [
-            'label' => 'Cài đặt phân quyền',
-            'description' => 'Truy cập trang quản trị vai trò, quyền và gán quyền nhân viên.',
+            'label' => 'Cài đặt hệ thống',
+            'description' => 'Truy cập trung tâm cài đặt, vai trò, quyền trang, quyền menu và nhật ký.',
             'icon' => 'bi-shield-lock',
             'group' => 'Truy cập trang',
-            'routes' => ['admin.role-permissions.*'],
+            'routes' => ['admin.settings.*', 'admin.role-permissions.*'],
             'exact_paths' => [],
-            'path_prefixes' => ['/cai-dat/phan-quyen'],
+            'path_prefixes' => ['/cai-dat'],
+        ],
+    ],
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quyền hiển thị menu
+    |--------------------------------------------------------------------------
+    | menu.* chỉ quyết định mục nào xuất hiện trong sidebar.
+    | page.* mới là lớp chặn truy cập URL ở backend.
+    */
+    'menu_permissions' => [
+        'menu.dashboard' => [
+            'label' => 'Trang chủ',
+            'description' => 'Hiển thị Dashboard trong sidebar.',
+            'icon' => 'bi-house-door',
+            'page_permission' => 'page.dashboard',
+        ],
+        'menu.booking' => [
+            'label' => 'Booking phòng họp',
+            'description' => 'Hiển thị module đặt phòng họp.',
+            'icon' => 'bi-calendar2-check',
+            'page_permission' => 'page.booking',
+        ],
+        'menu.customers' => [
+            'label' => 'Khách hàng',
+            'description' => 'Hiển thị nhóm menu khách hàng.',
+            'icon' => 'bi-people',
+            'page_permission' => 'page.customers',
+        ],
+        'menu.orders' => [
+            'label' => 'Đơn hàng',
+            'description' => 'Hiển thị nhóm menu đơn hàng và báo giá.',
+            'icon' => 'bi-receipt',
+            'page_permission' => 'page.orders',
+        ],
+        'menu.project_test' => [
+            'label' => 'Công Trình Test new',
+            'description' => 'Hiển thị quy trình công trình thử nghiệm mới.',
+            'icon' => 'bi-diagram-3',
+            'page_permission' => 'page.sites',
+        ],
+        'menu.sites' => [
+            'label' => 'Công trình',
+            'description' => 'Hiển thị công trình, đơn vật tư và lắp ráp.',
+            'icon' => 'bi-building-gear',
+            'page_permission' => 'page.sites',
+        ],
+        'menu.payment_requests' => [
+            'label' => 'Đề nghị thanh toán',
+            'description' => 'Hiển thị đề nghị thanh toán.',
+            'icon' => 'bi-cash-stack',
+            'page_permission' => 'page.payment_requests',
+        ],
+        'menu.proposals' => [
+            'label' => 'Đề xuất',
+            'description' => 'Hiển thị đề xuất nội bộ.',
+            'icon' => 'bi-lightbulb',
+            'page_permission' => 'page.proposals',
+        ],
+        'menu.technical' => [
+            'label' => 'Kỹ thuật',
+            'description' => 'Hiển thị kỹ thuật, bảo trì và bảo hành.',
+            'icon' => 'bi-tools',
+            'page_permission' => 'page.technical',
+        ],
+        'menu.sales' => [
+            'label' => 'Sales',
+            'description' => 'Hiển thị KPI, hoa hồng và báo cáo Sales.',
+            'icon' => 'bi-graph-up-arrow',
+            'page_permission' => 'page.sales',
+        ],
+        'menu.marketing' => [
+            'label' => 'Marketing',
+            'description' => 'Hiển thị kế hoạch và báo cáo Marketing.',
+            'icon' => 'bi-megaphone',
+            'page_permission' => 'page.marketing',
+        ],
+        'menu.tasks' => [
+            'label' => 'Công việc',
+            'description' => 'Hiển thị việc của tôi và giao việc.',
+            'icon' => 'bi-list-check',
+            'page_permission' => 'page.tasks',
+        ],
+        'menu.products' => [
+            'label' => 'Sản phẩm',
+            'description' => 'Hiển thị sản phẩm, kho và nhập xuất.',
+            'icon' => 'bi-box-seam',
+            'page_permission' => 'page.products',
+        ],
+        'menu.finance' => [
+            'label' => 'Tài chính',
+            'description' => 'Hiển thị công nợ, thu chi và báo cáo tài chính.',
+            'icon' => 'bi-bank',
+            'page_permission' => 'page.finance',
+        ],
+        'menu.company' => [
+            'label' => 'Hồ sơ công ty',
+            'description' => 'Hiển thị hồ sơ pháp nhân và tài liệu công ty.',
+            'icon' => 'bi-folder2-open',
+            'page_permission' => 'page.company',
+        ],
+        'menu.hr' => [
+            'label' => 'Nhân sự',
+            'description' => 'Hiển thị tuyển dụng, hồ sơ và chấm công.',
+            'icon' => 'bi-person-workspace',
+            'page_permission' => 'page.hr',
+        ],
+        'menu.settings' => [
+            'label' => 'Cài đặt',
+            'description' => 'Hiển thị trung tâm Cài đặt hệ thống.',
+            'icon' => 'bi-gear',
+            'page_permission' => 'page.settings',
         ],
     ],
 

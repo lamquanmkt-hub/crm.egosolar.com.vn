@@ -112,7 +112,13 @@ class AttendanceLeaveNoteService
      */
     private function buildNoteText(LeaveRequest $leave, ?User $approver = null): string
     {
-        $type = (string) $leave->request_type === 'wfh' ? 'Làm online đã duyệt' : 'Nghỉ phép đã duyệt';
+        $type = match ((string) $leave->request_type) {
+            'wfh' => 'Làm online đã duyệt',
+            'business_trip' => 'Công tác đã duyệt',
+            'late' => 'Đi trễ đã duyệt',
+            'early_leave' => 'Về sớm đã duyệt',
+            default => 'Nghỉ phép đã duyệt',
+        };
         $leaveType = $this->leaveTypeLabel((string) ($leave->leave_type ?? ''));
 
         $dateText = Carbon::parse($leave->start_date)->format('d/m/Y');
@@ -164,6 +170,9 @@ class AttendanceLeaveNoteService
             'sick' => 'Nghỉ ốm',
             'personal' => 'Nghỉ việc riêng',
             'wfh' => 'Làm online',
+            'business_trip' => 'Công tác',
+            'late' => 'Đi trễ',
+            'early_leave' => 'Về sớm',
             default => $value !== '' ? $value : '-',
         };
     }

@@ -129,7 +129,7 @@ class PaymentRequestController extends Controller
         }
 
         if ($preset === '') {
-            $preset = 'this_month';
+            $preset = 'all_time';
         }
 
         /*
@@ -427,7 +427,7 @@ class PaymentRequestController extends Controller
             'this_year' => 'Năm nay',
             'custom' => 'Tùy chỉnh',
             'all_time' => 'Tất cả thời gian',
-            default => 'Tháng này',
+            default => 'Tất cả thời gian',
         };
     }
 
@@ -436,11 +436,54 @@ class PaymentRequestController extends Controller
      */
     public function index(Request $request)
     {
+
+        /* EGO_DNTT_AUTO_LOAD_FULL_V2_START */
+        /*
+         * Khi truy cập đường dẫn sạch /payment-requests,
+         * tự khởi tạo bộ lọc toàn bộ dữ liệu.
+         *
+         * Việc redirect một lần giúp chạy đúng cùng luồng
+         * với nút Áp dụng hiện tại, không nhân đôi query.
+         */
+        if (! $request->query->has('date_filter_manual')) {
+            return redirect()->route(
+                'payment_requests.index',
+                [
+                    'date_filter_manual' => 0,
+                    'company' => '',
+                    'status' => '',
+                    'q' => '',
+                    'date_from' => '',
+                    'date_to' => '',
+                    'date_preset' => 'all_time',
+                    'created_by' => '',
+                ]
+            );
+        }
+        /* EGO_DNTT_AUTO_LOAD_FULL_V2_END */
+
         $user = auth()->user();
         $canAdminApprove = $this->isAdmin($user);
         $canAccountingApprove = $this->isAccounting($user);
         $canBulkApprove = ($canAdminApprove || $canAccountingApprove);
         $canViewAll = $canBulkApprove;
+
+        /*
+         * Mặc định danh sách là tất cả công ty.
+         * Các giá trị rỗng/all/0/* không được tạo điều kiện WHERE company.
+         */
+        $companyFilter = trim((string) $request->input('company', ''));
+
+        if (
+            $companyFilter === ''
+            || in_array(
+                mb_strtolower($companyFilter),
+                ['all', '0', '*', 'tất cả', 'tat ca'],
+                true
+            )
+        ) {
+            $request->request->remove('company');
+        }
 
         [$selectedDatePreset, $effectiveDateFrom, $effectiveDateTo] = $this->resolveDateFilter($request);
 
@@ -451,6 +494,16 @@ class PaymentRequestController extends Controller
             ->where('status', 'accounting_approved')
             ->sum('amount');
 
+        // Các KPI phản ánh toàn bộ phạm vi lọc hiện tại, trước khi lọc riêng theo trạng thái.
+        $totalRequests = (clone $base)->count();
+        $pendingCount = (clone $base)
+            ->whereIn('status', ['submitted', 'admin_approved'])
+            ->count();
+        $approvedCount = (clone $base)
+            ->where('status', 'accounting_approved')
+            ->count();
+        $totalAmount = (clone $base)->sum('amount');
+
         $q = (clone $base)
             ->with(['creator'])
             ->orderByDesc('id');
@@ -459,7 +512,12 @@ class PaymentRequestController extends Controller
             $q->where('status', $request->status);
         }
 
-        $items = $q->paginate(20)->withQueryString();
+        $perPage = (int) $request->input('per_page', 20);
+        if (! in_array($perPage, [20, 50, 100], true)) {
+            $perPage = 20;
+        }
+
+        $items = $q->paginate($perPage)->withQueryString();
 
         $companyOptions = $this->companyOptions();
         $statusLabels = $this->statusLabels();
@@ -486,6 +544,10 @@ class PaymentRequestController extends Controller
             'statusLabels',
             'creatorOptions',
             'totalPaid',
+            'totalRequests',
+            'pendingCount',
+            'approvedCount',
+            'totalAmount',
             'canViewAll',
             'canAdminApprove',
             'canAccountingApprove',
@@ -664,6 +726,20 @@ class PaymentRequestController extends Controller
                 $request->merge(['amount' => $cleanAmount === '' ? null : (int) $cleanAmount]);
             }
 
+            /* EGO_DNTT_OPTIONAL_NORMALIZE_V2_START */
+            if (! $request->filled('receiver_name')) {
+                $request->merge([
+                    'receiver_name' => 'Chưa cập nhật',
+                ]);
+            }
+
+            if (! $request->filled('amount')) {
+                $request->merge([
+                    'amount' => 0,
+                ]);
+            }
+            /* EGO_DNTT_OPTIONAL_NORMALIZE_V2_END */
+
             $request->merge(['doc_type' => $rawDocType]);
 
             if (! $request->filled('company')) {
@@ -687,23 +763,19 @@ class PaymentRequestController extends Controller
             }
 
             $data = $request->validate([
-                'doc_type' => 'required|in:payment_request,payment_voucher,advance,refund_request',
-                'company' => 'required|string|max:5000',
-                'receiver_name' => 'required|string|max:5000',
+                'doc_type' => 'nullable|in:payment_request,payment_voucher,advance,refund_request',
+                'company' => 'nullable|string|max:5000',
+                'receiver_name' => 'nullable|string|max:5000',
                 'department' => 'nullable|string|max:5000',
                 'payment_content' => 'nullable|string|max:10000',
-                'reason' => 'required|string|max:50000',
-                'amount' => 'required|integer|min:1',
+                'reason' => 'nullable|string|max:50000',
+                'amount' => 'nullable|integer|min:0',
                 'payment_due_date' => 'nullable|date',
                 'bank_info' => 'nullable|string|max:10000',
                 'attachments' => ['nullable', 'array'],
                 'attachments.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
             ], [
-                'company.required' => 'Vui lòng chọn công ty.',
-                'receiver_name.required' => 'Vui lòng nhập người nhận.',
-                'reason.required' => 'Vui lòng nhập lý do.',
-                'amount.required' => 'Vui lòng nhập số tiền.',
-                'amount.min' => 'Số tiền phải lớn hơn 0.',
+                'amount.min' => 'Số tiền không được nhỏ hơn 0.',
                 'attachments.*.max' => 'File chứng từ không được vượt quá 20MB.',
                 'attachments.*.mimes' => 'Chứng từ chỉ nhận JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX.',
             ]);
@@ -888,15 +960,41 @@ class PaymentRequestController extends Controller
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không sửa được.');
         }
 
+        $rawAmount = $request->input('amount');
+
+        if (is_string($rawAmount)) {
+            $cleanAmount = preg_replace('/[^0-9]/', '', $rawAmount);
+
+            $request->merge([
+                'amount' => $cleanAmount === ''
+                    ? 0
+                    : (int) $cleanAmount,
+            ]);
+        }
+
+        if (! $request->filled('receiver_name')) {
+            $request->merge([
+                'receiver_name' => 'Chưa cập nhật',
+            ]);
+        }
+
+        if (! $request->filled('amount')) {
+            $request->merge([
+                'amount' => 0,
+            ]);
+        }
+
         $data = $request->validate([
-            'company' => 'required|string|max:255',
-            'receiver_name' => 'required|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'payment_content' => 'nullable|string|max:255',
-            'reason' => 'required|string',
-            'amount' => 'required|integer|min:1',
+            'company' => 'nullable|string|max:5000',
+            'receiver_name' => 'nullable|string|max:5000',
+            'department' => 'nullable|string|max:5000',
+            'payment_content' => 'nullable|string|max:10000',
+            'reason' => 'nullable|string|max:50000',
+            'amount' => 'nullable|integer|min:0',
             'payment_due_date' => 'nullable|date',
-            'bank_info' => 'nullable|string|max:255',
+            'bank_info' => 'nullable|string|max:10000',
+        ], [
+            'amount.min' => 'Số tiền không được nhỏ hơn 0.',
         ]);
 
         $item->update($data);

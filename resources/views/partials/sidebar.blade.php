@@ -339,12 +339,60 @@ Chấm công thực tế của hệ thống đang dùng:
     ];
 @endphp
 
+
+{{-- EGO_ROLE_MENU_MATRIX_V2 --}}
+@php
+    $egoSidebarUser = auth()->user();
+    $egoMenuAccessService = app(\App\Services\RolePermission\PageAccessService::class);
+    $egoCanSeeMenu = static fn (string $permission): bool =>
+        $egoSidebarUser
+        && $egoMenuAccessService->canSeeMenu($egoSidebarUser, $permission);
+
+    $egoSidebarIsAdmin = $egoSidebarUser && $egoMenuAccessService->isAdmin($egoSidebarUser);
+    $egoSidebarIsManagement = $egoSidebarUser && $egoSidebarUser->hasRole('management');
+    $egoSidebarIsExecutive = $egoSidebarIsAdmin || $egoSidebarIsManagement;
+
+    $egoCanDashboardMenu = $egoCanSeeMenu('menu.dashboard');
+    $egoCanBookingMenu = $egoCanSeeMenu('menu.booking');
+    $egoCanCustomerMenu = $egoCanSeeMenu('menu.customers');
+    $egoCanOrdersMenu = $egoCanSeeMenu('menu.orders');
+    $egoCanProjectTestMenu = $egoCanSeeMenu('menu.project_test');
+    $egoCanConstructionMenu = $egoCanSeeMenu('menu.sites');
+    $egoCanPaymentRequestsMenu = $egoCanSeeMenu('menu.payment_requests');
+    $egoCanProposalsMenu = $egoCanSeeMenu('menu.proposals');
+    $egoCanTechnicalMenu = $egoCanSeeMenu('menu.technical');
+    $egoCanSalesMenu = $egoCanSeeMenu('menu.sales');
+    $egoCanMarketingMenu = $egoCanSeeMenu('menu.marketing');
+    $egoCanTasksMenu = $egoCanSeeMenu('menu.tasks');
+    $egoCanProductMenuByRole = $egoCanSeeMenu('menu.products');
+    $egoCanFinanceMenu = $egoCanSeeMenu('menu.finance');
+    $egoCanCompanyMenu = $egoCanSeeMenu('menu.company');
+    $egoCanHrMenu = $egoCanSeeMenu('menu.hr');
+    $egoCanSettingsMenu = $egoCanSeeMenu('menu.settings');
+
+    /* Biến tương thích cho các submenu cũ. */
+    $egoCanSiteWorkspaceMenu = $egoCanConstructionMenu;
+    $egoCanOrderSettingsMenu = $egoCanOrdersMenu && (
+        $egoSidebarIsExecutive || $egoSidebarUser->hasRole('accounting')
+    );
+    $egoCanWarrantyLookupMenu = $egoSidebarUser && (
+        $egoSidebarIsExecutive
+        || $egoSidebarUser->hasAnyRole([
+            'sales', 'sales_manager', 'accounting', 'warehouse',
+            'ky_thuat', 'technical_manager',
+        ])
+    );
+@endphp
+{{-- EGO_ROLE_MENU_MATRIX_V2_END --}}
+
 {{-- ============================================================================
 |  FILE: resources/views/layouts/partials/sidebar.blade.php
 |  EGO SOLAR CRM - Modern Sidebar (Desktop collapsed + Flyout submenu + Mobile offcanvas)
 |  ✅ Synced with TOPBAR variable: --ego-topbar-h
 |  ✅ Works with FLEX layout (sidebar + content)
 ============================================================================ --}}
+
+@includeIf('admin.settings.partials.menu-guard')
 
 <nav id="sidebar" class="ego-sidebar" aria-label="Main sidebar">
     {{-- ===== HEADER / BRAND ===== --}}
@@ -375,7 +423,7 @@ Chấm công thực tế của hệ thống đang dùng:
             @auth
 
             {{-- DASHBOARD --}}
-            <li class="ego-item" data-title="Trang chủ">
+            <li class="ego-item" data-title="Trang chủ" data-ego-menu-permission="menu.dashboard">
                 <a href="{{ route('dashboard') }}"
                    class="ego-link {{ active_route('dashboard') }}"
                    data-ego-type="nav">
@@ -384,7 +432,7 @@ Chấm công thực tế của hệ thống đang dùng:
                 </a>
             </li>
 {{-- EGO_BOOKING_ROOM_MENU_START --}}
-<li class="ego-item" data-title="Booking phòng họp">
+<li class="ego-item" data-title="Booking phòng họp" data-ego-menu-permission="menu.booking">
                 <a href="{{ route('meeting-room-bookings.index') }}"
                    class="ego-link {{ request()->routeIs('meeting-room-bookings.*') || request()->is('booking-phong-hop*') ? 'active' : '' }}"
                    data-ego-type="nav">
@@ -417,18 +465,11 @@ Chấm công thực tế của hệ thống đang dùng:
                     || str_contains($egoCustomerMenuRoleText, 'warehouse')
                     || str_contains($egoCustomerMenuRoleText, 'admin')
                 );
-
-                $canCustomerMenu =
-                    $egoCustomerMenuIsKho
-                    || auth()->user()->can('customer.view_all')
-                    || auth()->user()->can('customer.view_own')
-                    || auth()->user()->can('customer.view_sales_all')
-                    || auth()->user()->can('customer.create')
-                    || auth()->user()->can('customer.update_all');
+                $canCustomerMenu = $egoCanCustomerMenu;
             @endphp
 
             @if($canCustomerMenu)
-                <li class="ego-item ego-item--has-sub" data-title="Khách hàng" data-ego-sub="true">
+                <li class="ego-item ego-item--has-sub" data-title="Khách hàng" data-ego-sub="true" data-ego-menu-permission="menu.customers">
                     <a href="#menuKhachHang"
                        class="ego-link {{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
@@ -486,12 +527,13 @@ Chấm công thực tế của hệ thống đang dùng:
             @endif
 
             {{-- ĐƠN HÀNG --}}
-            <li class="ego-item ego-item--has-sub" data-title="Đơn hàng" data-ego-sub="true">
+            @if($egoCanOrdersMenu)
+            <li class="ego-item ego-item--has-sub" data-title="Đơn hàng" data-ego-sub="true" data-ego-menu-permission="menu.orders">
                 <a href="#menuOrders"
-                   class="ego-link {{ request()->routeIs('orders.*') || request()->routeIs('payment-methods.*') || request()->is('companies*') || request()->routeIs('serial-warranty.*') ? 'active' : '' }}"
+                   class="ego-link {{ request()->routeIs('orders.*') || request()->routeIs('serial-warranty.*') ? 'active' : '' }}"
                    data-bs-toggle="collapse"
                    data-ego-type="toggle"
-                   aria-expanded="{{ request()->routeIs('orders.*') || request()->routeIs('payment-methods.*') || request()->is('companies*') || request()->routeIs('serial-warranty.*') ? 'true' : 'false' }}"
+                   aria-expanded="{{ request()->routeIs('orders.*') || request()->routeIs('serial-warranty.*') ? 'true' : 'false' }}"
                    aria-controls="menuOrders">
                     <span class="ego-ic"><i class="bi bi-receipt-cutoff"></i></span>
                     <span class="ego-txt">Đơn hàng</span>
@@ -499,7 +541,7 @@ Chấm công thực tế của hệ thống đang dùng:
                 </a>
 
                 <ul id="menuOrders"
-                    class="ego-sub collapse {{ (request()->routeIs('orders.*') || request()->routeIs('payment-methods.*') || request()->is('companies*') || request()->routeIs('serial-warranty.*')) ? 'show' : '' }}"
+                    class="ego-sub collapse {{ (request()->routeIs('orders.*') || request()->routeIs('serial-warranty.*')) ? 'show' : '' }}"
                     data-ego-submenu>
                     <li>
                         <a href="{{ route('orders.index') }}"
@@ -520,23 +562,13 @@ Chấm công thực tế của hệ thống đang dùng:
                         </li>
                     @endcan
 
-                    <li>
-                        <a href="{{ route('payment-methods.index') }}"
-                           class="ego-sublink {{ active_route('payment-methods.*') }}"
-                           data-ego-type="nav">
-                            Phương thức thanh toán
-                        </a>
-                    </li>
+                    
 
-                    <li data-ego-company-menu="orders">
-                        <a href="{{ url('/companies') }}"
-                           class="ego-sublink {{ request()->is('companies*') ? 'active' : '' }}"
-                           data-ego-type="nav">
-                            Thông tin công ty
-                        </a>
-                    </li>
 
-                    @if(\Illuminate\Support\Facades\Route::has('serial-warranty.index'))
+                    
+
+
+                    @if($egoCanWarrantyLookupMenu && \Illuminate\Support\Facades\Route::has('serial-warranty.index'))
                         <li>
                             <a href="{{ route('serial-warranty.index') }}"
                                class="ego-sublink {{ request()->routeIs('serial-warranty.*') ? 'active' : '' }}"
@@ -547,10 +579,26 @@ Chấm công thực tế của hệ thống đang dùng:
                     @endif
                 </ul>
             </li>
+            @endif
+
+            {{-- EGO_PROJECT_TEST_NEW_MENU_START --}}
+            @can('project-test.access')
+                <li class="ego-item" data-title="Công Trình Test new" data-ego-menu-permission="menu.project_test">
+                    <a href="{{ route('project-test.index') }}"
+                       class="ego-link {{ request()->routeIs('project-test.*') && !request()->routeIs('project-test.warehouse.*') ? 'active' : '' }}"
+                       data-ego-type="nav"
+                       style="position:relative;overflow:hidden;">
+                        <span class="ego-ic" style="background:linear-gradient(135deg,rgba(20,184,166,.28),rgba(37,99,235,.22));color:#67e8f9;box-shadow:0 0 20px rgba(34,211,238,.15);"><i class="bi bi-diagram-3"></i></span>
+                        <span class="ego-txt">Công Trình Test new</span>
+                        <span style="margin-left:auto;padding:3px 7px;border-radius:999px;background:linear-gradient(135deg,#fb7185,#e11d48);color:#fff;font-size:8px;font-weight:950;letter-spacing:.08em;box-shadow:0 5px 15px rgba(225,29,72,.35);animation:egoBookingNewPulse 1.5s ease-in-out infinite;">NEW</span>
+                    </a>
+                </li>
+            @endcan
+            {{-- EGO_PROJECT_TEST_NEW_MENU_END --}}
 
             {{-- CÔNG TRÌNH --}}
-            @hasanyrole('ky_thuat|accounting|warehouse|kho|admin|sales')
-                <li class="ego-item ego-item--has-sub" data-title="Công trình" data-ego-sub="true">
+            @if($egoCanConstructionMenu)
+                <li class="ego-item ego-item--has-sub" data-title="Công trình" data-ego-sub="true" data-ego-menu-permission="menu.sites">
                     <a href="#menuConstruction"
                        class="ego-link {{ request()->is('cong-trinh*') || request()->is('don-vat-tu*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
@@ -565,9 +613,21 @@ Chấm công thực tế của hệ thống đang dùng:
                     <ul id="menuConstruction"
                         class="ego-sub collapse {{ request()->is('cong-trinh*') || request()->is('don-vat-tu*') ? 'show' : '' }}"
                         data-ego-submenu>
+                        {{-- EGO_SITE_WORKSPACE_V2_MENU_START --}}
+                        @if($egoCanSiteWorkspaceMenu)
+                            <li>
+                                <a href="{{ route('sites-v2.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('sites-v2.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Điều phối mới
+                                    <span style="margin-left:6px;padding:2px 6px;border-radius:999px;background:#0f766e;color:#fff;font-size:9px;font-weight:800;">BETA</span>
+                                </a>
+                            </li>
+                        @endif
+                        {{-- EGO_SITE_WORKSPACE_V2_MENU_END --}}
                         <li>
                             <a href="{{ url('/cong-trinh') }}"
-                               class="ego-sublink {{ request()->is('cong-trinh*') ? 'active' : '' }}"
+                               class="ego-sublink {{ request()->is('cong-trinh*') && !request()->is('cong-trinh-moi*') ? 'active' : '' }}"
                                data-ego-type="nav">
                                 Công trình
                             </a>
@@ -593,10 +653,10 @@ Chấm công thực tế của hệ thống đang dùng:
 
                     </ul>
                 </li>
-            @endhasanyrole
+            @endif
 
             {{-- ĐỀ NGHỊ THANH TOÁN --}}
-            <li class="ego-item" data-title="Đề nghị thanh toán">
+            <li class="ego-item" data-title="Đề nghị thanh toán" data-ego-menu-permission="menu.payment_requests">
                 <a href="{{ route('payment_requests.index') }}"
                    class="ego-link {{ active_route('payment_requests.*') }}"
                    data-ego-type="nav">
@@ -607,7 +667,7 @@ Chấm công thực tế của hệ thống đang dùng:
             </li>
 {{-- ĐỀ XUẤT --}}
 @auth
-<li class="ego-item" data-title="Đề xuất">
+<li class="ego-item" data-title="Đề xuất" data-ego-menu-permission="menu.proposals">
     <a href="{{ route('de-xuat.index') }}"
        class="ego-link {{ request()->is('de-xuat*') ? 'active' : '' }}"
        data-ego-type="nav">
@@ -622,8 +682,8 @@ Chấm công thực tế của hệ thống đang dùng:
 </li>
 @endauth
 {{-- KỸ THUẬT --}}
-@hasanyrole('ky_thuat|accounting|admin')
-<li class="ego-item ego-item--has-sub" data-title="Kỹ thuật" data-ego-sub="true">
+@if($egoCanTechnicalMenu)
+<li class="ego-item ego-item--has-sub" data-title="Kỹ thuật" data-ego-sub="true" data-ego-menu-permission="menu.technical">
     <a href="#menuKyThuat"
        class="ego-link {{ request()->is('ky-thuat*') ? 'active' : '' }}"
        data-bs-toggle="collapse"
@@ -655,10 +715,10 @@ Chấm công thực tế của hệ thống đang dùng:
 
     </ul>
 </li>
-@endhasanyrole
+@endif
             {{-- SALES --}}
-            @hasanyrole('sales|sales_manager|accounting|admin')
-                <li class="ego-item ego-item--has-sub" data-title="Sales" data-ego-sub="true">
+            @if($egoCanSalesMenu)
+                <li class="ego-item ego-item--has-sub" data-title="Sales" data-ego-sub="true" data-ego-menu-permission="menu.sales">
                     <a href="#menuSales"
                        class="ego-link {{ request()->routeIs('sales.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
@@ -706,11 +766,11 @@ Chấm công thực tế của hệ thống đang dùng:
 </li>
                     </ul>
                 </li>
-            @endhasanyrole
+            @endif
 
             {{-- MARKETING --}}
-            @hasanyrole('marketing|marketing_manager|admin|accounting')
-                <li class="ego-item ego-item--has-sub ego-item--modern" data-title="Marketing" data-ego-sub="true">
+            @if($egoCanMarketingMenu)
+                <li class="ego-item ego-item--has-sub ego-item--modern" data-title="Marketing" data-ego-sub="true" data-ego-menu-permission="menu.marketing">
                     <a href="#menuMarketing"
                        class="ego-link ego-link--modern {{ request()->routeIs('marketing.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
@@ -836,10 +896,10 @@ Chấm công thực tế của hệ thống đang dùng:
                         </li>
                     </ul>
                 </li>
-            @endhasanyrole
+            @endif
 
             {{-- CÔNG VIỆC --}}
-            <li class="ego-item ego-item--has-sub" data-title="Công việc" data-ego-sub="true">
+            <li class="ego-item ego-item--has-sub" data-title="Công việc" data-ego-sub="true" data-ego-menu-permission="menu.tasks">
                 <a href="#menuTasks"
                    class="ego-link {{ active_route('tasks.*') }}"
                    data-bs-toggle="collapse"
@@ -883,22 +943,20 @@ Chấm công thực tế của hệ thống đang dùng:
             @php
                 $u = auth()->user();
 
-                $canProductMenu = $u && (
-                    $u->hasAnyRole(['admin','warehouse']) ||
-                    $u->can('product.view') ||
-                    $u->can('products.manage') ||
-                    $u->can('categories.manage') ||
-                    $u->can('brands.manage') ||
-                    $u->can('price-tiers.manage') ||
-                    $u->can('warehouse.manage') ||
-                    $u->can('warehouse.view')
-                );
+                $canProductMenu = $u && $egoCanProductMenuByRole;
 
-                $canSeeInputProducts = $u && $u->hasAnyRole(['admin','warehouse','accounting']);
+                $canSeeInputProducts = $u && (
+                    $egoSidebarIsExecutive
+                    || $u->hasAnyRole([
+                        'warehouse',
+                        'kho',
+                        'accounting',
+                    ])
+                );
             @endphp
 
           @if($canProductMenu)
-    <li class="ego-item ego-item--has-sub" data-title="Sản phẩm" data-ego-sub="true">
+    <li class="ego-item ego-item--has-sub" data-title="Sản phẩm" data-ego-sub="true" data-ego-menu-permission="menu.products">
         <a href="#menuSP"
            class="ego-link {{ active_route(['products.input','products.output','products.history','products.serials.*','product-goods-receipts.*','products.create','categories.*','warehouses.*','brands.*','price-tiers.*','company-management.*']) }}"
            data-bs-toggle="collapse"
@@ -934,6 +992,19 @@ Chấm công thực tế của hệ thống đang dùng:
                         {{-- EGO_PRODUCT_GOODS_RECEIPTS_MENU_END --}}
 
             @endif
+
+            {{-- EGO_PROJECT_TEST_WAREHOUSE_MENU_START --}}
+            @can('project-test.warehouse')
+                <li>
+                    <a href="{{ route('project-test.warehouse.index') }}"
+                       class="ego-sublink {{ request()->routeIs('project-test.warehouse.*') ? 'active' : '' }}"
+                       data-ego-type="nav">
+                        Cấp vật tư công trình Test
+                        <span style="margin-left:6px;padding:2px 6px;border-radius:999px;background:#0f766e;color:#fff;font-size:8px;font-weight:900;">NEW</span>
+                    </a>
+                </li>
+            @endcan
+            {{-- EGO_PROJECT_TEST_WAREHOUSE_MENU_END --}}
 
             @if(\Illuminate\Support\Facades\Route::has('products.output'))
                 <li>
@@ -1031,8 +1102,8 @@ Chấm công thực tế của hệ thống đang dùng:
             {{-- DIVIDER --}}
             <li class="ego-divider" role="separator"></li>
 {{-- TÀI CHÍNH --}}
-@hasanyrole('admin|accounting|hr')
-<li class="ego-item ego-item--has-sub" data-title="Tài chính" data-ego-sub="true">
+@if($egoCanFinanceMenu)
+<li class="ego-item ego-item--has-sub" data-title="Tài chính" data-ego-sub="true" data-ego-menu-permission="menu.finance">
     <a href="#menuFinance"
        class="ego-link {{ request()->is('finance*') ? 'active' : '' }}"
        data-bs-toggle="collapse"
@@ -1138,11 +1209,11 @@ Chấm công thực tế của hệ thống đang dùng:
         </li>
     </ul>
 </li>
-@endhasanyrole
+@endif
 
 {{-- HỒ SƠ CÔNG TY --}}
 @if(\Illuminate\Support\Facades\Route::has('company-documents.index'))
-<li class="ego-item" data-title="Hồ sơ công ty">
+<li class="ego-item" data-title="Hồ sơ công ty" data-ego-menu-permission="menu.company">
     <a href="{{ route('company-documents.index') }}"
        class="ego-link {{ request()->routeIs('company-documents.*') ? 'active' : '' }}"
        data-ego-type="nav">
@@ -1152,9 +1223,73 @@ Chấm công thực tế của hệ thống đang dùng:
 </li>
 @endif
 
+            {{-- EGO_LEAVE_APPROVAL_SIDEBAR_V1 --}}
+            @php
+                $egoLeaveAccess = app(\App\Services\Hr\LeaveApprovalAccessService::class);
+                $egoCanReviewLeave = auth()->check() && $egoLeaveAccess->canReview(auth()->user());
+                $egoCanViewCompanyAttendance = auth()->check()
+                    && $egoLeaveAccess->canManageAll(auth()->user());
+                $egoPendingLeaveApprovalCount = 0;
+
+                if ($egoCanReviewLeave) {
+                    try {
+                        $egoPendingLeaveApprovalQuery = \App\Models\LeaveRequest::query()->where('status', 'pending');
+                        $egoPendingLeaveApprovalCount = (int) $egoLeaveAccess
+                            ->scopeReviewable($egoPendingLeaveApprovalQuery, auth()->user())
+                            ->count();
+                    } catch (\Throwable $e) {
+                        $egoPendingLeaveApprovalCount = 0;
+                    }
+                }
+            @endphp
+
+            {{-- EGO_LEAVE_SIDEBAR_SNAPSHOT_V110_START --}}
+            @php
+                $egoLeaveSidebarSnapshot = auth()->check()
+                    ? app(\App\Services\Hr\LeaveDashboardAlertService::class)->snapshot(auth()->user())
+                    : [];
+                $egoPendingLeaveApprovalCount = (int) ($egoLeaveSidebarSnapshot['pending_approval_count'] ?? 0);
+                $egoCanReviewLeave = (bool) ($egoLeaveSidebarSnapshot['can_review'] ?? false);
+            @endphp
+            {{-- EGO_LEAVE_SIDEBAR_SNAPSHOT_V110_END --}}
+
+            {{-- EGO_PERSONAL_HR_MENU_V110_START --}}
+            @if(!$egoCanHrMenu && auth()->check())
+                <li class="ego-item ego-item--has-sub" data-title="Nhân sự cá nhân" data-ego-sub="true">
+                    <a href="#menuNhanSuCaNhan"
+                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'active' : '' }}"
+                       data-bs-toggle="collapse"
+                       data-ego-type="toggle"
+                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'true' : 'false' }}"
+                       aria-controls="menuNhanSuCaNhan">
+                        <span class="ego-ic"><i class="bi bi-person-workspace"></i></span>
+                        <span class="ego-txt">Nhân sự</span>
+                        @if($egoPendingLeaveApprovalCount > 0)
+                            <em class="ego-leave-parent-badge">{{ $egoPendingLeaveApprovalCount }}</em>
+                        @endif
+                        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+                    </a>
+                    <ul id="menuNhanSuCaNhan"
+                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'show' : '' }}"
+                        data-ego-submenu>
+                        <li><a href="{{ route('hr.attendance.my') }}" class="ego-sublink {{ active_route('hr.attendance.my') }}" data-ego-type="nav">Chấm công của tôi</a></li>
+                        <li><a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav">Đơn nghỉ phép / làm online</a></li>
+                        @if($egoCanReviewLeave)
+                            <li>
+                                <a href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}" data-ego-type="nav" style="display:flex;align-items:center;gap:8px">
+                                    <span>Duyệt đơn nhân sự</span>
+                                    @if($egoPendingLeaveApprovalCount > 0)<span class="ego-booking-new-badge">{{ $egoPendingLeaveApprovalCount }}</span>@endif
+                                </a>
+                            </li>
+                        @endif
+                    </ul>
+                </li>
+            @endif
+            {{-- EGO_PERSONAL_HR_MENU_V110_END --}}
+
             {{-- NHÂN SỰ --}}
-@hasanyrole('admin|accounting|hr')
-<li class="ego-item ego-item--has-sub" data-title="Nhân sự" data-ego-sub="true">
+@if($egoCanHrMenu)
+<li class="ego-item ego-item--has-sub" data-title="Nhân sự" data-ego-sub="true" data-ego-menu-permission="menu.hr">
         <a href="#menuNhanSu"
            class="ego-link {{ request()->routeIs('hr.*') ? 'active' : '' }}"
            data-bs-toggle="collapse"
@@ -1163,6 +1298,11 @@ Chấm công thực tế của hệ thống đang dùng:
            aria-controls="menuNhanSu">
             <span class="ego-ic"><i class="bi bi-people"></i></span>
             <span class="ego-txt">Nhân sự</span>
+                        {{-- EGO_LEAVE_HR_PARENT_BADGE_V110_START --}}
+                        @if($egoPendingLeaveApprovalCount > 0)
+                            <em class="ego-leave-parent-badge">{{ $egoPendingLeaveApprovalCount }}</em>
+                        @endif
+                        {{-- EGO_LEAVE_HR_PARENT_BADGE_V110_END --}}
             <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
         </a>
 
@@ -1282,28 +1422,46 @@ Chấm công thực tế của hệ thống đang dùng:
                     data-ego-submenu>
 
                     <li>
-                        <a href="{{ route('hr.attendance.index') }}"
-                           class="ego-sublink {{ active_route('hr.attendance.index') }}"
+                        <a href="{{ route('hr.attendance.my') }}"
+                           class="ego-sublink {{ active_route('hr.attendance.my') }}"
                            data-ego-type="nav">
-                            Thống kê chấm công
+                            Chấm công của tôi
                         </a>
                     </li>
 
                     <li>
-                        <a href="{{ route('hr.leave.index', ['request_type' => 'leave']) }}"
-                           class="ego-sublink {{ request('request_type') === 'leave' ? 'active' : '' }}"
+                        <a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}"
+                           class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}"
                            data-ego-type="nav">
-                            Đơn xin nghỉ
+                            Đơn của tôi
                         </a>
                     </li>
 
-                    <li>
-                        <a href="{{ route('hr.leave.index', ['request_type' => 'wfh']) }}"
-                           class="ego-sublink {{ request('request_type') === 'wfh' ? 'active' : '' }}"
-                           data-ego-type="nav">
-                            Đơn xin làm online
-                        </a>
-                    </li>
+                    @if($egoCanReviewLeave)
+                        <li>
+                            <a href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}"
+                               class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}"
+                               data-ego-type="nav"
+                               style="display:flex;align-items:center;gap:8px">
+                                <span>Duyệt đơn nhân sự</span>
+                                @if($egoPendingLeaveApprovalCount > 0)
+                                    <span class="ego-booking-new-badge" style="min-width:24px!important;height:17px!important;padding:0 6px!important;line-height:17px!important">
+                                        {{ $egoPendingLeaveApprovalCount }}
+                                    </span>
+                                @endif
+                            </a>
+                        </li>
+                    @endif
+
+                    @if($egoCanViewCompanyAttendance)
+                        <li>
+                            <a href="{{ route('hr.attendance.index') }}"
+                               class="ego-sublink {{ active_route('hr.attendance.index') }}"
+                               data-ego-type="nav">
+                                Bảng công nhân sự
+                            </a>
+                        </li>
+                    @endif
 
                     <li>
                         <a href="{{ route('hr.overtime.index') }}"
@@ -1317,20 +1475,51 @@ Chấm công thực tế của hệ thống đang dùng:
             </li>
         </ul>
     </li>
-@endhasanyrole
-            {{-- EGO_ROLE_PERMISSION_SETTINGS_MENU_START --}}
-            @role('admin')
-                <li class="ego-item" data-title="Cài đặt phân quyền">
-                    <a href="{{ route('admin.role-permissions.index') }}"
-                       class="ego-link {{ request()->routeIs('admin.role-permissions.*') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        <span class="ego-ic"><i class="bi bi-shield-lock"></i></span>
-                        <span class="ego-txt">Cài đặt phân quyền</span>
+@endif
+            {{-- EGO_SETTINGS_MENU_START --}}
+            @php
+                $egoSettingsRouteActive =
+                    request()->routeIs('admin.settings.*')
+                    || request()->routeIs('payment-methods.*')
+                    || request()->is('companies*');
+            @endphp
+            @if($egoCanSettingsMenu)
+                <li class="ego-item ego-item--has-sub"
+                    data-title="Cài đặt"
+                    data-ego-sub="true"
+                    data-ego-menu-permission="menu.settings">
+                    <a href="#menuSettings"
+                       class="ego-link {{ $egoSettingsRouteActive ? 'active' : '' }}"
+                       data-bs-toggle="collapse"
+                       data-ego-type="toggle"
+                       aria-expanded="{{ $egoSettingsRouteActive ? 'true' : 'false' }}"
+                       aria-controls="menuSettings">
+                        <span class="ego-ic"><i class="bi bi-gear"></i></span>
+                        <span class="ego-txt">Cài đặt</span>
                         <span class="ego-booking-new-badge" style="min-width:29px!important">NEW</span>
+                        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
+
+                    <ul id="menuSettings"
+                        class="ego-sub collapse {{ $egoSettingsRouteActive ? 'show' : '' }}"
+                        data-ego-submenu>
+                        <li><a href="{{ route('admin.settings.index') }}" class="ego-sublink {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+                        <li><a href="{{ route('admin.settings.appearance') }}" class="ego-sublink {{ request()->routeIs('admin.settings.appearance*') ? 'active' : '' }}" data-ego-type="nav">Giao diện &amp; thương hiệu</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('payment-methods.index'))
+                            <li><a href="{{ route('payment-methods.index') }}" class="ego-sublink {{ request()->routeIs('payment-methods.*') ? 'active' : '' }}" data-ego-type="nav">Phương thức thanh toán</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('companies.index'))
+                            <li><a href="{{ route('companies.index') }}" class="ego-sublink {{ request()->is('companies*') ? 'active' : '' }}" data-ego-type="nav">Thông tin công ty</a></li>
+                        @endif
+                        <li><a href="{{ route('admin.settings.roles') }}" class="ego-sublink {{ request()->routeIs('admin.settings.roles') ? 'active' : '' }}" data-ego-type="nav">Vai trò &amp; nhân sự</a></li>
+                        <li><a href="{{ route('admin.settings.pages') }}" class="ego-sublink {{ request()->routeIs('admin.settings.pages') ? 'active' : '' }}" data-ego-type="nav">Phân quyền trang</a></li>
+                        <li><a href="{{ route('admin.settings.menus') }}" class="ego-sublink {{ request()->routeIs('admin.settings.menus') ? 'active' : '' }}" data-ego-type="nav">Phân quyền menu</a></li>
+                        <li><a href="{{ route('admin.settings.actions') }}" class="ego-sublink {{ request()->routeIs('admin.settings.actions') ? 'active' : '' }}" data-ego-type="nav">Quyền thao tác</a></li>
+                        <li><a href="{{ route('admin.settings.audit') }}" class="ego-sublink {{ request()->routeIs('admin.settings.audit') ? 'active' : '' }}" data-ego-type="nav">Nhật ký thay đổi</a></li>
+                    </ul>
                 </li>
-            @endrole
-            {{-- EGO_ROLE_PERMISSION_SETTINGS_MENU_END --}}
+            @endif
+            {{-- EGO_SETTINGS_MENU_END --}}
 
             {{-- TÀI KHOẢN --}}
             <li class="ego-item ego-item--has-sub" data-title="Tài khoản" data-ego-sub="true">
@@ -2742,60 +2931,7 @@ Chấm công thực tế của hệ thống đang dùng:
 
 </style>
 
-<!-- EGO_REMOVE_CHAT_BUBBLE_START -->
-<style>
-/* Ẩn nút chat nổi góc phải dưới */
-#chatWidget,
-#chat-widget,
-.chat-widget,
-.chat-popup,
-.chat-box,
-.chat-panel,
-.chat-float,
-.floating-chat,
-.chat-launcher,
-.chat-toggle,
-.chat-fab,
-[data-chat-widget],
-[data-chat-toggle] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-</style>
 
-<script>
-(function () {
-    function removeChatBubble() {
-        document.querySelectorAll(
-            '#chatWidget,#chat-widget,.chat-widget,.chat-popup,.chat-box,.chat-panel,.chat-float,.floating-chat,.chat-launcher,.chat-toggle,.chat-fab,[data-chat-widget],[data-chat-toggle]'
-        ).forEach(function (el) {
-            el.remove();
-        });
-
-        document.querySelectorAll('button, a, div').forEach(function (el) {
-            var st = window.getComputedStyle(el);
-            var rect = el.getBoundingClientRect();
-
-            var isFixed = st.position === 'fixed';
-            var nearRight = rect.right > window.innerWidth - 120;
-            var nearBottom = rect.bottom > window.innerHeight - 120;
-            var sizeOk = rect.width >= 42 && rect.width <= 90 && rect.height >= 42 && rect.height <= 90;
-            var round = parseFloat(st.borderRadius) >= 20;
-            var hasBlueBg = (st.backgroundColor || '').includes('rgb');
-
-            if (isFixed && nearRight && nearBottom && sizeOk && round && hasBlueBg) {
-                el.remove();
-            }
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', removeChatBubble);
-    removeChatBubble();
-    setInterval(removeChatBubble, 500);
-})();
-</script>
-<!-- EGO_REMOVE_CHAT_BUBBLE_END -->
 {{-- EGO_SALES_MANAGER_DROPDOWN_START --}}
 @php
     $egoSalesManagerOptions = collect();

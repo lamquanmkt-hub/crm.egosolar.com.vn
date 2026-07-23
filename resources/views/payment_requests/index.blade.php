@@ -1,426 +1,23 @@
 @extends('layouts.app')
 
+{{-- EGO_DNTT_ENTERPRISE_ASSETS_START --}}
+@push('styles')
+    <link
+        rel="stylesheet"
+        href="{{ asset('css/ego-payment-requests-enterprise.css') }}?v={{ filemtime(public_path('css/ego-payment-requests-enterprise.css')) }}"
+    >
+@endpush
+
+@push('scripts')
+    <script
+        src="{{ asset('js/ego-payment-requests-enterprise.js') }}?v={{ filemtime(public_path('js/ego-payment-requests-enterprise.js')) }}"
+        defer
+    ></script>
+@endpush
+{{-- EGO_DNTT_ENTERPRISE_ASSETS_END --}}
+
+
 @section('content')
-<style>
-    :root{
-        --ego:#06b6d4;
-        --ego2:#0891b2;
-        --ink:#0f172a;
-        --muted: rgba(15,23,42,.62);
-        --card: rgba(255,255,255,.90);
-        --border: rgba(15,23,42,.10);
-        --shadow: 0 18px 50px rgba(15,23,42,.08);
-        --shadow2: 0 10px 30px rgba(15,23,42,.08);
-        --radius: 18px;
-    }
-
-    .page-shell{
-        background: radial-gradient(900px 300px at 15% 0%, rgba(6,182,212,.14), transparent 60%),
-                    radial-gradient(900px 300px at 85% 10%, rgba(59,130,246,.10), transparent 55%),
-                    linear-gradient(180deg, #f7fbff, #f7fbff);
-        border-radius: 22px;
-        padding: 16px;
-    }
-
-    .card-glass{
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        overflow:hidden;
-    }
-
-    .hero{
-        padding: 14px 16px;
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap: 12px;
-        background:
-            radial-gradient(500px 200px at 20% 0%, rgba(6,182,212,.18), transparent 60%),
-            linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.74));
-        border-bottom: 1px solid rgba(15,23,42,.06);
-    }
-
-    .hero-title{
-        margin:0;
-        font-weight: 950;
-        color: var(--ink);
-        letter-spacing:.2px;
-        display:flex;
-        align-items:center;
-        gap: 10px;
-        font-size: 18px;
-    }
-
-    .hero-sub{
-        margin-top: 6px;
-        font-weight: 700;
-        color: var(--muted);
-        font-size: 12px;
-    }
-
-    .title-badge{
-        width: 40px; height: 40px;
-        border-radius: 14px;
-        display:flex; align-items:center; justify-content:center;
-        background: rgba(6,182,212,.16);
-        border: 1px solid rgba(6,182,212,.25);
-        color: var(--ego2);
-        box-shadow: var(--shadow2);
-        flex: 0 0 auto;
-        font-size: 18px;
-    }
-
-    .btn-ego{
-        border: none;
-        border-radius: 12px;
-        padding: 8px 12px;
-        font-weight: 950;
-        background: linear-gradient(135deg, var(--ego), var(--ego2));
-        box-shadow: 0 14px 34px rgba(8,145,178,.18);
-        transition: .15s ease;
-        color: #fff;
-        text-decoration: none;
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        white-space: nowrap;
-        font-size: 13px;
-    }
-    .btn-ego:hover{ transform: translateY(-1px); box-shadow: 0 18px 44px rgba(8,145,178,.24); color:#fff; }
-
-    .btn-soft{
-        border-radius: 12px;
-        padding: 8px 12px;
-        font-weight: 900;
-        border: 1px solid rgba(15,23,42,.12);
-        background: rgba(255,255,255,.92);
-        box-shadow: var(--shadow2);
-        transition: .15s ease;
-        text-decoration:none;
-        color: var(--ink);
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        font-size: 13px;
-    }
-    .btn-soft:hover{ transform: translateY(-1px); color: var(--ink); }
-
-    .alert{
-        border-radius: 14px;
-        border: 1px solid rgba(15,23,42,.08);
-        box-shadow: var(--shadow2);
-        font-size: 13px;
-    }
-
-    .compact,
-    .compact *{
-        font-size: 13px !important;
-    }
-    .compact .form-label{
-        font-size: 12px !important;
-        margin-bottom: 4px !important;
-        font-weight: 900;
-        color: rgba(15,23,42,.70);
-    }
-    .compact .form-control,
-    .compact .form-select{
-        padding: 8px 10px !important;
-        border-radius: 12px !important;
-    }
-
-    .table-sm-ego thead th{ font-size: 11px !important; padding: 10px 8px !important; white-space: nowrap; }
-    .table-sm-ego tbody td{ font-size: 13px !important; padding: 10px 8px !important; vertical-align: middle; }
-    .table-sm-ego .badge{ font-size: 12px !important; padding: 6px 9px !important; border-radius: 999px; }
-    .table-sm-ego .btn-mini{ font-size: 12px !important; padding: 6px 9px !important; border-radius: 11px !important; }
-
-    .pill{
-        border-radius: 999px;
-        padding: 7px 10px;
-        font-weight: 900;
-        border: 1px solid rgba(15,23,42,.10);
-        background: rgba(255,255,255,.92);
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        white-space: nowrap;
-    }
-
-    .table-wrap{
-        border: 1px solid rgba(15,23,42,.08);
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: var(--shadow2);
-        background: rgba(255,255,255,.92);
-    }
-
-    .table thead{
-        background: #0f172a !important;
-        color: #fff;
-    }
-
-    .muted{
-        color: rgba(15,23,42,.62);
-        font-weight: 700;
-    }
-
-    .modal-compact .modal-title{ font-size: 15px !important; font-weight: 950; }
-    .modal-compact .modal-body{ padding: 14px 16px !important; }
-    .modal-compact .modal-footer{ padding: 12px 16px !important; }
-    .modal-compact .form-control,
-    .modal-compact .form-select{ font-size: 13px !important; padding: 8px 10px !important; border-radius: 12px !important; }
-    .modal-compact .form-label{ font-size: 12px !important; font-weight: 900; color: rgba(15,23,42,.70); }
-
-
-    /* EGO_PAYMENT_REASON_COLUMN_CSS */
-    .payment-reason-cell{
-        min-width: 220px;
-        max-width: 280px;
-        white-space: normal !important;
-        line-height: 1.45;
-        font-weight: 700;
-        color: #334155;
-    }
-
-    .payment-reason-text{
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    /* EGO_PAYMENT_REASON_COLUMN_CSS_END */
-
-    .amount{
-        font-weight: 950;
-        color: #0b3b44;
-    }
-
-    .code-link{
-        font-weight: 950;
-        color: #0f172a;
-        text-decoration: none;
-    }
-    .code-link:hover{ color: #0891b2; text-decoration: underline; }
-
-    @media (max-width: 768px){
-        .hero{ flex-wrap: wrap; }
-    }
-
-    @media (max-width: 767.98px){
-        .container-fluid.px-4.py-3{
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-
-        .page-shell{
-            border-radius: 0;
-            padding: 12px 12px 18px;
-        }
-
-        .card-glass.mb-3{
-            margin-left: 12px;
-            margin-right: 12px;
-        }
-
-        .hero{
-            padding: 12px 12px;
-        }
-
-        .compact .card-glass{
-            border-radius: 16px;
-        }
-
-        .m-list{
-            padding: 0 12px;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
-
-        .m-card{
-            background: rgba(255,255,255,.92);
-            border: 1px solid rgba(15,23,42,.10);
-            border-radius: 18px;
-            box-shadow: var(--shadow2);
-            overflow: hidden;
-        }
-
-        .m-card-top{
-            padding: 12px 12px 10px;
-            border-bottom: 1px solid rgba(15,23,42,.06);
-            display:flex;
-            align-items:flex-start;
-            justify-content:space-between;
-            gap: 10px;
-        }
-
-        .m-code{
-            font-weight: 950;
-            color: var(--ink);
-            text-decoration: none;
-            font-size: 14px;
-        }
-        .m-code:hover{ color: var(--ego2); text-decoration: underline; }
-
-        .m-date{
-            font-size: 12px;
-            font-weight: 750;
-            color: rgba(15,23,42,.55);
-            white-space: nowrap;
-        }
-
-        .m-body{
-            padding: 10px 12px 12px;
-        }
-
-        .m-row{
-            display:flex;
-            justify-content:space-between;
-            gap: 10px;
-            padding: 7px 0;
-            border-bottom: 1px dashed rgba(15,23,42,.10);
-        }
-        .m-row:last-child{ border-bottom: none; padding-bottom: 0; }
-
-        .m-k{
-            font-size: 11.5px;
-            font-weight: 900;
-            color: rgba(15,23,42,.50);
-            letter-spacing: .3px;
-            text-transform: uppercase;
-            flex: 0 0 auto;
-        }
-
-        .m-v{
-            font-size: 13.5px;
-            font-weight: 800;
-            color: rgba(15,23,42,.86);
-            text-align: right;
-            max-width: 72%;
-            word-break: break-word;
-        }
-
-        .m-amount{
-            font-weight: 950;
-            color: #0b3b44;
-            font-size: 14px;
-        }
-
-        .m-actions{
-            padding: 10px 12px 12px;
-            border-top: 1px solid rgba(15,23,42,.06);
-            display:flex;
-            gap: 8px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            justify-content: flex-start;
-        }
-        .m-actions::-webkit-scrollbar{ display:none; }
-
-        .m-btn{
-            border-radius: 14px;
-            padding: 9px 10px;
-            font-weight: 950;
-            border: 1px solid rgba(15,23,42,.10);
-            background: rgba(255,255,255,.92);
-            box-shadow: var(--shadow2);
-            text-decoration:none;
-            display:inline-flex;
-            align-items:center;
-            gap: 8px;
-            color: rgba(15,23,42,.86);
-            white-space: nowrap;
-            flex: 0 0 auto;
-        }
-        .m-btn i{ font-size: 16px; }
-
-        .m-btn.ok{ border-color: rgba(25,135,84,.22); color: rgba(25,135,84,.95); }
-        .m-btn.warn{ border-color: rgba(255,193,7,.28); color: rgba(161,98,7,.95); }
-        .m-btn.danger{ border-color: rgba(220,53,69,.22); color: rgba(220,53,69,.95); }
-        .m-btn.info{ border-color: rgba(13,110,253,.22); color: rgba(13,110,253,.95); }
-        .m-btn.gray{ border-color: rgba(15,23,42,.16); color: rgba(15,23,42,.90); }
-    }
-
-
-    /* EGO_PAYMENT_BULK_APPROVAL_START */
-    .bulk-approval-bar{
-        min-height: 44px;
-        margin: 0 0 8px;
-        padding: 6px 9px 6px 11px;
-        border: 1px solid #e2e8f0;
-        border-left: 3px solid #06a6c7;
-        border-radius: 10px;
-        background: #fff;
-        box-shadow: 0 2px 8px rgba(15,23,42,.045);
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-        flex-wrap:nowrap;
-    }
-    .bulk-approval-summary{
-        min-width:0;
-        display:flex;
-        align-items:center;
-        gap:7px;
-        color:#475569;
-        font-size:13px;
-        font-weight:700;
-        white-space:nowrap;
-    }
-    .bulk-approval-title{
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        color:#0f172a;
-        font-weight:850;
-    }
-    .bulk-approval-title i{ color:#0891b2; font-size:15px; }
-    .bulk-approval-divider{ width:1px; height:18px; background:#e2e8f0; }
-    .bulk-approval-count{ color:#334155; }
-    .bulk-approval-count strong,
-    #prBulkSelectedAmount{ color:#0f172a; font-weight:900; }
-    .bulk-approval-dot{ color:#94a3b8; }
-    .bulk-approval-actions{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
-    .bulk-approval-actions .btn-soft,
-    .bulk-approval-actions .btn-ego{
-        min-height:32px;
-        padding:5px 10px;
-        border-radius:8px;
-        font-size:12.5px;
-        line-height:1;
-        gap:5px;
-        box-shadow:none;
-    }
-    .bulk-approval-actions .btn-soft:disabled,
-    .bulk-approval-actions .btn-ego:disabled{ opacity:.5; }
-    .bulk-select-all-mobile{ display:none; align-items:center; gap:6px; font-size:12.5px; font-weight:800; color:#475569; cursor:pointer; }
-    .pr-bulk-checkbox, .pr-bulk-select-all{ width:16px; height:16px; cursor:pointer; accent-color:#0891b2; }
-    .bulk-select-cell{ text-align:center; vertical-align:middle !important; }
-    .bulk-mobile-select{ display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; padding-top:1px; }
-    .bulk-approval-help{ display:none !important; }
-    @media (max-width: 767.98px){
-        .bulk-approval-bar{
-            margin:0 12px 8px;
-            padding:7px 9px;
-            align-items:center;
-            flex-wrap:wrap;
-        }
-        .bulk-approval-title,
-        .bulk-approval-divider{ display:none; }
-        .bulk-approval-summary{ font-size:12.5px; }
-        .bulk-approval-actions{ width:100%; }
-        .bulk-select-all-mobile{ display:inline-flex; margin-right:auto; }
-        .bulk-approval-actions .btn-soft,
-        .bulk-approval-actions .btn-ego{ min-height:31px; padding:5px 8px; }
-    }
-    /* EGO_PAYMENT_BULK_APPROVAL_END */
-</style>
-
 @php
     $statusLabels = $statusLabels ?? [
         'draft' => 'Nháp',
@@ -450,280 +47,323 @@
     ]);
 @endphp
 
-<div class="container-fluid px-4 py-3">
-    <div class="page-shell">
 
-        <div class="card-glass mb-3">
-            <div class="hero">
-                <div>
-                    <h3 class="hero-title">
-                        <span class="title-badge"><i class="bi bi-receipt"></i></span>
-                        Danh sách đề nghị thanh toán
-                    </h3>
-                    <div class="hero-sub">Quản lý phiếu • duyệt • kế toán chi • tải PDF • xuất tổng thể</div>
-                </div>
+<div class="ego-pr-page">
+    <header class="ego-pr-page-header ego-pr-reveal">
+        <div class="ego-pr-page-heading">
+            <span class="ego-pr-page-icon" aria-hidden="true">
+                <i class="bi bi-wallet2"></i>
+            </span>
 
-                <div class="d-flex flex-wrap gap-2">
-                    <a class="btn-soft" href="{{ route('payment_requests.export_excel', $exportParams) }}">
-                        <i class="bi bi-file-earmark-excel"></i> Xuất Excel
-                    </a>
-
-                    <a class="btn-soft" href="{{ route('payment_requests.export_pdf', $exportParams) }}">
-                        <i class="bi bi-file-earmark-pdf"></i> Xuất PDF
-                    </a>
-
-                    <button class="btn-ego" data-bs-toggle="modal" data-bs-target="#createPRModal">
-                        <i class="bi bi-plus-lg"></i> Tạo phiếu mới
-                    </button>
-                </div>
-            </div>
-
-            <div class="p-3 pt-0">
-                @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show mb-2" role="alert">
-                        <i class="bi bi-check-circle"></i> {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-                @if(session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show mb-0" role="alert">
-                        <i class="bi bi-exclamation-triangle"></i> {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-                @if($errors->any())
-                    <div class="alert alert-danger alert-dismissible fade show mb-2" role="alert">
-                        <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle"></i> Chưa lưu được phiếu, kiểm tra lại các lỗi sau:</div>
-                        <ul class="mb-0 ps-3">
-                            @foreach($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-            </div>
-
-            <div class="px-3 pb-3 compact">
-                <div class="card-glass" style="box-shadow: var(--shadow2);">
-                    <div class="p-3">
-                        <form method="GET" action="{{ route('payment_requests.index') }}" class="row g-2 align-items-end">
-                            <input
-                                type="hidden"
-                                name="date_filter_manual"
-                                id="date_filter_manual"
-                                value="0"
-                            >
-
-                            {{-- Dòng 1: Công ty - Trạng thái - Search --}}
-                            <div class="col-12 col-md-3">
-                                <label class="form-label mb-1">Công ty</label>
-                                <select name="company" class="form-select">
-                                    <option value="">-- Tất cả --</option>
-                                    @foreach($companyOptions ?? [] as $c)
-                                        <option value="{{ $c }}" @selected(request('company') === $c)>
-                                            {{ $c }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="col-12 col-md-3">
-                                <label class="form-label mb-1">Trạng thái</label>
-                                <select name="status" class="form-select">
-                                    <option value="">-- Tất cả --</option>
-                                    @foreach(['draft','submitted','admin_approved','admin_rejected','accounting_approved','accounting_rejected'] as $st)
-                                        <option value="{{ $st }}" @selected(request('status') === $st)>
-                                            {{ $statusLabels[$st] ?? $st }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="col-12 col-md-6">
-                                <label class="form-label mb-1">Tìm kiếm</label>
-                                <input
-                                    type="text"
-                                    name="q"
-                                    class="form-control"
-                                    value="{{ request('q') }}"
-                                    placeholder="Mã phiếu / Người nhận / Nội dung / Lý do..."
-                                >
-                            </div>
-
-                            {{-- Dòng 2: Từ ngày - Đến ngày - Dropdown - Người tạo --}}
-                            <div class="col-6 col-md-2">
-                                <label class="form-label mb-1">Từ ngày</label>
-                                <input
-                                    type="date"
-                                    name="date_from"
-                                    id="date_from"
-                                    class="form-control"
-                                    oninput="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
-                                    onchange="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
-                                    value="{{ $effectiveDateFrom ?? request('date_from') }}"
-                                >
-                            </div>
-
-                            <div class="col-6 col-md-2">
-                                <label class="form-label mb-1">Đến ngày</label>
-                                <input
-                                    type="date"
-                                    name="date_to"
-                                    id="date_to"
-                                    class="form-control"
-                                    oninput="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
-                                    onchange="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
-                                    value="{{ $effectiveDateTo ?? request('date_to') }}"
-                                >
-                            </div>
-
-                            <div class="col-12 col-md-4">
-                                <label class="form-label mb-1">Khoảng thời gian</label>
-                                <select
-                                    name="date_preset"
-                                    id="date_preset"
-                                    class="form-select"
-                                    onchange="document.getElementById('date_filter_manual').value='0';"
-                                >
-                                    <option value="this_month" @selected(($selectedDatePreset ?? 'this_month') === 'this_month')>Tháng này</option>
-                                    <option value="last_month" @selected(($selectedDatePreset ?? '') === 'last_month')>Tháng trước</option>
-                                    <option value="this_week" @selected(($selectedDatePreset ?? '') === 'this_week')>Tuần này</option>
-                                    <option value="last_week" @selected(($selectedDatePreset ?? '') === 'last_week')>Tuần trước</option>
-                                    <option value="today" @selected(($selectedDatePreset ?? '') === 'today')>Hôm nay</option>
-                                    <option value="this_year" @selected(($selectedDatePreset ?? '') === 'this_year')>Năm nay</option>
-                                    <option value="custom" @selected(($selectedDatePreset ?? '') === 'custom')>Tùy chỉnh</option>
-                                    <option value="all_time" @selected(($selectedDatePreset ?? '') === 'all_time')>Tất cả thời gian</option>
-                                </select>
-                            </div>
-
-                            @if($canViewAll)
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label mb-1">Người tạo</label>
-                                    <select name="created_by" class="form-select">
-                                        <option value="">-- Tất cả --</option>
-                                        @foreach(($creatorOptions ?? []) as $u)
-                                            <option value="{{ $u->id }}" @selected((string)request('created_by') === (string)$u->id)>
-                                                {{ $u->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-
-                            <div class="col-12 mt-2 d-flex flex-wrap gap-2 align-items-center">
-                                <button class="btn-ego" type="submit">
-                                    <i class="bi bi-funnel"></i> Lọc
-                                </button>
-
-                                @if(
-                                    request('status') ||
-                                    request('created_by') ||
-                                    request('company') ||
-                                    request('date_from') ||
-                                    request('date_to') ||
-                                    request('date_preset') ||
-                                    request('q')
-                                )
-                                    <a class="btn-soft" href="{{ route('payment_requests.index') }}">
-                                        <i class="bi bi-x-circle"></i> Xóa lọc
-                                    </a>
-                                @endif
-
-                                <span class="pill">
-                                    <i class="bi bi-cash-coin"></i>
-                                    Tổng chi phí đã chi:
-                                    <span class="amount">{{ number_format((int)($totalPaid ?? 0)) }} đ</span>
-                                </span>
-
-                                <span class="muted">Mặc định đang lọc: tháng này</span>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            <div class="ego-pr-page-copy">
+                <div class="ego-pr-eyebrow">TRUNG TÂM TÀI CHÍNH</div>
+                <h1>Đề nghị thanh toán</h1>
+                <p>Theo dõi, phê duyệt và kiểm soát toàn bộ đề nghị chi phí trong doanh nghiệp.</p>
             </div>
         </div>
 
+        <div class="ego-pr-page-actions">
+            <a class="ego-pr-button ego-pr-button--secondary" href="{{ route('payment_requests.export_excel', $exportParams) }}">
+                <i class="bi bi-file-earmark-excel"></i>
+                <span>Xuất Excel</span>
+            </a>
 
-        @if($canBulkApprove)
-            <div class="bulk-approval-bar" id="prBulkApprovalBar">
-                <div class="bulk-approval-summary">
-                    <span class="bulk-approval-title">
-                        <i class="bi bi-check2-square"></i>
-                        Duyệt hàng loạt
-                    </span>
-                    <span class="bulk-approval-divider" aria-hidden="true"></span>
-                    <span class="bulk-approval-count">
-                        Đã chọn <strong id="prBulkSelectedCount">0</strong> phiếu
-                    </span>
-                    <span class="bulk-approval-dot" aria-hidden="true">•</span>
-                    <strong id="prBulkSelectedAmount">0 đ</strong>
+            <a class="ego-pr-button ego-pr-button--secondary" href="{{ route('payment_requests.export_pdf', $exportParams) }}">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <span>Xuất PDF</span>
+            </a>
+
+            <button class="ego-pr-button ego-pr-button--primary" type="button" data-bs-toggle="modal" data-bs-target="#createPRModal">
+                <i class="bi bi-plus-lg"></i>
+                <span>Tạo phiếu mới</span>
+            </button>
+        </div>
+    </header>
+
+    @if(session('success'))
+        <div class="ego-pr-alert ego-pr-alert--success ego-pr-reveal" role="alert">
+            <i class="bi bi-check-circle"></i>
+            <span>{{ session('success') }}</span>
+            <button type="button" data-bs-dismiss="alert" aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="ego-pr-alert ego-pr-alert--danger ego-pr-reveal" role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span>{{ session('error') }}</span>
+            <button type="button" data-bs-dismiss="alert" aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="ego-pr-alert ego-pr-alert--danger ego-pr-reveal" role="alert">
+            <i class="bi bi-exclamation-triangle"></i>
+            <div>
+                <strong>Chưa lưu được phiếu</strong>
+                <ul>
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            <button type="button" data-bs-dismiss="alert" aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+        </div>
+    @endif
+
+    <section class="ego-pr-kpis ego-pr-reveal" aria-label="Thống kê đề nghị thanh toán">
+        <article class="ego-pr-kpi ego-pr-kpi--cyan">
+            <div>
+                <span>Tổng đề nghị</span>
+                <strong>{{ number_format((int)($totalRequests ?? (method_exists($items, 'total') ? $items->total() : count($items)))) }}</strong>
+                <small>phiếu trong phạm vi lọc</small>
+            </div>
+            <i class="bi bi-receipt"></i>
+        </article>
+
+        <article class="ego-pr-kpi ego-pr-kpi--orange">
+            <div>
+                <span>Chờ xử lý</span>
+                <strong>{{ number_format((int)($pendingCount ?? 0)) }}</strong>
+                <small>đang ở luồng phê duyệt</small>
+            </div>
+            <i class="bi bi-hourglass-split"></i>
+        </article>
+
+        <article class="ego-pr-kpi ego-pr-kpi--green">
+            <div>
+                <span>Đã hoàn tất</span>
+                <strong>{{ number_format((int)($approvedCount ?? 0)) }}</strong>
+                <small>kế toán đã xác nhận chi</small>
+            </div>
+            <i class="bi bi-check2-circle"></i>
+        </article>
+
+        <article class="ego-pr-kpi ego-pr-kpi--blue">
+            <div>
+                <span>Tổng giá trị đề nghị</span>
+                <strong class="ego-pr-kpi-money">{{ number_format((int)($totalAmount ?? 0)) }} đ</strong>
+                <small>tổng giá trị trong phạm vi lọc</small>
+            </div>
+            <i class="bi bi-cash-stack"></i>
+        </article>
+    </section>
+
+    <div class="ego-pr-mobile-toolbar ego-pr-reveal">
+        <form method="GET" action="{{ route('payment_requests.index') }}" class="ego-pr-mobile-search">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ request('q') }}" placeholder="Tìm mã phiếu, người nhận..." aria-label="Tìm kiếm đề nghị thanh toán">
+            @foreach(request()->except(['q', 'page']) as $key => $value)
+                @if(!is_array($value))
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endif
+            @endforeach
+        </form>
+
+        <button type="button" class="ego-pr-filter-open" id="egoPrFilterOpen" aria-controls="egoPrFilterPanel" aria-expanded="false">
+            <i class="bi bi-sliders2"></i>
+            <span>Bộ lọc</span>
+        </button>
+    </div>
+
+    <div class="ego-pr-filter-backdrop" id="egoPrFilterBackdrop" aria-hidden="true"></div>
+
+    <section class="ego-pr-filter-card ego-pr-reveal" id="egoPrFilterPanel" aria-label="Bộ lọc đề nghị thanh toán">
+        <div class="ego-pr-filter-head">
+            <div>
+                <span class="ego-pr-filter-icon"><i class="bi bi-sliders2"></i></span>
+                <div>
+                    <strong>Bộ lọc & tìm kiếm</strong>
+                    <small>Thu hẹp dữ liệu theo đúng nhu cầu xử lý.</small>
                 </div>
-                <div class="bulk-approval-actions">
-                    <label class="bulk-select-all-mobile">
-                        <input type="checkbox" id="prBulkSelectAllMobile" class="pr-bulk-select-all">
-                        Chọn tất cả
-                    </label>
-                    <button type="button" class="btn-soft" id="prBulkClear" disabled>
-                        <i class="bi bi-x-lg"></i> Bỏ chọn
-                    </button>
-                    <button type="button" class="btn-ego" id="prBulkOpenApprove" disabled>
-                        <i class="bi bi-check2-all"></i> Duyệt đã chọn
+            </div>
+            <button type="button" class="ego-pr-filter-close" id="egoPrFilterClose" aria-label="Đóng bộ lọc"><i class="bi bi-x-lg"></i></button>
+        </div>
+
+        <form method="GET" action="{{ route('payment_requests.index') }}" class="ego-pr-filter-form">
+            <input type="hidden" name="date_filter_manual" id="date_filter_manual" value="0">
+
+            <div class="ego-pr-field ego-pr-field--search">
+                <label for="egoPrSearch">Tìm kiếm</label>
+                <div class="ego-pr-input-icon">
+                    <i class="bi bi-search"></i>
+                    <input id="egoPrSearch" type="text" name="q" value="{{ request('q') }}" placeholder="Mã phiếu / Người nhận / Nội dung / Lý do...">
+                </div>
+            </div>
+
+            <div class="ego-pr-field">
+                <label for="egoPrCompany">Công ty</label>
+                <select id="egoPrCompany" name="company">
+                    <option value="">Tất cả công ty</option>
+                    @foreach($companyOptions ?? [] as $c)
+                        <option value="{{ $c }}" @selected(request('company') === $c)>{{ $c }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="ego-pr-field">
+                <label for="egoPrStatus">Trạng thái</label>
+                <select id="egoPrStatus" name="status">
+                    <option value="">Tất cả trạng thái</option>
+                    @foreach(['draft','submitted','admin_approved','admin_rejected','accounting_approved','accounting_rejected'] as $st)
+                        <option value="{{ $st }}" @selected(request('status') === $st)>{{ $statusLabels[$st] ?? $st }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            @if($canViewAll)
+                <div class="ego-pr-field">
+                    <label for="egoPrCreator">Người tạo</label>
+                    <select id="egoPrCreator" name="created_by">
+                        <option value="">Tất cả nhân sự</option>
+                        @foreach(($creatorOptions ?? []) as $u)
+                            <option value="{{ $u->id }}" @selected((string)request('created_by') === (string)$u->id)>{{ $u->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            <div class="ego-pr-field">
+                <label for="date_from">Từ ngày</label>
+                <input
+                    type="date"
+                    name="date_from"
+                    id="date_from"
+                    value="{{ $effectiveDateFrom ?? request('date_from') }}"
+                    oninput="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
+                    onchange="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
+                >
+            </div>
+
+            <div class="ego-pr-field">
+                <label for="date_to">Đến ngày</label>
+                <input
+                    type="date"
+                    name="date_to"
+                    id="date_to"
+                    value="{{ $effectiveDateTo ?? request('date_to') }}"
+                    oninput="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
+                    onchange="document.getElementById('date_preset').value='custom';document.getElementById('date_filter_manual').value='1';"
+                >
+            </div>
+
+            <div class="ego-pr-field">
+                <label for="date_preset">Khoảng thời gian</label>
+                <select name="date_preset" id="date_preset" onchange="document.getElementById('date_filter_manual').value='0';">
+                    <option value="this_month" @selected(($selectedDatePreset ?? '') === 'this_month')>Tháng này</option>
+                    <option value="last_month" @selected(($selectedDatePreset ?? '') === 'last_month')>Tháng trước</option>
+                    <option value="this_week" @selected(($selectedDatePreset ?? '') === 'this_week')>Tuần này</option>
+                    <option value="last_week" @selected(($selectedDatePreset ?? '') === 'last_week')>Tuần trước</option>
+                    <option value="today" @selected(($selectedDatePreset ?? '') === 'today')>Hôm nay</option>
+                    <option value="this_year" @selected(($selectedDatePreset ?? '') === 'this_year')>Năm nay</option>
+                    <option value="custom" @selected(($selectedDatePreset ?? '') === 'custom')>Tùy chỉnh</option>
+                    <option value="all_time" @selected(($selectedDatePreset ?? 'all_time') === 'all_time')>Tất cả thời gian</option>
+                </select>
+            </div>
+
+            <div class="ego-pr-filter-footer">
+                <div class="ego-pr-paid-chip">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Đã chi trong kỳ</span>
+                    <strong>{{ number_format((int)($totalPaid ?? 0)) }} đ</strong>
+                </div>
+
+                <div class="ego-pr-filter-actions">
+                    <a class="ego-pr-button ego-pr-button--ghost" href="{{ route('payment_requests.index') }}">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        Xóa lọc
+                    </a>
+                    <button class="ego-pr-button ego-pr-button--primary" type="submit">
+                        <i class="bi bi-funnel"></i>
+                        Áp dụng
                     </button>
                 </div>
             </div>
-        @endif
+        </form>
+    </section>
 
-        {{-- PC TABLE --}}
-        <div class="d-none d-md-block">
-            <div class="table-wrap">
-                <div class="table-responsive">
-                    <table class="table table-hover table-bordered mb-0 align-middle table-sm-ego">
-                        <thead class="text-center">
+    @if($canBulkApprove)
+        <section class="bulk-approval-bar ego-pr-bulk-bar ego-pr-reveal" id="prBulkApprovalBar">
+            <div class="bulk-approval-summary">
+                <span class="bulk-approval-title"><i class="bi bi-check2-square"></i> Duyệt hàng loạt</span>
+                <span class="bulk-approval-count">Đã chọn <strong id="prBulkSelectedCount">0</strong> phiếu</span>
+                <span class="bulk-approval-dot" aria-hidden="true">•</span>
+                <strong id="prBulkSelectedAmount">0 đ</strong>
+            </div>
+            <div class="bulk-approval-actions">
+                <label class="bulk-select-all-mobile">
+                    <input type="checkbox" id="prBulkSelectAllMobile" class="pr-bulk-select-all">
+                    Chọn tất cả
+                </label>
+                <button type="button" class="ego-pr-button ego-pr-button--ghost" id="prBulkClear" disabled>
+                    <i class="bi bi-x-lg"></i> Bỏ chọn
+                </button>
+                <button type="button" class="ego-pr-button ego-pr-button--primary" id="prBulkOpenApprove" disabled>
+                    <i class="bi bi-check2-all"></i> Duyệt đã chọn
+                </button>
+            </div>
+        </section>
+    @endif
+
+    <section class="ego-pr-data-card ego-pr-reveal">
+        <div class="ego-pr-data-head">
+            <div>
+                <strong>Danh sách đề nghị</strong>
+                <span>Hiển thị {{ number_format((int)($items->count() ?? 0)) }} phiếu trên trang hiện tại</span>
+            </div>
+            <span class="ego-pr-data-count">{{ number_format((int)($items->total() ?? count($items))) }} phiếu</span>
+        </div>
+
+        <div class="ego-pr-desktop-table">
+            <div class="ego-pr-table-scroll">
+                <table class="ego-pr-table">
+                    <thead>
                         <tr>
                             @if($canBulkApprove)
-                                <th style="width:48px" title="Chọn tất cả phiếu đủ điều kiện trên trang">
-                                    <input type="checkbox" id="prBulkSelectAllDesktop" class="pr-bulk-select-all">
+                                <th class="ego-pr-col-check">
+                                    <input type="checkbox" id="prBulkSelectAllDesktop" class="pr-bulk-select-all" aria-label="Chọn tất cả phiếu đủ điều kiện">
                                 </th>
                             @endif
-                            <th style="width:60px">STT</th>
-                            <th style="width:140px">Mã</th>
-                            <th>Người nhận</th>
-                            {{-- EGO_PAYMENT_REASON_COLUMN_HEAD --}}
-                            <th style="width:260px">Lý do</th>
-                            <th style="width:140px">Số tiền</th>
-                            <th style="width:190px">Trạng thái</th>
-                            <th style="width:170px">Ngày tạo</th>
-                            <th style="width:90px">Xem</th>
-                            <th style="width:180px">Công ty</th>
-                            <th style="width:160px">Người tạo</th>
-                            <th style="width:330px">Thao tác</th>
+                            <th class="ego-pr-col-code">Mã phiếu</th>
+                            <th class="ego-pr-col-recipient">Người nhận</th>
+                            <th class="ego-pr-col-content">Nội dung / Lý do</th>
+                            <th class="ego-pr-col-amount">Số tiền</th>
+                            <th class="ego-pr-col-status">Trạng thái</th>
+                            <th class="ego-pr-col-due">Hạn thanh toán</th>
+                            <th class="ego-pr-col-company">Công ty</th>
+                            <th class="ego-pr-col-creator">Người tạo</th>
+                            <th class="ego-pr-col-actions">Thao tác</th>
                         </tr>
-                        </thead>
-
-                        <tbody>
+                    </thead>
+                    <tbody>
                         @forelse($items as $it)
                             @php
                                 $status = $it->status ?? 'draft';
-                                $badge = $statusBadges[$status] ?? 'secondary';
                                 $label = $statusLabels[$status] ?? $status;
-
                                 $isOwner = ((int)$it->created_by === (int)auth()->id());
-
                                 $canEditDelete = $isOwner && in_array($status, ['draft','admin_rejected','accounting_rejected'], true);
-                                $canSubmit = $isOwner && in_array($status, ['draft','admin_rejected','accounting_rejected'], true);
-
+                                $canSubmit = $canEditDelete;
                                 $canAdminAction = ($status === 'submitted');
                                 $canAccAction = ($status === 'admin_approved');
-                                $bulkSelectable = ($canAdminApprove && $canAdminAction)
-                                    || ($canAccountingApprove && $canAccAction);
-
+                                $bulkSelectable = ($canAdminApprove && $canAdminAction) || ($canAccountingApprove && $canAccAction);
                                 $canDownloadPdf = ($status === 'accounting_approved');
+                                $dueText = '-';
+                                $isOverdue = false;
+                                if (!empty($it->payment_due_date)) {
+                                    try {
+                                        $dueDate = \Illuminate\Support\Carbon::parse($it->payment_due_date);
+                                        $dueText = $dueDate->format('d/m/Y');
+                                        $isOverdue = $dueDate->isPast() && !in_array($status, ['accounting_approved','accounting_rejected'], true);
+                                    } catch (\Throwable $e) {
+                                        $dueText = (string)$it->payment_due_date;
+                                    }
+                                }
+                                $contentText = trim(strip_tags((string)($it->payment_content ?: $it->reason ?: '-')));
                             @endphp
 
-                            <tr>
+                            <tr data-payment-id="{{ $it->id }}">
                                 @if($canBulkApprove)
-                                    <td class="bulk-select-cell">
+                                    <td class="ego-pr-col-check">
                                         @if($bulkSelectable)
                                             <input
                                                 type="checkbox"
@@ -735,352 +375,238 @@
                                                 aria-label="Chọn phiếu {{ $it->code }}"
                                             >
                                         @else
-                                            <span class="text-muted">—</span>
+                                            <span class="ego-pr-unavailable">—</span>
                                         @endif
                                     </td>
                                 @endif
-                                <td class="text-center">
-                                    {{ ($items->firstItem() ?? 1) + $loop->index }}
+
+                                <td class="ego-pr-col-code">
+                                    <a href="{{ route('payment_requests.show', $it->id) }}" class="ego-pr-code">{{ $it->code }}</a>
+                                    <small>{{ optional($it->created_at)->format('d/m/Y · H:i') ?? '-' }}</small>
                                 </td>
 
-                                <td>
-                                    <a href="{{ route('payment_requests.show', $it->id) }}" class="code-link">
-                                        {{ $it->code }}
-                                    </a>
+                                <td class="ego-pr-col-recipient">
+                                    <strong>{{ $it->receiver_name ?: 'Chưa cập nhật' }}</strong>
+                                    <small>{{ $it->department ?: 'Chưa có đơn vị' }}</small>
                                 </td>
 
-                                <td class="fw-semibold">{{ $it->receiver_name }}</td>
-
-                                {{-- EGO_PAYMENT_REASON_COLUMN_CELL --}}
-                                <td class="payment-reason-cell">
-                                    <div class="payment-reason-text" title="{{ $it->reason ?? '-' }}">
-                                        {{ $it->reason ?: '-' }}
-                                    </div>
+                                <td class="ego-pr-col-content">
+                                    <div class="ego-pr-content-clamp" title="{{ $contentText }}">{{ $contentText }}</div>
                                 </td>
 
-                                <td class="text-end">
-                                    <span class="amount">{{ number_format((int)$it->amount) }} đ</span>
+                                <td class="ego-pr-col-amount"><strong>{{ number_format((int)$it->amount) }} đ</strong></td>
+
+                                <td class="ego-pr-col-status">
+                                    <span class="ego-pr-status ego-pr-status--{{ str_replace('_', '-', $status) }}">{{ $label }}</span>
                                 </td>
 
-                                <td class="text-center">
-                                    <span class="badge bg-{{ $badge }}">{{ $label }}</span>
+                                <td class="ego-pr-col-due">
+                                    <span>{{ $dueText }}</span>
+                                    @if($isOverdue)
+                                        <small class="ego-pr-overdue">Quá hạn</small>
+                                    @endif
                                 </td>
 
-                                <td class="text-center">
-                                    <span class="muted">{{ optional($it->created_at)->format('d/m/Y H:i') ?? $it->created_at }}</span>
-                                </td>
+                                <td class="ego-pr-col-company"><div class="ego-pr-company-clamp" title="{{ $it->company ?? '-' }}">{{ $it->company ?? '-' }}</div></td>
+                                <td class="ego-pr-col-creator"><strong>{{ optional($it->creator)->name ?? ($it->created_by ?? '-') }}</strong></td>
 
-                                <td class="text-center">
-                                    <a href="{{ route('payment_requests.show', $it->id) }}" class="btn btn-outline-primary btn-mini">
-                                        <i class="bi bi-box-arrow-up-right"></i>
-                                    </a>
-                                </td>
+                                <td class="ego-pr-col-actions">
+                                    <div class="ego-pr-row-actions">
+                                        <a class="ego-pr-view-button" href="{{ route('payment_requests.show', $it->id) }}" aria-label="Xem chi tiết {{ $it->code }}" title="Xem chi tiết">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
 
-                                <td>{{ $it->company ?? '-' }}</td>
+                                        <button class="ego-pr-menu-toggle" type="button" aria-label="Mở thao tác" aria-expanded="false" data-menu-id="egoPrActions{{ $it->id }}">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
 
-                                <td>{{ optional($it->creator)->name ?? ($it->created_by ?? '-') }}</td>
+                                        <div class="ego-pr-action-menu" id="egoPrActions{{ $it->id }}" aria-hidden="true">
+                                            <a href="{{ route('payment_requests.show', $it->id) }}"><i class="bi bi-eye"></i><span>Xem chi tiết</span></a>
 
-                                <td>
-                                    <div class="d-flex gap-2 flex-wrap" style="white-space:nowrap;">
-                                        <form action="{{ route('payment_requests.copy', $it->id) }}" method="POST"
-                                              class="d-inline" onsubmit="return confirm('Sao chép phiếu này thành phiếu mới?');">
-                                            @csrf
-                                            <button class="btn btn-outline-primary btn-mini" type="submit">
-                                                <i class="bi bi-files"></i> Sao chép
-                                            </button>
-                                        </form>
-
-
-                                        @if($canEditDelete)
-                                            <a href="{{ route('payment_requests.edit', $it->id) }}" class="btn btn-warning btn-mini">
-                                                <i class="bi bi-pencil"></i> Sửa
-                                            </a>
-
-                                            <form action="{{ route('payment_requests.destroy', $it->id) }}" method="POST"
-                                                  class="d-inline" onsubmit="return confirm('Xoá phiếu này?');">
+                                            <form action="{{ route('payment_requests.copy', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Sao chép phiếu này thành phiếu mới?">
                                                 @csrf
-                                                @method('DELETE')
-                                                <button class="btn btn-danger btn-mini">
-                                                    <i class="bi bi-trash"></i> Xoá
-                                                </button>
+                                                <button type="submit"><i class="bi bi-files"></i><span>Sao chép phiếu</span></button>
                                             </form>
-                                        @endif
 
-                                        @if($canSubmit)
-                                            <form action="{{ route('payment_requests.submit', $it->id) }}" method="POST"
-                                                  class="d-inline" onsubmit="return confirm('Gửi duyệt phiếu này?');">
-                                                @csrf
-                                                <button class="btn btn-success btn-mini">
-                                                    <i class="bi bi-send-check"></i> Gửi duyệt
-                                                </button>
-                                            </form>
-                                        @endif
+                                            @if($canEditDelete)
+                                                <a href="{{ route('payment_requests.edit', $it->id) }}"><i class="bi bi-pencil"></i><span>Chỉnh sửa</span></a>
+                                            @endif
 
-                                        @role('admin')
-                                            @if($canAdminAction)
-                                                <form action="{{ route('payment_requests.admin_approve', $it->id) }}" method="POST"
-                                                      class="d-inline" onsubmit="return confirm('Duyệt phiếu này?');">
+                                            @if($canSubmit)
+                                                <form action="{{ route('payment_requests.submit', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Gửi duyệt phiếu này?">
                                                     @csrf
-                                                    <button class="btn btn-success btn-mini">
-                                                        <i class="bi bi-check-circle"></i> Duyệt
-                                                    </button>
-                                                </form>
-
-                                                <form action="{{ route('payment_requests.admin_reject', $it->id) }}" method="POST"
-                                                      class="d-inline" onsubmit="return confirm('Từ chối phiếu này?');">
-                                                    @csrf
-                                                    <button class="btn btn-outline-danger btn-mini">
-                                                        <i class="bi bi-x-circle"></i> Từ chối
-                                                    </button>
+                                                    <button type="submit"><i class="bi bi-send-check"></i><span>Gửi duyệt</span></button>
                                                 </form>
                                             @endif
-                                        @endrole
 
-                                        @role('accounting')
-                                            @if($canAccAction)
-                                                <form action="{{ route('payment_requests.acc_approve', $it->id) }}" method="POST"
-                                                      class="d-inline" onsubmit="return confirm('Xác nhận đã chi phiếu này?');">
+                                            @if($canAdminApprove && $canAdminAction)
+                                                <form action="{{ route('payment_requests.admin_approve', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Duyệt phiếu này?">
                                                     @csrf
-                                                    <button class="btn btn-success btn-mini">
-                                                        <i class="bi bi-cash-coin"></i> Đã chi
-                                                    </button>
+                                                    <button type="submit" class="is-positive"><i class="bi bi-check2-circle"></i><span>Duyệt phiếu</span></button>
                                                 </form>
-
-                                                <form action="{{ route('payment_requests.acc_reject', $it->id) }}" method="POST"
-                                                      class="d-inline" onsubmit="return confirm('Kế toán từ chối phiếu này?');">
+                                                <form action="{{ route('payment_requests.admin_reject', $it->id) }}" method="POST">
                                                     @csrf
-                                                    <button class="btn btn-outline-danger btn-mini">
-                                                        <i class="bi bi-x-circle"></i> Từ chối
-                                                    </button>
+                                                    <button type="submit" class="is-danger"><i class="bi bi-x-circle"></i><span>Từ chối</span></button>
                                                 </form>
                                             @endif
-                                        @endrole
 
-                                        @if($canDownloadPdf)
-                                            <a href="{{ route('payment_requests.invoice', $it->id) }}" class="btn btn-outline-secondary btn-mini">
-                                                <i class="bi bi-filetype-pdf"></i> PDF
-                                            </a>
-                                        @endif
+                                            @if($canAccountingApprove && $canAccAction)
+                                                <form action="{{ route('payment_requests.acc_approve', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Xác nhận đã chi phiếu này?">
+                                                    @csrf
+                                                    <button type="submit" class="is-positive"><i class="bi bi-cash-coin"></i><span>Xác nhận đã chi</span></button>
+                                                </form>
+                                                <form action="{{ route('payment_requests.acc_reject', $it->id) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="is-danger"><i class="bi bi-x-circle"></i><span>Kế toán từ chối</span></button>
+                                                </form>
+                                            @endif
 
-                                        @if(
-                                            !$canEditDelete &&
-                                            !$canSubmit &&
-                                            !(auth()->check() && auth()->user()->hasRole('admin') && $canAdminAction) &&
-                                            !(auth()->check() && auth()->user()->hasRole('accounting') && $canAccAction) &&
-                                            !$canDownloadPdf &&
-                                            false
-                                        )
-                                            <span class="text-muted">-</span>
-                                        @endif
+                                            @if($canDownloadPdf)
+                                                <a href="{{ route('payment_requests.invoice', $it->id) }}"><i class="bi bi-filetype-pdf"></i><span>Tải PDF</span></a>
+                                            @endif
+
+                                            @if($canEditDelete)
+                                                <div class="ego-pr-menu-divider"></div>
+                                                <form action="{{ route('payment_requests.destroy', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Xóa phiếu này? Hành động không thể hoàn tác.">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="is-danger"><i class="bi bi-trash"></i><span>Xóa phiếu</span></button>
+                                                </form>
+                                            @endif
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $canBulkApprove ? 12 : 11 }}" class="text-center text-muted py-4">
-                                    Chưa có phiếu nào.
+                                <td colspan="{{ $canBulkApprove ? 10 : 9 }}" class="ego-pr-empty-row">
+                                    <i class="bi bi-inbox"></i>
+                                    <strong>Chưa có đề nghị thanh toán</strong>
+                                    <span>Thử thay đổi bộ lọc hoặc tạo một phiếu mới.</span>
                                 </td>
                             </tr>
                         @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="p-3 d-flex justify-content-end">
-                    {{ $items->links('pagination::bootstrap-5') }}
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        {{-- MOBILE LIST --}}
-        <div class="d-block d-md-none">
-            <div class="m-list">
-                @forelse($items as $it)
-                    @php
-                        $status = $it->status ?? 'draft';
-                        $badge = $statusBadges[$status] ?? 'secondary';
-                        $label = $statusLabels[$status] ?? $status;
+        <div class="ego-pr-mobile-list">
+            @forelse($items as $it)
+                @php
+                    $status = $it->status ?? 'draft';
+                    $label = $statusLabels[$status] ?? $status;
+                    $isOwner = ((int)$it->created_by === (int)auth()->id());
+                    $canEditDelete = $isOwner && in_array($status, ['draft','admin_rejected','accounting_rejected'], true);
+                    $canSubmit = $canEditDelete;
+                    $canAdminAction = ($status === 'submitted');
+                    $canAccAction = ($status === 'admin_approved');
+                    $bulkSelectable = ($canAdminApprove && $canAdminAction) || ($canAccountingApprove && $canAccAction);
+                    $canDownloadPdf = ($status === 'accounting_approved');
+                    $dueText = '-';
+                    if (!empty($it->payment_due_date)) {
+                        try { $dueText = \Illuminate\Support\Carbon::parse($it->payment_due_date)->format('d/m/Y'); } catch (\Throwable $e) { $dueText = (string)$it->payment_due_date; }
+                    }
+                    $contentText = trim(strip_tags((string)($it->payment_content ?: $it->reason ?: '-')));
+                @endphp
 
-                        $isOwner = ((int)$it->created_by === (int)auth()->id());
-
-                        $canEditDelete = $isOwner && in_array($status, ['draft','admin_rejected','accounting_rejected'], true);
-                        $canSubmit = $isOwner && in_array($status, ['draft','admin_rejected','accounting_rejected'], true);
-
-                        $canAdminAction = ($status === 'submitted');
-                        $canAccAction = ($status === 'admin_approved');
-                        $bulkSelectable = ($canAdminApprove && $canAdminAction)
-                            || ($canAccountingApprove && $canAccAction);
-
-                        $canDownloadPdf = ($status === 'accounting_approved');
-                    @endphp
-
-                    <div class="m-card">
-                        <div class="m-card-top">
-                            <div class="d-flex align-items-start gap-2">
-                                @if($canBulkApprove && $bulkSelectable)
-                                    <span class="bulk-mobile-select">
-                                        <input
-                                            type="checkbox"
-                                            class="pr-bulk-checkbox js-pr-bulk-checkbox"
-                                            value="{{ $it->id }}"
-                                            data-id="{{ $it->id }}"
-                                            data-code="{{ $it->code }}"
-                                            data-amount="{{ (int)$it->amount }}"
-                                            aria-label="Chọn phiếu {{ $it->code }}"
-                                        >
-                                    </span>
-                                @endif
-                                <a class="m-code" href="{{ route('payment_requests.show', $it->id) }}">
-                                    #{{ $it->code }}
-                                </a>
-                            </div>
-                            <div class="m-date">
-                                {{ optional($it->created_at)->format('d/m/Y H:i') ?? $it->created_at }}
+                <article class="ego-pr-mobile-card" data-payment-id="{{ $it->id }}">
+                    <div class="ego-pr-mobile-card-head">
+                        <div class="ego-pr-mobile-card-code">
+                            @if($canBulkApprove && $bulkSelectable)
+                                <input
+                                    type="checkbox"
+                                    class="pr-bulk-checkbox js-pr-bulk-checkbox"
+                                    value="{{ $it->id }}"
+                                    data-id="{{ $it->id }}"
+                                    data-code="{{ $it->code }}"
+                                    data-amount="{{ (int)$it->amount }}"
+                                    aria-label="Chọn phiếu {{ $it->code }}"
+                                >
+                            @endif
+                            <div>
+                                <a href="{{ route('payment_requests.show', $it->id) }}">{{ $it->code }}</a>
+                                <small>{{ optional($it->created_at)->format('d/m/Y · H:i') ?? '-' }}</small>
                             </div>
                         </div>
 
-                        <div class="m-body">
-                            <div class="m-row">
-                                <div class="m-k">Người nhận</div>
-                                <div class="m-v">{{ $it->receiver_name }}</div>
-                            </div>
-
-                            {{-- EGO_PAYMENT_REASON_MOBILE_ROW --}}
-                            <div class="m-row">
-                                <div class="m-k">Lý do</div>
-                                <div class="m-v">{{ $it->reason ?: '-' }}</div>
-                            </div>
-
-                            <div class="m-row">
-                                <div class="m-k">Số tiền</div>
-                                <div class="m-v m-amount">{{ number_format((int)$it->amount) }} đ</div>
-                            </div>
-
-                            <div class="m-row">
-                                <div class="m-k">Trạng thái</div>
-                                <div class="m-v">
-                                    <span class="badge bg-{{ $badge }}">{{ $label }}</span>
-                                </div>
-                            </div>
-
-                            <div class="m-row">
-                                <div class="m-k">Công ty</div>
-                                <div class="m-v">{{ $it->company ?? '-' }}</div>
-                            </div>
-
-                            <div class="m-row">
-                                <div class="m-k">Người tạo</div>
-                                <div class="m-v">{{ optional($it->creator)->name ?? ($it->created_by ?? '-') }}</div>
-                            </div>
+                        <div class="ego-pr-mobile-card-status">
+                            <span class="ego-pr-status ego-pr-status--{{ str_replace('_', '-', $status) }}">{{ $label }}</span>
+                            <button class="ego-pr-menu-toggle" type="button" aria-label="Mở thao tác" aria-expanded="false" data-menu-id="egoPrMobileActions{{ $it->id }}"><i class="bi bi-three-dots"></i></button>
                         </div>
 
-                        <div class="m-actions">
-                            <a href="{{ route('payment_requests.show', $it->id) }}" class="m-btn info">
-                                <i class="bi bi-box-arrow-up-right"></i> Xem
-                            </a>
-                            <form action="{{ route('payment_requests.copy', $it->id) }}" method="POST"
-                                  class="d-inline" onsubmit="return confirm('Sao chép phiếu này thành phiếu mới?');">
-                                @csrf
-                                <button class="m-btn info" type="submit">
-                                    <i class="bi bi-files"></i> Sao chép
-                                </button>
-                            </form>
-
-
+                        <div class="ego-pr-action-menu" id="egoPrMobileActions{{ $it->id }}" aria-hidden="true">
+                            <a href="{{ route('payment_requests.show', $it->id) }}"><i class="bi bi-eye"></i><span>Xem chi tiết</span></a>
+                            <form action="{{ route('payment_requests.copy', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Sao chép phiếu này thành phiếu mới?">@csrf<button type="submit"><i class="bi bi-files"></i><span>Sao chép</span></button></form>
+                            @if($canEditDelete)<a href="{{ route('payment_requests.edit', $it->id) }}"><i class="bi bi-pencil"></i><span>Chỉnh sửa</span></a>@endif
+                            @if($canSubmit)<form action="{{ route('payment_requests.submit', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Gửi duyệt phiếu này?">@csrf<button type="submit"><i class="bi bi-send-check"></i><span>Gửi duyệt</span></button></form>@endif
+                            @if($canAdminApprove && $canAdminAction)
+                                <form action="{{ route('payment_requests.admin_approve', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Duyệt phiếu này?">@csrf<button type="submit" class="is-positive"><i class="bi bi-check2-circle"></i><span>Duyệt phiếu</span></button></form>
+                                <form action="{{ route('payment_requests.admin_reject', $it->id) }}" method="POST">@csrf<button type="submit" class="is-danger"><i class="bi bi-x-circle"></i><span>Từ chối</span></button></form>
+                            @endif
+                            @if($canAccountingApprove && $canAccAction)
+                                <form action="{{ route('payment_requests.acc_approve', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Xác nhận đã chi phiếu này?">@csrf<button type="submit" class="is-positive"><i class="bi bi-cash-coin"></i><span>Đã chi</span></button></form>
+                                <form action="{{ route('payment_requests.acc_reject', $it->id) }}" method="POST">@csrf<button type="submit" class="is-danger"><i class="bi bi-x-circle"></i><span>Từ chối</span></button></form>
+                            @endif
+                            @if($canDownloadPdf)<a href="{{ route('payment_requests.invoice', $it->id) }}"><i class="bi bi-filetype-pdf"></i><span>Tải PDF</span></a>@endif
                             @if($canEditDelete)
-                                <a href="{{ route('payment_requests.edit', $it->id) }}" class="m-btn warn">
-                                    <i class="bi bi-pencil"></i> Sửa
-                                </a>
-
-                                <form action="{{ route('payment_requests.destroy', $it->id) }}" method="POST"
-                                      class="d-inline" onsubmit="return confirm('Xoá phiếu này?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="m-btn danger" type="submit">
-                                        <i class="bi bi-trash"></i> Xoá
-                                    </button>
-                                </form>
-                            @endif
-
-                            @if($canSubmit)
-                                <form action="{{ route('payment_requests.submit', $it->id) }}" method="POST"
-                                      class="d-inline" onsubmit="return confirm('Gửi duyệt phiếu này?');">
-                                    @csrf
-                                    <button class="m-btn ok" type="submit">
-                                        <i class="bi bi-send-check"></i> Gửi
-                                    </button>
-                                </form>
-                            @endif
-
-                            @role('admin')
-                                @if($canAdminAction)
-                                    <form action="{{ route('payment_requests.admin_approve', $it->id) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Duyệt phiếu này?');">
-                                        @csrf
-                                        <button class="m-btn ok" type="submit">
-                                            <i class="bi bi-check-circle"></i> Duyệt
-                                        </button>
-                                    </form>
-
-                                    <form action="{{ route('payment_requests.admin_reject', $it->id) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Từ chối phiếu này?');">
-                                        @csrf
-                                        <button class="m-btn danger" type="submit">
-                                            <i class="bi bi-x-circle"></i> T.chối
-                                        </button>
-                                    </form>
-                                @endif
-                            @endrole
-
-                            @role('accounting')
-                                @if($canAccAction)
-                                    <form action="{{ route('payment_requests.acc_approve', $it->id) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Xác nhận đã chi phiếu này?');">
-                                        @csrf
-                                        <button class="m-btn ok" type="submit">
-                                            <i class="bi bi-cash-coin"></i> Đã chi
-                                        </button>
-                                    </form>
-
-                                    <form action="{{ route('payment_requests.acc_reject', $it->id) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Kế toán từ chối phiếu này?');">
-                                        @csrf
-                                        <button class="m-btn danger" type="submit">
-                                            <i class="bi bi-x-circle"></i> T.chối
-                                        </button>
-                                    </form>
-                                @endif
-                            @endrole
-
-                            @if($canDownloadPdf)
-                                <a href="{{ route('payment_requests.invoice', $it->id) }}" class="m-btn gray">
-                                    <i class="bi bi-filetype-pdf"></i> PDF
-                                </a>
-                            @endif
-
-                            @if(
-                                !$canEditDelete &&
-                                !$canSubmit &&
-                                !(auth()->check() && auth()->user()->hasRole('admin') && $canAdminAction) &&
-                                !(auth()->check() && auth()->user()->hasRole('accounting') && $canAccAction) &&
-                                !$canDownloadPdf &&
-                                false
-                            )
-                                <span class="text-muted">-</span>
+                                <div class="ego-pr-menu-divider"></div>
+                                <form action="{{ route('payment_requests.destroy', $it->id) }}" method="POST" class="ego-pr-confirm-form" data-confirm="Xóa phiếu này?">@csrf @method('DELETE')<button type="submit" class="is-danger"><i class="bi bi-trash"></i><span>Xóa phiếu</span></button></form>
                             @endif
                         </div>
                     </div>
-                @empty
-                    <div class="text-center text-muted py-4">Chưa có phiếu nào.</div>
-                @endforelse
-            </div>
 
-            <div class="p-3 d-flex justify-content-end" style="padding-left:12px;padding-right:12px;">
-                {{ $items->links('pagination::bootstrap-5') }}
-            </div>
+                    <div class="ego-pr-mobile-card-body">
+                        <div class="ego-pr-mobile-recipient">
+                            <span>Người nhận</span>
+                            <strong>{{ $it->receiver_name ?: 'Chưa cập nhật' }}</strong>
+                            <small>{{ $it->department ?: 'Chưa có đơn vị' }}</small>
+                        </div>
+
+                        <div class="ego-pr-mobile-content">{{ $contentText }}</div>
+
+                        <strong class="ego-pr-mobile-amount">{{ number_format((int)$it->amount) }} đ</strong>
+
+                        <div class="ego-pr-mobile-meta">
+                            <span><i class="bi bi-calendar3"></i> Hạn: {{ $dueText }}</span>
+                            <span><i class="bi bi-person"></i> {{ optional($it->creator)->name ?? ($it->created_by ?? '-') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="ego-pr-mobile-card-foot">
+                        <a href="{{ route('payment_requests.show', $it->id) }}"><i class="bi bi-eye"></i> Xem chi tiết</a>
+                        @if(($canAdminApprove && $canAdminAction) || ($canAccountingApprove && $canAccAction))
+                            <button type="button" class="ego-pr-mobile-process" data-menu-id="egoPrMobileActions{{ $it->id }}"><i class="bi bi-lightning-charge"></i> Xử lý</button>
+                        @endif
+                    </div>
+                </article>
+            @empty
+                <div class="ego-pr-mobile-empty"><i class="bi bi-inbox"></i><strong>Chưa có đề nghị thanh toán</strong></div>
+            @endforelse
         </div>
 
-    </div>
+        <footer class="ego-pr-table-footer">
+            <div>
+                Hiển thị <strong>{{ number_format((int)($items->firstItem() ?? 0)) }}–{{ number_format((int)($items->lastItem() ?? 0)) }}</strong>
+                trên tổng số <strong>{{ number_format((int)($items->total() ?? 0)) }}</strong> phiếu
+            </div>
+
+            <div class="ego-pr-pagination-tools">
+                <form method="GET" action="{{ route('payment_requests.index') }}" class="ego-pr-per-page-form">
+                    @foreach(request()->except(['per_page', 'page']) as $key => $value)
+                        @if(!is_array($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif
+                    @endforeach
+                    <label for="egoPrPerPage">Số dòng</label>
+                    <select name="per_page" id="egoPrPerPage" onchange="this.form.submit()">
+                        @foreach([20,50,100] as $size)
+                            <option value="{{ $size }}" @selected((int)request('per_page', 20) === $size)>{{ $size }}</option>
+                        @endforeach
+                    </select>
+                </form>
+                <div class="ego-pr-pagination">{{ $items->links('pagination::bootstrap-5') }}</div>
+            </div>
+        </footer>
+    </section>
 </div>
 
 
@@ -1119,10 +645,16 @@
 </div>
 @endif
 
+
 {{-- Modal tạo phiếu --}}
-<div class="modal fade" id="createPRModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content modal-compact" style="border-radius:18px; overflow:hidden;">
+<div
+    class="modal fade"
+    id="createPRModal"
+    tabindex="-1"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
             <form
                 id="egoPaymentRequestCreateForm"
                 method="POST"
@@ -1131,89 +663,301 @@
             >
                 @csrf
 
-                <div class="modal-header" style="background: linear-gradient(135deg, rgba(6,182,212,.20), rgba(8,145,178,.12)); border-bottom:1px solid rgba(15,23,42,.08);">
-                    <h5 class="modal-title">
-                        <i class="bi bi-plus-circle me-1"></i> Tạo đề nghị thanh toán
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header ego-dntt-head">
+                    <div class="ego-dntt-head-icon">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </div>
+
+                    <div class="ego-dntt-head-copy">
+                        <div class="ego-dntt-eyebrow">
+                            Tài chính nội bộ
+                        </div>
+
+                        <h5 class="modal-title">
+                            Tạo đề nghị thanh toán
+                        </h5>
+
+                        <div class="ego-dntt-head-desc">
+                            Khởi tạo phiếu, đính kèm chứng từ và theo dõi quy trình xử lý.
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="ego-dntt-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Đóng"
+                    >
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
 
-                <div class="modal-body compact">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Công ty <span class="text-danger">*</span></label>
-                            <select name="company" class="form-select" required>
-                                <option value="">-- Chọn công ty --</option>
-                                @foreach($companyOptions ?? [] as $c)
-                                    <option value="{{ $c }}">{{ $c }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                <div class="modal-body">
+                    <div class="ego-dntt-notice">
+                        <i class="bi bi-info-circle"></i>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Loại phiếu <span class="text-danger">*</span></label>
-                            <select name="doc_type" class="form-select" required>
-                                <option value="payment_request">Phiếu đề nghị thanh toán</option>
-                                <option value="payment_voucher">Phiếu chi</option>
-                                <option value="advance">Phiếu đề nghị tạm ứng</option>
-                            <option value="refund_request">Đề nghị hoàn tiền</option>
-                            </select>
-                        </div>
+                        <span>
+                            Tất cả trường đều có thể để trống và bổ sung sau khi tạo phiếu.
+                        </span>
+                    </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Người nhận <span class="text-danger">*</span></label>
-                            <input name="receiver_name" class="form-control" required>
-                        </div>
+                    <div class="ego-dntt-layout">
+                        <section class="ego-dntt-section">
+                            <div class="ego-dntt-section-head">
+                                <span class="ego-dntt-section-index">
+                                    01
+                                </span>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Đơn vị</label>
-                            <input name="department" class="form-control">
-                        </div>
+                                <div>
+                                    <h6 class="ego-dntt-section-title">
+                                        Thông tin phiếu
+                                    </h6>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Số tiền (VND) <span class="text-danger">*</span></label>
-                            <input name="amount" type="number" min="1" class="form-control" required>
-                        </div>
+                                    <div class="ego-dntt-section-desc">
+                                        Phân loại, người nhận và thời hạn dự kiến.
+                                    </div>
+                                </div>
+                            </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">Nội dung thanh toán</label>
-                            <input name="payment_content" class="form-control" placeholder="VD: Thanh toán đợt 1 / Tạm ứng vật tư...">
-                        </div>
+                            <div class="ego-dntt-section-body">
+                                <div class="ego-dntt-grid">
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Công ty</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
 
-                        <div class="col-md-12">
-                            <label class="form-label">Lý do <span class="text-danger">*</span></label>
-                            <textarea name="reason" id="reason_editor" class="form-control" rows="6"></textarea>
-                        </div>
+                                        <select
+                                            name="company"
+                                            class="form-select"
+                                        >
+                                            <option value="">
+                                                Theo công ty đang làm việc
+                                            </option>
 
-                        <div class="col-md-12">
-                            <label class="form-label">Thông tin chuyển khoản</label>
-                            <input name="bank_info" class="form-control" placeholder="VD: MB BANK - 0123... - Nguyễn Văn A">
-                        </div>
+                                            @foreach($companyOptions ?? [] as $c)
+                                                <option
+                                                    value="{{ $c }}"
+                                                    @selected(old('company') === $c)
+                                                >
+                                                    {{ $c }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
 
-                        <div class="col-md-12">
-                            <label class="form-label">Chứng từ (ảnh / file)</label>
-                            <input
-                                type="file"
-                                name="attachments[]"
-                                class="form-control"
-                                multiple
-                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                            >
-                            <div class="muted mt-1">Có thể chọn nhiều file • JPG/PNG/PDF/DOC/XLS</div>
-                        </div>
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Loại phiếu</span>
+                                            <small class="ego-dntt-optional">Mặc định DNTT</small>
+                                        </label>
+
+                                        <select
+                                            name="doc_type"
+                                            class="form-select"
+                                        >
+                                            <option
+                                                value="payment_request"
+                                                @selected(old('doc_type', 'payment_request') === 'payment_request')
+                                            >
+                                                Phiếu đề nghị thanh toán
+                                            </option>
+
+                                            <option
+                                                value="payment_voucher"
+                                                @selected(old('doc_type') === 'payment_voucher')
+                                            >
+                                                Phiếu chi
+                                            </option>
+
+                                            <option
+                                                value="advance"
+                                                @selected(old('doc_type') === 'advance')
+                                            >
+                                                Phiếu đề nghị tạm ứng
+                                            </option>
+
+                                            <option
+                                                value="refund_request"
+                                                @selected(old('doc_type') === 'refund_request')
+                                            >
+                                                Đề nghị hoàn tiền
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Người nhận</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <input
+                                            name="receiver_name"
+                                            class="form-control"
+                                            value="{{ old('receiver_name') }}"
+                                            placeholder="Tên cá nhân hoặc đơn vị nhận"
+                                        >
+                                    </div>
+
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Đơn vị / Phòng ban</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <input
+                                            name="department"
+                                            class="form-control"
+                                            value="{{ old('department') }}"
+                                            placeholder="VD: Marketing, Kỹ thuật..."
+                                        >
+                                    </div>
+
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Số tiền dự kiến</span>
+                                            <small class="ego-dntt-optional">Có thể nhập sau</small>
+                                        </label>
+
+                                        <input
+                                            name="amount"
+                                            type="number"
+                                            min="0"
+                                            inputmode="numeric"
+                                            class="form-control"
+                                            value="{{ old('amount') }}"
+                                            placeholder="0"
+                                        >
+                                    </div>
+
+                                    <div class="ego-dntt-field">
+                                        <label class="ego-dntt-label">
+                                            <span>Ngày phải thanh toán</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <input
+                                            type="date"
+                                            name="payment_due_date"
+                                            class="form-control"
+                                            value="{{ old('payment_due_date') }}"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="ego-dntt-section">
+                            <div class="ego-dntt-section-head">
+                                <span class="ego-dntt-section-index">
+                                    02
+                                </span>
+
+                                <div>
+                                    <h6 class="ego-dntt-section-title">
+                                        Nội dung & chứng từ
+                                    </h6>
+
+                                    <div class="ego-dntt-section-desc">
+                                        Mô tả khoản chi, chuyển khoản và file liên quan.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ego-dntt-section-body">
+                                <div class="ego-dntt-grid">
+                                    <div class="ego-dntt-field is-wide">
+                                        <label class="ego-dntt-label">
+                                            <span>Nội dung thanh toán</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <input
+                                            name="payment_content"
+                                            class="form-control"
+                                            value="{{ old('payment_content') }}"
+                                            placeholder="VD: Thanh toán đợt 1, tạm ứng vật tư..."
+                                        >
+                                    </div>
+
+                                    <div class="ego-dntt-field is-wide">
+                                        <label class="ego-dntt-label">
+                                            <span>Lý do / Diễn giải</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <textarea
+                                            name="reason"
+                                            id="reason_editor"
+                                            class="form-control"
+                                            rows="4"
+                                            placeholder="Mô tả mục đích và nội dung khoản thanh toán..."
+                                        >{{ old('reason') }}</textarea>
+                                    </div>
+
+                                    <div class="ego-dntt-field is-wide">
+                                        <label class="ego-dntt-label">
+                                            <span>Thông tin chuyển khoản</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <input
+                                            name="bank_info"
+                                            class="form-control"
+                                            value="{{ old('bank_info') }}"
+                                            placeholder="Ngân hàng · Số tài khoản · Chủ tài khoản"
+                                        >
+                                    </div>
+
+                                    <div class="ego-dntt-field is-wide">
+                                        <label class="ego-dntt-label">
+                                            <span>Chứng từ đính kèm</span>
+                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                        </label>
+
+                                        <div class="ego-dntt-file">
+                                            <span class="ego-dntt-file-icon">
+                                                <i class="bi bi-paperclip"></i>
+                                            </span>
+
+                                            <div class="flex-grow-1 min-w-0">
+                                                <input
+                                                    type="file"
+                                                    name="attachments[]"
+                                                    multiple
+                                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                                >
+
+                                                <div class="ego-dntt-file-hint">
+                                                    JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX · tối đa 20MB/file
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button
-                        class="btn-ego"
+                        type="button"
+                        class="ego-dntt-cancel"
+                        data-bs-dismiss="modal"
+                    >
+                        <i class="bi bi-x-lg"></i>
+                        Đóng
+                    </button>
+
+                    <button
+                        class="ego-dntt-save"
                         type="submit"
                         id="egoPaymentRequestCreateSubmit"
                     >
-                        <i class="bi bi-save2"></i> Lưu phiếu
-                    </button>
-                    <button type="button" class="btn-soft" data-bs-dismiss="modal">
-                        <i class="bi bi-x-lg"></i> Đóng
+                        <i class="bi bi-check2-circle"></i>
+                        Lưu phiếu
                     </button>
                 </div>
             </form>
@@ -1235,7 +979,7 @@
 
         if (!editor) {
             editor = CKEDITOR.replace('reason_editor', {
-                height: 220,
+                height: 150,
                 removeButtons: 'Image,Flash,Smiley,SpecialChar,About'
             });
         }
@@ -1284,31 +1028,6 @@
 
         if (editor) {
           editor.updateElement();
-        }
-
-        const htmlContent = textarea
-          ? String(textarea.value || '')
-          : '';
-
-        const plainContent = htmlContent
-          .replace(/<br\\s*\\/?/gi, ' ')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/gi, ' ')
-          .replace(/\\s+/g, ' ')
-          .trim();
-
-        if (!plainContent) {
-          event.preventDefault();
-
-          alert('Vui lòng nhập lý do thanh toán.');
-
-          if (editor) {
-            editor.focus();
-          } else if (textarea) {
-            textarea.focus();
-          }
-
-          return;
         }
 
         const submitButton = form.querySelector(
@@ -1487,110 +1206,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 @endphp
 
-<style>
-    .ego-pay-clean-wrap {
-        animation: egoCleanFade .25s ease both;
-    }
-
-    @keyframes egoCleanFade {
-        from {
-            opacity: .92;
-            transform: translateY(4px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    table.ego-pay-clean-table {
-        border-radius: 14px !important;
-        overflow: hidden !important;
-        background: #fff !important;
-    }
-
-    table.ego-pay-clean-table thead th {
-        background: #f8fbff !important;
-        color: #0f172a !important;
-        font-size: 12px !important;
-        font-weight: 800 !important;
-        padding: 10px 8px !important;
-        border-bottom: 1px solid #dbe5f0 !important;
-        white-space: nowrap !important;
-    }
-
-    table.ego-pay-clean-table tbody td {
-        font-size: 12.5px !important;
-        color: #0f172a !important;
-        padding: 10px 8px !important;
-        vertical-align: middle !important;
-        transition: background .15s ease;
-    }
-
-    table.ego-pay-clean-table tbody tr:hover td {
-        background: #f3fbff !important;
-    }
-
-    table.ego-pay-clean-table .ego-due-th {
-        background: #eefcff !important;
-        color: #0369a1 !important;
-    }
-
-    table.ego-pay-clean-table .ego-due-td {
-        color: #0369a1 !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        background: #f4fdff !important;
-    }
-
-    table.ego-pay-clean-table .ego-created-td {
-        color: #475569 !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-    }
-
-    table.ego-pay-clean-table .ego-code-td {
-        color: #075985 !important;
-        font-weight: 900 !important;
-    }
-
-    table.ego-pay-clean-table .ego-money-td {
-        color: #075985 !important;
-        font-weight: 900 !important;
-        white-space: nowrap !important;
-    }
-
-    table.ego-pay-clean-table .badge,
-    table.ego-pay-clean-table span[class*="badge"] {
-        border-radius: 999px !important;
-        font-size: 11px !important;
-        font-weight: 800 !important;
-        padding: 5px 9px !important;
-    }
-
-    .ego-pay-clean-btn {
-        border-radius: 10px !important;
-        font-size: 12px !important;
-        font-weight: 800 !important;
-        transition: .15s ease !important;
-    }
-
-    .ego-pay-clean-btn:hover {
-        transform: translateY(-1px);
-    }
-
-    .ego-payment-due-field label {
-        font-size: 12px !important;
-        font-weight: 700 !important;
-        color: #334155 !important;
-    }
-
-    .ego-payment-due-field input {
-        border-radius: 10px !important;
-    }
-</style>
-
 <script>
 (function () {
     var dueMap = @json($egoPaymentDueMap);
@@ -1765,404 +1380,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 {{-- EGO_PAYMENT_REJECT_MODAL_START --}}
-<style>
-    .ego-pr-full-backdrop {
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(15, 23, 42, .50);
-        padding: 18px;
-    }
-
-    .ego-pr-full-backdrop.show {
-        display: flex;
-    }
-
-    .ego-pr-full-modal {
-        width: min(980px, 100%);
-        max-height: 92vh;
-        overflow: hidden;
-        border-radius: 24px;
-        background: #f5f8fc;
-        border: 1px solid rgba(226, 232, 240, .95);
-        box-shadow: 0 28px 90px rgba(15, 23, 42, .32);
-    }
-
-    .ego-pr-full-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 14px;
-        padding: 16px 18px;
-        background:
-            radial-gradient(circle at top right, rgba(14,165,233,.18), transparent 32%),
-            linear-gradient(135deg, #fff, #eefbff);
-        border-bottom: 1px solid #dcebf8;
-    }
-
-    .ego-pr-full-title {
-        margin: 0;
-        color: #071b33;
-        font-size: 18px;
-        font-weight: 950;
-        letter-spacing: -.01em;
-    }
-
-    .ego-pr-full-desc {
-        margin-top: 4px;
-        color: #64748b;
-        font-size: 12.5px;
-        font-weight: 700;
-    }
-
-    .ego-pr-full-close {
-        width: 34px;
-        height: 34px;
-        border-radius: 999px;
-        border: 0;
-        background: #fff;
-        color: #64748b;
-        font-size: 24px;
-        line-height: 30px;
-        cursor: pointer;
-        box-shadow: 0 8px 22px rgba(15,23,42,.08);
-    }
-
-    .ego-pr-full-body {
-        padding: 16px;
-        max-height: calc(92vh - 76px);
-        overflow: auto;
-        display: grid;
-        gap: 14px;
-    }
-
-    .ego-pr-loading {
-        border: 1px dashed #cbd5e1;
-        background: #f8fafc;
-        color: #64748b;
-        border-radius: 16px;
-        padding: 18px;
-        text-align: center;
-        font-weight: 800;
-    }
-
-    .ego-pr-full-modal .payx-card {
-        background: rgba(255,255,255,.96);
-        border: 1px solid #e4ebf3;
-        border-radius: 20px;
-        box-shadow: 0 8px 24px rgba(15,23,42,.055);
-        overflow: hidden;
-    }
-
-    .ego-pr-full-modal .payx-card-head {
-        padding: 15px 16px 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
-    }
-
-    .ego-pr-full-modal .payx-card-title {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 900;
-        color: #071b33;
-    }
-
-    .ego-pr-full-modal .payx-card-desc {
-        margin-top: 4px;
-        font-size: 12px;
-        color: #64748b;
-        font-weight: 650;
-    }
-
-    .ego-pr-full-modal .payx-card-body {
-        padding: 15px 16px 16px;
-    }
-
-    .ego-pr-full-modal .payx-info-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        margin-bottom: 12px;
-    }
-
-    .ego-pr-full-modal .payx-info {
-        padding: 11px 12px;
-        border-radius: 14px;
-        background: linear-gradient(180deg, #f8fafc, #fff);
-        border: 1px solid #e8eef6;
-        min-height: 70px;
-    }
-
-    .ego-pr-full-modal .payx-label {
-        display: block;
-        color: #64748b;
-        font-size: 10.5px;
-        text-transform: uppercase;
-        letter-spacing: .075em;
-        font-weight: 900;
-        margin-bottom: 6px;
-    }
-
-    .ego-pr-full-modal .payx-value {
-        color: #071b33;
-        font-size: 13px;
-        line-height: 1.5;
-        font-weight: 800;
-        word-break: break-word;
-    }
-
-    .ego-pr-full-modal .payx-value.money {
-        color: #0369a1;
-        font-size: 16px;
-        font-weight: 950;
-    }
-
-    .ego-pr-full-modal .payx-note-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .ego-pr-full-modal .payx-note {
-        position: relative;
-        padding: 13px 14px 13px 16px;
-        border-radius: 16px;
-        background: #fff;
-        border: 1px solid #e6edf6;
-        overflow: hidden;
-    }
-
-    .ego-pr-full-modal .payx-note:before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 12px;
-        bottom: 12px;
-        width: 3px;
-        border-radius: 999px;
-        background: linear-gradient(180deg, #0ea5e9, #06b6d4);
-    }
-
-    .ego-pr-full-modal .payx-text {
-        color: #0f172a;
-        font-size: 13px;
-        line-height: 1.72;
-        font-weight: 650;
-        word-break: break-word;
-    }
-
-    .ego-pr-full-modal .payx-chip,
-    .ego-pr-full-modal .badge {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 12px;
-        font-weight: 850;
-        background: #e0f2fe;
-        color: #0369a1;
-        border: 1px solid #bae6fd;
-    }
-
-    .ego-pr-full-modal .payx-action {
-        border-radius: 20px;
-        padding: 14px;
-        border: 1px solid #dcebf8;
-        background:
-            radial-gradient(circle at top right, rgba(14,165,233,.12), transparent 30%),
-            #fff;
-        box-shadow: 0 8px 24px rgba(15,23,42,.055);
-    }
-
-    .ego-pr-full-modal .payx-action-title {
-        font-size: 14px;
-        font-weight: 950;
-        margin: 0 0 4px;
-        color: #071b33;
-    }
-
-    .ego-pr-full-modal .payx-action-desc {
-        color: #64748b;
-        font-size: 12px;
-        margin-bottom: 12px;
-        font-weight: 650;
-    }
-
-    .ego-pr-full-modal .payx-action-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .ego-pr-full-modal .payx-action-form {
-        padding: 12px;
-        border-radius: 16px;
-        border: 1px solid #e6edf6;
-        background: #fff;
-    }
-
-    .ego-pr-full-modal .payx-action-form h4 {
-        margin: 0 0 8px;
-        font-size: 13px;
-        font-weight: 950;
-        color: #071b33;
-    }
-
-    .ego-pr-full-modal .payx-action-form textarea {
-        width: 100%;
-        min-height: 105px;
-        border: 1px solid #d8e3ef;
-        border-radius: 12px;
-        padding: 10px 11px;
-        font-size: 13px;
-        line-height: 1.55;
-        outline: none;
-        resize: vertical;
-        margin-bottom: 9px;
-        transition: .18s ease;
-        font-weight: 650;
-    }
-
-    .ego-pr-full-modal .payx-action-form textarea:focus {
-        border-color: #ef4444;
-        box-shadow: 0 0 0 4px rgba(239,68,68,.11);
-    }
-
-    .ego-pr-full-modal .payx-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        border: 0;
-        border-radius: 13px;
-        padding: 9px 13px;
-        font-size: 13px;
-        font-weight: 950;
-        cursor: pointer;
-        text-decoration: none;
-    }
-
-    .ego-pr-full-modal .payx-btn.red {
-        color: #fff;
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        box-shadow: 0 10px 20px rgba(220,38,38,.18);
-    }
-
-    .ego-pr-full-modal .payx-btn.red:disabled {
-        opacity: .45;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-
-    .ego-pr-full-modal .ego-pr-cancel {
-        background: #e2e8f0;
-        color: #334155;
-    }
-
-    .ego-pr-full-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-    }
-
-    .ego-pr-full-error {
-        display: none;
-        margin: -2px 0 9px;
-        color: #dc2626;
-        font-size: 12.5px;
-        font-weight: 850;
-    }
-
-    .ego-pr-full-error.show {
-        display: block;
-    }
-
-
-    .ego-pr-full-modal .payx-files {
-        display: grid;
-        gap: 8px;
-    }
-
-    .ego-pr-full-modal .payx-file {
-        display: grid;
-        grid-template-columns: 34px 1fr auto;
-        gap: 10px;
-        align-items: center;
-        padding: 10px;
-        border-radius: 14px;
-        border: 1px solid #e6edf6;
-        background: linear-gradient(180deg, #fff, #f8fafc);
-        color: #0f172a;
-        text-decoration: none;
-        transition: .18s ease;
-    }
-
-    .ego-pr-full-modal .payx-file:hover {
-        border-color: #93c5fd;
-        transform: translateY(-1px);
-        color: #0f172a;
-        box-shadow: 0 10px 22px rgba(14,165,233,.1);
-    }
-
-    .ego-pr-full-modal .payx-file-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 11px;
-        background: #e0f2fe;
-        display: grid;
-        place-items: center;
-        color: #0284c7;
-        font-weight: 950;
-        font-size: 10px;
-    }
-
-    .ego-pr-full-modal .payx-file-name {
-        font-size: 13px;
-        font-weight: 850;
-        line-height: 1.35;
-        word-break: break-word;
-    }
-
-    .ego-pr-full-modal .payx-file-meta,
-    .ego-pr-full-modal .payx-file-open {
-        color: #64748b;
-        font-size: 11.5px;
-        font-weight: 750;
-    }
-
-    .ego-pr-full-modal .payx-empty {
-        border: 1px dashed #cbd5e1;
-        background: #f8fafc;
-        color: #64748b;
-        border-radius: 14px;
-        padding: 13px;
-        text-align: center;
-        font-weight: 750;
-        font-size: 12.5px;
-    }
-
-    @media (max-width: 768px) {
-        .ego-pr-full-modal .payx-info-grid {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-
-    @media (max-width: 520px) {
-        .ego-pr-full-modal .payx-info-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .ego-pr-full-body {
-            padding: 12px;
-        }
-    }
-</style>
-
 <div class="ego-pr-full-backdrop" id="egoRejectFullModal" aria-hidden="true">
     <div class="ego-pr-full-modal" role="dialog" aria-modal="true" aria-labelledby="egoRejectFullTitle">
         <div class="ego-pr-full-head">
@@ -2473,44 +1690,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 {{-- EGO_PR_ACTIONS_INLINE_START --}}
-<style>
-    /* Ép cột Thao tác ĐNTT nằm cùng 1 hàng */
-    table th:last-child,
-    table td:last-child {
-        white-space: nowrap;
-    }
-
-    table td:last-child {
-        min-width: 205px;
-    }
-
-    table td:last-child > div,
-    table td:last-child .btn-group,
-    table td:last-child .action-buttons,
-    table td:last-child .actions {
-        display: inline-flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 6px !important;
-    }
-
-    table td:last-child a,
-    table td:last-child button,
-    table td:last-child form {
-        display: inline-flex !important;
-        vertical-align: middle !important;
-        margin-top: 0 !important;
-        margin-bottom: 0 !important;
-        white-space: nowrap !important;
-    }
-
-    table td:last-child form {
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-</style>
-
 <script>
 (function () {
     function isActionCell(cell) {
@@ -2748,32 +1927,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 ) {
                     CKEDITOR.instances.reason_editor
                         .updateElement();
-                }
-
-                var reason = form.querySelector(
-                    '[name="reason"]'
-                );
-
-                if (
-                    !reason ||
-                    !plainText(reason.value)
-                ) {
-                    alert(
-                        'Vui lòng nhập lý do thanh toán.'
-                    );
-
-                    if (
-                        window.CKEDITOR &&
-                        CKEDITOR.instances &&
-                        CKEDITOR.instances.reason_editor
-                    ) {
-                        CKEDITOR.instances.reason_editor
-                            .focus();
-                    } else if (reason) {
-                        reason.focus();
-                    }
-
-                    return;
                 }
 
                 if (!form.checkValidity()) {

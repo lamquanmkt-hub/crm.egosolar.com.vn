@@ -1,1052 +1,1395 @@
-
-@php
-    $egoPendingOrdersCount = $egoPendingOrdersCount ?? 0;
-    $egoPendingMaterialRequestsCount = $egoPendingMaterialRequestsCount ?? 0;
-
-    try {
-        $egoPendingOrdersCount = (int) \Illuminate\Support\Facades\DB::table('crm_order_approvals')
-            ->where('status', 'pending')
-            ->distinct()
-            ->count('order_id');
-
-        $egoPendingMaterialRequestsCount = (int) \Illuminate\Support\Facades\DB::table('material_requests')
-            ->whereIn('status', ['SUBMITTED', 'ADMIN_APPROVED'])
-            ->count();
-    } catch (\Throwable $e) {
-        $egoPendingOrdersCount = 0;
-        $egoPendingMaterialRequestsCount = 0;
-    }
-@endphp
-
 @extends('layouts.app')
-@section('title', 'Chi tiết khách hàng')
+
+@section('title', 'Hồ sơ khách hàng')
+
+@push('styles')
+    <link
+        rel="stylesheet"
+        href="{{ asset('css/ego-customers-promax-v3.css') }}?v={{ filemtime(public_path('css/ego-customers-promax-v3.css')) }}"
+    >
+@endpush
 
 @section('content')
 @php
-    $orders = $customer->orders ?? collect();
+    $initials = collect(
+        preg_split('/\s+/u', trim((string) $customer->name))
+    )
+        ->filter()
+        ->take(2)
+        ->map(
+            fn ($part) =>
+                mb_strtoupper(
+                    mb_substr($part, 0, 1)
+                )
+        )
+        ->implode('') ?: 'KH';
 
-    $totalOrders = $orders->count();
+    $statusData = match ((string) $customer->customer_status) {
+        'member' => ['Member', 'cx-badge--member'],
+        'retail' => ['Khách lẻ', 'cx-badge--retail'],
+        default => ['Lead', 'cx-badge--lead'],
+    };
 
-    // Tổng tiền đã mua (ưu tiên total_amount, không có thì tính tạm theo items)
-    $totalAmount = $orders->sum(function ($o) {
-        if (!is_null($o->total_amount)) return (float) $o->total_amount;
-
-        $items = $o->orderItems ?? collect();
-        return (float) $items->sum(function($it){
-            return ((float)($it->quantity ?? 0)) * ((float)($it->price ?? 0));
-        });
-    });
-
-    // Tổng số lượng sản phẩm đã mua
-    $totalProducts = $orders->sum(function ($o) {
-        $items = $o->orderItems ?? collect();
-        return (int) $items->sum('quantity');
-    });
-
-    // Tạm thời: đếm theo tên sản phẩm có chứa chữ (có thể đổi sang field category sau)
-    $warrantyInverter = $orders->sum(function ($o) {
-        $items = $o->orderItems ?? collect();
-        return $items->filter(function ($it) {
-            $name = strtolower($it->product->name ?? '');
-            return str_contains($name, 'inverter');
-        })->sum('quantity');
-    });
-
-    $warrantyBattery = $orders->sum(function ($o) {
-        $items = $o->orderItems ?? collect();
-        return $items->filter(function ($it) {
-            $name = strtolower($it->product->name ?? '');
-            return str_contains($name, 'pin') || str_contains($name, 'battery');
-        })->sum('quantity');
-    });
-
-    $tx = [
-        'total_orders' => $totalOrders ?: 0,
-        'total_products' => $totalProducts ?: 0,
-        'total_amount' => number_format($totalAmount, 0, ',', '.') . ' đ',
-        'warranty_inverter' => $warrantyInverter ?: 0,
-        'warranty_battery' => $warrantyBattery ?: 0,
+    $interactionLabels = [
+        'call' => ['Cuộc gọi', 'bi-telephone'],
+        'message' => ['Tin nhắn', 'bi-chat-dots'],
+        'meeting' => ['Gặp mặt', 'bi-people'],
+        'email' => ['Email', 'bi-envelope'],
+        'note' => ['Ghi chú', 'bi-journal-text'],
     ];
+
+    $outcomeLabels = [
+        'positive' => ['Tích cực', 'cx-badge--good'],
+        'neutral' => ['Bình thường', 'cx-badge--info'],
+        'negative' => ['Tiêu cực', 'cx-badge--danger'],
+        'no_answer' => ['Không liên lạc được', 'cx-badge--warning'],
+    ];
+
+    $nextFollowupCarbon = $nextFollowup?->next_followup_date
+        ? \Carbon\Carbon::parse(
+            $nextFollowup->next_followup_date
+        )
+        : null;
+
+    $billingAvailable =
+        $customer->billing_company_name
+        || $customer->billing_tax_code
+        || $customer->billing_address
+        || $customer->billing_email;
+
+    $siteStatus = static function ($status): array {
+        return match ((string) $status) {
+            'done' => [
+                'Hoàn thành',
+                'cx-badge--good',
+            ],
+            'warranty' => [
+                'Bảo hành',
+                'cx-badge--warning',
+            ],
+            'cancelled' => [
+                'Đã hủy',
+                'cx-badge--danger',
+            ],
+            default => [
+                'Đang triển khai',
+                'cx-badge--info',
+            ],
+        };
+    };
+
+    $siteStage = static function ($stage): string {
+        return match ((string) $stage) {
+            'survey' => 'Khảo sát',
+            'design' => 'Thiết kế',
+            'installation' => 'Lắp đặt',
+            'operation' => 'Vận hành',
+            default => 'Chuẩn bị',
+        };
+    };
 @endphp
 
-<style>
-    :root{
-        --ego:#06b6d4;
-        --ego2:#0891b2;
-        --ink:#0f172a;
-        --muted: rgba(15,23,42,.62);
-        --card: rgba(255,255,255,.86);
-        --border: rgba(15,23,42,.10);
-        --shadow: 0 18px 50px rgba(15,23,42,.08);
-        --shadow2: 0 10px 30px rgba(15,23,42,.08);
-        --radius: 18px;
-    }
-
-    .page-shell{
-        background: radial-gradient(900px 300px at 15% 0%, rgba(6,182,212,.14), transparent 60%),
-                    radial-gradient(900px 300px at 85% 10%, rgba(59,130,246,.10), transparent 55%),
-                    linear-gradient(180deg, #f7fbff, #f7fbff);
-        border-radius: 22px;
-        padding: 10px 6px 22px;
-    }
-
-    .page-head{
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap: 12px;
-        margin: 6px 6px 14px;
-        flex-wrap: wrap;
-    }
-
-    .page-title{
-        display:flex;
-        align-items:center;
-        gap: 12px;
-    }
-
-    .title-badge{
-        width: 44px; height: 44px;
-        border-radius: 16px;
-        display:flex; align-items:center; justify-content:center;
-        background: rgba(6,182,212,.16);
-        border: 1px solid rgba(6,182,212,.25);
-        color: var(--ego2);
-        box-shadow: var(--shadow2);
-        flex: 0 0 auto;
-        font-size: 20px;
-    }
-
-    .page-title h1{
-        margin:0;
-        font-weight: 950;
-        letter-spacing:.2px;
-        color: var(--ink);
-        line-height: 1.15;
-    }
-
-    .subtitle{
-        margin-top: 6px;
-        font-weight: 700;
-        color: var(--muted);
-        font-size: 13px;
-    }
-
-    .btn-ego{
-        border: none;
-        border-radius: 14px;
-        padding: 10px 14px;
-        font-weight: 950;
-        background: linear-gradient(135deg, var(--ego), var(--ego2));
-        box-shadow: 0 14px 34px rgba(8,145,178,.18);
-        transition: .15s ease;
-        color: #fff;
-    }
-    .btn-ego:hover{ transform: translateY(-1px); box-shadow: 0 18px 44px rgba(8,145,178,.24); color:#fff; }
-
-    .btn-ghost{
-        border-radius: 14px;
-        padding: 10px 12px;
-        font-weight: 900;
-        border: 1px solid rgba(15,23,42,.12);
-        background: transparent;
-    }
-
-    .btn-soft{
-        border-radius: 14px;
-        padding: 10px 12px;
-        font-weight: 900;
-        border: 1px solid rgba(15,23,42,.12);
-        background: rgba(255,255,255,.80);
-        box-shadow: var(--shadow2);
-        transition: .15s ease;
-    }
-    .btn-soft:hover{ transform: translateY(-1px); }
-
-    .card-glass{
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        overflow:hidden;
-    }
-
-    .card-head{
-        padding: 14px 16px 10px;
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap: 10px;
-        border-bottom: 1px solid rgba(15,23,42,.06);
-        flex-wrap: wrap;
-    }
-
-    .card-title{
-        font-weight: 950;
-        color: var(--ink);
-        letter-spacing: .2px;
-        margin:0;
-        display:flex;
-        gap:10px;
-        align-items:center;
-    }
-
-    .card-sub{
-        color: var(--muted);
-        font-weight: 700;
-        font-size: 12px;
-        margin-top: 4px;
-    }
-
-    .card-body-modern{ padding: 14px 16px; }
-
-    .kpi-label{ font-size: 12px; font-weight: 850; color: rgba(15,23,42,.62); }
-    .kpi-value{ font-size: 26px; font-weight: 950; letter-spacing: .2px; color: var(--ink); line-height: 1.1; }
-    .kpi-sub{ font-size: 12px; font-weight: 750; color: rgba(15,23,42,.55); margin-top: 4px; }
-    .kpi-chip{
-        display:inline-flex; align-items:center; gap:6px;
-        padding: 6px 10px; border-radius: 999px;
-        border: 1px solid rgba(6,182,212,.25);
-        background: rgba(6,182,212,.10);
-        font-weight: 900; color: #075985;
-        font-size: 12px; white-space: nowrap;
-    }
-
-    .badge-ego{
-        background: rgba(6,182,212,.16);
-        color: #075985;
-        border: 1px solid rgba(6,182,212,.30);
-        font-weight: 900;
-    }
-    .badge-lead{ background: rgba(245,158,11,.18); border: 1px solid rgba(245,158,11,.35); color: #92400e; font-weight: 900; }
-    .badge-member{ background: rgba(34,197,94,.18); border: 1px solid rgba(34,197,94,.35); color: #166534; font-weight: 900; }
-
-    .info-table{
-        margin:0;
-        font-size: 13px;
-    }
-    .info-table th{
-        width: 42%;
-        color: rgba(15,23,42,.62);
-        font-weight: 900;
-        padding: 10px 8px;
-        border-top: 1px dashed rgba(15,23,42,.10);
-        vertical-align: top;
-    }
-    .info-table td{
-        color: rgba(15,23,42,.85);
-        font-weight: 750;
-        padding: 10px 8px;
-        border-top: 1px dashed rgba(15,23,42,.10);
-    }
-    .info-table tr:first-child th,
-    .info-table tr:first-child td{
-        border-top: none;
-    }
-
-    .table-wrap{
-        border-radius: var(--radius);
-        overflow: hidden;
-        border: 1px solid rgba(15,23,42,.10);
-        box-shadow: var(--shadow);
-        background: rgba(255,255,255,.88);
-    }
-    .table-modern{
-        margin: 0;
-        font-size: 12px;
-        white-space: nowrap;
-    }
-    .table-modern thead th{
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        background: rgba(15,23,42,.92) !important;
-        color: rgba(255,255,255,.92) !important;
-        font-weight: 900;
-        border-bottom: 1px solid rgba(255,255,255,.12);
-        padding: 12px 10px;
-        vertical-align: middle;
-    }
-    .table-modern tbody td{
-        vertical-align: middle;
-        padding: 10px 10px;
-        border-color: rgba(15,23,42,.08);
-        color: rgba(15,23,42,.82);
-        font-weight: 650;
-    }
-    .table-modern tbody tr:hover{
-        background: rgba(6,182,212,.08) !important;
-    }
-
-    .nav-pills .nav-link{
-        border-radius: 14px;
-        font-weight: 950;
-        border: 1px solid rgba(15,23,42,.10);
-        background: rgba(255,255,255,.65);
-        color: rgba(15,23,42,.72);
-        padding: 10px 14px;
-    }
-    .nav-pills .nav-link.active{
-        background: linear-gradient(135deg, rgba(6,182,212,.20), rgba(8,145,178,.18));
-        border-color: rgba(6,182,212,.35);
-        color: #075985;
-    }
-
-    .cell-left{ text-align:left !important; white-space: normal; min-width: 240px; }
-    .cell-note{ text-align:left !important; white-space: normal; min-width: 320px; }
-
-    .modal-ego .modal-content{
-        border-radius: 18px;
-        border: 1px solid rgba(15,23,42,.10);
-        box-shadow: 0 24px 80px rgba(15,23,42,.18);
-        overflow: hidden;
-    }
-    .modal-ego .modal-header{
-        background: linear-gradient(135deg, rgba(6,182,212,.14), rgba(59,130,246,.10));
-        border-bottom: 1px solid rgba(15,23,42,.08);
-    }
-    .modal-ego .modal-title{
-        font-weight: 950;
-        color: var(--ink);
-    }
-    .tx-muted{ color: rgba(15,23,42,.62); font-weight: 750; }
-
-    @media (max-width: 768px){
-        .page-shell{ padding: 10px 0 22px; border-radius: 14px; }
-        .page-head{ margin: 6px 0 14px; }
-    }
-</style>
-
-<div class="container-fluid px-4">
-    <div class="page-shell">
-
-        {{-- HEADER --}}
-        <div class="page-head">
-            <div class="page-title">
-                <div class="title-badge"><i class="bi bi-person-vcard"></i></div>
-                <div>
-                    <h1>CHI TIẾT KHÁCH HÀNG</h1>
-                    <div class="subtitle">
-                        {{ $customer->name ?? '—' }}
-                        @if(!empty($customer->phone)) • {{ $customer->phone }} @endif
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2">
-                {{-- Bạn đang redirect edit về index, nên giữ nút theo route cũ --}}
-                <a href="{{ route('customers.edit', $customer->id) }}" class="btn btn-soft">
-                    <i class="bi bi-pencil me-1"></i> Sửa
-                </a>
-                <a href="{{ route('customers.index') }}" class="btn btn-ghost">
-                    <i class="bi bi-arrow-left me-1"></i> Quay lại
-                </a>
-            </div>
-        </div>
-<div class="row g-2 px-2 mb-3">
-    <div class="col-12">
-        <div class="card-glass">
-            <div class="card-head">
-                <div>
-                    <p class="card-title mb-0"><i class="bi bi-receipt"></i> Thông tin hoá đơn</p>
-                    <div class="card-sub">Thông tin xuất hoá đơn mặc định của khách hàng</div>
-                </div>
-            </div>
-            <div class="card-body-modern">
-                <div class="row g-3">
-                    <div class="col-12 col-lg-6">
-                        <table class="table table-borderless info-table">
-                            <tr>
-                                <th>Tên công ty / Cá nhân</th>
-                                <td>{{ $customer->billing_company_name ?: '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Mã số thuế</th>
-                                <td>{{ $customer->billing_tax_code ?: '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <div class="col-12 col-lg-6">
-                        <table class="table table-borderless info-table">
-                            <tr>
-                                <th>Email nhận hoá đơn</th>
-                                <td>{{ $customer->billing_email ?: '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Địa chỉ xuất hoá đơn</th>
-                                <td>{{ $customer->billing_address ?: '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div
+    id="egoCustomerProfile"
+    data-duplicate-url="{{ route('customers.duplicate-check') }}"
+>
+    <div class="cx-profile-ambient" aria-hidden="true">
+        <span></span>
+        <span></span>
     </div>
-</div>
-        {{-- KPI --}}
-        <div class="row g-2 px-2 mb-3">
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="kpi-label">Tổng số đơn</div>
-                            <div class="kpi-value">{{ $tx['total_orders'] }}</div>
-                            <div class="kpi-sub">Tổng đơn hàng của khách</div>
-                        </div>
-                        <div class="title-badge"><i class="bi bi-receipt"></i></div>
-                    </div>
+
+    <div class="cx-shell">
+        @if(session('success'))
+            <div class="cx-alert cx-reveal">
+                <i class="bi bi-check-circle"></i>
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if($errors->any())
+            <div class="cx-alert cx-alert--danger cx-reveal">
+                <i class="bi bi-exclamation-circle"></i>
+
+                <div>
+                    @foreach($errors->all() as $error)
+                        <div>{{ $error }}</div>
+                    @endforeach
                 </div>
             </div>
+        @endif
 
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="kpi-label">Tổng sản phẩm</div>
-                            <div class="kpi-value">{{ $tx['total_products'] }}</div>
-                            <div class="kpi-sub">Tổng số lượng đã mua</div>
-                        </div>
-                        <div class="title-badge"><i class="bi bi-box-seam"></i></div>
-                    </div>
+        <header class="cx-profile-hero cx-panel cx-reveal">
+            <div class="cx-profile-hero__glow"></div>
+
+            <div class="cx-profile-person">
+                <div class="cx-profile-avatar">
+                    {{ $initials }}
                 </div>
-            </div>
 
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="kpi-label">Số tiền đã mua</div>
-                            <div class="kpi-value">{{ $tx['total_amount'] }}</div>
-                            <div class="kpi-sub">Tổng giá trị giao dịch</div>
-                        </div>
-                        <div class="title-badge"><i class="bi bi-cash-coin"></i></div>
+                <div>
+                    <div class="cx-profile-eyebrow">
+                        HỒ SƠ KHÁCH HÀNG
                     </div>
-                </div>
-            </div>
 
-            <div class="col-12 col-md-6 col-xl-3">
-                <div class="card-glass p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="kpi-label">Sản phẩm bảo hành</div>
-                            <div class="d-flex flex-wrap gap-1 mt-2">
-                                <span class="kpi-chip"><i class="bi bi-lightning-charge"></i> Inverter: {{ $tx['warranty_inverter'] }}</span>
-                                <span class="kpi-chip"><i class="bi bi-battery-charging"></i> Pin: {{ $tx['warranty_battery'] }}</span>
-                            </div>
-                            <div class="kpi-sub mt-2">Tách theo nhóm bảo hành</div>
-                        </div>
-                        <div class="title-badge"><i class="bi bi-shield-check"></i></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                    <h1>{{ $customer->name }}</h1>
 
-        {{-- INFO CARDS --}}
-        <div class="row g-2 px-2 mb-3">
-            <div class="col-12 col-lg-6">
-                <div class="card-glass">
-                    <div class="card-head">
-                        <div>
-                            <p class="card-title mb-0"><i class="bi bi-card-text"></i> Thông tin cơ bản</p>
-                            <div class="card-sub">Thông tin định danh & phân loại khách hàng</div>
-                        </div>
-                        <span class="badge badge-ego">
-                            ID: {{ $customer->id }}
+                    <div class="cx-profile-meta">
+                        <span class="cx-badge {{ $statusData[1] }}">
+                            {{ $statusData[0] }}
+                        </span>
+
+                        <span class="cx-badge cx-badge--info">
+                            ID {{ $customer->id }}
+                        </span>
+
+                        @if($customer->is_potential)
+                            <span class="cx-badge cx-badge--warning">
+                                <i class="bi bi-star"></i>
+                                Tiềm năng
+                            </span>
+                        @endif
+
+                        @if($customer->phone)
+                            <span class="cx-profile-meta-text">
+                                <i class="bi bi-telephone"></i>
+                                {{ $customer->phone }}
+                            </span>
+                        @endif
+
+                        <span class="cx-profile-meta-text">
+                            <i class="bi bi-person-check"></i>
+                            {{ $customer->assignedUser?->name ?: 'Chưa phân công' }}
                         </span>
                     </div>
-                    <div class="card-body-modern">
-                        <table class="table table-borderless info-table">
-                            <tr>
-                                <th>Tên khách hàng</th>
-                                <td>{{ $customer->name ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Biệt danh</th>
-                                <td>{{ $customer->nickname ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Số điện thoại</th>
-                                <td>{{ $customer->phone ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Email</th>
-                                <td>{{ $customer->email ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Địa chỉ</th>
-                                <td>{{ $customer->address ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Khu vực</th>
-                                <td>{{ $customer->region->name ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Loại khách</th>
-                                <td>{{ $customer->customerType->name ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Trạng thái</th>
-                                <td>
-                                    @if($customer->customer_status === 'member')
-                                        <span class="badge badge-member">Member</span>
-                                    @else
-                                        <span class="badge badge-lead">Lead</span>
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Đánh giá</th>
-                                <td>
-                                    @if($customer->is_potential)
-                                        <span class="badge bg-info">⭐ Tiềm năng</span>
-                                    @else
-                                        -
-                                    @endif
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
                 </div>
             </div>
 
-            <div class="col-12 col-lg-6">
-                <div class="card-glass">
-                    <div class="card-head">
+            <div class="cx-actions">
+                @if($customer->phone)
+                    <a
+                        class="cx-btn cx-btn--soft"
+                        href="tel:{{ preg_replace('/\s+/', '', $customer->phone) }}"
+                    >
+                        <i class="bi bi-telephone"></i>
+                        Gọi
+                    </a>
+
+                    <a
+                        class="cx-btn cx-btn--soft"
+                        href="https://zalo.me/{{ preg_replace('/\D+/', '', $customer->phone) }}"
+                        target="_blank"
+                        rel="noopener"
+                    >
+                        <i class="bi bi-chat"></i>
+                        Zalo
+                    </a>
+                @endif
+
+                {{-- EGO_CUSTOMER_HEADER_ACTIONS_V32 --}}
+                @if($customer->ai_chatbot_link)
+                    <a
+                        class="cx-btn cx-btn--ai"
+                        href="{{ $customer->ai_chatbot_link }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <i class="bi bi-robot"></i>
+                        Chat Bot AI
+                    </a>
+                @endif
+
+                @if($canHandover)
+                    <button
+                        type="button"
+                        class="cx-btn cx-btn--handover"
+                        data-open-handover-drawer
+                    >
+                        <i class="bi bi-person-up"></i>
+                        Bàn giao
+                    </button>
+                @endif
+
+                @can('update', $customer)
+                    <button
+                        type="button"
+                        class="cx-btn cx-btn--primary"
+                        data-customer-form-url="{{ route('customers.popup-form', $customer->id) }}"
+                    >
+                        <i class="bi bi-pencil"></i>
+                        Chỉnh sửa
+                    </button>
+                @endcan
+
+                <a
+                    class="cx-btn cx-btn--soft"
+                    href="{{ route('customers.index') }}"
+                >
+                    <i class="bi bi-arrow-left"></i>
+                    Quay lại
+                </a>
+            </div>
+        </header>
+
+        <section class="cx-kpis cx-kpis--six">
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-buildings"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Công trình
+                </div>
+
+                <div
+                    class="cx-kpi__value"
+                    data-count-value="{{ $summary['sites'] }}"
+                >
+                    {{ number_format($summary['sites']) }}
+                </div>
+
+                <div class="cx-kpi__sub">
+                    {{ number_format(
+                        $summary['site_contract_value'],
+                        0,
+                        ',',
+                        '.'
+                    ) }}đ hợp đồng
+                </div>
+            </article>
+
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-bag-check"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Đơn hàng
+                </div>
+
+                <div
+                    class="cx-kpi__value"
+                    data-count-value="{{ $summary['orders'] }}"
+                >
+                    {{ number_format($summary['orders']) }}
+                </div>
+            </article>
+
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Doanh thu
+                </div>
+
+                <div class="cx-kpi__value">
+                    {{ number_format(
+                        $summary['revenue'],
+                        0,
+                        ',',
+                        '.'
+                    ) }}đ
+                </div>
+            </article>
+
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-wallet2"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Công nợ
+                </div>
+
+                <div class="cx-kpi__value">
+                    {{ number_format(
+                        $summary['debt'],
+                        0,
+                        ',',
+                        '.'
+                    ) }}đ
+                </div>
+            </article>
+
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Báo giá
+                </div>
+
+                <div
+                    class="cx-kpi__value"
+                    data-count-value="{{ $summary['quotations'] }}"
+                >
+                    {{ number_format($summary['quotations']) }}
+                </div>
+            </article>
+
+            <article class="cx-kpi cx-panel cx-reveal">
+                <div class="cx-kpi__icon">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+
+                <div class="cx-kpi__label">
+                    Bảo hành
+                </div>
+
+                <div
+                    class="cx-kpi__value"
+                    data-count-value="{{ $summary['warranty_events'] }}"
+                >
+                    {{ number_format($summary['warranty_events']) }}
+                </div>
+            </article>
+        </section>
+
+        <div class="cx-profile-layout">
+            <main class="cx-profile-main">
+                <section class="cx-panel cx-reveal">
+                    <div class="cx-card-head">
                         <div>
-                            <p class="card-title mb-0"><i class="bi bi-telephone"></i> Thông tin liên hệ</p>
-                            <div class="card-sub">Kênh liên hệ, người phụ trách, log thời gian</div>
+                            <h2>
+                                <i class="bi bi-person-vcard"></i>
+                                Tổng quan khách hàng
+                            </h2>
+
+                            <p>
+                                Thông tin định danh, liên hệ và phân loại.
+                            </p>
                         </div>
-                        <div class="d-flex gap-2">
-                            @if(!empty($customer->facebook_link))
-                                <a href="{{ $customer->facebook_link }}" target="_blank" class="btn btn-soft btn-sm">
-                                    <i class="bi bi-facebook me-1"></i> Facebook
+                    </div>
+
+                    <div class="cx-card-body">
+                        <div class="cx-info-grid">
+                            @foreach([
+                                'Tên khách hàng' => $customer->name,
+                                'Biệt danh' => $customer->nickname,
+                                'Số điện thoại' => $customer->phone,
+                                'Email' => $customer->email,
+                                'Địa chỉ' => $customer->address,
+                                'Khu vực' => $customer->region?->name,
+                                'Loại khách' => $customer->customerType?->name,
+                                'Người phụ trách' => $customer->assignedUser?->name,
+                                'Facebook' => $customer->facebook_name,
+                                'Zalo ID' => $customer->zalo_id,
+                                'Ngày tạo' => $customer->created_at
+                                    ? $customer->created_at->format('d/m/Y H:i')
+                                    : null,
+                                'Cập nhật cuối' => $customer->updated_at
+                                    ? $customer->updated_at->format('d/m/Y H:i')
+                                    : null,
+                            ] as $label => $value)
+                                @if(filled($value))
+                                    <div class="cx-info">
+                                        <div class="cx-info__label">
+                                            {{ $label }}
+                                        </div>
+
+                                        <div class="cx-info__value">
+                                            {{ $value }}
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+
+                        @if($customer->group_note)
+                            <div class="cx-note-box">
+                                <i class="bi bi-journal-text"></i>
+
+                                <div>
+                                    <strong>Ghi chú nội bộ</strong>
+                                    <p>{{ $customer->group_note }}</p>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </section>
+
+                <section class="cx-panel cx-section cx-reveal">
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-buildings"></i>
+                                Công trình
+                            </h2>
+
+                            <p>
+                                Công trình được liên kết theo thông tin khách hàng.
+                            </p>
+                        </div>
+
+                        @if(
+                            \Illuminate\Support\Facades\Route::has(
+                                'sites.create'
+                            )
+                        )
+                            <a
+                                class="cx-btn cx-btn--primary"
+                                href="{{ route('sites.create', [
+                                    'customer_id' => $customer->id,
+                                    'contact_name' => $customer->name,
+                                    'contact_phone' => $customer->phone,
+                                    'address' => $customer->address,
+                                ]) }}"
+                            >
+                                <i class="bi bi-plus-lg"></i>
+                                Tạo công trình
+                            </a>
+                        @endif
+                    </div>
+
+                    <div class="cx-card-body">
+                        @if($sites->isEmpty())
+                            <div class="cx-empty cx-empty--compact">
+                                <i class="bi bi-buildings"></i>
+
+                                <strong>
+                                    Chưa có công trình liên kết
+                                </strong>
+
+                                <span>
+                                    Công trình sẽ tự liên kết theo số điện thoại, email hoặc mã số thuế.
+                                </span>
+                            </div>
+                        @else
+                            <div class="cx-site-grid">
+                                @foreach($sites as $site)
+                                    @php
+                                        [$siteStatusLabel, $siteStatusClass] =
+                                            $siteStatus(
+                                                $site->status ?? null
+                                            );
+                                    @endphp
+
+                                    <article class="cx-site-card">
+                                        <div class="cx-site-card__top">
+                                            <div class="cx-site-card__icon">
+                                                <i class="bi bi-sun"></i>
+                                            </div>
+
+                                            <div class="cx-site-card__status">
+                                                <span
+                                                    class="cx-badge {{ $siteStatusClass }}"
+                                                >
+                                                    {{ $siteStatusLabel }}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <h3>
+                                            {{ $site->name ?: 'Công trình #'.$site->id }}
+                                        </h3>
+
+                                        <div class="cx-site-card__address">
+                                            <i class="bi bi-geo-alt"></i>
+                                            {{ $site->address ?: 'Chưa cập nhật địa chỉ' }}
+                                        </div>
+
+                                        <div class="cx-site-metrics">
+                                            <div>
+                                                <span>Công suất</span>
+                                                <strong>
+                                                    {{ filled($site->system_kwp ?? null)
+                                                        ? number_format((float) $site->system_kwp, 2, ',', '.').' kWp'
+                                                        : '—'
+                                                    }}
+                                                </strong>
+                                            </div>
+
+                                            <div>
+                                                <span>Giai đoạn</span>
+                                                <strong>
+                                                    {{ $siteStage($site->stage ?? null) }}
+                                                </strong>
+                                            </div>
+
+                                            <div>
+                                                <span>Giá trị</span>
+                                                <strong>
+                                                    {{ number_format(
+                                                        (float) ($site->contract_amount ?? 0),
+                                                        0,
+                                                        ',',
+                                                        '.'
+                                                    ) }}đ
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="cx-site-card__footer">
+                                            <div>
+                                                @if($site->installed_at ?? null)
+                                                    <span>
+                                                        <i class="bi bi-calendar-check"></i>
+                                                        Lắp đặt:
+                                                        {{ \Carbon\Carbon::parse($site->installed_at)->format('d/m/Y') }}
+                                                    </span>
+                                                @endif
+
+                                                @if($site->warranty_to ?? null)
+                                                    <span>
+                                                        <i class="bi bi-shield-check"></i>
+                                                        BH:
+                                                        {{ \Carbon\Carbon::parse($site->warranty_to)->format('d/m/Y') }}
+                                                    </span>
+                                                @endif
+                                            </div>
+
+                                            @if(
+                                                \Illuminate\Support\Facades\Route::has(
+                                                    'sites.show'
+                                                )
+                                            )
+                                                <a
+                                                    class="cx-icon-btn"
+                                                    href="{{ route('sites.show', $site->id) }}"
+                                                    title="Xem công trình"
+                                                >
+                                                    <i class="bi bi-arrow-up-right"></i>
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </section>
+
+                <section
+                    class="cx-panel cx-section cx-reveal"
+                    id="customer-care"
+                >
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-clock-history"></i>
+                                Lịch sử chăm sóc
+                            </h2>
+
+                            <p>
+                                Cuộc gọi, tin nhắn, email và lịch follow-up.
+                            </p>
+                        </div>
+
+                        @can('update', $customer)
+                            <button
+                                type="button"
+                                class="cx-btn cx-btn--primary"
+                                data-open-care-drawer
+                            >
+                                <i class="bi bi-plus-lg"></i>
+                                Ghi nhận chăm sóc
+                            </button>
+                        @endcan
+                    </div>
+
+                    <div class="cx-card-body">
+                        @if($interactions->isEmpty())
+                            <div class="cx-empty cx-empty--compact">
+                                <i class="bi bi-chat-square-text"></i>
+
+                                <strong>
+                                    Chưa có lịch sử chăm sóc
+                                </strong>
+
+                                <span>
+                                    Ghi nhận cuộc gọi, tin nhắn hoặc lịch hẹn tiếp theo.
+                                </span>
+                            </div>
+                        @else
+                            <div class="cx-timeline">
+                                @foreach($interactions as $interaction)
+                                    @php
+                                        [$typeLabel, $typeIcon] =
+                                            $interactionLabels[
+                                                $interaction->interaction_type
+                                            ] ?? [
+                                                'Tương tác',
+                                                'bi-chat',
+                                            ];
+
+                                        $outcome =
+                                            $interaction->outcome
+                                            ? (
+                                                $outcomeLabels[
+                                                    $interaction->outcome
+                                                ] ?? null
+                                            )
+                                            : null;
+                                    @endphp
+
+                                    <article class="cx-timeline-item">
+                                        <div class="cx-timeline-icon">
+                                            <i class="bi {{ $typeIcon }}"></i>
+                                        </div>
+
+                                        <div class="cx-timeline-content">
+                                            <div class="cx-timeline-top">
+                                                <strong>
+                                                    {{ $interaction->subject ?: $typeLabel }}
+                                                </strong>
+
+                                                <time>
+                                                    {{ \Carbon\Carbon::parse($interaction->interaction_date)->format('d/m/Y H:i') }}
+                                                </time>
+                                            </div>
+
+                                            <p>{{ $interaction->content }}</p>
+
+                                            <div class="cx-timeline-meta">
+                                                <span class="cx-badge cx-badge--info">
+                                                    {{ $typeLabel }}
+                                                </span>
+
+                                                @if($outcome)
+                                                    <span
+                                                        class="cx-badge {{ $outcome[1] }}"
+                                                    >
+                                                        {{ $outcome[0] }}
+                                                    </span>
+                                                @endif
+
+                                                @if($interaction->creator_name)
+                                                    <span class="cx-cell-sub">
+                                                        Thực hiện:
+                                                        {{ $interaction->creator_name }}
+                                                    </span>
+                                                @endif
+
+                                                @if($interaction->next_followup_date)
+                                                    <span class="cx-badge cx-badge--warning">
+                                                        Hẹn tiếp:
+                                                        {{ \Carbon\Carbon::parse($interaction->next_followup_date)->format('d/m/Y H:i') }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </section>
+
+                <section class="cx-panel cx-section cx-reveal">
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-bag-check"></i>
+                                Đơn hàng
+                            </h2>
+
+                            <p>
+                                Các giao dịch đã phát sinh với khách hàng.
+                            </p>
+                        </div>
+
+                        @if(
+                            \Illuminate\Support\Facades\Route::has(
+                                'orders.create'
+                            )
+                        )
+                            <a
+                                class="cx-btn cx-btn--primary"
+                                href="{{ route('orders.create', [
+                                    'customer_id' => $customer->id,
+                                ]) }}"
+                            >
+                                <i class="bi bi-plus-lg"></i>
+                                Tạo đơn
+                            </a>
+                        @endif
+                    </div>
+
+                    <div class="cx-table-wrap">
+                        <table class="cx-mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Ngày đặt</th>
+                                    <th>Trạng thái</th>
+                                    <th>Tổng tiền</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @forelse($orders->take(20) as $order)
+                                    <tr>
+                                        <td>
+                                            <strong>
+                                                {{ $order->order_code ?: '#'.$order->id }}
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            {{ $order->order_date
+                                                ? \Carbon\Carbon::parse($order->order_date)->format('d/m/Y')
+                                                : (
+                                                    $order->created_at
+                                                        ? \Carbon\Carbon::parse($order->created_at)->format('d/m/Y')
+                                                        : '—'
+                                                )
+                                            }}
+                                        </td>
+
+                                        <td>
+                                            {{ $order->currentStatusType?->name
+                                                ?? $order->current_department
+                                                ?? 'Đang xử lý'
+                                            }}
+                                        </td>
+
+                                        <td>
+                                            <strong>
+                                                {{ number_format(
+                                                    (float) ($order->total_amount ?? 0),
+                                                    0,
+                                                    ',',
+                                                    '.'
+                                                ) }}đ
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            @if(
+                                                \Illuminate\Support\Facades\Route::has(
+                                                    'orders.show'
+                                                )
+                                            )
+                                                <a
+                                                    class="cx-icon-btn"
+                                                    href="{{ route('orders.show', $order->id) }}"
+                                                >
+                                                    <i class="bi bi-arrow-right"></i>
+                                                </a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="cx-empty">
+                                                Chưa có đơn hàng.
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+
+            <aside class="cx-profile-aside">
+                <section class="cx-panel cx-reveal">
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-calendar2-check"></i>
+                                Chăm sóc tiếp theo
+                            </h2>
+
+                            <p>
+                                Lịch cần thực hiện với khách hàng.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="cx-card-body">
+                        @if($nextFollowupCarbon)
+                            <div
+                                class="cx-followup-card {{ $nextFollowupCarbon->isPast() ? 'is-overdue' : '' }}"
+                            >
+                                <div class="cx-followup-card__icon">
+                                    <i class="bi bi-calendar-event"></i>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        {{ $nextFollowupCarbon->isPast()
+                                            ? 'Đã quá hạn chăm sóc'
+                                            : 'Đã lên lịch chăm sóc'
+                                        }}
+                                    </strong>
+
+                                    <span>
+                                        {{ $nextFollowupCarbon->format('d/m/Y H:i') }}
+                                    </span>
+                                </div>
+                            </div>
+                        @else
+                            <div class="cx-followup-card">
+                                <div class="cx-followup-card__icon">
+                                    <i class="bi bi-calendar-plus"></i>
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        Chưa có lịch chăm sóc
+                                    </strong>
+
+                                    <span>
+                                        Tạo lịch để tránh bỏ quên khách hàng.
+                                    </span>
+                                </div>
+                            </div>
+                        @endif
+
+                        @can('update', $customer)
+                            <button
+                                type="button"
+                                class="cx-btn cx-btn--primary cx-btn--block"
+                                data-open-care-drawer
+                            >
+                                <i class="bi bi-plus-circle"></i>
+                                Ghi nhận chăm sóc
+                            </button>
+                        @endcan
+                    </div>
+                </section>
+
+                <section class="cx-panel cx-section cx-reveal">
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-lightning-charge"></i>
+                                Thao tác nhanh
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div class="cx-card-body">
+                        <div class="cx-quick-actions">
+                            {{-- EGO_CUSTOMER_CHATBOT_QUICK_V32 --}}
+                            @if($customer->ai_chatbot_link)
+                                <a
+                                    href="{{ $customer->ai_chatbot_link }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="cx-quick-action-ai"
+                                >
+                                    <i class="bi bi-robot"></i>
+
+                                    <span>
+                                        <strong>
+                                            Chat Bot AI
+                                        </strong>
+
+                                        <small>
+                                            Mở cuộc hội thoại AI
+                                        </small>
+                                    </span>
+
+                                    <i class="bi bi-arrow-up-right"></i>
+                                </a>
+                            @endif
+                            @if($customer->phone)
+                                <a
+                                    href="tel:{{ preg_replace('/\s+/', '', $customer->phone) }}"
+                                >
+                                    <i class="bi bi-telephone"></i>
+
+                                    <span>
+                                        <strong>Gọi khách hàng</strong>
+                                        <small>{{ $customer->phone }}</small>
+                                    </span>
+                                </a>
+
+                                <a
+                                    href="https://zalo.me/{{ preg_replace('/\D+/', '', $customer->phone) }}"
+                                    target="_blank"
+                                    rel="noopener"
+                                >
+                                    <i class="bi bi-chat"></i>
+
+                                    <span>
+                                        <strong>Mở Zalo</strong>
+                                        <small>Nhắn tin nhanh</small>
+                                    </span>
+                                </a>
+                            @endif
+
+                            @if(
+                                \Illuminate\Support\Facades\Route::has(
+                                    'sales-quotations.create'
+                                )
+                            )
+                                <a
+                                    href="{{ route('sales-quotations.create', [
+                                        'customer_id' => $customer->id,
+                                    ]) }}"
+                                >
+                                    <i class="bi bi-file-earmark-plus"></i>
+
+                                    <span>
+                                        <strong>Tạo báo giá</strong>
+                                        <small>Khởi tạo giao dịch mới</small>
+                                    </span>
                                 </a>
                             @endif
                         </div>
                     </div>
-                    <div class="card-body-modern">
-                        <table class="table table-borderless info-table">
-                            <tr>
-                                <th>Facebook</th>
-                                <td>
-                                    @if($customer->facebook_link)
-                                        <a href="{{ $customer->facebook_link }}" target="_blank">
-                                            {{ $customer->facebook_name ?? 'Link Facebook' }}
-                                        </a>
-                                    @else
-                                        {{ $customer->facebook_name ?? '-' }}
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>Zalo ID</th>
-                                <td>{{ $customer->zalo_id ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Người phụ trách</th>
-                                <td>{{ $customer->assignedUser->name ?? 'Chưa gán' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Ghi chú nhóm</th>
-                                <td>{{ $customer->group_note ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Ngày tạo</th>
-                                <td>{{ $customer->created_at?->format('d/m/Y H:i') ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Người tạo</th>
-                                <td>{{ $customer->creator->name ?? '-' }}</td>
-                            </tr>
-                            <tr>
-                                <th>Cập nhật lần cuối</th>
-                                <td>{{ $customer->updated_at?->format('d/m/Y H:i') ?? '-' }}</td>
-                            </tr>
-                            @if($customer->converted_to_member_at)
-                                <tr>
-                                    <th>Chuyển thành hội viên</th>
-                                    <td>{{ $customer->converted_to_member_at?->format('d/m/Y H:i') ?? '-' }}</td>
-                                </tr>
-                            @endif
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+                </section>
 
-        {{-- TABS --}}
-        <div class="row g-2 px-2">
-            <div class="col-12">
-                <div class="card-glass">
-                    <div class="card-head">
+                <section class="cx-panel cx-section cx-reveal">
+                    <div class="cx-card-head">
                         <div>
-                            <p class="card-title mb-0"><i class="bi bi-layout-text-sidebar-reverse"></i> Dữ liệu chi tiết</p>
-                            <div class="card-sub">Lead • Giao dịch • Sản phẩm bảo hành</div>
+                            <h2>
+                                <i class="bi bi-receipt"></i>
+                                Thông tin hóa đơn
+                            </h2>
                         </div>
-
-                        <ul class="nav nav-pills" id="customerTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="tab-tx" data-bs-toggle="pill" data-bs-target="#pane-tx" type="button" role="tab">
-                                    <i class="bi bi-receipt-cutoff me-1"></i> Giao dịch
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tab-leads" data-bs-toggle="pill" data-bs-target="#pane-leads" type="button" role="tab">
-                                    <i class="bi bi-chat-dots me-1"></i> Leads
-                                    @if(!empty($customer->leads)) ({{ $customer->leads->count() }}) @endif
-                                </button>
-                            </li>
-                        </ul>
                     </div>
 
-                    <div class="card-body-modern">
-                        <div class="tab-content" id="customerTabsContent">
+                    <div class="cx-card-body">
+                        @if($billingAvailable)
+                            @foreach([
+                                'Tên công ty / cá nhân' => $customer->billing_company_name,
+                                'Mã số thuế' => $customer->billing_tax_code,
+                                'Email hóa đơn' => $customer->billing_email,
+                                'Địa chỉ hóa đơn' => $customer->billing_address,
+                            ] as $label => $value)
+                                @if(filled($value))
+                                    <div class="cx-info cx-info--stacked">
+                                        <div class="cx-info__label">
+                                            {{ $label }}
+                                        </div>
 
-                            {{-- ===== TAB: GIAO DỊCH ===== --}}
-                            <div class="tab-pane fade show active" id="pane-tx" role="tabpanel">
-
-                                {{-- “Đơn hàng mới nhất” dạng card nhỏ --}}
-                                <div class="row g-2 mb-3">
-                                    <div class="col-12 col-lg-6">
-                                        <div class="card-glass p-3">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <div class="kpi-label">Đơn hàng mới nhất</div>
-                                                    <div class="mt-1 fw-bold" style="font-size:14px;">
-                                                        @if($customer->latestOrder)
-                                                            {{ $customer->latestOrder->order_code ?? '-' }}
-                                                        @else
-                                                            Chưa có đơn hàng
-                                                        @endif
-                                                    </div>
-                                                    <div class="kpi-sub">
-                                                        @if($customer->latestOrder?->order_date)
-                                                            Ngày đặt: {{ \Carbon\Carbon::parse($customer->latestOrder->order_date)->format('d/m/Y') }}
-                                                        @else
-                                                            Ngày đặt: -
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                <div class="title-badge"><i class="bi bi-bag-check"></i></div>
-                                            </div>
+                                        <div class="cx-info__value">
+                                            {{ $value }}
                                         </div>
                                     </div>
+                                @endif
+                            @endforeach
+                        @else
+                            <div class="cx-empty cx-empty--compact">
+                                <i class="bi bi-receipt"></i>
 
-                                    <div class="col-12 col-lg-6">
-                                        <div class="card-glass p-3">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <div class="kpi-label">Tổng tiền đơn gần nhất</div>
-                                                    <div class="kpi-value">
-                                                        @if($customer->latestOrder)
-                                                            {{ number_format($customer->latestOrder->total_amount ?? 0, 0, ',', '.') }} đ
-                                                        @else
-                                                            --
-                                                        @endif
-                                                    </div>
-                                                    <div class="kpi-sub">Hiển thị đơn gần nhất (đang có)</div>
-                                                </div>
-                                                <div class="title-badge"><i class="bi bi-cash-stack"></i></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <span>
+                                    Chưa có thông tin xuất hóa đơn.
+                                </span>
+                            </div>
+                        @endif
+                    </div>
+                </section>
 
-                                {{-- LỊCH SỬ GIAO DỊCH (UI-only, backend map sau) --}}
-                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                                    <div>
-                                        <div class="fw-black" style="font-weight:950; color:var(--ink);">
-                                            Lịch sử giao dịch
-                                        </div>
-                                        <div class="tx-muted">Danh sách đơn + sản phẩm + bảo hành</div>
-                                    </div>
-                                    <button class="btn btn-soft" type="button" onclick="openTxDetailModal()">
-                                        <i class="bi bi-clock-history me-1"></i> Xem chi tiết (UI)
-                                    </button>
-                                </div>
+                <section class="cx-panel cx-section cx-reveal">
+                    <div class="cx-card-head">
+                        <div>
+                            <h2>
+                                <i class="bi bi-wallet2"></i>
+                                Công nợ
+                            </h2>
+                        </div>
+                    </div>
 
-                                <div class="table-wrap">
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-hover align-middle table-modern text-center">
-                                            <thead class="small">
-                                            <tr>
-                                                <th>Mã đơn</th>
-                                                <th>Ngày đặt</th>
-                                                <th class="cell-left">Sản phẩm</th>
-                                                <th>Số lượng</th>
-                                                <th>Tổng tiền</th>
-                                                <th>Bảo hành (Inverter / Pin)</th>
-                                            </tr>
-                                            </thead>
-                                           <tbody>
-@php
-    $orders = $customer->orders ?? collect();
-@endphp
+                    <div class="cx-card-body">
+                        @forelse($debtRows->take(5) as $debt)
+                            <div class="cx-debt-row">
+                                <span>
+                                    Đơn #{{ $debt->order_id ?: '—' }}
+                                </span>
 
-@if($orders->count() > 0)
-    @foreach($orders as $o)
-        @php
-            // items: nếu quan hệ tên khác thì bạn báo mình, mình đổi đúng
-            $items = $o->orderItems ?? collect();
+                                <strong>
+                                    {{ number_format(
+                                        (float) $debt->debt_amount,
+                                        0,
+                                        ',',
+                                        '.'
+                                    ) }}đ
+                                </strong>
+                            </div>
+                        @empty
+                            <div class="cx-empty cx-empty--compact">
+                                <i class="bi bi-check-circle"></i>
 
-            $productNames = $items->pluck('product.name')->filter()->unique()->values()->implode(', ');
-            $qtyTotal = (int) $items->sum('quantity');
+                                <span>
+                                    Không có công nợ.
+                                </span>
+                            </div>
+                        @endforelse
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
 
-            // tổng tiền: ưu tiên total_amount, nếu không có thì tính tạm = sum(qty*price)
-            $total = $o->total_amount
-                ?? $items->sum(function($it){
-                    return ((float)($it->quantity ?? 0)) * ((float)($it->price ?? 0));
-                });
+@can('update', $customer)
+    <div
+        class="cx-care-drawer-overlay"
+        data-care-drawer-overlay
+    ></div>
 
-            $orderCode = $o->order_code ?? $o->code ?? ('#'.$o->id);
-            $orderDate = $o->order_date ?? $o->created_at;
-        @endphp
+    <aside
+        class="cx-care-drawer"
+        id="customerCareDrawer"
+        aria-hidden="true"
+    >
+        <header class="cx-care-drawer__header">
+            <div>
+                <span>CHĂM SÓC KHÁCH HÀNG</span>
+                <h2>Ghi nhận tương tác</h2>
+                <p>{{ $customer->name }}</p>
+            </div>
 
-        <tr>
-            <td class="fw-bold">{{ $orderCode }}</td>
-            <td>
-                {{ $orderDate ? \Carbon\Carbon::parse($orderDate)->format('d/m/Y') : '-' }}
-            </td>
-            <td class="cell-left">{{ $productNames ?: '-' }}</td>
-            <td>{{ $qtyTotal ?: '-' }}</td>
-            <td class="fw-bold text-success">{{ number_format((float)$total, 0, ',', '.') }} đ</td>
-            <td>-</td>
-        </tr>
-    @endforeach
-@else
-    <tr>
-        <td colspan="6" class="text-muted py-4">
-            Chưa có đơn hàng / giao dịch nào cho khách này.
-        </td>
-    </tr>
+            <button
+                type="button"
+                data-close-care-drawer
+                aria-label="Đóng"
+            >
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </header>
+
+        <form
+            method="POST"
+            action="{{ route('customers.interactions.store', $customer) }}"
+            class="cx-care-drawer__body"
+        >
+            @csrf
+
+            <div class="cx-form-grid">
+                <div class="cx-field">
+                    <label>Hình thức</label>
+
+                    <select
+                        class="cx-select"
+                        name="interaction_type"
+                        required
+                    >
+                        <option value="call">Cuộc gọi</option>
+                        <option value="message">Tin nhắn</option>
+                        <option value="meeting">Gặp mặt</option>
+                        <option value="email">Email</option>
+                        <option value="note">Ghi chú</option>
+                    </select>
+                </div>
+
+                <div class="cx-field">
+                    <label>Kết quả</label>
+
+                    <select
+                        class="cx-select"
+                        name="outcome"
+                    >
+                        <option value="">
+                            Chưa đánh giá
+                        </option>
+
+                        <option value="positive">
+                            Tích cực
+                        </option>
+
+                        <option value="neutral">
+                            Bình thường
+                        </option>
+
+                        <option value="negative">
+                            Tiêu cực
+                        </option>
+
+                        <option value="no_answer">
+                            Không liên lạc được
+                        </option>
+                    </select>
+                </div>
+
+                <div class="cx-field is-full">
+                    <label>Tiêu đề</label>
+
+                    <input
+                        class="cx-input"
+                        name="subject"
+                        placeholder="Ví dụ: Tư vấn hệ pin lưu trữ"
+                    >
+                </div>
+
+                <div class="cx-field is-full">
+                    <label>
+                        Nội dung chăm sóc
+                        <em>*</em>
+                    </label>
+
+                    <textarea
+                        class="cx-textarea"
+                        name="content"
+                        required
+                        rows="7"
+                        placeholder="Nội dung trao đổi, nhu cầu và kết quả..."
+                    ></textarea>
+                </div>
+
+                <div class="cx-field">
+                    <label>Thời gian tương tác</label>
+
+                    <input
+                        type="datetime-local"
+                        class="cx-input"
+                        name="interaction_date"
+                        value="{{ now()->format('Y-m-d\TH:i') }}"
+                    >
+                </div>
+
+                <div class="cx-field">
+                    <label>Thời lượng phút</label>
+
+                    <input
+                        type="number"
+                        class="cx-input"
+                        name="duration_minutes"
+                        min="0"
+                        max="1440"
+                    >
+                </div>
+
+                <div class="cx-field is-full">
+                    <label>Lịch chăm sóc tiếp theo</label>
+
+                    <input
+                        type="datetime-local"
+                        class="cx-input"
+                        name="next_followup_date"
+                    >
+                </div>
+            </div>
+
+            <div class="cx-care-drawer__footer">
+                <button
+                    type="button"
+                    class="cx-btn cx-btn--soft"
+                    data-close-care-drawer
+                >
+                    Hủy
+                </button>
+
+                <button
+                    type="submit"
+                    class="cx-btn cx-btn--primary"
+                >
+                    <i class="bi bi-check2-circle"></i>
+                    Lưu lịch sử chăm sóc
+                </button>
+            </div>
+        </form>
+    </aside>
+@endcan
+
+
+{{-- EGO_CUSTOMER_HANDOVER_DRAWER_V32 --}}
+@if($canHandover)
+    <div
+        class="cx-handover-drawer-overlay"
+        data-handover-drawer-overlay
+    ></div>
+
+    <aside
+        class="cx-handover-drawer"
+        id="customerHandoverDrawer"
+        aria-hidden="true"
+    >
+        <header class="cx-handover-drawer__header">
+            <div class="cx-handover-drawer__icon">
+                <i class="bi bi-person-up"></i>
+            </div>
+
+            <div>
+                <span>BÀN GIAO KHÁCH HÀNG</span>
+
+                <h2>Chuyển người phụ trách</h2>
+
+                <p>
+                    {{ $customer->name }}
+                </p>
+            </div>
+
+            <button
+                type="button"
+                data-close-handover-drawer
+                aria-label="Đóng"
+            >
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </header>
+
+        <form
+            method="POST"
+            action="{{ route(
+                'customers.handover',
+                $customer
+            ) }}"
+            class="cx-handover-drawer__body"
+            data-handover-form
+        >
+            @csrf
+
+            <div class="cx-current-owner">
+                <div>
+                    <i class="bi bi-person-check"></i>
+                </div>
+
+                <span>
+                    <small>Người phụ trách hiện tại</small>
+
+                    <strong>
+                        {{ $customer->assignedUser?->name
+                            ?: 'Chưa phân công'
+                        }}
+                    </strong>
+                </span>
+            </div>
+
+            <div class="cx-field">
+                <label>
+                    Nhân viên nhận bàn giao
+                    <em>*</em>
+                </label>
+
+                <select
+                    class="cx-select"
+                    name="owner_id"
+                    required
+                >
+                    <option value="">
+                        Chọn nhân viên
+                    </option>
+
+                    @foreach($handoverUsers as $handoverUser)
+                        <option
+                            value="{{ $handoverUser->id }}"
+                        >
+                            {{ $handoverUser->name }}
+
+                            @if($handoverUser->email)
+                                — {{ $handoverUser->email }}
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="cx-field">
+                <label>Ghi chú bàn giao</label>
+
+                <textarea
+                    class="cx-textarea"
+                    name="handover_note"
+                    rows="5"
+                    maxlength="2000"
+                    placeholder="Tình trạng khách hàng, nhu cầu hiện tại và nội dung cần tiếp tục xử lý..."
+                ></textarea>
+            </div>
+
+            <div class="cx-handover-warning">
+                <i class="bi bi-info-circle"></i>
+
+                <span>
+                    Sau khi bàn giao, nhân viên mới sẽ trở thành người phụ trách chính của khách hàng.
+                </span>
+            </div>
+
+            <div class="cx-handover-drawer__actions">
+                <button
+                    type="button"
+                    class="cx-btn cx-btn--soft"
+                    data-close-handover-drawer
+                >
+                    Hủy
+                </button>
+
+                <button
+                    type="submit"
+                    class="cx-btn cx-btn--handover"
+                    @disabled($handoverUsers->isEmpty())
+                >
+                    <i class="bi bi-arrow-left-right"></i>
+                    Xác nhận bàn giao
+                </button>
+            </div>
+
+            <section class="cx-handover-history">
+                <div class="cx-handover-history__heading">
+                    <i class="bi bi-clock-history"></i>
+
+                    <div>
+                        <strong>Lịch sử bàn giao</strong>
+
+                        <span>
+                            Theo dõi các lần thay đổi người phụ trách.
+                        </span>
+                    </div>
+                </div>
+
+                @forelse($handoverHistory as $handover)
+                    <article class="cx-handover-item">
+                        <div class="cx-handover-item__line">
+                            <span>
+                                {{ $handover->from_user_name
+                                    ?: 'Chưa phân công'
+                                }}
+                            </span>
+
+                            <i class="bi bi-arrow-right"></i>
+
+                            <strong>
+                                {{ $handover->to_user_name
+                                    ?: 'Không xác định'
+                                }}
+                            </strong>
+                        </div>
+
+                        <div class="cx-handover-item__meta">
+                            {{ \Carbon\Carbon::parse(
+                                $handover->created_at
+                            )->format('d/m/Y H:i') }}
+
+                            @if($handover->action_user_name)
+                                · Thực hiện bởi
+                                {{ $handover->action_user_name }}
+                            @endif
+                        </div>
+
+                        @if($handover->note)
+                            <p>{{ $handover->note }}</p>
+                        @endif
+                    </article>
+                @empty
+                    <div class="cx-handover-empty">
+                        Chưa có lịch sử bàn giao.
+                    </div>
+                @endforelse
+            </section>
+        </form>
+    </aside>
 @endif
-</tbody>
-                                        </table>
-                                    </div>
-                                </div>
 
-                                <div class="small text-muted mt-2">
-                                    Gợi ý backend: join orders → order_items → products, group theo order để hiển thị sản phẩm và đếm Inverter/Pin.
-                                </div>
-                            </div>
-
-                            {{-- ===== TAB: LEADS ===== --}}
-                            <div class="tab-pane fade" id="pane-leads" role="tabpanel">
-                                @if($customer->latestLead)
-                                    <div class="card-glass p-3 mb-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <div class="kpi-label">Lead mới nhất</div>
-                                                <div class="fw-bold" style="font-size:14px;">
-                                                    {{ $customer->latestLead->status->name ?? '—' }}
-                                                </div>
-                                                <div class="kpi-sub">
-                                                    Ngày liên hệ:
-                                                    {{ $customer->latestLead->contact_date ? \Carbon\Carbon::parse($customer->latestLead->contact_date)->format('d/m/Y') : '-' }}
-                                                    • Nguồn: {{ $customer->latestLead->source->name ?? '-' }}
-                                                </div>
-                                            </div>
-                                            <div class="title-badge"><i class="bi bi-chat-left-text"></i></div>
-                                        </div>
-                                    </div>
-                                @endif
-
-                                @if($customer->leads && $customer->leads->count() > 0)
-                                    <div class="table-wrap">
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered table-hover align-middle table-modern text-center">
-                                                <thead class="small">
-                                                <tr>
-                                                    <th>Ngày liên hệ</th>
-                                                    <th>Nguồn</th>
-                                                    <th>Trạng thái</th>
-                                                    <th class="cell-note">Ghi chú</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                @foreach($customer->leads as $lead)
-                                                    <tr>
-                                                        <td>{{ $lead->contact_date ? \Carbon\Carbon::parse($lead->contact_date)->format('d/m/Y') : '-' }}</td>
-                                                        <td>{{ $lead->source->name ?? '-' }}</td>
-                                                        <td>{{ $lead->status->name ?? '-' }}</td>
-                                                        <td class="cell-note">{{ \Illuminate\Support\Str::limit($lead->note, 120) }}</td>
-                                                    </tr>
-                                                @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                @else
-                                    <div class="text-muted py-4">
-                                        Chưa có lịch sử leads.
-                                    </div>
-                                @endif
-                            </div>
-
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
+<div
+    class="modal fade cx-customer-modal"
+    id="customerModal"
+    tabindex="-1"
+    aria-hidden="true"
+>
+    <div
+        class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
+    >
+        <div
+            class="modal-content cx-modal"
+            id="customerModalContent"
+        ></div>
     </div>
 </div>
-
-{{-- MODAL: Giao dịch (UI-only) --}}
-<div class="modal fade modal-ego" id="txDetailModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="d-flex flex-column">
-                    <h5 class="modal-title mb-1">
-                        <i class="bi bi-receipt-cutoff me-1"></i> Giao dịch • Chi tiết
-                    </h5>
-                    <div class="tx-muted">
-                        Khách: <b>{{ $customer->name ?? '—' }}</b>
-                        @if(!empty($customer->phone)) • {{ $customer->phone }} @endif
-                    </div>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <div class="modal-body">
-                <div class="card-glass p-3 mb-3">
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <span class="kpi-chip"><i class="bi bi-receipt"></i> Tổng đơn: {{ $tx['total_orders'] }}</span>
-                        <span class="kpi-chip"><i class="bi bi-box-seam"></i> Tổng SP: {{ $tx['total_products'] }}</span>
-                        <span class="kpi-chip"><i class="bi bi-cash-coin"></i> Tổng tiền: {{ $tx['total_amount'] }}</span>
-                        <span class="kpi-chip"><i class="bi bi-lightning-charge"></i> BH Inverter: {{ $tx['warranty_inverter'] }}</span>
-                        <span class="kpi-chip"><i class="bi bi-battery-charging"></i> BH Pin: {{ $tx['warranty_battery'] }}</span>
-                    </div>
-                </div>
-
-                <div class="table-wrap">
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover align-middle table-modern text-center">
-                            <thead class="small">
-                            <tr>
-                                <th>Mã đơn</th>
-                                <th>Ngày đặt</th>
-                                <th class="cell-left">Sản phẩm</th>
-                                <th>Số lượng</th>
-                                <th>Tổng tiền</th>
-                                <th>Bảo hành</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr>
-                                <td colspan="6" class="text-muted py-4">
-                                    UI-only. Sau này bạn load dữ liệu thật để render bảng này (orders + items).
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="small text-muted mt-2">
-                    Tip backend: trả JSON gồm orders[{code,date,total,items[{name,qty,warranty_group}]}] để build “Sản phẩm” + “Bảo hành”.
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Đóng</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    function openTxDetailModal(){
-        const el = document.getElementById('txDetailModal');
-        const modal = new bootstrap.Modal(el);
-        modal.show();
-    }
-</script>
-
-<!-- EGO_CUSTOMER_MODAL_STYLE_START -->
-<style id="ego-customer-modal-style">
-.ego-customer-modal{
-    border:0 !important;
-    border-radius:22px !important;
-    overflow:hidden !important;
-    box-shadow:0 30px 80px rgba(15,23,42,.28) !important;
-    background:#f8fafc !important;
-}
-
-.ego-customer-modal .modal-header{
-    background:linear-gradient(135deg,#0ea5e9 0%, #2563eb 100%) !important;
-    color:#fff !important;
-    border-bottom:0 !important;
-    padding:18px 24px !important;
-}
-
-.ego-customer-modal .modal-title,
-.ego-customer-modal h5,
-.ego-customer-modal h4{
-    color:#fff !important;
-    font-weight:800 !important;
-    font-size:30px !important;
-    margin:0 !important;
-}
-
-.ego-customer-modal .btn-close,
-.ego-customer-modal .close{
-    filter:brightness(0) invert(1) !important;
-    opacity:1 !important;
-}
-
-.ego-customer-modal .modal-body{
-    background:#f8fafc !important;
-    padding:18px !important;
-    max-height:78vh !important;
-    overflow-y:auto !important;
-}
-
-.ego-customer-modal .ego-customer-panel{
-    background:#fff !important;
-    border:1px solid #e2e8f0 !important;
-    border-radius:18px !important;
-    padding:16px 16px 12px !important;
-    margin-bottom:16px !important;
-    box-shadow:0 10px 26px rgba(15,23,42,.05) !important;
-}
-
-.ego-customer-modal .ego-customer-panel-title{
-    display:flex !important;
-    align-items:center !important;
-    gap:8px !important;
-    font-size:20px !important;
-    font-weight:800 !important;
-    color:#0f172a !important;
-    margin-bottom:14px !important;
-    padding-bottom:10px !important;
-    border-bottom:1px solid #eef2f7 !important;
-}
-
-.ego-customer-modal label,
-.ego-customer-modal .form-label{
-    font-size:14px !important;
-    font-weight:700 !important;
-    color:#334155 !important;
-    margin-bottom:8px !important;
-}
-
-.ego-customer-modal .form-control,
-.ego-customer-modal .form-select,
-.ego-customer-modal input,
-.ego-customer-modal select,
-.ego-customer-modal textarea{
-    border-radius:14px !important;
-    border:1px solid #dbe4ee !important;
-    background:#fff !important;
-    box-shadow:none !important;
-    min-height:44px !important;
-    padding:10px 14px !important;
-    font-size:14px !important;
-    color:#0f172a !important;
-}
-
-.ego-customer-modal textarea{
-    min-height:88px !important;
-    resize:vertical !important;
-}
-
-.ego-customer-modal .form-control:focus,
-.ego-customer-modal .form-select:focus,
-.ego-customer-modal input:focus,
-.ego-customer-modal select:focus,
-.ego-customer-modal textarea:focus{
-    border-color:#38bdf8 !important;
-    box-shadow:0 0 0 4px rgba(56,189,248,.14) !important;
-    outline:none !important;
-}
-
-.ego-customer-modal ::placeholder{
-    color:#94a3b8 !important;
-}
-
-.ego-customer-modal .text-muted,
-.ego-customer-modal small,
-.ego-customer-modal .form-text{
-    color:#64748b !important;
-    font-size:12px !important;
-}
-
-.ego-customer-modal .modal-footer{
-    background:#fff !important;
-    border-top:1px solid #e2e8f0 !important;
-    padding:14px 18px !important;
-}
-
-.ego-customer-modal .btn{
-    border-radius:14px !important;
-    min-height:42px !important;
-    padding:10px 16px !important;
-    font-weight:700 !important;
-}
-
-.ego-customer-modal .btn-primary,
-.ego-customer-modal .btn-success{
-    background:linear-gradient(135deg,#06b6d4 0%, #2563eb 100%) !important;
-    border:0 !important;
-    box-shadow:0 12px 28px rgba(37,99,235,.22) !important;
-}
-
-.ego-customer-modal .btn-secondary,
-.ego-customer-modal .btn-light{
-    background:#f8fafc !important;
-    border:1px solid #dbe4ee !important;
-    color:#0f172a !important;
-}
-</style>
-
-<script id="ego-customer-modal-style-js">
-(function(){
-    function beautifyCustomerModal(){
-        document.querySelectorAll('.modal').forEach(function(modal){
-            const text = (modal.innerText || '').trim();
-
-            if(
-                text.includes('Thêm mới khách hàng') ||
-                text.includes('Thông tin cơ bản')
-            ){
-                const content = modal.querySelector('.modal-content');
-                if(content) content.classList.add('ego-customer-modal');
-
-                const body = modal.querySelector('.modal-body');
-                if(body){
-                    body.querySelectorAll(':scope > div').forEach(function(el){
-                        if(el.querySelector('input, select, textarea')){
-                            el.classList.add('ego-customer-panel');
-                        }
-                    });
-
-                    body.querySelectorAll('.ego-customer-panel').forEach(function(panel){
-                        const firstHeading = panel.querySelector('h1,h2,h3,h4,h5,h6,.fw-bold,strong,legend');
-                        if(firstHeading && !firstHeading.classList.contains('ego-customer-panel-title')){
-                            firstHeading.classList.add('ego-customer-panel-title');
-                        }
-                    });
-                }
-            }
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', beautifyCustomerModal);
-    beautifyCustomerModal();
-
-    const obs = new MutationObserver(function(){
-        beautifyCustomerModal();
-    });
-
-    obs.observe(document.body, {childList:true, subtree:true});
-})();
-</script>
-<!-- EGO_CUSTOMER_MODAL_STYLE_END -->
-
 @endsection
+
+@push('scripts')
+    <script
+        src="{{ asset('js/ego-customers-promax-v3.js') }}?v={{ filemtime(public_path('js/ego-customers-promax-v3.js')) }}"
+        defer
+    ></script>
+@endpush

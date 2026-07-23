@@ -28,6 +28,7 @@ class Customer extends Model
         'facebook_name',
         'facebook_link',
         'zalo_id',
+        'ai_chatbot_link',
         'customer_type_id',
         'region_id',
         'nickname',

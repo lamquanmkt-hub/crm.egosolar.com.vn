@@ -9,6 +9,7 @@
 @section('content')
 @php
     $data = $executive;
+    $leaveDashboard = $leaveDashboard ?? app(\App\Services\Hr\LeaveDashboardAlertService::class)->snapshot(auth()->user());
     $money = static fn ($value) => number_format((float) $value, 0, ',', '.') . ' đ';
     $number = static fn ($value) => number_format((float) $value, 0, ',', '.');
     $percent = static fn ($value) => number_format((float) $value, 1, ',', '.') . '%';
@@ -134,6 +135,7 @@
                 </a>
             </div>
         </form>
+
 
         <section class="exec-kpis" aria-label="Chỉ số điều hành chính">
             <article class="exec-kpi exec-kpi--revenue">
@@ -524,6 +526,191 @@
             </article>
         </section>
     </div>
+
+
+
+    {{-- EGO_LEAVE_FLOAT_DRAWER_V120_START --}}
+    @php
+        $egoLeaveFloatPending = (int) (
+            $leaveDashboard['pending_approval_count']
+            ?? 0
+        );
+
+        $egoLeaveFloatLatest =
+            $leaveDashboard['latest_review']
+            ?? null;
+
+        $egoLeaveFloatMine =
+            $leaveDashboard['mine_latest']
+            ?? null;
+
+        $egoLeaveFloatVisible =
+            $egoLeaveFloatPending > 0
+            || !empty($egoLeaveFloatMine);
+    @endphp
+
+    @if($egoLeaveFloatVisible)
+        <aside
+            class="ego-leave-float"
+            id="egoLeaveFloat"
+            aria-label="Thông báo đơn nhân sự"
+        >
+            <button
+                type="button"
+                class="ego-leave-float__handle"
+                id="egoLeaveFloatToggle"
+                aria-controls="egoLeaveFloat"
+                aria-expanded="false"
+            >
+                <span class="ego-leave-float__pulse"></span>
+
+                <i class="bi bi-calendar2-check"></i>
+
+                @if($egoLeaveFloatPending > 0)
+                    <strong>
+                        {{ $egoLeaveFloatPending }}
+                    </strong>
+                @endif
+
+                <span class="ego-leave-float__handle-text">
+                    Nhân sự
+                </span>
+
+                <i class="bi bi-chevron-left ego-leave-float__arrow"></i>
+            </button>
+
+            <div class="ego-leave-float__panel">
+                <button
+                    type="button"
+                    class="ego-leave-float__close"
+                    id="egoLeaveFloatClose"
+                    aria-label="Thu gọn thông báo"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+
+                @if($egoLeaveFloatPending > 0)
+                    <div class="ego-leave-float__icon">
+                        <i class="bi bi-calendar2-check"></i>
+                    </div>
+
+                    <div class="ego-leave-float__eyebrow">
+                        Nhân sự cần xử lý
+                    </div>
+
+                    <h3>
+                        {{ number_format($egoLeaveFloatPending) }}
+                        đơn nghỉ phép chờ duyệt
+                    </h3>
+
+                    @if($egoLeaveFloatLatest)
+                        <p>
+                            <strong>
+                                {{ $egoLeaveFloatLatest['employee_name'] }}
+                            </strong>
+
+                            <span>
+                                {{ $egoLeaveFloatLatest['department_name'] }}
+                                ·
+                                {{ $egoLeaveFloatLatest['date_label'] }}
+                            </span>
+                        </p>
+                    @endif
+
+                    <div class="ego-leave-float__chips">
+                        @if(
+                            ($leaveDashboard['urgent_approval_count'] ?? 0)
+                            > 0
+                        )
+                            <span>
+                                <i class="bi bi-alarm"></i>
+
+                                {{
+                                    number_format(
+                                        $leaveDashboard[
+                                            'urgent_approval_count'
+                                        ]
+                                    )
+                                }}
+                                đơn sắp nghỉ
+                            </span>
+                        @endif
+
+                        @if(
+                            ($leaveDashboard['overdue_approval_count'] ?? 0)
+                            > 0
+                        )
+                            <span>
+                                <i class="bi bi-hourglass-split"></i>
+
+                                {{
+                                    number_format(
+                                        $leaveDashboard[
+                                            'overdue_approval_count'
+                                        ]
+                                    )
+                                }}
+                                đơn quá hạn
+                            </span>
+                        @endif
+                    </div>
+
+                    <a
+                        href="{{ $leaveDashboard['review_url'] }}"
+                        class="ego-leave-float__action"
+                    >
+                        Xem và duyệt ngay
+
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
+                @else
+                    <div class="ego-leave-float__icon is-mine">
+                        <i class="bi bi-calendar-event"></i>
+                    </div>
+
+                    <div class="ego-leave-float__eyebrow">
+                        Đơn nhân sự gần nhất
+                    </div>
+
+                    <h3>
+                        {{
+                            $egoLeaveFloatMine[
+                                'request_type_label'
+                            ]
+                        }}
+                    </h3>
+
+                    <p>
+                        <strong>
+                            {{
+                                $egoLeaveFloatMine[
+                                    'status_label'
+                                ]
+                            }}
+                        </strong>
+
+                        <span>
+                            {{
+                                $egoLeaveFloatMine[
+                                    'date_label'
+                                ]
+                            }}
+                        </span>
+                    </p>
+
+                    <a
+                        href="{{ $leaveDashboard['mine_url'] }}"
+                        class="ego-leave-float__action is-mine"
+                    >
+                        Theo dõi đơn
+
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
+                @endif
+            </div>
+        </aside>
+    @endif
+    {{-- EGO_LEAVE_FLOAT_DRAWER_V120_END --}}
 </main>
 @endsection
 
@@ -537,3 +724,27 @@ window.EGO_EXECUTIVE_DASHBOARD = {{ Illuminate\Support\Js::from([
 </script>
 <script src="{{ asset('js/executive-dashboard.js') }}?v={{ filemtime(public_path('js/executive-dashboard.js')) }}"></script>
 @endpush
+
+{{-- EGO_EXECUTIVE_PROMAX_MOTION --}}
+@push('styles')
+    <link
+        rel="stylesheet"
+        href="{{ asset('css/executive-dashboard-promax-motion.css') }}?v={{ filemtime(public_path('css/executive-dashboard-promax-motion.css')) }}"
+    >
+@endpush
+
+@push('scripts')
+    <script
+        src="{{ asset('js/executive-dashboard-promax-motion.js') }}?v={{ filemtime(public_path('js/executive-dashboard-promax-motion.js')) }}"
+        defer
+    ></script>
+
+{{-- EGO_LEAVE_FLOAT_DRAWER_JS_V120_START --}}
+<script
+    src="{{ asset('js/ego-leave-dashboard-drawer.js') }}?v={{ file_exists(public_path('js/ego-leave-dashboard-drawer.js')) ? filemtime(public_path('js/ego-leave-dashboard-drawer.js')) : '1.2.0' }}"
+    defer
+></script>
+{{-- EGO_LEAVE_FLOAT_DRAWER_JS_V120_END --}}
+@endpush
+
+

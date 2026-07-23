@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSetting;
 use App\Models\Department;
+use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\Hr\LeaveApprovalAccessService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -53,13 +55,37 @@ class AttendanceController extends Controller
             ->whereDate('work_date', $today)
             ->first();
 
+        $leaveAccess = app(LeaveApprovalAccessService::class);
+        $canReviewLeave = $leaveAccess->canReview($user);
+        $canViewCompanyAttendance = $leaveAccess->canManageAll($user);
+
+        $pendingApprovalCount = 0;
+
+        if ($canReviewLeave) {
+            $pendingApprovalQuery = LeaveRequest::query()
+                ->where('status', 'pending');
+
+            $pendingApprovalCount = $leaveAccess
+                ->scopeReviewable($pendingApprovalQuery, $user)
+                ->count();
+        }
+
+        $myPendingLeaveCount = LeaveRequest::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+
         return view('hr.attendance.my', compact(
             'records',
             'todayRecord',
             'month',
             'start',
             'end',
-            'setting'
+            'setting',
+            'canReviewLeave',
+            'canViewCompanyAttendance',
+            'pendingApprovalCount',
+            'myPendingLeaveCount'
         ));
     }
 

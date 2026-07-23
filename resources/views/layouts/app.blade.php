@@ -146,15 +146,15 @@
 
     @yield('styles')
     @stack('styles')
-    {{-- EGO_TOPBAR_MOBILE_FINAL_CSS --}}
-    <link rel="stylesheet" href="{{ asset('css/crm-topbar-mobile-final.css') }}?v={{ filemtime(public_path('css/crm-topbar-mobile-final.css')) }}">
+{{-- EGO_SYSTEM_BRANDING_RUNTIME_V2 --}}
+    @include('partials.system-branding-runtime')
+    {{-- EGO_LEAVE_DASHBOARD_ALERTS_CSS_V110_START --}}
+    <link rel="stylesheet" href="{{ asset('css/ego-leave-dashboard-alerts.css') }}?v={{ file_exists(public_path('css/ego-leave-dashboard-alerts.css')) ? filemtime(public_path('css/ego-leave-dashboard-alerts.css')) : '1.1.0' }}">
+    {{-- EGO_LEAVE_DASHBOARD_ALERTS_CSS_V110_END --}}
 </head>
 
 <body>
-@if(auth()->check())
-    <script>window.CHAT_ME_ID = {{ auth()->id() }};</script>
-    <script src="{{ asset('js/chat-widget.js') }}?v={{ time() }}"></script>
-@endif
+
 
 <div class="ego-shell">
     {{-- Sidebar (full top) --}}
@@ -170,12 +170,30 @@
     </div>
 </div>
 
+
+{{-- EGO_TASK_FLOAT_ALL_ROLES_V150_START --}}
+@if(
+    auth()->check()
+    && (
+        request()->routeIs('dashboard')
+        || request()->is('/')
+    )
+)
+    @include('dashboard.partials.task-float')
+
+    <script
+        src="{{ asset('js/ego-task-dashboard-drawer.js') }}?v={{ file_exists(public_path('js/ego-task-dashboard-drawer.js')) ? filemtime(public_path('js/ego-task-dashboard-drawer.js')) : '1.5.0' }}"
+        defer
+    ></script>
+@endif
+{{-- EGO_TASK_FLOAT_ALL_ROLES_V150_END --}}
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('js/main.js') }}?v={{ filemtime(public_path('js/main.js')) }}"></script>
 <script src="{{ asset('js/crm-topbar.js') }}?v={{ filemtime(public_path('js/crm-topbar.js')) }}"></script>
 {{-- CRM_NAVIGATION_PRO_V2_JS --}}
 <script src="{{ asset('js/crm-navigation-pro.js') }}?v={{ filemtime(public_path('js/crm-navigation-pro.js')) }}"></script>
-@include('chat.widget')
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 @stack('scripts')
@@ -194,9 +212,5 @@
 </div>
 
 @include('company_context.switcher')
-
-
-{{-- EGO_TOPBAR_MOBILE_FINAL_JS --}}
-<script src="{{ asset('js/crm-topbar-mobile-final.js') }}?v={{ filemtime(public_path('js/crm-topbar-mobile-final.js')) }}"></script>
 </body>
 </html>

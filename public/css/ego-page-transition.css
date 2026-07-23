@@ -1,0 +1,476 @@
+:root {
+    --ego-transition-navy: #031321;
+    --ego-transition-cyan: #18bfd6;
+    --ego-transition-teal: #13b89e;
+}
+
+body.ego-transition-locked {
+    overflow: hidden !important;
+    touch-action: none;
+}
+
+.ego-transition {
+    position: fixed;
+    z-index: 2147483646;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+
+    color: #fff;
+
+    background:
+        radial-gradient(
+            circle at 50% 42%,
+            rgba(24, 191, 214, 0.2),
+            transparent 390px
+        ),
+        linear-gradient(
+            145deg,
+            #020d18 0%,
+            #031b2d 48%,
+            #06344a 100%
+        );
+
+    transition:
+        opacity 260ms ease,
+        visibility 260ms ease;
+}
+
+.ego-transition.is-visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: all;
+}
+
+.ego-transition.is-hiding {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ego-transition__scene,
+.ego-transition__grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.ego-transition__grid {
+    opacity: 0.2;
+
+    background-image:
+        linear-gradient(
+            rgba(101, 226, 239, 0.08) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(101, 226, 239, 0.08) 1px,
+            transparent 1px
+        );
+
+    background-size: 44px 44px;
+
+    mask-image:
+        radial-gradient(
+            circle at center,
+            #000 0%,
+            transparent 75%
+        );
+
+    animation: egoGridMove 8s linear infinite;
+}
+
+.ego-transition__glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(12px);
+    opacity: 0.28;
+}
+
+.ego-transition__glow--one {
+    top: 5%;
+    left: 8%;
+    width: 380px;
+    height: 380px;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(24, 191, 214, 0.45),
+            transparent 68%
+        );
+
+    animation: egoGlowFloat 7s ease-in-out infinite;
+}
+
+.ego-transition__glow--two {
+    right: 6%;
+    bottom: 4%;
+    width: 420px;
+    height: 420px;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(19, 184, 158, 0.34),
+            transparent 68%
+        );
+
+    animation:
+        egoGlowFloat 9s ease-in-out infinite reverse;
+}
+
+.ego-transition__content {
+    position: relative;
+    z-index: 2;
+
+    display: flex;
+    width: min(90vw, 440px);
+    flex-direction: column;
+    align-items: center;
+
+    text-align: center;
+
+    transform: translateY(15px) scale(0.97);
+    opacity: 0;
+
+    transition:
+        transform 430ms cubic-bezier(.2, .75, .2, 1),
+        opacity 350ms ease;
+}
+
+.ego-transition.is-visible .ego-transition__content {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.ego-transition__spinner {
+    position: relative;
+
+    display: grid;
+    width: 172px;
+    height: 172px;
+    place-items: center;
+
+    margin-bottom: 27px;
+}
+
+.ego-transition__ring {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+}
+
+.ego-transition__ring--outer {
+    inset: 0;
+
+    border:
+        3px solid rgba(255, 255, 255, 0.08);
+    border-top-color: #24d8e9;
+    border-right-color: rgba(36, 216, 233, 0.5);
+
+    filter:
+        drop-shadow(0 0 10px rgba(36, 216, 233, 0.7));
+
+    animation: egoRingRotate 1.25s linear infinite;
+}
+
+.ego-transition__ring--outer::after {
+    content: "";
+
+    position: absolute;
+    top: 7px;
+    right: 20px;
+
+    width: 11px;
+    height: 11px;
+
+    border-radius: 50%;
+
+    background: #30e2ec;
+
+    box-shadow:
+        0 0 0 7px rgba(48, 226, 236, 0.1),
+        0 0 21px rgba(48, 226, 236, 1);
+}
+
+.ego-transition__ring--middle {
+    inset: 15px;
+
+    border:
+        2px dashed rgba(255, 255, 255, 0.18);
+    border-left-color: #23d3b1;
+    border-bottom-color: #23d3b1;
+
+    filter:
+        drop-shadow(0 0 7px rgba(35, 211, 177, 0.65));
+
+    animation: egoRingReverse 1.8s linear infinite;
+}
+
+.ego-transition__ring--inner {
+    inset: 33px;
+
+    border:
+        1px solid rgba(125, 234, 240, 0.22);
+
+    box-shadow:
+        inset 0 0 30px rgba(24, 191, 214, 0.14);
+
+    animation: egoRingPulse 1.45s ease-in-out infinite;
+}
+
+.ego-transition__logo-box {
+    position: relative;
+    z-index: 3;
+
+    display: grid;
+    width: 88px;
+    height: 88px;
+    place-items: center;
+
+    overflow: hidden;
+
+    border:
+        1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 28px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(255, 255, 255, 1),
+            rgba(222, 248, 251, 0.94)
+        );
+
+    box-shadow:
+        0 22px 60px rgba(0, 8, 17, 0.48),
+        0 0 50px rgba(24, 191, 214, 0.24);
+
+    animation: egoLogoPulse 1.7s ease-in-out infinite;
+}
+
+.ego-transition__logo-box::after {
+    content: "";
+
+    position: absolute;
+    inset: -60% -50%;
+
+    transform: translateX(-110%) rotate(25deg);
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.85),
+            transparent
+        );
+
+    animation: egoLogoShine 2.4s ease-in-out infinite;
+}
+
+.ego-transition__logo {
+    position: relative;
+    z-index: 2;
+
+    display: block;
+    width: 74px;
+    height: 56px;
+
+    object-fit: contain;
+}
+
+.ego-transition__brand {
+    margin-bottom: 8px;
+
+    color: rgba(94, 229, 239, 0.92);
+
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.23em;
+}
+
+.ego-transition__title {
+    color: #fff;
+
+    font-size: clamp(23px, 3vw, 31px);
+    font-weight: 850;
+    letter-spacing: -0.04em;
+    line-height: 1.16;
+
+    text-wrap: balance;
+}
+
+.ego-transition__message {
+    margin-top: 10px;
+
+    color: rgba(220, 239, 244, 0.68);
+
+    font-size: 13px;
+    font-weight: 550;
+}
+
+.ego-transition__progress {
+    position: relative;
+
+    width: min(86vw, 330px);
+    height: 5px;
+
+    margin-top: 27px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background:
+        rgba(255, 255, 255, 0.1);
+
+    box-shadow:
+        inset 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.ego-transition__progress span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -48%;
+
+    width: 48%;
+
+    border-radius: inherit;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            #1fc8dc 35%,
+            #27d9b9 75%,
+            transparent
+        );
+
+    box-shadow:
+        0 0 18px rgba(31, 200, 220, 0.75);
+
+    animation: egoProgress 1s ease-in-out infinite;
+}
+
+@keyframes egoRingRotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes egoRingReverse {
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+@keyframes egoRingPulse {
+    0%,
+    100% {
+        transform: scale(0.95);
+        opacity: 0.55;
+    }
+
+    50% {
+        transform: scale(1.055);
+        opacity: 1;
+    }
+}
+
+@keyframes egoLogoPulse {
+    0%,
+    100% {
+        transform: scale(0.965);
+    }
+
+    50% {
+        transform: scale(1.04);
+    }
+}
+
+@keyframes egoLogoShine {
+    0%,
+    34% {
+        transform: translateX(-110%) rotate(25deg);
+    }
+
+    72%,
+    100% {
+        transform: translateX(110%) rotate(25deg);
+    }
+}
+
+@keyframes egoProgress {
+    from {
+        left: -48%;
+    }
+
+    to {
+        left: 100%;
+    }
+}
+
+@keyframes egoGridMove {
+    to {
+        background-position:
+            44px 44px,
+            44px 44px;
+    }
+}
+
+@keyframes egoGlowFloat {
+    0%,
+    100% {
+        transform:
+            translate3d(0, 0, 0)
+            scale(1);
+    }
+
+    50% {
+        transform:
+            translate3d(20px, -24px, 0)
+            scale(1.09);
+    }
+}
+
+@media (max-width: 600px) {
+    .ego-transition__spinner {
+        width: 145px;
+        height: 145px;
+    }
+
+    .ego-transition__logo-box {
+        width: 78px;
+        height: 78px;
+        border-radius: 24px;
+    }
+
+    .ego-transition__logo {
+        width: 65px;
+        height: 48px;
+    }
+
+    .ego-transition__title {
+        font-size: 23px;
+    }
+
+    .ego-transition__message {
+        font-size: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ego-transition *,
+    .ego-transition *::before,
+    .ego-transition *::after {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

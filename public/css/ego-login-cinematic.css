@@ -1,0 +1,1681 @@
+:root {
+    --ego-navy: #06182a;
+    --ego-navy-deep: #03111f;
+    --ego-cyan: #16b7d4;
+    --ego-cyan-bright: #20d5ee;
+    --ego-teal: #0e9f8e;
+    --ego-white: #ffffff;
+    --ego-text: #0a1b30;
+    --ego-muted: #6c7b8f;
+    --ego-danger: #e34a62;
+    --ego-success: #24c894;
+    --ego-border: rgba(255, 255, 255, 0.17);
+    --ego-glass: rgba(250, 253, 255, 0.88);
+    --ego-glass-strong: rgba(255, 255, 255, 0.94);
+    --ego-shadow: 0 34px 90px rgba(1, 13, 27, 0.36);
+    --ego-ease: cubic-bezier(.2, .8, .2, 1);
+    --ego-app-height: 100dvh;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    background: var(--ego-navy-deep);
+}
+
+body.ego-cinematic-page {
+    min-height: 100vh;
+    min-height: var(--ego-app-height);
+    margin: 0;
+    overflow-x: hidden;
+    color: var(--ego-white);
+    background: var(--ego-navy-deep);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+.ego-cinematic-bg,
+.ego-cinematic-bg > div {
+    position: fixed;
+    inset: 0;
+}
+
+.ego-cinematic-bg {
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--ego-navy-deep);
+}
+
+.ego-cinematic-bg__image {
+    background-image: url('/assets/img/ego-login-cinematic-bg.webp');
+    background-size: cover;
+    background-position: center 47%;
+    transform: scale(1.055);
+    filter: saturate(.92) contrast(1.04);
+    transition: transform 12s ease;
+}
+
+body.is-ready .ego-cinematic-bg__image {
+    transform: scale(1.018);
+}
+
+.ego-cinematic-bg__veil {
+    background:
+        linear-gradient(90deg,
+            rgba(2, 14, 27, .72) 0%,
+            rgba(2, 16, 31, .56) 38%,
+            rgba(2, 17, 32, .70) 65%,
+            rgba(2, 15, 29, .91) 100%),
+        linear-gradient(180deg,
+            rgba(2, 15, 28, .14) 0%,
+            rgba(2, 15, 28, .20) 54%,
+            rgba(2, 15, 28, .72) 100%);
+}
+
+.ego-cinematic-bg__grid {
+    opacity: .15;
+    background-image:
+        linear-gradient(rgba(105, 224, 241, .10) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(105, 224, 241, .10) 1px, transparent 1px);
+    background-size: 62px 62px;
+    mask-image: linear-gradient(to right, transparent 0%, black 32%, black 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 32%, black 100%);
+    animation: egoGridDrift 30s linear infinite;
+}
+
+.ego-cinematic-bg__noise {
+    opacity: .035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    mix-blend-mode: soft-light;
+}
+
+.ego-cinematic-bg__glow {
+    border-radius: 999px;
+    filter: blur(18px);
+    opacity: .62;
+}
+
+.ego-cinematic-bg__glow--cyan {
+    width: 560px;
+    height: 560px;
+    top: -220px;
+    left: -160px;
+    background: radial-gradient(circle, rgba(22, 183, 212, .34), transparent 70%);
+    animation: egoGlowFloat 13s var(--ego-ease) infinite alternate;
+}
+
+.ego-cinematic-bg__glow--teal {
+    width: 520px;
+    height: 520px;
+    right: -180px;
+    bottom: -230px;
+    background: radial-gradient(circle, rgba(14, 159, 142, .28), transparent 70%);
+    animation: egoGlowFloat 15s var(--ego-ease) -4s infinite alternate-reverse;
+}
+
+.ego-cinematic-bg__spotlight {
+    width: 520px;
+    height: 520px;
+    left: var(--spot-x, 76%);
+    top: var(--spot-y, 38%);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(43, 218, 236, .13), transparent 68%);
+    transition: left .11s linear, top .11s linear;
+}
+
+.ego-cinematic-particles {
+    inset: 0;
+}
+
+.ego-cinematic-particles span {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(169, 243, 255, .44);
+    box-shadow: 0 0 14px rgba(34, 216, 238, .42);
+    animation: egoParticle 13s linear infinite;
+}
+
+.ego-cinematic-particles span:nth-child(1) { left: 10%; top: 76%; animation-delay: -1s; }
+.ego-cinematic-particles span:nth-child(2) { left: 24%; top: 34%; animation-delay: -6s; animation-duration: 17s; }
+.ego-cinematic-particles span:nth-child(3) { left: 41%; top: 82%; animation-delay: -8s; }
+.ego-cinematic-particles span:nth-child(4) { left: 57%; top: 22%; animation-delay: -3s; animation-duration: 15s; }
+.ego-cinematic-particles span:nth-child(5) { left: 72%; top: 70%; animation-delay: -11s; }
+.ego-cinematic-particles span:nth-child(6) { left: 82%; top: 30%; animation-delay: -5s; animation-duration: 18s; }
+.ego-cinematic-particles span:nth-child(7) { left: 91%; top: 84%; animation-delay: -9s; }
+.ego-cinematic-particles span:nth-child(8) { left: 64%; top: 50%; animation-delay: -13s; animation-duration: 20s; }
+
+.ego-login-shell {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    min-height: var(--ego-app-height);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(420px, 470px);
+    grid-template-rows: auto 1fr auto;
+    column-gap: clamp(36px, 6vw, 112px);
+    padding:
+        max(30px, env(safe-area-inset-top))
+        clamp(28px, 5vw, 86px)
+        max(26px, env(safe-area-inset-bottom));
+}
+
+.ego-login-brand {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 13px;
+    width: fit-content;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.ego-login-brand__logo {
+    width: 132px;
+    height: 52px;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 8px 20px rgba(0, 0, 0, .22));
+}
+
+.ego-login-brand__copy {
+    display: grid;
+    gap: 2px;
+    padding-left: 14px;
+    border-left: 1px solid rgba(255, 255, 255, .28);
+}
+
+.ego-login-brand__copy strong {
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: .12em;
+}
+
+.ego-login-brand__copy small {
+    color: rgba(255, 255, 255, .62);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .16em;
+}
+
+.ego-login-story {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    max-width: 720px;
+    padding: 32px 0 42px;
+    opacity: 0;
+    transform: translateY(18px);
+}
+
+.ego-login-story__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: rgba(216, 249, 255, .80);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.ego-login-story__eyebrow::before {
+    content: "";
+    width: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--ego-cyan-bright), transparent);
+}
+
+.ego-login-story h1 {
+    max-width: 680px;
+    margin: 20px 0 16px;
+    font-size: clamp(42px, 5.4vw, 76px);
+    line-height: .98;
+    letter-spacing: -.055em;
+    font-weight: 900;
+    text-wrap: balance;
+    text-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+}
+
+.ego-login-story p {
+    max-width: 610px;
+    margin: 0;
+    color: rgba(255, 255, 255, .74);
+    font-size: clamp(15px, 1.25vw, 18px);
+    line-height: 1.72;
+    font-weight: 500;
+}
+
+.ego-login-story__points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 30px;
+    margin-top: 34px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, .16);
+}
+
+.ego-login-story__points span {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255, 255, 255, .76);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ego-login-story__points b {
+    color: var(--ego-cyan-bright);
+    font-size: 10px;
+    letter-spacing: .1em;
+}
+
+.ego-login-mobile-intro {
+    display: none;
+}
+
+.ego-login-panel-wrap {
+    grid-column: 2;
+    grid-row: 1 / 4;
+    align-self: center;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(24px) scale(.985);
+}
+
+.ego-login-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 26px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(243, 250, 253, .84));
+    box-shadow: var(--ego-shadow);
+    backdrop-filter: blur(22px) saturate(125%);
+    -webkit-backdrop-filter: blur(22px) saturate(125%);
+}
+
+.ego-login-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(circle at 82% 0%, rgba(22, 183, 212, .12), transparent 38%);
+    pointer-events: none;
+}
+
+.ego-login-panel__status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 58px;
+    padding: 14px 28px;
+    border-bottom: 1px solid rgba(8, 34, 58, .075);
+    background: rgba(255, 255, 255, .42);
+}
+
+.ego-system-indicator,
+.ego-system-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #53667b;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.ego-system-indicator i,
+.ego-system-live i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.ego-system-indicator i {
+    background: var(--ego-cyan);
+    box-shadow: 0 0 0 5px rgba(22, 183, 212, .10);
+}
+
+.ego-system-live {
+    color: #11866f;
+}
+
+.ego-system-live i {
+    background: var(--ego-success);
+    box-shadow: 0 0 0 5px rgba(36, 200, 148, .10);
+    animation: egoPulse 2.2s ease-in-out infinite;
+}
+
+.ego-login-panel__body {
+    padding: 34px 36px 30px;
+}
+
+.ego-login-panel__footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 17px 28px;
+    border-top: 1px solid rgba(8, 34, 58, .075);
+    color: #8090a2;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .025em;
+}
+
+.ego-login-heading {
+    margin-bottom: 24px;
+}
+
+.ego-login-heading__kicker {
+    display: block;
+    margin-bottom: 10px;
+    color: #099ab9;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .16em;
+}
+
+.ego-login-heading h2 {
+    margin: 0;
+    color: var(--ego-text);
+    font-size: clamp(30px, 2.3vw, 38px);
+    line-height: 1.08;
+    letter-spacing: -.045em;
+    font-weight: 900;
+}
+
+.ego-login-heading p {
+    margin: 10px 0 0;
+    color: var(--ego-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 550;
+}
+
+.ego-login-form {
+    display: grid;
+    gap: 18px;
+}
+
+.ego-field {
+    display: grid;
+    gap: 8px;
+}
+
+.ego-field__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ego-field__label {
+    color: #24364c;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.ego-field__control {
+    position: relative;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 54px;
+    overflow: hidden;
+    border: 1px solid #d7e2ec;
+    border-radius: 15px;
+    background: rgba(247, 250, 253, .96);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .88);
+    transition:
+        border-color .18s ease,
+        box-shadow .18s ease,
+        background .18s ease,
+        transform .18s ease;
+}
+
+.ego-field__control:focus-within {
+    border-color: rgba(22, 183, 212, .78);
+    background: #fff;
+    box-shadow:
+        0 0 0 4px rgba(22, 183, 212, .12),
+        0 10px 24px rgba(13, 87, 112, .08);
+    transform: translateY(-1px);
+}
+
+.ego-field__control.is-invalid {
+    border-color: rgba(227, 74, 98, .56);
+    box-shadow: 0 0 0 4px rgba(227, 74, 98, .08);
+}
+
+.ego-field__icon {
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+    color: #668095;
+    border-right: 1px solid #e0e8ef;
+    font-size: 15px;
+}
+
+.ego-field__control input {
+    min-width: 0;
+    width: 100%;
+    height: 54px;
+    padding: 0 14px;
+    border: 0;
+    outline: 0;
+    color: #132338;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 680;
+}
+
+.ego-field__control input::placeholder {
+    color: #9aa8b7;
+    font-weight: 500;
+}
+
+.ego-password-toggle {
+    align-self: stretch;
+    width: 48px;
+    border: 0;
+    border-left: 1px solid #e0e8ef;
+    color: #6f8295;
+    background: transparent;
+    cursor: pointer;
+    transition: color .18s ease, background .18s ease;
+}
+
+.ego-password-toggle:hover,
+.ego-password-toggle:focus-visible {
+    color: #078ca9;
+    background: rgba(22, 183, 212, .07);
+    outline: none;
+}
+
+.ego-caps-warning {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #c17712;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.ego-field__error {
+    color: var(--ego-danger);
+    font-size: 11px;
+    font-weight: 650;
+}
+
+.ego-login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: -2px;
+}
+
+.ego-remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: #45586d;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ego-remember input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ego-remember__box {
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border: 1px solid #c8d4df;
+    border-radius: 6px;
+    color: transparent;
+    background: #fff;
+    transition: .18s ease;
+}
+
+.ego-remember input:checked + .ego-remember__box {
+    border-color: var(--ego-cyan);
+    color: #fff;
+    background: linear-gradient(135deg, var(--ego-cyan), var(--ego-teal));
+}
+
+.ego-remember input:focus-visible + .ego-remember__box {
+    box-shadow: 0 0 0 4px rgba(22, 183, 212, .14);
+}
+
+.ego-login-help {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #718296;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.ego-login-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 56px;
+    margin-top: 2px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 15px;
+    color: #fff;
+    background: linear-gradient(110deg, #16b7d4, #0e9f8e 68%, #0886a7);
+    box-shadow: 0 16px 34px rgba(9, 154, 178, .24);
+    cursor: pointer;
+    transition:
+        transform .18s var(--ego-ease),
+        box-shadow .18s var(--ego-ease),
+        filter .18s ease;
+}
+
+.ego-login-button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%);
+    background: linear-gradient(105deg, transparent 25%, rgba(255, 255, 255, .26), transparent 65%);
+    transition: transform .7s var(--ego-ease);
+}
+
+.ego-login-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: saturate(1.08);
+    box-shadow: 0 20px 42px rgba(9, 154, 178, .31);
+}
+
+.ego-login-button:hover::before {
+    transform: translateX(120%);
+}
+
+.ego-login-button:focus-visible {
+    outline: 3px solid rgba(32, 213, 238, .32);
+    outline-offset: 3px;
+}
+
+.ego-login-button:disabled {
+    cursor: wait;
+    opacity: .88;
+}
+
+.ego-login-button__idle,
+.ego-login-button__loading {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.ego-login-button__loading {
+    display: none;
+}
+
+.ego-login-button.is-loading .ego-login-button__idle {
+    display: none;
+}
+
+.ego-login-button.is-loading .ego-login-button__loading {
+    display: inline-flex;
+}
+
+.ego-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, .38);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: egoSpin .75s linear infinite;
+}
+
+.ego-login-note {
+    margin: 0;
+    color: #7d8c9d;
+    font-size: 10px;
+    line-height: 1.55;
+    text-align: center;
+    font-weight: 600;
+}
+
+.ego-auth-alert {
+    display: flex;
+    gap: 11px;
+    margin: 0 0 18px;
+    padding: 12px 13px;
+    border: 1px solid rgba(227, 74, 98, .20);
+    border-radius: 14px;
+    color: #9f2c41;
+    background: rgba(255, 238, 242, .82);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.ego-auth-alert__icon {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    color: var(--ego-danger);
+    background: rgba(227, 74, 98, .10);
+}
+
+.ego-auth-alert strong {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.ego-auth-alert p,
+.ego-auth-alert ul {
+    margin: 0;
+    padding: 0;
+}
+
+.ego-auth-alert ul {
+    padding-left: 16px;
+}
+
+.ego-login-global-footer {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: end;
+    display: flex;
+    gap: 28px;
+    color: rgba(255, 255, 255, .58);
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+.ego-login-global-footer span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+body.is-ready [data-ego-reveal] {
+    opacity: 1;
+    transform: none;
+    transition:
+        opacity .58s var(--ego-ease),
+        transform .58s var(--ego-ease);
+}
+
+body.is-ready .ego-login-story {
+    transition-delay: .08s;
+}
+
+body.is-ready .ego-login-panel-wrap {
+    transition-delay: .15s;
+}
+
+body.is-ready .ego-login-global-footer {
+    transition-delay: .22s;
+}
+
+@media (max-height: 810px) and (min-width: 1025px) {
+    .ego-login-shell {
+        padding-top: 24px;
+        padding-bottom: 22px;
+    }
+
+    .ego-login-story {
+        padding-block: 20px;
+    }
+
+    .ego-login-story h1 {
+        font-size: clamp(38px, 4.5vw, 64px);
+    }
+
+    .ego-login-story__points {
+        margin-top: 22px;
+        padding-top: 18px;
+    }
+
+    .ego-login-panel__body {
+        padding: 28px 32px 24px;
+    }
+}
+
+@media (max-width: 1120px) {
+    .ego-login-shell {
+        grid-template-columns: minmax(0, 1fr) minmax(390px, 430px);
+        column-gap: 42px;
+        padding-inline: 36px;
+    }
+
+    .ego-login-story h1 {
+        font-size: clamp(38px, 5vw, 62px);
+    }
+
+    .ego-login-story__points {
+        display: grid;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 900px) {
+    .ego-cinematic-bg__image {
+        background-position: 43% center;
+    }
+
+    .ego-cinematic-bg__veil {
+        background:
+            linear-gradient(90deg, rgba(2, 15, 29, .60), rgba(2, 15, 29, .78)),
+            linear-gradient(180deg, rgba(2, 15, 29, .12), rgba(2, 15, 29, .72));
+    }
+
+    .ego-login-shell {
+        grid-template-columns: minmax(0, 1fr) 400px;
+        column-gap: 24px;
+        padding-inline: 26px;
+    }
+
+    .ego-login-brand__copy,
+    .ego-login-story__points,
+    .ego-login-global-footer {
+        display: none;
+    }
+
+    .ego-login-story h1 {
+        font-size: clamp(36px, 5.4vw, 52px);
+    }
+
+    .ego-login-story p {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 720px) {
+    body.ego-cinematic-page {
+        overflow-y: auto;
+    }
+
+    .ego-cinematic-bg__image {
+        background-position: 48% center;
+    }
+
+    .ego-cinematic-bg__veil {
+        background:
+            linear-gradient(180deg,
+                rgba(2, 15, 29, .34) 0%,
+                rgba(2, 15, 29, .56) 35%,
+                rgba(2, 15, 29, .90) 70%,
+                rgba(2, 15, 29, .98) 100%);
+    }
+
+    .ego-cinematic-bg__grid,
+    .ego-cinematic-particles,
+    .ego-login-story,
+    .ego-login-global-footer,
+    .ego-system-live {
+        display: none;
+    }
+
+    .ego-login-shell {
+        min-height: var(--ego-app-height);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 12px;
+        padding:
+            max(18px, env(safe-area-inset-top))
+            14px
+            max(14px, env(safe-area-inset-bottom));
+    }
+
+    .ego-login-brand {
+        position: absolute;
+        top: max(18px, env(safe-area-inset-top));
+        left: 18px;
+    }
+
+    .ego-login-brand__logo {
+        width: 112px;
+        height: 44px;
+    }
+
+    .ego-login-brand__copy {
+        display: none;
+    }
+
+    .ego-login-mobile-intro {
+        display: grid;
+        gap: 4px;
+        width: calc(100% - 16px);
+        margin: auto 8px 4px;
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    .ego-login-mobile-intro span {
+        color: rgba(223, 250, 255, .76);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: .12em;
+    }
+
+    .ego-login-mobile-intro strong {
+        color: #fff;
+        font-size: clamp(24px, 8vw, 32px);
+        letter-spacing: -.04em;
+        line-height: 1.05;
+    }
+
+    .ego-login-panel-wrap {
+        width: 100%;
+        align-self: stretch;
+    }
+
+    .ego-login-panel {
+        border-radius: 24px;
+        background: rgba(250, 253, 255, .93);
+        backdrop-filter: blur(18px) saturate(122%);
+        -webkit-backdrop-filter: blur(18px) saturate(122%);
+    }
+
+    .ego-login-panel__status {
+        min-height: 49px;
+        padding: 12px 20px;
+    }
+
+    .ego-login-panel__body {
+        padding: 23px 20px 22px;
+    }
+
+    .ego-login-panel__footer {
+        display: none;
+    }
+
+    .ego-login-heading {
+        margin-bottom: 20px;
+    }
+
+    .ego-login-heading h2 {
+        font-size: 29px;
+    }
+
+    .ego-login-heading p {
+        font-size: 12px;
+    }
+
+    .ego-field__control,
+    .ego-field__control input {
+        min-height: 54px;
+        height: 54px;
+    }
+
+    .ego-field__control input {
+        font-size: 16px;
+    }
+
+    .ego-login-button {
+        min-height: 54px;
+    }
+
+    .ego-login-options {
+        align-items: center;
+    }
+
+    .ego-login-help {
+        font-size: 9px;
+    }
+
+    body.is-keyboard-open .ego-login-brand,
+    body.is-keyboard-open .ego-login-mobile-intro {
+        display: none;
+    }
+
+    body.is-keyboard-open .ego-login-shell {
+        justify-content: flex-start;
+        min-height: auto;
+        padding-top: 10px;
+    }
+}
+
+@media (max-width: 390px) {
+    .ego-login-panel__body {
+        padding-inline: 17px;
+    }
+
+    .ego-login-panel__status {
+        padding-inline: 17px;
+    }
+
+    .ego-login-heading h2 {
+        font-size: 27px;
+    }
+
+    .ego-login-options {
+        gap: 10px;
+    }
+
+    .ego-login-help {
+        max-width: 112px;
+        text-align: right;
+    }
+}
+
+@media (max-width: 340px) {
+    .ego-login-shell {
+        padding-inline: 10px;
+    }
+
+    .ego-login-panel__body {
+        padding: 20px 15px;
+    }
+
+    .ego-login-panel__status {
+        padding-inline: 15px;
+    }
+
+    .ego-system-indicator,
+    .ego-remember,
+    .ego-login-help {
+        font-size: 9px;
+    }
+
+    .ego-login-help {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+
+    .ego-cinematic-bg__image,
+    [data-ego-reveal] {
+        transform: none !important;
+        opacity: 1 !important;
+    }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+    .ego-login-panel {
+        background: rgba(248, 252, 255, .985);
+    }
+}
+
+@keyframes egoGridDrift {
+    to { transform: translate3d(62px, 62px, 0); }
+}
+
+@keyframes egoGlowFloat {
+    from { transform: translate3d(-10px, -6px, 0) scale(.96); }
+    to { transform: translate3d(24px, 20px, 0) scale(1.06); }
+}
+
+@keyframes egoParticle {
+    0% { transform: translate3d(0, 20px, 0) scale(.7); opacity: 0; }
+    15% { opacity: .75; }
+    80% { opacity: .3; }
+    100% { transform: translate3d(18px, -110px, 0) scale(1.2); opacity: 0; }
+}
+
+@keyframes egoPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(.78); opacity: .64; }
+}
+
+@keyframes egoSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   MOBILE PROMAX V2.1
+   Dark cinematic glass, compact layout, no duplicated logo.
+   ========================================================= */
+.ego-login-mobile-status {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    html,
+    body.ego-cinematic-page {
+        background: #020d18;
+    }
+
+    body.ego-cinematic-page {
+        color-scheme: dark;
+    }
+
+    .ego-cinematic-bg__image {
+        background-position: 80% center;
+        transform: scale(1.035);
+        filter: saturate(.78) contrast(1.08) brightness(.78);
+    }
+
+    body.is-ready .ego-cinematic-bg__image {
+        transform: scale(1.01);
+    }
+
+    .ego-cinematic-bg__veil {
+        background:
+            linear-gradient(180deg,
+                rgba(2, 14, 27, .08) 0%,
+                rgba(2, 14, 27, .18) 24%,
+                rgba(2, 14, 27, .56) 48%,
+                rgba(2, 14, 27, .91) 69%,
+                rgba(2, 14, 27, .995) 100%),
+            linear-gradient(90deg,
+                rgba(2, 14, 27, .26),
+                rgba(2, 14, 27, .08) 56%,
+                rgba(2, 14, 27, .34));
+    }
+
+    .ego-cinematic-bg__noise {
+        opacity: .025;
+    }
+
+    .ego-cinematic-bg__glow--cyan {
+        width: 300px;
+        height: 300px;
+        top: -140px;
+        left: -100px;
+        opacity: .44;
+    }
+
+    .ego-cinematic-bg__glow--teal {
+        width: 320px;
+        height: 320px;
+        right: -160px;
+        bottom: -180px;
+        opacity: .38;
+    }
+
+    .ego-login-shell {
+        min-height: var(--ego-app-height);
+        justify-content: flex-end;
+        gap: 0;
+        padding:
+            max(18px, env(safe-area-inset-top))
+            14px
+            max(14px, env(safe-area-inset-bottom));
+    }
+
+    .ego-login-brand {
+        top: max(18px, env(safe-area-inset-top));
+        left: 20px;
+        z-index: 2;
+    }
+
+    .ego-login-brand__logo {
+        width: 124px;
+        height: 42px;
+        filter:
+            brightness(0)
+            invert(1)
+            drop-shadow(0 8px 20px rgba(0, 0, 0, .28));
+        opacity: .96;
+    }
+
+    .ego-login-mobile-intro {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 7px;
+        width: 100%;
+        margin: auto 0 16px;
+        padding: 0 8px;
+    }
+
+    .ego-login-mobile-intro > span:not(.ego-login-mobile-status) {
+        display: none;
+    }
+
+    .ego-login-mobile-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        padding: 7px 10px;
+        border: 1px solid rgba(255, 255, 255, .14);
+        border-radius: 999px;
+        color: rgba(235, 252, 255, .82);
+        background: rgba(4, 21, 36, .38);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: .045em;
+        text-transform: none;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, .16);
+    }
+
+    .ego-login-mobile-status i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #35d8a5;
+        box-shadow: 0 0 0 5px rgba(53, 216, 165, .10);
+    }
+
+    .ego-login-mobile-intro strong {
+        max-width: 310px;
+        color: #fff;
+        font-size: clamp(27px, 8.6vw, 34px);
+        line-height: 1;
+        letter-spacing: -.055em;
+        text-shadow: 0 12px 34px rgba(0, 0, 0, .35);
+    }
+
+    .ego-login-panel-wrap {
+        width: 100%;
+        align-self: stretch;
+    }
+
+    .ego-login-panel {
+        border: 1px solid rgba(255, 255, 255, .14);
+        border-radius: 28px;
+        color: #fff;
+        background:
+            linear-gradient(155deg,
+                rgba(9, 31, 51, .94),
+                rgba(3, 17, 31, .88));
+        box-shadow:
+            0 28px 70px rgba(0, 0, 0, .42),
+            inset 0 1px 0 rgba(255, 255, 255, .07);
+        backdrop-filter: blur(22px) saturate(118%);
+        -webkit-backdrop-filter: blur(22px) saturate(118%);
+    }
+
+    .ego-login-panel::before {
+        background:
+            radial-gradient(circle at 90% 0%, rgba(30, 211, 234, .15), transparent 38%),
+            linear-gradient(180deg, rgba(255, 255, 255, .025), transparent 34%);
+    }
+
+    .ego-login-panel__status,
+    .ego-login-panel__footer {
+        display: none;
+    }
+
+    .ego-login-panel__body {
+        padding:
+            25px
+            20px
+            max(22px, env(safe-area-inset-bottom));
+    }
+
+    .ego-login-heading {
+        margin-bottom: 19px;
+    }
+
+    .ego-login-heading__kicker {
+        display: none;
+    }
+
+    .ego-login-heading h2 {
+        color: #fff;
+        font-size: 28px;
+        line-height: 1.06;
+        letter-spacing: -.045em;
+    }
+
+    .ego-login-heading p {
+        max-width: 310px;
+        margin-top: 8px;
+        color: rgba(226, 240, 249, .62);
+        font-size: 12px;
+        line-height: 1.55;
+    }
+
+    .ego-login-form {
+        gap: 15px;
+    }
+
+    .ego-field {
+        gap: 7px;
+    }
+
+    .ego-field__label {
+        color: rgba(239, 249, 255, .78);
+        font-size: 10px;
+        letter-spacing: .01em;
+    }
+
+    .ego-field__control {
+        min-height: 53px;
+        border-color: rgba(255, 255, 255, .13);
+        border-radius: 15px;
+        background: rgba(255, 255, 255, .075);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, .05),
+            0 10px 30px rgba(0, 0, 0, .10);
+    }
+
+    .ego-field__control:focus-within {
+        border-color: rgba(31, 210, 235, .78);
+        background: rgba(255, 255, 255, .105);
+        box-shadow:
+            0 0 0 4px rgba(22, 183, 212, .12),
+            0 14px 34px rgba(0, 0, 0, .16);
+        transform: none;
+    }
+
+    .ego-field__control.is-invalid {
+        border-color: rgba(255, 105, 130, .55);
+        box-shadow: 0 0 0 4px rgba(227, 74, 98, .10);
+    }
+
+    .ego-field__icon {
+        color: rgba(106, 226, 242, .78);
+        border-right-color: rgba(255, 255, 255, .10);
+    }
+
+    .ego-field__control input {
+        min-height: 53px;
+        height: 53px;
+        color: #fff;
+        caret-color: var(--ego-cyan-bright);
+        font-size: 16px;
+        font-weight: 650;
+    }
+
+    .ego-field__control input::placeholder {
+        color: rgba(225, 240, 249, .34);
+    }
+
+    .ego-password-toggle {
+        color: rgba(235, 248, 255, .55);
+        border-left-color: rgba(255, 255, 255, .10);
+    }
+
+    .ego-password-toggle:hover,
+    .ego-password-toggle:focus-visible {
+        color: #8ceeff;
+        background: rgba(22, 183, 212, .10);
+    }
+
+    .ego-caps-warning {
+        color: #ffc66e;
+        font-size: 9px;
+    }
+
+    .ego-field__error {
+        color: #ff8ea2;
+    }
+
+    .ego-login-options {
+        margin-top: -1px;
+    }
+
+    .ego-remember {
+        color: rgba(234, 247, 255, .72);
+        font-size: 10px;
+    }
+
+    .ego-remember__box {
+        width: 18px;
+        height: 18px;
+        border-color: rgba(255, 255, 255, .22);
+        background: rgba(255, 255, 255, .06);
+    }
+
+    .ego-login-help {
+        color: rgba(224, 239, 248, .50);
+        font-size: 9px;
+    }
+
+    .ego-login-button {
+        min-height: 54px;
+        margin-top: 1px;
+        border: 1px solid rgba(255, 255, 255, .10);
+        border-radius: 15px;
+        background: linear-gradient(110deg, #19c1dc, #0fa58f 68%, #0795b4);
+        box-shadow:
+            0 17px 38px rgba(5, 157, 181, .27),
+            inset 0 1px 0 rgba(255, 255, 255, .19);
+    }
+
+    .ego-login-button__idle,
+    .ego-login-button__loading {
+        font-size: 12px;
+    }
+
+    .ego-login-note {
+        color: rgba(220, 238, 248, .40);
+        font-size: 9px;
+    }
+
+    .ego-auth-alert {
+        border-color: rgba(255, 111, 135, .24);
+        color: #ffd8df;
+        background: rgba(118, 24, 46, .30);
+    }
+
+    .ego-auth-alert__icon {
+        color: #ff8da1;
+        background: rgba(255, 101, 127, .12);
+    }
+
+    body.is-keyboard-open .ego-login-shell {
+        justify-content: flex-start;
+        min-height: auto;
+        padding-top: 8px;
+    }
+
+    body.is-keyboard-open .ego-login-panel {
+        border-radius: 22px;
+    }
+}
+
+@media (max-width: 390px) {
+    .ego-login-shell {
+        padding-inline: 11px;
+    }
+
+    .ego-login-brand {
+        left: 17px;
+    }
+
+    .ego-login-brand__logo {
+        width: 112px;
+    }
+
+    .ego-login-mobile-intro {
+        margin-bottom: 12px;
+        padding-inline: 6px;
+    }
+
+    .ego-login-mobile-intro strong {
+        font-size: 27px;
+    }
+
+    .ego-login-panel__body {
+        padding-inline: 17px;
+    }
+
+    .ego-login-heading h2 {
+        font-size: 26px;
+    }
+
+    .ego-login-help {
+        max-width: 116px;
+        text-align: right;
+        line-height: 1.25;
+    }
+}
+
+@media (max-width: 350px) {
+    .ego-login-shell {
+        padding-inline: 8px;
+    }
+
+    .ego-login-brand {
+        left: 14px;
+    }
+
+    .ego-login-brand__logo {
+        width: 104px;
+    }
+
+    .ego-login-mobile-intro {
+        padding-inline: 4px;
+    }
+
+    .ego-login-mobile-intro strong {
+        font-size: 25px;
+    }
+
+    .ego-login-panel {
+        border-radius: 24px;
+    }
+
+    .ego-login-panel__body {
+        padding: 21px 15px max(19px, env(safe-area-inset-bottom));
+    }
+
+    .ego-login-heading p,
+    .ego-login-note,
+    .ego-login-help {
+        display: none;
+    }
+
+    .ego-login-options {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 720px) and (max-height: 760px) {
+    .ego-login-brand__logo {
+        width: 106px;
+        height: 36px;
+    }
+
+    .ego-login-mobile-intro {
+        margin-bottom: 9px;
+    }
+
+    .ego-login-mobile-status {
+        padding-block: 6px;
+    }
+
+    .ego-login-mobile-intro strong {
+        font-size: 25px;
+    }
+
+    .ego-login-panel__body {
+        padding-top: 20px;
+        padding-bottom: max(18px, env(safe-area-inset-bottom));
+    }
+
+    .ego-login-heading {
+        margin-bottom: 15px;
+    }
+
+    .ego-login-heading h2 {
+        font-size: 25px;
+    }
+
+    .ego-login-heading p,
+    .ego-login-note {
+        display: none;
+    }
+
+    .ego-login-form {
+        gap: 12px;
+    }
+
+    .ego-field__control,
+    .ego-field__control input {
+        min-height: 50px;
+        height: 50px;
+    }
+
+    .ego-login-button {
+        min-height: 51px;
+    }
+}
+
+/* EGO_LOGIN_MOBILE_CENTER_START */
+@media (max-width: 720px) {
+    /*
+     * Căn toàn bộ nội dung chính vào giữa viewport.
+     * Logo vẫn cố định phía trên nhưng được căn giữa ngang.
+     */
+    .ego-login-shell {
+        min-height: var(--ego-app-height) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 0 !important;
+        padding:
+            max(82px, env(safe-area-inset-top))
+            14px
+            max(20px, env(safe-area-inset-bottom)) !important;
+    }
+
+    .ego-login-brand {
+        position: absolute !important;
+        top: max(18px, env(safe-area-inset-top)) !important;
+        left: 50% !important;
+        right: auto !important;
+        width: auto !important;
+        transform: translateX(-50%) !important;
+    }
+
+    body.is-ready .ego-login-brand {
+        transform: translateX(-50%) !important;
+    }
+
+    .ego-login-brand__logo {
+        display: block;
+        width: 122px !important;
+        height: 42px !important;
+        object-position: center !important;
+    }
+
+    /*
+     * Gom tiêu đề và form thành một cụm chính giữa.
+     */
+    .ego-login-mobile-intro {
+        width: min(100%, 370px) !important;
+        margin: 0 auto 14px !important;
+        padding: 0 4px !important;
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    .ego-login-mobile-status {
+        margin-inline: auto !important;
+    }
+
+    .ego-login-mobile-intro strong {
+        width: 100%;
+        max-width: none !important;
+        text-align: center !important;
+    }
+
+    .ego-login-panel-wrap {
+        width: min(100%, 370px) !important;
+        margin: 0 auto !important;
+        align-self: center !important;
+    }
+
+    .ego-login-panel {
+        width: 100% !important;
+        margin-inline: auto !important;
+    }
+
+    /*
+     * Khi bàn phím điện thoại mở:
+     * ẩn logo và intro, đưa form lên đầu để không bị che.
+     */
+    body.is-keyboard-open .ego-login-shell {
+        min-height: auto !important;
+        justify-content: flex-start !important;
+        padding:
+            10px
+            12px
+            max(14px, env(safe-area-inset-bottom)) !important;
+    }
+
+    body.is-keyboard-open .ego-login-panel-wrap {
+        width: min(100%, 390px) !important;
+    }
+}
+
+@media (max-width: 390px) {
+    .ego-login-shell {
+        padding-left: 11px !important;
+        padding-right: 11px !important;
+    }
+
+    .ego-login-mobile-intro,
+    .ego-login-panel-wrap {
+        width: min(100%, 360px) !important;
+    }
+
+    .ego-login-brand__logo {
+        width: 112px !important;
+    }
+}
+
+@media (max-width: 350px) {
+    .ego-login-shell {
+        padding:
+            max(72px, env(safe-area-inset-top))
+            8px
+            max(14px, env(safe-area-inset-bottom)) !important;
+    }
+
+    .ego-login-mobile-intro,
+    .ego-login-panel-wrap {
+        width: 100% !important;
+    }
+
+    .ego-login-brand__logo {
+        width: 104px !important;
+    }
+}
+
+@media (max-width: 720px) and (max-height: 760px) {
+    .ego-login-shell {
+        justify-content: center !important;
+        padding-top: max(68px, env(safe-area-inset-top)) !important;
+    }
+
+    .ego-login-mobile-intro {
+        margin-bottom: 9px !important;
+    }
+}
+/* EGO_LOGIN_MOBILE_CENTER_END */
+

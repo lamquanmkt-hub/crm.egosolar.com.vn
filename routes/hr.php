@@ -300,7 +300,26 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
         ->name('leave.approve');
 
     Route::post('leave-requests/{leave}/reject', [LeaveRequestController::class, 'reject'])
+        ->whereNumber('leave')
         ->name('leave.reject');
+
+    Route::post('leave-requests/{leave}/transfer-approver', [LeaveRequestController::class, 'transferApprover'])
+        ->whereNumber('leave')
+        ->name('leave.transfer-approver');
+
+    Route::post('leave-requests/{leave}/cancel', [LeaveRequestController::class, 'cancel'])
+        ->whereNumber('leave')
+        ->name('leave.cancel');
+
+    Route::get('leave-requests/{leave}/attachments/{attachment}/download', [LeaveRequestController::class, 'downloadAttachment'])
+        ->whereNumber('leave')
+        ->whereNumber('attachment')
+        ->name('leave.attachments.download');
+
+    Route::delete('leave-requests/{leave}/attachments/{attachment}', [LeaveRequestController::class, 'deleteAttachment'])
+        ->whereNumber('leave')
+        ->whereNumber('attachment')
+        ->name('leave.attachments.delete');
 
     /*
     |--------------------------------------------------------------------------
@@ -308,7 +327,7 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
     |--------------------------------------------------------------------------
     */
     Route::get('online-work/create', function () {
-        return view('hr.online-work.create');
+        return redirect()->route('hr.leave.create', ['request_type' => 'wfh']);
     })->name('online-work.create');
 
     /*

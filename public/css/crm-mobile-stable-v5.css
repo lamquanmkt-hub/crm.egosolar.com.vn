@@ -1,0 +1,611 @@
+/*
+|--------------------------------------------------------------------------
+| EGO MOBILE STABLE V5
+|--------------------------------------------------------------------------
+*/
+
+@media (max-width: 991.98px) {
+    :root {
+        --ego-mobile-topbar-height: 58px;
+    }
+
+    html,
+    body {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    body,
+    body.crm-topbar-panel-open,
+    body.ego-mobile-notice-open {
+        overflow-y: auto !important;
+        touch-action: auto !important;
+        overscroll-behavior-y: auto !important;
+    }
+
+    .ego-shell,
+    .ego-page,
+    .ego-page__body,
+    .main-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOPBAR
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar.crm-topbar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 2001000 !important;
+
+        width: 100% !important;
+        height: var(--ego-mobile-topbar-height) !important;
+        min-height: var(--ego-mobile-topbar-height) !important;
+
+        overflow: visible !important;
+
+        border-bottom:
+            1px solid #dce8ee !important;
+
+        background:
+            rgba(255, 255, 255, .99) !important;
+
+        box-shadow:
+            0 5px 18px
+            rgba(16, 42, 65, .08) !important;
+
+        transform: none !important;
+        filter: none !important;
+        contain: none !important;
+        isolation: isolate !important;
+
+        pointer-events: auto !important;
+    }
+
+    #crmTopbar .crm-topbar__inner {
+        position: relative !important;
+
+        display: grid !important;
+        grid-template-columns:
+            1fr 1fr !important;
+
+        width: 100% !important;
+        height: 100% !important;
+
+        align-items: center !important;
+
+        padding: 0 6px !important;
+
+        overflow: visible !important;
+    }
+
+    #crmTopbar .crm-topbar__left,
+    #crmTopbar .crm-topbar__right {
+        position: relative !important;
+        z-index: 6 !important;
+
+        display: flex !important;
+
+        min-width: 0 !important;
+        height: 100% !important;
+
+        align-items: center !important;
+
+        gap: 2px !important;
+
+        overflow: visible !important;
+        pointer-events: auto !important;
+    }
+
+    #crmTopbar .crm-topbar__left {
+        grid-column: 1 !important;
+
+        justify-self: start !important;
+        justify-content: flex-start !important;
+    }
+
+    #crmTopbar .crm-topbar__right {
+        grid-column: 2 !important;
+
+        justify-self: end !important;
+        justify-content: flex-end !important;
+    }
+
+    /*
+     * Ẩn nội dung desktop.
+     */
+    #crmTopbar .crm-topbar__center,
+    #crmTopbar .crm-topbar__module-copy,
+    #crmTopbar .crm-topbar__status-chip,
+    #crmTopbar .crm-topbar__sidebar-toggle,
+    #crmTopbar .crm-topbar__action-label,
+    #crmTopbar .crm-topbar__account-copy,
+    #crmTopbar .crm-topbar__account-chevron {
+        display: none !important;
+    }
+
+    /*
+     * Hiện nút mobile.
+     */
+    #crmTopbar .crm-topbar__mobile-menu,
+    #crmTopbar .crm-topbar__mobile-more {
+        display: inline-flex !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOGO GIỮA
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar .crm-topbar__mobile-brand {
+        position: absolute !important;
+
+        top: 50% !important;
+        left: 50% !important;
+
+        z-index: 3 !important;
+
+        display: inline-flex !important;
+
+        width: 94px !important;
+        height: 40px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        overflow: hidden !important;
+
+        transform:
+            translate(-50%, -50%) !important;
+
+        /*
+         * Không để logo phủ vùng bấm hai bên.
+         */
+        pointer-events: none !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand img {
+        display: block !important;
+
+        width: auto !important;
+        max-width: 90px !important;
+
+        height: auto !important;
+        max-height: 31px !important;
+
+        object-fit: contain !important;
+        pointer-events: none !important;
+    }
+
+    #crmTopbar .crm-topbar__brand-fallback {
+        display: none !important;
+    }
+
+    #crmTopbar
+    .crm-topbar__brand-fallback.is-visible {
+        display: inline-flex !important;
+
+        color: #0d2b43 !important;
+
+        font-size: 11px !important;
+        font-weight: 900 !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NÚT TOPBAR
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar button,
+    #crmTopbar a {
+        touch-action: manipulation !important;
+
+        -webkit-tap-highlight-color:
+            rgba(10, 148, 174, .14) !important;
+    }
+
+    #crmTopbar .crm-topbar__icon-button,
+    #crmTopbar .crm-topbar__action-button,
+    #crmTopbar .crm-topbar__account-button {
+        position: relative !important;
+        z-index: 8 !important;
+
+        display: inline-flex !important;
+
+        width: 39px !important;
+        min-width: 39px !important;
+
+        height: 39px !important;
+        min-height: 39px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        border:
+            1px solid transparent !important;
+
+        border-radius: 11px !important;
+
+        background: transparent !important;
+
+        pointer-events: auto !important;
+    }
+
+    #crmTopbar
+    .crm-topbar__action-button[
+        aria-expanded="true"
+    ],
+    #crmTopbar
+    .crm-topbar__account-button[
+        aria-expanded="true"
+    ],
+    #crmTopbar
+    .crm-topbar__icon-button:active {
+        border-color: #d9e8ee !important;
+
+        color: #087c9e !important;
+        background: #eef7fa !important;
+    }
+
+    #crmTopbar .crm-topbar__avatar {
+        width: 34px !important;
+        height: 34px !important;
+
+        border:
+            2px solid #e2ebef !important;
+    }
+
+    #crmTopbar .crm-topbar__badge {
+        top: -5px !important;
+        right: -5px !important;
+
+        min-width: 18px !important;
+        height: 18px !important;
+
+        padding: 0 4px !important;
+
+        font-size: 8px !important;
+    }
+
+    /*
+     * Giữ panel Chat và Tiện ích trong DOM,
+     * nhưng ẩn nút desktop.
+     */
+    #crmTopbar .crm-topbar__chat-wrap,
+    #crmTopbar .crm-topbar__more-wrap {
+        display: contents !important;
+    }
+
+    #crmTopbar
+    .crm-topbar__chat-wrap
+    > .crm-topbar__action-button,
+    #crmTopbar
+    .crm-topbar__more-wrap
+    > .crm-topbar__more-toggle {
+        display: none !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-wrap {
+        position: static !important;
+
+        overflow: visible !important;
+
+        transform: none !important;
+        contain: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL ĐÓNG
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar .crm-topbar__panel,
+    #crmTopbar
+    .crm-topbar__panel[
+        aria-hidden="true"
+    ] {
+        position: fixed !important;
+
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | PANEL MỞ – BOTTOM SHEET
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar .crm-topbar__panel.is-open,
+    #crmTopbar
+    .crm-topbar__panel[
+        aria-hidden="false"
+    ] {
+        position: fixed !important;
+
+        top: auto !important;
+
+        right: 7px !important;
+
+        bottom:
+            max(
+                7px,
+                env(
+                    safe-area-inset-bottom,
+                    0px
+                )
+            ) !important;
+
+        left: 7px !important;
+
+        z-index: 2001100 !important;
+
+        display: flex !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        max-height:
+            min(
+                76dvh,
+                620px
+            ) !important;
+
+        flex-direction: column !important;
+
+        overflow: hidden !important;
+
+        border:
+            1px solid
+            rgba(122, 148, 166, .25) !important;
+
+        border-radius: 20px !important;
+
+        background: #ffffff !important;
+
+        box-shadow:
+            0 28px 88px
+            rgba(10, 30, 48, .34) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+
+        animation:
+            egoMobileStablePanelIn
+            180ms ease-out !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-header,
+    #crmTopbar .crm-topbar__account-header {
+        flex: 0 0 auto !important;
+
+        min-height: 68px !important;
+
+        padding: 14px !important;
+
+        border-bottom:
+            1px solid #e6eef2 !important;
+
+        background:
+            linear-gradient(
+                135deg,
+                #ffffff,
+                #f5fbfd
+            ) !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-close {
+        display: inline-flex !important;
+
+        width: 34px !important;
+        height: 34px !important;
+    }
+
+    #crmTopbar .crm-topbar__search-row {
+        margin:
+            10px 12px 7px !important;
+    }
+
+    #crmTopbar
+    .crm-topbar__search-row input {
+        height: 43px !important;
+
+        font-size: 16px !important;
+    }
+
+    #crmTopbar .crm-topbar__tabs {
+        padding:
+            0 12px 9px !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-list,
+    #crmTopbar .crm-topbar__account-menu,
+    #crmTopbar .crm-topbar__utility-list {
+        flex: 1 1 auto !important;
+
+        min-height: 0 !important;
+        max-height: none !important;
+
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+
+        -webkit-overflow-scrolling:
+            touch !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-list {
+        padding: 7px !important;
+    }
+
+    #crmTopbar .crm-topbar__message-item,
+    #crmTopbar .crm-topbar__notification-item {
+        min-height: 66px !important;
+
+        padding: 9px !important;
+
+        border-radius: 12px !important;
+    }
+
+    #crmTopbar .crm-topbar__panel-footer {
+        flex: 0 0 auto !important;
+
+        min-height: 47px !important;
+
+        background: #f7fbfc !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TIỆN ÍCH
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list {
+        display: grid !important;
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            ) !important;
+
+        gap: 8px !important;
+        padding: 11px !important;
+    }
+
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list
+    > a,
+    #crmTopbar
+    #crmMorePanel
+    .crm-topbar__utility-list
+    > button {
+        min-height: 78px !important;
+
+        padding: 11px !important;
+
+        border:
+            1px solid #dfe9ee !important;
+
+        border-radius: 14px !important;
+
+        background: #ffffff !important;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | BACKDROP
+    |--------------------------------------------------------------------------
+    */
+
+    #crmTopbarBackdrop,
+    #crmTopbarBackdrop[
+        aria-hidden="true"
+    ] {
+        display: none !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    #crmTopbarBackdrop.is-open,
+    #crmTopbarBackdrop[
+        aria-hidden="false"
+    ] {
+        position: fixed !important;
+
+        inset:
+            var(
+                --ego-mobile-topbar-height
+            )
+            0
+            0 !important;
+
+        z-index: 2000900 !important;
+
+        display: block !important;
+
+        background:
+            rgba(7, 20, 33, .46) !important;
+
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+
+    /*
+     * Tạm ẩn hai popup đã gây xung đột.
+     * Desktop vẫn giữ nguyên.
+     */
+    .ego-task-float,
+    .ego-leave-float {
+        display: none !important;
+
+        pointer-events: none !important;
+    }
+}
+
+@media (max-width: 359px) {
+    #crmTopbar .crm-topbar__icon-button,
+    #crmTopbar .crm-topbar__action-button,
+    #crmTopbar .crm-topbar__account-button {
+        width: 36px !important;
+        min-width: 36px !important;
+
+        height: 36px !important;
+        min-height: 36px !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand {
+        width: 82px !important;
+    }
+
+    #crmTopbar .crm-topbar__mobile-brand img {
+        max-width: 80px !important;
+    }
+}
+
+@keyframes egoMobileStablePanelIn {
+    from {
+        opacity: 0;
+
+        transform:
+            translateY(14px)
+            scale(.99);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            translateY(0)
+            scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #crmTopbar .crm-topbar__panel {
+        animation: none !important;
+    }
+}
