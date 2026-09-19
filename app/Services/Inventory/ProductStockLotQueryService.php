@@ -169,11 +169,28 @@ class ProductStockLotQueryService
         $productTable = (new Product)->getTable();
         $costAfterExpr = $this->stockLotActualCostExpr('l', 'p');
 
+        /*
+        |--------------------------------------------------------------------------
+        | EGO V10: catalog la bang goc, loc kho/cong ty ngay trong LEFT JOIN
+        |--------------------------------------------------------------------------
+        | Neu loc l.warehouse_id/l.company_id bang WHERE o ben duoi, cac san pham
+        | khong co lo con ton se co l.* = NULL va bi loai khoi ket qua. Do do san
+        | pham ton = 0 / chua tung co lo trong kho se "bien mat".
+        |
+        | Dua dieu kien vao ON cua LEFT JOIN giu lai moi san pham active trong
+        | catalog; san pham khong co lo phu hop se nhan stocks_sum_qty = 0.
+        */
         $q = Product::query()
             ->from($productTable.' as p')
-            ->leftJoin('crm_product_stock_lots as l', function ($join) {
+            ->leftJoin('crm_product_stock_lots as l', function ($join) use ($warehouseId, $companyId) {
                 $join->on('l.product_id', '=', 'p.id')
                     ->where('l.qty_remaining', '>', 0);
+
+                if ($warehouseId) {
+                    $join->where('l.warehouse_id', '=', $warehouseId);
+                } elseif ($companyId) {
+                    $join->where('l.company_id', '=', $companyId);
+                }
             })
             ->leftJoin('crm_warehouses as w', 'w.id', '=', 'l.warehouse_id')
             ->leftJoin('companies as c', 'c.id', '=', 'l.company_id');
@@ -209,12 +226,6 @@ class ProductStockLotQueryService
 
         if ($brandId) {
             $q->where('p.brand_id', $brandId);
-        }
-
-        if ($warehouseId) {
-            $q->where('l.warehouse_id', $warehouseId);
-        } elseif ($companyId) {
-            $q->where('l.company_id', $companyId);
         }
 
         $q->select([

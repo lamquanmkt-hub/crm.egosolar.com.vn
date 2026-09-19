@@ -1,6 +1,8 @@
 @extends('layouts.app')
 @section('title', 'Đơn hàng '.$order->order_code)
 @section('content')
+
+    @include('orders.partials.stock-shortage-warning')
 <link rel="stylesheet" href="{{ asset('css/orders-one-page-v3.css') }}?v={{ @filemtime(public_path('css/orders-one-page-v3.css')) ?: time() }}">
 <script defer src="{{ asset('js/orders-one-page-v3.js') }}?v={{ @filemtime(public_path('js/orders-one-page-v3.js')) ?: time() }}"></script>
 @php

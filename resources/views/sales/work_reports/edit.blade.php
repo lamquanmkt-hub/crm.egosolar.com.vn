@@ -2,7 +2,7 @@
 
 @section('content')
 @include('sales.work_reports._form', [
-    'title' => 'Cập nhật báo cáo Sales',
+    'title' => 'Cập nhật chăm sóc khách hàng',
     'action' => route('sales.work-reports.update', $report->id),
     'method' => 'PUT',
 ])

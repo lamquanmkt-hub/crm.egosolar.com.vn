@@ -13,6 +13,7 @@ use App\Services\Inventory\ProductCatalogOptionsService;
 use App\Services\Inventory\ProductStockLotExcelExporter;
 use App\Services\Inventory\ProductStockLotQueryService;
 use App\Services\Inventory\Stock\StockLotService;
+use App\Support\EgoCompanyLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -50,24 +51,26 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $keyword = trim((string) $request->get('search', ''));
-        $companyRaw = $request->get('company_id', 'all'); // 1|2|all|null
+        // Hệ thống hiện chỉ vận hành kho của Công ty Quốc Tế EGO.
+        // Không nhận company_id từ URL để tránh truy cập chéo dữ liệu EGO VN.
+        $companyId = EgoCompanyLock::id();
+        $companyMode = (string) $companyId;
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
         $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
-
         $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
-        $companyId = null;
-        $companyMode = 'all';
-        if ($companyRaw === '1' || $companyRaw === 1 || $companyRaw === '2' || $companyRaw === 2) {
-            $companyId = (int) $companyRaw;
-            $companyMode = (string) $companyId;
+        if ($warehouseId && ! Warehouse::withoutGlobalScopes()
+            ->where('id', $warehouseId)
+            ->where('company_id', $companyId)
+            ->exists()) {
+            $warehouseId = null;
         }
 
         if (Schema::hasTable('crm_product_stock_lots')) {
             $products = $this->lotQuery->paginateStockLotIndexRows($keyword, $categoryId, $brandId, $companyId, $warehouseId);
 
-            $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+            $companies = DB::table('companies')->select('id', 'name')->where('id', EgoCompanyLock::id())->get();
             $categories = $this->catalogOptions->buildCategoryOptions();
 
             $warehousesQ = Warehouse::query()->orderBy('name');
@@ -121,7 +124,7 @@ class ProductController extends Controller
         } catch (\Throwable $e) {
         }
         try {
-            $q->with(['brand', 'category']);
+            $q->with(['brand', 'category', 'stocks.warehouse']);
         } catch (\Throwable $e) {
         }
 
@@ -164,7 +167,7 @@ class ProductController extends Controller
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
 
         // dropdown data
-        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $companies = DB::table('companies')->select('id', 'name')->where('id', EgoCompanyLock::id())->get();
         $categories = $this->catalogOptions->buildCategoryOptions();
 
         // ✅ Warehouses theo công ty (pivot company_warehouse)
@@ -215,17 +218,18 @@ class ProductController extends Controller
     {
         // Dùng đúng logic giống index() để tránh 500
         $keyword = trim((string) $request->get('search', ''));
-        $companyRaw = $request->get('company_id', 'all');
+        $companyId = EgoCompanyLock::id();
+        $companyMode = (string) $companyId;
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
         $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
         $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
-        $companyId = null;
-        $companyMode = 'all';
-        if ($companyRaw === '1' || $companyRaw === 1 || $companyRaw === '2' || $companyRaw === 2) {
-            $companyId = (int) $companyRaw;
-            $companyMode = (string) $companyId;
+        if ($warehouseId && ! Warehouse::withoutGlobalScopes()
+            ->where('id', $warehouseId)
+            ->where('company_id', $companyId)
+            ->exists()) {
+            $warehouseId = null;
         }
 
         /*
@@ -253,7 +257,7 @@ class ProductController extends Controller
         } catch (\Throwable $e) {
         }
         try {
-            $q->with(['brand', 'category']);
+            $q->with(['brand', 'category', 'stocks.warehouse']);
         } catch (\Throwable $e) {
         }
 
@@ -297,7 +301,7 @@ class ProductController extends Controller
         $categories = $this->catalogOptions->buildCategoryOptions();
 
         /* EGO_FIX_PRODUCTS_INPUT_ALL_WAREHOUSES_START
-           Màn Sản phẩm đầu vào phải nhìn được cả Kho EGO_QT và Kho EGO_VN.
+           Màn Sản phẩm đầu vào chỉ hiển thị kho thuộc Công ty Quốc Tế EGO.
            Một số model Warehouse đang bị scope theo công ty đang chọn trong session,
            nên dùng withoutGlobalScopes() và chỉ lọc theo company_id khi người dùng
            chọn rõ bộ lọc công ty trên màn hình. */
@@ -351,15 +355,16 @@ class ProductController extends Controller
     public function exportInputExcel(Request $request)
     {
         $keyword = trim((string) $request->get('search', ''));
-        $companyRaw = $request->get('company_id', 'all');
+        $companyId = EgoCompanyLock::id();
         $warehouseId = $request->filled('warehouse_id') ? (int) $request->get('warehouse_id') : null;
         $categoryId = $request->filled('category_id') ? (int) $request->get('category_id') : null;
         $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
 
-        $companyId = null;
-
-        if ($companyRaw === '1' || $companyRaw === 1 || $companyRaw === '2' || $companyRaw === 2) {
-            $companyId = (int) $companyRaw;
+        if ($warehouseId && ! Warehouse::withoutGlobalScopes()
+            ->where('id', $warehouseId)
+            ->where('company_id', $companyId)
+            ->exists()) {
+            $warehouseId = null;
         }
 
         if (Schema::hasTable('crm_product_stock_lots')) {
@@ -375,7 +380,7 @@ class ProductController extends Controller
         }
 
         try {
-            $q->with(['brand', 'category']);
+            $q->with(['brand', 'category', 'stocks.warehouse']);
         } catch (\Throwable $e) {
         }
 
@@ -670,7 +675,7 @@ class ProductController extends Controller
         } catch (\Throwable $e) {
         }
         try {
-            $q->with(['brand', 'category']);
+            $q->with(['brand', 'category', 'stocks.warehouse']);
         } catch (\Throwable $e) {
         }
 
@@ -890,11 +895,15 @@ class ProductController extends Controller
      */
     public function create(Request $request)
     {
-        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $companies = DB::table('companies')->select('id', 'name')->where('id', EgoCompanyLock::id())->get();
         $categories = ProductCategory::query()->orderBy('name')->get();
         $brands = Brand::query()->orderBy('name')->get();
 
-        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([1, 2]);
+        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([EgoCompanyLock::id()]);
+        $warehouses = Warehouse::withoutGlobalScopes()
+            ->where('company_id', EgoCompanyLock::id())
+            ->orderBy('name')
+            ->get();
         $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         // formData đúng format blade bạn dùng
@@ -913,6 +922,7 @@ class ProductController extends Controller
             'categories' => $categories,
             'brands' => $brands,
             'companyWarehouses' => $companyWarehouses,
+            'warehouses' => $warehouses,
             'priceTiers' => $priceTiers,
             'formData' => $formData,
             'productStockLogs' => $productStockLogs,
@@ -924,6 +934,20 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        $lockedCompanyId = EgoCompanyLock::id();
+        $lockedLines = array_map(function ($line) use ($lockedCompanyId) {
+            if (is_array($line)) {
+                $line['company_id'] = $lockedCompanyId;
+            }
+
+            return $line;
+        }, (array) $request->input('v2_lines', []));
+
+        $request->merge([
+            'company_id' => $lockedCompanyId,
+            'v2_lines' => $lockedLines,
+        ]);
+
         DB::beginTransaction();
 
         try {
@@ -955,7 +979,7 @@ class ProductController extends Controller
                     foreach ($v2Lines as $lineIndex => $line) {
                         $lineSku = trim((string) ($line['sku'] ?? ''));
                         $lineLotName = trim((string) ($line['lot_name'] ?? ''));
-                        $companyId = (int) ($line['company_id'] ?? 0);
+                        $companyId = EgoCompanyLock::id();
                         $warehouseId = (int) ($line['warehouse_id'] ?? 0);
                         $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
                         $serialCodes = $this->egoParseSerialCodes($line['serials'] ?? '');
@@ -968,8 +992,17 @@ class ProductController extends Controller
                             throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
                         }
 
-                        if ($companyId <= 0 || $warehouseId <= 0) {
-                            throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$lineSku);
+                        if ($warehouseId <= 0) {
+                            throw new \Exception('Vui lòng chọn kho cho SKU '.$lineSku);
+                        }
+
+                        $warehouseIsValid = Warehouse::withoutGlobalScopes()
+                            ->where('id', $warehouseId)
+                            ->where('company_id', $companyId)
+                            ->exists();
+
+                        if (! $warehouseIsValid) {
+                            throw new \Exception('Kho của SKU '.$lineSku.' không thuộc Công ty Quốc Tế EGO.');
                         }
 
                         $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
@@ -2864,17 +2897,114 @@ class ProductController extends Controller
 
     /* EGO_HOTFIX_RESTORE_EDIT_START */
     /**
+     * Hồ sơ chi tiết sản phẩm: giá, tồn theo kho, lô nhập và biến động gần nhất.
+     *
+     * Đọc dữ liệu theo hướng an toàn để trang chi tiết không lỗi 500 khi một
+     * relation hoặc bảng phụ chưa có dữ liệu tương ứng.
+     */
+    public function show($id)
+    {
+        $product = Product::query()->findOrFail((int) $id);
+        $companyId = EgoCompanyLock::id();
+
+        // Từng relation được nạp riêng để một relation phụ lỗi không làm sập cả trang.
+        foreach ([
+            'category',
+            'brand',
+            'prices.priceTier',
+            'mainImage.media.metadata',
+        ] as $relation) {
+            try {
+                $product->loadMissing($relation);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $stocks = collect();
+        try {
+            if (Schema::hasTable('crm_product_stock')) {
+                $stocks = ProductStock::withoutGlobalScopes()
+                    ->with(['warehouse' => function ($query) use ($companyId) {
+                        $query->withoutGlobalScopes()
+                            ->where('company_id', $companyId);
+                    }])
+                    ->where('product_id', $product->id)
+                    ->where('company_id', $companyId)
+                    ->orderBy('warehouse_id')
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $stocks = collect();
+        }
+
+        $lots = collect();
+        try {
+            if (Schema::hasTable('crm_product_stock_lots')) {
+                $lotsQuery = DB::table('crm_product_stock_lots as l')
+                    ->leftJoin('crm_warehouses as w', function ($join) use ($companyId) {
+                        $join->on('w.id', '=', 'l.warehouse_id')
+                            ->where('w.company_id', '=', $companyId);
+                    })
+                    ->where('l.product_id', $product->id);
+
+                if (Schema::hasColumn('crm_product_stock_lots', 'company_id')) {
+                    $lotsQuery->where('l.company_id', $companyId);
+                }
+
+                $lots = $lotsQuery
+                    ->select('l.*', 'w.name as warehouse_name')
+                    ->orderByDesc(
+                        Schema::hasColumn('crm_product_stock_lots', 'received_at')
+                            ? 'l.received_at'
+                            : 'l.id'
+                    )
+                    ->orderByDesc('l.id')
+                    ->limit(30)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $lots = collect();
+        }
+
+        $movements = collect();
+        try {
+            if (Schema::hasTable('crm_stock_movements')) {
+                $movements = DB::table('crm_stock_movements as m')
+                    ->leftJoin('crm_warehouses as w', function ($join) use ($companyId) {
+                        $join->on('w.id', '=', 'm.warehouse_id')
+                            ->where('w.company_id', '=', $companyId);
+                    })
+                    ->where('m.product_id', $product->id)
+                    ->whereNotNull('w.id')
+                    ->select('m.*', 'w.name as warehouse_name')
+                    ->orderByDesc('m.created_at')
+                    ->orderByDesc('m.id')
+                    ->limit(40)
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $movements = collect();
+        }
+
+        return view('products.show', compact('product', 'stocks', 'lots', 'movements'));
+    }
+
+    /**
      * Form sửa sản phẩm: nạp tồn theo công ty/kho, serial, giá tier và lịch sử xuất nhập kho của sản phẩm.
      */
     public function edit($id)
     {
         $product = Product::findOrFail($id);
 
-        $companies = DB::table('companies')->select('id', 'name')->whereIn('id', [1, 2])->get();
+        $companies = DB::table('companies')->select('id', 'name')->where('id', EgoCompanyLock::id())->get();
         $categories = ProductCategory::query()->orderBy('name')->get();
         $brands = Brand::query()->orderBy('name')->get();
 
-        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([1, 2]);
+        $companyWarehouses = $this->catalogOptions->loadCompanyWarehouses([EgoCompanyLock::id()]);
         $priceTiers = $this->catalogOptions->loadPriceTiers();
 
         $rows = DB::table('crm_product_stock')

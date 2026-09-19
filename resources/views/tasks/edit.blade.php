@@ -392,6 +392,8 @@
                     </div>
 
                     <div class="form-body">
+                        @include('tasks.partials.technical-context')
+
                         <div class="mb-3">
                             <label class="form-label">Tiêu đề công việc <span class="text-danger">*</span></label>
                             <input type="text"

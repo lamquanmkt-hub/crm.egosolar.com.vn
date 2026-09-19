@@ -32,10 +32,10 @@
 
     $isOwner = (int)($item->created_by ?? 0) === (int)($user->id ?? 0);
 
-    $editableStatuses = ['draft', 'admin_rejected', 'accounting_rejected'];
+    $editableStatuses = ['draft', 'submitted', 'admin_rejected', 'accounting_rejected'];
     $canEdit = $isOwner && in_array((string)($item->status ?? ''), $editableStatuses, true);
-    $canSubmit = $canEdit;
-    $canDelete = $canEdit;
+    $canSubmit = $isOwner && in_array((string)($item->status ?? ''), ['draft', 'admin_rejected', 'accounting_rejected'], true);
+    $canDelete = $isOwner && in_array((string)($item->status ?? ''), ['draft', 'admin_rejected', 'accounting_rejected'], true);
     $canAdminAction = $isAdmin && (($item->status ?? '') === 'submitted');
     $canAccAction = $isAccounting && (($item->status ?? '') === 'admin_approved');
 

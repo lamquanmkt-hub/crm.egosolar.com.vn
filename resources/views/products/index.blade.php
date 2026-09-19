@@ -87,54 +87,22 @@ $showActionsCol = true; // ✅ đơn giản nhất: luôn hiện cột
     </div>
   @endif
 
-  {{-- ✅ 3 TAB: CTY 1 / CTY 2 / ALL --}}
   <div class="row g-3 mb-3">
-    <div class="col-12 col-md-4">
-      <div class="ego-company-tab {{ (string)$currentCompanyId === '1' ? 'active' : '' }}"
-           onclick="selectCompany('1')">
-        <div class="icon-box"><i class="bi bi-building-check"></i></div>
-        <div class="info flex-grow-1">
-          <div class="title">CÔNG TY TNHH EGO VIET NAM</div>
-          <div class="desc">Quản lý kho & sản phẩm nội địa</div>
-        </div>
-        @if((string)$currentCompanyId === '1')
-          <div class="check-mark"><i class="bi bi-check-circle-fill"></i></div>
-        @endif
-      </div>
-    </div>
-
-    <div class="col-12 col-md-4">
-      <div class="ego-company-tab {{ (string)$currentCompanyId === '2' ? 'active' : '' }}"
-           onclick="selectCompany('2')">
+    <div class="col-12">
+      <div class="ego-company-tab active">
         <div class="icon-box"><i class="bi bi-globe-asia-australia"></i></div>
         <div class="info flex-grow-1">
-          <div class="title">CÔNG TY TNHH TMKT QUỐC TẾ EGO</div>
-          <div class="desc">Xuất nhập khẩu & Thương mại quốc tế</div>
+          <div class="title">CÔNG TY TNHH THƯƠNG MẠI KỸ THUẬT QUỐC TẾ EGO</div>
+          <div class="desc">Dữ liệu đang được khóa theo công ty Quốc Tế EGO</div>
         </div>
-        @if((string)$currentCompanyId === '2')
-          <div class="check-mark"><i class="bi bi-check-circle-fill"></i></div>
-        @endif
-      </div>
-    </div>
-
-    <div class="col-12 col-md-4">
-      <div class="ego-company-tab {{ (string)$currentCompanyId === 'all' ? 'active' : '' }}"
-           onclick="selectCompany('all')">
-        <div class="icon-box"><i class="bi bi-collection"></i></div>
-        <div class="info flex-grow-1">
-          <div class="title">CẢ 2 CÔNG TY</div>
-          <div class="desc">Gộp tồn kho của 2 công ty</div>
-        </div>
-        @if((string)$currentCompanyId === 'all')
-          <div class="check-mark"><i class="bi bi-check-circle-fill"></i></div>
-        @endif
+        <div class="check-mark"><i class="bi bi-check-circle-fill"></i></div>
       </div>
     </div>
   </div>
 
   {{-- FILTER FORM --}}
   <form method="GET" id="filterForm" class="mb-3">
-    <input type="hidden" name="company_id" id="company_id_input" value="{{ $currentCompanyId }}">
+    <input type="hidden" name="company_id" id="company_id_input" value="2">
     <input type="hidden" name="price_tier_id" id="price_tier_id" value="{{ $selectedPriceTier }}">
 
     <div class="card ego-card">
@@ -283,7 +251,7 @@ $displayPriceAfterVat = (float)$displayPrice * (1 + $vatPercent / 100);
             </td>
 
             <td class="text-start">
-              <div class="fw-semibold ego-name">{{ $p->name }}</div>
+              <a href="{{ route('products.show', $p->id) }}" class="fw-semibold ego-name text-decoration-none">{{ $p->name }}</a>
               @if($lotTitle)
                 <div class="small text-muted mt-1">
                   <i class="bi bi-box-seam me-1"></i>{{ $lotTitle }}
@@ -294,7 +262,7 @@ $displayPriceAfterVat = (float)$displayPrice * (1 + $vatPercent / 100);
 
             <td class="text-start">
               @if(!empty($p->sku))
-                <span class="ego-sku">{{ $p->sku }}</span>
+                <a href="{{ route('products.show', $p->id) }}" class="ego-sku text-decoration-none">{{ $p->sku }}</a>
               @else
                 <span class="text-muted">—</span>
               @endif

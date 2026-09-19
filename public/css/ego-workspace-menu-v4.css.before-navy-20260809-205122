@@ -1,0 +1,114 @@
+/* Workspace Menu V4 — phân cấp rõ ràng, giữ nguyên nền tảng CSS V3. */
+#sidebar .ego-excel-section{
+    margin:15px 15px 5px!important;
+    padding:9px 2px 5px!important;
+    border-top:1px solid rgba(148,163,184,.22);
+    list-style:none!important;
+    pointer-events:none
+}
+
+#sidebar .ego-excel-context + .ego-excel-section{
+    margin-top:2px!important;
+    border-top:0
+}
+
+#sidebar .ego-excel-section>span{
+    display:block;
+    color:#64748b;
+    font-size:9px;
+    font-weight:900;
+    letter-spacing:.115em;
+    line-height:1.25;
+    text-transform:uppercase
+}
+
+#sidebar .ego-excel-item .ego-txt{
+    font-size:12px!important;
+    font-weight:720!important;
+    line-height:1.25!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    text-transform:none!important
+}
+
+#sidebar .ego-excel-item .ego-link.active{
+    box-shadow:inset 3px 0 0 #0ea5e9;
+    background:rgba(14,165,233,.11)!important
+}
+
+.ego-sidebar.ego-collapsed .ego-excel-section{
+    height:1px;
+    margin:9px 12px!important;
+    padding:0!important;
+    border-top:1px solid rgba(148,163,184,.25)
+}
+
+.ego-sidebar.ego-collapsed .ego-excel-section>span{
+    display:none!important
+}
+
+body:not(.dark-mode) #sidebar .ego-excel-context__copy strong{color:#0f172a}
+body:not(.dark-mode) #sidebar .ego-excel-context__copy small{color:#64748b}
+body:not(.dark-mode) #sidebar .ego-excel-context__switch{color:#64748b}
+
+/* EGO_COMPACT_WORKSPACE_CARD_START */
+#sidebar .ego-excel-context{
+    margin:14px 14px 11px!important;
+}
+
+#sidebar .ego-excel-context__link{
+    display:grid!important;
+    grid-template-columns:34px minmax(0,1fr) 18px!important;
+    align-items:center!important;
+    gap:8px!important;
+    min-height:58px!important;
+    padding:9px 10px!important;
+    border-radius:14px!important;
+}
+
+#sidebar .ego-excel-context__icon{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    border-radius:10px!important;
+}
+
+#sidebar .ego-excel-context__copy{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    min-width:0!important;
+    overflow:hidden!important;
+}
+
+#sidebar .ego-excel-context__copy small{
+    display:block!important;
+    margin:0 0 2px!important;
+    font-size:8px!important;
+    font-weight:800!important;
+    line-height:1.1!important;
+    letter-spacing:.08em!important;
+    white-space:nowrap!important;
+}
+
+#sidebar .ego-excel-context__copy strong{
+    display:block!important;
+    margin:0!important;
+    font-size:12px!important;
+    font-weight:850!important;
+    line-height:1.15!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+}
+
+#sidebar .ego-excel-context__switch{
+    width:18px!important;
+    margin:0!important;
+    text-align:center!important;
+}
+/* EGO_COMPACT_WORKSPACE_CARD_END */

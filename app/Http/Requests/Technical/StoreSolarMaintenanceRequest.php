@@ -25,6 +25,7 @@ class StoreSolarMaintenanceRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'maintenance_profile_id' => ['nullable', 'integer', 'exists:solar_maintenance_profiles,id'],
             'site_id' => ['nullable', 'integer', 'exists:sites,id'],
             'customer_name' => ['nullable', 'string', 'max:190'],
             'site_name' => ['nullable', 'string', 'max:190'],

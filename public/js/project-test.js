@@ -37,9 +37,32 @@
     if(customer){customer.addEventListener('change',()=>{const o=customer.options[customer.selectedIndex]; if(!o)return; const name=q('[name="contact_name"]'),phone=q('[name="contact_phone"]'),address=q('[name="address"]'); if(name&&!name.value)name.value=o.dataset.name||''; if(phone&&!phone.value)phone.value=o.dataset.phone||''; if(address&&!address.value)address.value=o.dataset.address||''})}
 
     qa('[data-add-material]').forEach(btn=>btn.addEventListener('click',()=>{
-        const tbody=q(btn.dataset.addMaterial); const tpl=q('[data-material-template]'); if(!tbody||!tpl)return; const node=tpl.content.cloneNode(true); tbody.appendChild(node);
+        const tbody=q(btn.dataset.addMaterial);
+        const tpl=q(btn.dataset.materialTemplate||'[data-material-template]');
+        if(!tbody||!tpl)return;
+        const node=tpl.content.cloneNode(true);
+        tbody.appendChild(node);
+        const rows=qa('[data-material-line]',tbody);
+        rows[rows.length-1]?.querySelector('[name="item_name[]"]')?.focus();
     }));
-    document.addEventListener('click',e=>{const b=e.target.closest('[data-remove-line]'); if(b)b.closest('tr')?.remove()});
+
+    document.addEventListener('click',e=>{
+        const materialButton=e.target.closest('[data-remove-material-line]');
+        if(materialButton){
+            const row=materialButton.closest('[data-material-line]');
+            const form=materialButton.closest('[data-material-edit-form]');
+            const rows=qa('[data-material-line]',form||document);
+            if(rows.length<=1){
+                alert('Phiếu vật tư phải còn ít nhất 1 dòng.');
+                return;
+            }
+            row?.remove();
+            return;
+        }
+
+        const b=e.target.closest('[data-remove-line]');
+        if(b)b.closest('tr')?.remove();
+    });
 
     qa('[data-confirm]').forEach(form=>form.addEventListener('submit',e=>{if(!confirm(form.dataset.confirm||'Xác nhận thực hiện thao tác này?'))e.preventDefault()}));
 

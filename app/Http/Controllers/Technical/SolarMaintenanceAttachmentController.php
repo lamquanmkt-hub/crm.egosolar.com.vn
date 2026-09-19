@@ -12,10 +12,15 @@ use App\Support\EgoCompanyScope;
 use App\Support\SolarMaintenanceAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
+use PhpOffice\PhpSpreadsheet\Writer\Html as SpreadsheetHtmlWriter;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Quản lý file đính kèm của lịch bảo trì điện mặt trời và hồ sơ công trình.
@@ -31,6 +36,10 @@ class SolarMaintenanceAttachmentController extends Controller
     ): RedirectResponse {
         $this->authorize('uploadAttachment', $schedule);
 
+        if (in_array($schedule->status, ['pending_approval', 'approved', 'completed'], true)) {
+            return back()->with('error', 'Hồ sơ đang chờ duyệt hoặc đã duyệt nên không thể thêm minh chứng. Hãy yêu cầu bổ sung hoặc mở lại công việc trước.');
+        }
+
         foreach ($request->file('files', []) as $file) {
             $extension = strtolower((string) $file->getClientOriginalExtension());
             $fileName = Str::uuid()->toString().($extension ? '.'.$extension : '');
@@ -38,7 +47,15 @@ class SolarMaintenanceAttachmentController extends Controller
                 .'/schedules/'.$schedule->id;
             $path = $file->storeAs($directory, $fileName, 'local');
 
+            if (! $path) {
+                return back()->with(
+                    'error',
+                    'Máy chủ không ghi được file vào storage. Vui lòng kiểm tra quyền storage/app/private rồi thử lại.'
+                );
+            }
+
             $schedule->attachments()->create([
+                'checklist_item_id' => $request->integer('checklist_item_id') ?: null,
                 'site_id' => $schedule->site_id,
                 'company_id' => $schedule->company_id,
                 'category' => $request->string('category')->toString(),
@@ -84,6 +101,13 @@ class SolarMaintenanceAttachmentController extends Controller
                 .'/sites/'.$siteModel->id;
             $path = $file->storeAs($directory, $fileName, 'local');
 
+            if (! $path) {
+                return back()->with(
+                    'error',
+                    'Máy chủ không ghi được file vào storage. Vui lòng kiểm tra quyền storage/app/private rồi thử lại.'
+                );
+            }
+
             SolarSiteDocument::create([
                 'site_id' => $siteModel->id,
                 'company_id' => $siteModel->company_id,
@@ -105,7 +129,7 @@ class SolarMaintenanceAttachmentController extends Controller
     /**
      * Xem trước (inline) file đính kèm của đợt bảo trì.
      */
-    public function previewSchedule(Request $request, SolarMaintenanceAttachment $attachment): BinaryFileResponse|StreamedResponse
+    public function previewSchedule(Request $request, SolarMaintenanceAttachment $attachment): BinaryFileResponse|StreamedResponse|Response
     {
         $attachment->load('schedule');
         $this->authorize('view', $attachment->schedule);
@@ -132,8 +156,8 @@ class SolarMaintenanceAttachmentController extends Controller
         $attachment->load('schedule');
         abort_unless($request->user()->can('uploadAttachment', $attachment->schedule), 403);
 
-        if ($attachment->schedule->status === 'completed' && ! SolarMaintenanceAccess::isManager($request->user())) {
-            abort(403, 'Chỉ Trưởng phòng kỹ thuật hoặc Admin được xóa file của lịch đã hoàn thành.');
+        if (in_array($attachment->schedule->status, ['pending_approval', 'approved', 'completed'], true)) {
+            return back()->with('error', 'Không thể xóa minh chứng của hồ sơ đang chờ duyệt hoặc đã duyệt. Hãy yêu cầu bổ sung hoặc mở lại công việc trước.');
         }
 
         Storage::disk($attachment->disk)->delete($attachment->file_path);
@@ -145,7 +169,7 @@ class SolarMaintenanceAttachmentController extends Controller
     /**
      * Xem trước (inline) hồ sơ công trình.
      */
-    public function previewSite(Request $request, SolarSiteDocument $document): BinaryFileResponse|StreamedResponse
+    public function previewSite(Request $request, SolarSiteDocument $document): BinaryFileResponse|StreamedResponse|Response
     {
         abort_unless(SolarMaintenanceAccess::canViewAny($request->user()), 403);
         $this->assertDocumentCompany($document);
@@ -182,12 +206,20 @@ class SolarMaintenanceAttachmentController extends Controller
     /**
      * Trả file về trình duyệt: inline với ảnh/PDF, ngược lại buộc tải xuống.
      */
-    private function serve(string $disk, string $path, string $name, bool $inline): BinaryFileResponse|StreamedResponse
+    private function serve(string $disk, string $path, string $name, bool $inline): BinaryFileResponse|StreamedResponse|Response
     {
         abort_unless(Storage::disk($disk)->exists($path), 404, 'File không còn tồn tại trên máy chủ.');
 
         $mime = Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream';
-        $canInline = $inline && (str_starts_with($mime, 'image/') || $mime === 'application/pdf');
+        $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
+
+        if ($inline && in_array($extension, ['xls', 'xlsx'], true)) {
+            return $this->serveSpreadsheetPreview(Storage::disk($disk)->path($path), $name);
+        }
+
+        $canInline = $inline && (str_starts_with($mime, 'image/')
+            || str_starts_with($mime, 'video/')
+            || $mime === 'application/pdf');
 
         if (! $canInline) {
             return Storage::disk($disk)->download($path, $name);
@@ -198,6 +230,82 @@ class SolarMaintenanceAttachmentController extends Controller
             'Content-Disposition' => 'inline; filename="'.addslashes($name).'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * V14.6: dựng bản xem nhanh an toàn cho Excel, giới hạn 200 dòng và 30 cột đầu.
+     */
+    private function serveSpreadsheetPreview(string $absolutePath, string $name): Response
+    {
+        if (! class_exists(IOFactory::class) || filesize($absolutePath) > 20 * 1024 * 1024) {
+            return $this->spreadsheetPreviewMessage($name, 'File quá lớn hoặc máy chủ chưa hỗ trợ dựng bảng xem nhanh.');
+        }
+
+        try {
+            $reader = IOFactory::createReaderForFile($absolutePath);
+            $reader->setReadDataOnly(true);
+            $reader->setReadFilter(new class implements IReadFilter
+            {
+                public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
+                {
+                    if ($row < 1 || $row > 200) {
+                        return false;
+                    }
+
+                    $column = 0;
+                    foreach (str_split(strtoupper($columnAddress)) as $letter) {
+                        $column = ($column * 26) + (ord($letter) - 64);
+                    }
+
+                    return $column >= 1 && $column <= 30;
+                }
+            });
+
+            $sheetNames = $reader->listWorksheetNames($absolutePath);
+            if ($sheetNames !== []) {
+                // Nạp tối đa 12 sheet để công thức ở sheet đầu có thể tham chiếu dữ liệu liên quan.
+                $reader->setLoadSheetsOnly(array_slice($sheetNames, 0, 12));
+            }
+
+            $spreadsheet = $reader->load($absolutePath);
+            $writer = new SpreadsheetHtmlWriter($spreadsheet);
+            $writer->setSheetIndex(0);
+            $writer->setPreCalculateFormulas(true);
+
+            ob_start();
+            $writer->save('php://output');
+            $html = (string) ob_get_clean();
+            $spreadsheet->disconnectWorksheets();
+
+            $tableStyles = '<style>html,body{margin:0;background:#fff;font-family:Arial,sans-serif;color:#172b3f}body{padding:12px;overflow:auto}table{border-collapse:collapse!important;table-layout:auto!important}td,th{border:1px solid #d8e1e9!important;padding:6px 8px!important;min-width:70px;max-width:420px;white-space:normal!important;vertical-align:top}tr:first-child td,tr:first-child th{background:#edf5fb;font-weight:700}</style>';
+            $html = str_contains($html, '</head>')
+                ? str_replace('</head>', $tableStyles.'</head>', $html)
+                : $tableStyles.$html;
+
+            return response($html)
+                ->header('Content-Type', 'text/html; charset=UTF-8')
+                ->header('Content-Disposition', 'inline; filename="'.addslashes($name).'.html"')
+                ->header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src data:")
+                ->header('X-Content-Type-Options', 'nosniff');
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->spreadsheetPreviewMessage($name, 'Không thể dựng nội dung Excel. Bạn vẫn có thể tải file gốc xuống.');
+        }
+    }
+
+    private function spreadsheetPreviewMessage(string $name, string $message): Response
+    {
+        $safeName = e($name);
+        $safeMessage = e($message);
+        $html = '<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            .'<style>body{font-family:Arial,sans-serif;margin:0;background:#f4f7fa;color:#173047}.box{max-width:680px;margin:12vh auto;background:#fff;border:1px solid #dce5ed;border-radius:14px;padding:28px;box-shadow:0 8px 28px #1d3c5614}h2{font-size:18px;margin:0 0 8px}p{font-size:14px;color:#64798d;margin:0}</style>'
+            .'</head><body><div class="box"><h2>'.$safeName.'</h2><p>'.$safeMessage.'</p></div></body></html>';
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+            ->header('X-Content-Type-Options', 'nosniff');
     }
 
     /**

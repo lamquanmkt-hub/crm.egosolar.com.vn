@@ -40,6 +40,14 @@
     .side-label{color:#64748b;font-size:12px;font-weight:800}
     .side-value{color:#0f172a;font-weight:900;text-align:right}
     .notice-mini{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:11px 12px;font-weight:700}
+    .task-activity{display:grid;gap:12px}
+    .task-activity__item{display:grid;grid-template-columns:34px 1fr;gap:10px;position:relative}
+    .task-activity__item:not(:last-child)::after{content:'';position:absolute;left:16px;top:34px;bottom:-12px;width:1px;background:#dbe3ee}
+    .task-activity__icon{width:34px;height:34px;border-radius:12px;background:#e0f2fe;color:#0369a1;display:flex;align-items:center;justify-content:center;z-index:1}
+    .task-activity__body{min-width:0}
+    .task-activity__body strong{display:block;color:#0f172a;font-size:13px}
+    .task-activity__body p{margin:3px 0;color:#475569;white-space:pre-line}
+    .task-activity__body small{color:#94a3b8}
     @media(max-width:1200px){.layout{grid-template-columns:1fr}.info-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:768px){.page-shell{padding:14px}.page-head{flex-direction:column;align-items:flex-start}.info-grid{grid-template-columns:1fr}.file-item{align-items:flex-start;flex-direction:column}.file-name{max-width:260px}}
 
@@ -335,6 +343,26 @@
             </div>
         </div>
 
+        @if(($task->task_type ?? null) === 'technical')
+            <div class="soft-card mb-3" style="border-color:#bfe5df">
+                <div class="card-head" style="background:#f0fdfa;color:#0f766e">
+                    <i class="bi bi-buildings"></i> Ngữ cảnh công việc Kỹ thuật
+                </div>
+                <div class="card-body-custom">
+                    <div class="info-grid mb-0">
+                        <div class="info-box"><div class="info-label">Công trình</div><div class="info-value">{{ $task->project?->code ?: '—' }} · {{ $task->project?->name ?: 'Chưa liên kết' }}</div></div>
+                        <div class="info-box"><div class="info-label">Hạng mục</div><div class="info-value">{{ $task->work_item ?: '—' }}</div></div>
+                        <div class="info-box"><div class="info-label">Địa điểm</div><div class="info-value">{{ $task->work_location ?: $task->project?->address ?: '—' }}</div></div>
+                        <div class="info-box"><div class="info-label">Người duyệt</div><div class="info-value">{{ $task->approver?->name ?: '—' }}</div></div>
+                        <div class="info-box"><div class="info-label">Thời gian thực tế</div><div class="info-value">{{ $task->actual_minutes ? number_format($task->actual_minutes).' phút' : 'Chưa báo cáo' }}</div></div>
+                    </div>
+                    @if($task->project)
+                        <a href="{{ route('project-test.show', $task->project) }}" class="btn btn-sm btn-outline-primary btn-pill mt-3"><i class="bi bi-arrow-up-right"></i> Mở hồ sơ công trình</a>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         <div class="layout">
             <div>
                 <div class="soft-card">
@@ -440,6 +468,12 @@
                             <div class="mb-3">
                                 <div class="section-label">Ghi chú kết quả</div>
                                 <div class="section-content">{{ $task->result_note ?: 'Chưa có ghi chú kết quả.' }}</div>
+                                @if(($task->task_type ?? null) === 'technical')
+                                    <div class="row g-2 mt-2">
+                                        <div class="col-md-4"><div class="notice-mini"><b>Thời gian thực tế:</b> {{ $task->actual_minutes ? number_format($task->actual_minutes).' phút' : 'Chưa ghi nhận' }}</div></div>
+                                        <div class="col-md-8"><div class="notice-mini"><b>Vấn đề / phát sinh:</b> {{ $task->issue_note ?: 'Không có' }}</div></div>
+                                    </div>
+                                @endif
                             </div>
 
                             <div class="file-grid">
@@ -538,9 +572,22 @@
                                            max="100">
                                 </div>
 
+                                @if(($task->task_type ?? null) === 'technical')
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Thời gian thực tế (phút) <span class="text-danger">*</span></label>
+                                            <input type="number" name="actual_minutes" class="form-control" min="1" max="100000" required value="{{ old('actual_minutes', $task->actual_minutes) }}" placeholder="Ví dụ: 240">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label">Vấn đề / phát sinh</label>
+                                            <textarea name="issue_note" rows="2" class="form-control" placeholder="Thiếu vật tư, thay đổi hiện trường, rủi ro, đề xuất xử lý...">{{ old('issue_note', $task->issue_note) }}</textarea>
+                                        </div>
+                                    </div>
+                                @endif
+
                                 <div class="mb-3">
-                                    <label class="form-label">Ghi chú kết quả</label>
-                                    <textarea name="result_note"
+                                    <label class="form-label">Ghi chú kết quả @if(($task->task_type ?? null) === 'technical')<span class="text-danger">*</span>@endif</label>
+                                    <textarea name="result_note" @if(($task->task_type ?? null) === 'technical') required @endif
                                               rows="4"
                                               class="form-control"
                                               placeholder="Nhập nội dung kết quả đã làm...">{{ old('result_note', $task->result_note) }}</textarea>
@@ -631,6 +678,42 @@
                         </div>
                     </div>
                 </div>
+
+                @if(isset($activityLogs) && $activityLogs->count())
+                    <div class="soft-card">
+                        <div class="card-head">
+                            <i class="bi bi-clock-history"></i> Lịch sử xử lý
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="task-activity">
+                                @foreach($activityLogs as $activity)
+                                    @php
+                                        $activityLabels = [
+                                            'assigned' => 'Đã giao việc',
+                                            'updated' => 'Đã cập nhật công việc',
+                                            'progress_updated' => 'Cập nhật tiến độ',
+                                            'submitted' => 'Đã nộp kết quả',
+                                            'resubmitted' => 'Đã nộp lại kết quả',
+                                            'revision_requested' => 'Yêu cầu sửa đổi',
+                                            'approved' => 'Đã duyệt hoàn thành',
+                                        ];
+                                    @endphp
+                                    <div class="task-activity__item">
+                                        <span class="task-activity__icon"><i class="bi bi-check2-circle"></i></span>
+                                        <div class="task-activity__body">
+                                            <strong>{{ $activityLabels[$activity->action] ?? $activity->action }} · {{ $activity->user_name ?: 'Hệ thống' }}</strong>
+                                            @if($activity->from_status || $activity->to_status)
+                                                <small>{{ $statuses[$activity->from_status] ?? $activity->from_status ?? 'Khởi tạo' }} → {{ $statuses[$activity->to_status] ?? $activity->to_status ?? 'Không đổi' }}</small>
+                                            @endif
+                                            @if($activity->note)<p>{{ $activity->note }}</p>@endif
+                                            <small>{{ \Illuminate\Support\Carbon::parse($activity->created_at)->format('d/m/Y H:i:s') }}</small>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 @if($canApprove)
                     <div class="soft-card">

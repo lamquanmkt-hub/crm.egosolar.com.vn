@@ -99,12 +99,12 @@
 <div class="rec-wrap">
     <div class="rec-head">
         <div>
-            <h1 class="rec-title">Quy trình tuyển dụng ứng viên</h1>
+            <h1 class="rec-title">Tuyển dụng ứng viên</h1>
             <div class="rec-sub">Bám đúng 7 bước: yêu cầu tuyển dụng → tìm kiếm & sàng lọc → lịch phỏng vấn → đánh giá → mời nhận việc → tiếp nhận nhân sự mới → lưu hồ sơ & báo cáo.</div>
         </div>
         <div class="rec-head-actions">
             <a class="rec-btn-outline" href="{{ route('hr.operations.index') }}">← HC & Vận hành</a>
-            <a class="rec-btn-outline" href="{{ route('hr.office-supply-process.index') }}">Quy trình phân bổ VPP</a>
+            <a class="rec-btn-outline" href="{{ route('hr.office-supply-process.index') }}">Văn phòng phẩm</a>
         </div>
     </div>
 

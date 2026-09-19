@@ -12,6 +12,7 @@
     $sectionRoutes = [
         'overview' => 'admin.settings.index',
         'appearance' => 'admin.settings.appearance',
+        'workspace' => 'admin.settings.workspace',
         'roles' => 'admin.settings.roles',
         'pages' => 'admin.settings.pages',
         'menus' => 'admin.settings.menus',
@@ -21,6 +22,7 @@
     $sectionMeta = [
         'overview' => ['Tổng quan', 'bi-grid-1x2'],
         'appearance' => ['Giao diện & thương hiệu', 'bi-palette'],
+        'workspace' => ['Ứng dụng theo vai trò', 'bi-grid-3x3-gap'],
         'roles' => ['Vai trò & nhân sự', 'bi-people'],
         'pages' => ['Phân quyền trang', 'bi-window-stack'],
         'menus' => ['Phân quyền menu', 'bi-layout-sidebar-inset'],

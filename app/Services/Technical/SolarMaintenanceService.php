@@ -3,6 +3,7 @@
 namespace App\Services\Technical;
 
 use App\Models\Site;
+use App\Models\SolarMaintenanceProfile;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
 use App\Support\EgoCompanyScope;
@@ -11,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -26,12 +28,28 @@ class SolarMaintenanceService
     public function createSeries(array $data, User $actor): Collection
     {
         return DB::transaction(function () use ($data, $actor) {
-            $site = ! empty($data['site_id'])
-                ? Site::withoutGlobalScopes()->find((int) $data['site_id'])
+            $profile = ! empty($data['maintenance_profile_id'])
+                ? SolarMaintenanceProfile::query()->find((int) $data['maintenance_profile_id'])
                 : null;
 
+            $siteId = (int) ($data['site_id'] ?? $profile?->site_id ?? 0);
+            $site = $siteId > 0
+                ? Site::withoutGlobalScopes()->find($siteId)
+                : null;
+
+            if (! $profile && $site) {
+                $profile = SolarMaintenanceProfile::query()->where('site_id', $site->id)->first();
+                if (! $profile) {
+                    $profile = app(MaintenanceProjectHandoffService::class)->ensureForSiteId($site->id, $actor->id);
+                }
+            }
+
             $currentCompanyId = EgoCompanyScope::currentId();
-            $companyId = (int) ($site?->company_id ?: $currentCompanyId ?: 0);
+            $companyId = (int) ($profile?->company_id ?: $site?->company_id ?: $currentCompanyId ?: 0);
+            $projectId = (int) ($profile?->project_id ?: 0) ?: null;
+            if (! $projectId && $site && Schema::hasTable('project_test_projects') && Schema::hasColumn('project_test_projects', 'legacy_site_id')) {
+                $projectId = DB::table('project_test_projects')->where('legacy_site_id', $site->id)->value('id');
+            }
 
             if ($site && $currentCompanyId > 0 && (int) $site->company_id !== $currentCompanyId) {
                 throw ValidationException::withMessages([
@@ -58,12 +76,17 @@ class SolarMaintenanceService
                 $schedule = SolarMaintenanceSchedule::create([
                     'company_id' => $companyId > 0 ? $companyId : null,
                     'site_id' => $site?->id,
+                    'project_id' => $projectId ?: null,
+                    'maintenance_profile_id' => $profile?->id,
                     'customer_name' => $this->filled($data['customer_name'] ?? null)
+                        ?: $this->filled($profile?->customer_name)
                         ?: $this->filled($site?->contact_name),
                     'site_name' => $this->filled($data['site_name'] ?? null)
+                        ?: $this->filled($profile?->site_name)
                         ?: $this->filled($site?->name)
                         ?: 'Công trình chưa đặt tên',
                     'address' => $this->filled($data['address'] ?? null)
+                        ?: $this->filled($profile?->address)
                         ?: $this->filled($site?->address),
                     'type' => $data['type'],
                     'status' => count($assigneeIds) ? 'assigned' : 'unassigned',
@@ -73,8 +96,10 @@ class SolarMaintenanceService
                     'total_rounds' => $roundsCount,
                     'round_group' => $roundGroup,
                     'scheduled_date' => $scheduledDate,
-                    'system_kwp' => $data['system_kwp'] ?? $site?->system_kwp,
-                    'inverter_info' => $data['inverter_info'] ?? null,
+                    'scheduled_start_at' => Carbon::parse($scheduledDate)->setTime(8, 30),
+                    'scheduled_end_at' => Carbon::parse($scheduledDate)->setTime(11, 30),
+                    'system_kwp' => $data['system_kwp'] ?? $profile?->system_kwp ?? $site?->system_kwp,
+                    'inverter_info' => $data['inverter_info'] ?? $profile?->inverter_info,
                     'issue_note' => $data['issue_note'] ?? null,
                     'technical_note' => $data['technical_note'] ?? null,
                     'created_by' => $actor->id,
@@ -91,6 +116,13 @@ class SolarMaintenanceService
                 $created->push($schedule->fresh(['assignees.user']));
             }
 
+            if ($profile) {
+                $profile->forceFill([
+                    'status' => 'active',
+                    'planned_at' => now(),
+                ])->save();
+            }
+
             return $created;
         });
     }
@@ -105,8 +137,10 @@ class SolarMaintenanceService
             $old = $schedule->toArray();
             $oldStatus = (string) $schedule->status;
             $newStatus = (string) ($data['status'] ?? $oldStatus);
+            $this->assertNotLockedApprovalRecord($oldStatus);
 
             if ($newStatus !== $oldStatus) {
+                $this->assertNotApprovalStatus($newStatus);
                 $this->assertTransition($schedule, $newStatus, $data['reason'] ?? null, $actor);
             }
 
@@ -123,6 +157,11 @@ class SolarMaintenanceService
 
             foreach ($fillable as $key => $value) {
                 $schedule->{$key} = $value;
+            }
+
+            if (! empty($data['scheduled_date'])) {
+                $schedule->scheduled_start_at = Carbon::parse($data['scheduled_date'])->setTime(8, 30);
+                $schedule->scheduled_end_at = Carbon::parse($data['scheduled_date'])->setTime(11, 30);
             }
 
             $schedule->status = $newStatus;
@@ -169,11 +208,8 @@ class SolarMaintenanceService
             $oldStatus = (string) $schedule->status;
             $newStatus = (string) $data['status'];
 
-            if (in_array($newStatus, ['pending_approval', 'approved', 'revision_requested'], true)) {
-                throw ValidationException::withMessages([
-                    'status' => 'Trạng thái phê duyệt phải được thao tác bằng nút Gửi duyệt / Phê duyệt / Yêu cầu chỉnh sửa.',
-                ]);
-            }
+            $this->assertNotLockedApprovalRecord($oldStatus);
+            $this->assertNotApprovalStatus($newStatus);
 
             $this->assertTransition($schedule, $newStatus, $data['reason'] ?? null, $actor);
 
@@ -317,7 +353,7 @@ class SolarMaintenanceService
         }
 
         if ($newStatus === 'completed') {
-            if ($schedule->approval_status !== 'approved' && ! SolarMaintenanceAccess::isAdmin($actor)) {
+            if ($schedule->approval_status !== 'approved') {
                 throw ValidationException::withMessages([
                     'status' => 'Lịch phải được Trưởng phòng kỹ thuật phê duyệt trước khi hoàn thành.',
                 ]);
@@ -346,6 +382,32 @@ class SolarMaintenanceService
             $schedule->cancellation_reason = null;
             $schedule->reopened_at = now();
             $schedule->reopened_by = $actor->id;
+        }
+    }
+
+    /**
+     * Không cho phép đổi thủ công vào các trạng thái thuộc luồng phê duyệt.
+     * Trạng thái hoàn thành chỉ do SolarMaintenanceApprovalService tạo ra.
+     */
+    private function assertNotApprovalStatus(string $status): void
+    {
+        if (in_array($status, ['pending_approval', 'approved', 'revision_requested', 'completed'], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Trạng thái duyệt/hoàn thành phải được thao tác bằng đúng nút Gửi duyệt, Phê duyệt hoặc Yêu cầu bổ sung của từng đợt.',
+            ]);
+        }
+    }
+
+    /**
+     * Hồ sơ đang chờ duyệt hoặc đã duyệt chỉ thay đổi qua service phê duyệt để
+     * mọi mốc thời gian, người duyệt và audit log luôn đồng bộ.
+     */
+    private function assertNotLockedApprovalRecord(string $status): void
+    {
+        if (in_array($status, ['pending_approval', 'approved', 'completed'], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Hồ sơ đang chờ duyệt/đã duyệt không thể đổi trạng thái thủ công. Hãy dùng nút Yêu cầu bổ sung, Phê duyệt hoặc Mở lại công việc.',
+            ]);
         }
     }
 

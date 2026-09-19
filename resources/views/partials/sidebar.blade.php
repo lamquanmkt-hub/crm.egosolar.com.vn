@@ -1,3 +1,36 @@
+<style>
+/* EGO_HR_MENU_HIERARCHY_V4_CSS */
+#menuNhanSu.ego-hr-v4-root{gap:3px!important}
+#menuNhanSu .ego-hr-v4-group{list-style:none!important;margin:0!important;padding:0!important}
+#menuNhanSu .ego-hr-v4-details{margin:0!important;padding:0!important}
+#menuNhanSu .ego-hr-v4-summary{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;cursor:pointer!important;list-style:none!important}
+#menuNhanSu .ego-hr-v4-summary::-webkit-details-marker{display:none!important}
+#menuNhanSu .ego-hr-v4-summary::marker{display:none!important;content:""!important}
+#menuNhanSu .ego-hr-v4-chevron{font-size:11px!important;transition:transform .16s ease!important}
+#menuNhanSu details[open]>.ego-hr-v4-summary .ego-hr-v4-chevron{transform:rotate(180deg)!important}
+#menuNhanSu .ego-hr-v4-children{display:none!important;list-style:none!important;margin:3px 0 5px 10px!important;padding:2px 0 2px 8px!important;border-left:1px solid rgba(148,163,184,.20)!important}
+#menuNhanSu details[open]>.ego-hr-v4-children{display:flex!important;flex-direction:column!important;gap:2px!important}
+#menuNhanSu .ego-hr-v4-children .ego-sublink{font-size:12px!important;line-height:1.25!important;padding:7px 9px!important;min-height:30px!important}
+/* Quan trọng: flyout/panel là DOM clone, details native vẫn tự đóng/mở, không phụ thuộc ID Bootstrap. */
+.ego-flyout .ego-hr-v4-children{display:none!important}
+.ego-flyout details[open]>.ego-hr-v4-children{display:flex!important;flex-direction:column!important;gap:2px!important}
+.ego-flyout .ego-hr-v4-summary{display:flex!important;align-items:center!important;justify-content:space-between!important;cursor:pointer!important;list-style:none!important}
+.ego-flyout .ego-hr-v4-summary::-webkit-details-marker{display:none!important}
+.ego-flyout details[open]>.ego-hr-v4-summary .ego-hr-v4-chevron{transform:rotate(180deg)!important}
+</style>
+<style>
+/* EGO_REAL_VN_MENU_COMPAT_CSS_V2 */
+#sidebar .ego-item--nested>.ego-sublink--toggle{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
+#sidebar .ego-sub--nested{margin-left:10px!important;padding-left:8px!important;border-left:1px solid rgba(148,163,184,.18)!important}
+#sidebar .ego-menu-group-label{display:block;padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.65}
+#sidebar .ego-menu-soon{margin-left:auto;font-size:9px;font-style:normal;opacity:.6}
+</style>
+<style>
+/* EGO_MENU_SYNC_VN_STYLE_CSS_20260907 */
+#sidebar .ego-item--nested > .ego-sublink--toggle{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important}
+#sidebar .ego-sub--nested{margin-left:10px!important;padding-left:8px!important;border-left:1px solid rgba(148,163,184,.18)!important}
+#sidebar .ego-sub--nested .ego-sublink{font-size:12px!important}
+</style>
 
 <style>
 /* EGO_BOOKING_NEW_BADGE_START */
@@ -106,239 +139,71 @@
     }
 </style>
 
+
+
+<style>
+/* EGO_TECHNICAL_WORKSPACE_V2_MENU_START */
+.ego-tech-menu-index{
+    display:inline-grid;place-items:center;width:22px;height:22px;flex:0 0 22px;
+    border-radius:8px;background:rgba(249,115,22,.14);color:#fdba74;
+    font-size:10px;font-weight:950;border:1px solid rgba(251,146,60,.16)
+}
+.ego-link.active .ego-tech-menu-index,.ego-link:hover .ego-tech-menu-index{
+    background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.18)
+}
+.ego-tech-group-label{font-weight:900!important;letter-spacing:-.01em}
+.ego-tech-menu .ego-sub{padding-top:4px;padding-bottom:8px}
+.ego-tech-menu .ego-sublink{position:relative;padding-left:48px!important;font-size:12.5px!important}
+.ego-tech-menu .ego-sublink:before{
+    content:"";position:absolute;left:31px;top:50%;width:6px;height:6px;border-radius:999px;
+    transform:translateY(-50%);background:rgba(148,163,184,.55)
+}
+.ego-tech-menu .ego-sublink.active:before,.ego-tech-menu .ego-sublink:hover:before{
+    background:#fb923c;box-shadow:0 0 0 4px rgba(251,146,60,.12)
+}
+.ego-tech-menu .ego-count-badge{margin-left:auto}
+.ego-sidebar.ego-collapsed .ego-tech-menu-index{display:none}
+/* EGO_TECHNICAL_WORKSPACE_V2_MENU_END */
+</style>
+
 @php
-    /*
-    |--------------------------------------------------------------------------
-    | SIDEBAR MINI STATUS - SELF CONTAINED
-    |--------------------------------------------------------------------------
-    | File này tự tính 3 số ở khung dưới sidebar:
-    | - Đang online: users.last_seen_at trong 5 phút gần nhất
-    | - Đang làm việc: attendance_records có work_date hôm nay + check_in_at không rỗng
-    | - Nhân viên hoạt động: users.is_active = 1
-    |
-    | Không bắt buộc phải sửa Controller. Chỉ cần middleware UpdateUserLastSeen
-    | đã được đăng ký để cập nhật users.last_seen_at.
-    */
-
+    /* EGO_SIDEBAR_CACHED_SUMMARY_V3 */
     $egoStatusNow = now();
+    $egoSidebarSummary = \App\Support\EgoSidebarSummary::data(auth()->user());
 
-    $egoOnlineCount = 0;
-    $egoWorkingToday = 0;
-    $egoActiveEmployees = 0;
-try {
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('users') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('users', 'last_seen_at')
-        ) {
-            $onlineQuery = \Illuminate\Support\Facades\DB::table('users')
-                ->whereNotNull('last_seen_at')
-                ->where('last_seen_at', '>=', $egoStatusNow->copy()->subMinutes(5));
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'is_active')) {
-                $onlineQuery->where('is_active', 1);
-            }
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'deleted_at')) {
-                $onlineQuery->whereNull('deleted_at');
-            }
-
-            $egoOnlineCount = (int) $onlineQuery->count();
-        } else {
-            $egoOnlineCount = auth()->check() ? 1 : 0;
-        }
-    } catch (\Throwable $e) {
-        $egoOnlineCount = auth()->check() ? 1 : 0;
-    }
-
-    try {
-        /*
-         | 
-<a href="{{ route('sales-quotations.index') }}"
-   class="top-nav-link {{ request()->routeIs('sales-quotations.*') ? 'active' : '' }}"
-   style="display:inline-flex;align-items:center;gap:6px;margin-right:18px;font-weight:800;color:#374151;text-decoration:none;">
-    📄 Báo giá
-</a>
-Chấm công thực tế của hệ thống đang dùng:
-         | table: attendance_records
-         | user: user_id
-         | ngày: work_date
-         | check-in: check_in_at
-         */
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('attendance_records') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('attendance_records', 'work_date') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('attendance_records', 'user_id')
-        ) {
-            $workingQuery = \Illuminate\Support\Facades\DB::table('attendance_records')
-                ->whereDate('work_date', $egoStatusNow->toDateString())
-                ->whereNotNull('user_id');
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('attendance_records', 'check_in_at')) {
-                $workingQuery->whereNotNull('check_in_at');
-            }
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('attendance_records', 'status')) {
-                $workingQuery->where(function ($q) {
-                    $q->whereNull('status')
-                        ->orWhereNotIn('status', [
-                            'absent',
-                            'leave',
-                            'off',
-                            'rejected',
-                            'cancelled',
-                            'canceled',
-                        ]);
-                });
-            }
-
-            $egoWorkingToday = (int) $workingQuery
-                ->distinct()
-                ->count('user_id');
-        }
-    } catch (\Throwable $e) {
-        $egoWorkingToday = 0;
-    }
-
-    try {
-        if (\Illuminate\Support\Facades\Schema::hasTable('users')) {
-            $employeesQuery = \Illuminate\Support\Facades\DB::table('users');
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'is_active')) {
-                $employeesQuery->where('is_active', 1);
-            }
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'deleted_at')) {
-                $employeesQuery->whereNull('deleted_at');
-            }
-
-            $egoActiveEmployees = (int) $employeesQuery->count();
-        }
-    } catch (\Throwable $e) {
-        $egoActiveEmployees = 0;
-    }
-
-
-    /* EGO_PENDING_BADGES_START */
-    $egoPendingOrdersCount = 0;
-    $egoPendingMaterialRequestsCount = 0;
-    $egoPendingPaymentRequestsCount = 0;
-    $egoPendingProposalsCount = 0;
-
-    try {
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('crm_order_approvals') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('crm_order_approvals', 'status') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('crm_order_approvals', 'order_id')
-        ) {
-            $egoPendingOrdersCount = (int) \Illuminate\Support\Facades\DB::table('crm_order_approvals')
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending'])
-                ->distinct()
-                ->count('order_id');
-        }
-    } catch (\Throwable $e) {
-        $egoPendingOrdersCount = 0;
-    }
-
-    try {
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('material_requests') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('material_requests', 'status')
-        ) {
-            $egoPendingMaterialRequestsCount = (int) \Illuminate\Support\Facades\DB::table('material_requests')
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'submitted', 'admin_approved'])
-                ->count();
-        }
-    } catch (\Throwable $e) {
-        $egoPendingMaterialRequestsCount = 0;
-    }
-
-    try {
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('payment_requests') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('payment_requests', 'status')
-        ) {
-            $egoPendingPaymentRequestsCount = (int) \Illuminate\Support\Facades\DB::table('payment_requests')
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'submitted', 'admin_pending', 'admin_approved', 'accounting_pending'])
-                ->count();
-        }
-    } catch (\Throwable $e) {
-        $egoPendingPaymentRequestsCount = 0;
-    }
-
-    try {
-        if (
-            \Illuminate\Support\Facades\Schema::hasTable('proposals') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('proposals', 'status')
-        ) {
-            $egoPendingProposalsCount = (int) \Illuminate\Support\Facades\DB::table('proposals')
-                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'submitted'])
-                ->count();
-        }
-    } catch (\Throwable $e) {
-        $egoPendingProposalsCount = 0;
-    }
-    /* EGO_PENDING_BADGES_END */
-
-
-    /* EGO_TASK_BADGE_FIXED_START */
-    $egoMyUnfinishedTasksCount = 0;
-
-    try {
-        if (
-            auth()->check() &&
-            \Illuminate\Support\Facades\Schema::hasTable('tasks') &&
-            \Illuminate\Support\Facades\Schema::hasColumn('tasks', 'assignee_id')
-        ) {
-            $egoMyTaskQuery = \Illuminate\Support\Facades\DB::table('tasks')
-                ->where('assignee_id', auth()->id());
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'status')) {
-                $egoMyTaskQuery->where(function ($q) {
-                    $q->whereNull('status')
-                        ->orWhereNotIn(
-                            \Illuminate\Support\Facades\DB::raw('LOWER(status)'),
-                            ['approved', 'done', 'completed', 'complete', 'closed', 'cancelled', 'canceled']
-                        );
-                });
-            }
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('tasks', 'deleted_at')) {
-                $egoMyTaskQuery->whereNull('deleted_at');
-            }
-
-            $egoMyUnfinishedTasksCount = (int) $egoMyTaskQuery->count();
-        }
-    } catch (\Throwable $e) {
-        $egoMyUnfinishedTasksCount = 0;
-    }
-    /* EGO_TASK_BADGE_FIXED_END */
-
+    $egoOnlineCount = (int) ($egoSidebarSummary['online'] ?? 0);
+    $egoWorkingToday = (int) ($egoSidebarSummary['working'] ?? 0);
+    $egoActiveEmployees = (int) ($egoSidebarSummary['employees'] ?? 0);
+    $egoPendingOrdersCount = (int) ($egoSidebarSummary['pending_orders'] ?? 0);
+    $egoPendingMaterialRequestsCount = (int) ($egoSidebarSummary['pending_material_requests'] ?? 0);
+    $egoPendingPaymentRequestsCount = (int) ($egoSidebarSummary['pending_payment_requests'] ?? 0);
+    $egoPendingProposalsCount = (int) ($egoSidebarSummary['pending_proposals'] ?? 0);
+    $egoMyUnfinishedTasksCount = (int) ($egoSidebarSummary['unfinished_tasks'] ?? 0);
 
     $egoStatusItems = [
         [
-            'key'   => 'online',
+            'key' => 'online',
             'label' => 'Đang online',
             'value' => $egoOnlineCount,
-            'icon'  => 'bi-wifi',
-            'tone'  => 'online',
+            'icon' => 'bi-wifi',
+            'tone' => 'online',
         ],
         [
-            'key'   => 'working',
+            'key' => 'working',
             'label' => 'Đang làm việc',
             'value' => $egoWorkingToday,
-            'icon'  => 'bi-person-check',
-            'tone'  => 'work',
+            'icon' => 'bi-person-check',
+            'tone' => 'work',
         ],
         [
-            'key'   => 'employees',
+            'key' => 'employees',
             'label' => 'Nhân viên hoạt động',
             'value' => $egoActiveEmployees,
-            'icon'  => 'bi-people',
-            'tone'  => 'people',
+            'icon' => 'bi-people',
+            'tone' => 'people',
         ],
     ];
 @endphp
-
 
 {{-- EGO_ROLE_MENU_MATRIX_V2 --}}
 @php
@@ -351,14 +216,27 @@ Chấm công thực tế của hệ thống đang dùng:
     $egoSidebarIsAdmin = $egoSidebarUser && $egoMenuAccessService->isAdmin($egoSidebarUser);
     $egoSidebarIsManagement = $egoSidebarUser && $egoSidebarUser->hasRole('management');
     $egoSidebarIsExecutive = $egoSidebarIsAdmin || $egoSidebarIsManagement;
+    $egoActiveWorkspace = $egoSidebarUser
+        ? app(\App\Services\Workspace\WorkspaceContextService::class)->current($egoSidebarUser)
+        : 'general';
+    $egoTechnicalWorkspace = $egoActiveWorkspace === 'technical';
+    $egoWorkspaceLevelService = app(\App\Services\Workspace\WorkspaceLevelService::class);
+    $egoAccessLevel = $egoSidebarUser ? $egoWorkspaceLevelService->resolve($egoSidebarUser) : 'staff';
+    $egoDataScope = $egoSidebarUser ? $egoWorkspaceLevelService->scope($egoSidebarUser) : 'own';
+    $egoSidebarIsDepartmentHead = $egoSidebarUser
+        ? $egoWorkspaceLevelService->isDepartmentManager($egoSidebarUser)
+        : false;
 
     $egoCanDashboardMenu = $egoCanSeeMenu('menu.dashboard');
     $egoCanBookingMenu = $egoCanSeeMenu('menu.booking');
     $egoCanCustomerMenu = $egoCanSeeMenu('menu.customers');
+    $egoCanConsignmentsMenu = $egoCanSeeMenu('menu.consignments');
     $egoCanOrdersMenu = $egoCanSeeMenu('menu.orders');
     $egoCanProjectTestMenu = $egoCanSeeMenu('menu.project_test');
-    $egoCanConstructionMenu = $egoCanSeeMenu('menu.sites');
-    $egoCanPaymentRequestsMenu = $egoCanSeeMenu('menu.payment_requests');
+    $egoCanConstructionMenu = $egoCanSeeMenu('menu.sites')
+        || ($egoSidebarUser && method_exists($egoSidebarUser, 'hasAnyRole')
+            && $egoSidebarUser->hasAnyRole(['sales', 'sales_manager', 'sales_staff']));
+    $egoCanPaymentRequestsMenu = true; // DNTT là ứng dụng dùng chung cho mọi role
     $egoCanProposalsMenu = $egoCanSeeMenu('menu.proposals');
     $egoCanTechnicalMenu = $egoCanSeeMenu('menu.technical');
     $egoCanSalesMenu = $egoCanSeeMenu('menu.sales');
@@ -394,7 +272,7 @@ Chấm công thực tế của hệ thống đang dùng:
 
 @includeIf('admin.settings.partials.menu-guard')
 
-<nav id="sidebar" class="ego-sidebar" aria-label="Main sidebar">
+<nav id="sidebar" class="ego-sidebar" aria-label="Main sidebar" data-ego-workspace="{{ $egoActiveWorkspace }}" data-ego-access-level="{{ $egoAccessLevel }}" data-ego-data-scope="{{ $egoDataScope }}">
     {{-- ===== HEADER / BRAND ===== --}}
 
     <div class="ego-sidebar__header">
@@ -421,8 +299,24 @@ Chấm công thực tế của hệ thống đang dùng:
         <ul class="ego-nav" role="list">
 
             @auth
-
-            {{-- DASHBOARD --}}
+            {{-- EGO_WORKSPACE_EXCEL_MENU_V3_START --}}
+            @php
+                $egoExcelSidebarUser = auth()->user();
+                $egoExcelSidebarWorkspace = $egoExcelSidebarUser
+                    ? app(\App\Services\Workspace\WorkspaceContextService::class)->current($egoExcelSidebarUser)
+                    : 'general';
+                $egoExcelSidebarEnabled = in_array(
+                    $egoExcelSidebarWorkspace,
+                    (array) config('ego_menu_v4.supported_workspaces', config('ego_menu_excel.supported_workspaces', [])),
+                    true
+                );
+            @endphp
+            @if($egoExcelSidebarEnabled)
+                <script>document.addEventListener('DOMContentLoaded',function(){var n=document.querySelector('#sidebar .ego-nav');if(n){n.classList.add('ego-nav--excel-v3')}});</script>
+                @include('partials.workspace-menu-excel-v3')
+            @endif
+            {{-- EGO_WORKSPACE_EXCEL_MENU_V3_END --}}
+{{-- DASHBOARD --}}
             <li class="ego-item" data-title="Trang chủ" data-ego-menu-permission="menu.dashboard">
                 <a href="{{ route('dashboard') }}"
                    class="ego-link {{ active_route('dashboard') }}"
@@ -431,6 +325,19 @@ Chấm công thực tế của hệ thống đang dùng:
                     <span class="ego-txt">Trang chủ</span>
                 </a>
             </li>
+{{-- EGO_AI_COPILOT_MENU_START --}}
+@can('ai.use')
+<li class="ego-item" data-title="EGO AI Copilot">
+    <a href="{{ route('ai.index') }}"
+       class="ego-link {{ request()->routeIs('ai.*') ? 'active' : '' }}"
+       data-ego-type="nav">
+        <span class="ego-ic"><i class="bi bi-stars"></i></span>
+        <span class="ego-txt">EGO AI Copilot</span>
+        <span class="ego-booking-new-badge">AI</span>
+    </a>
+</li>
+@endcan
+{{-- EGO_AI_COPILOT_MENU_END --}}
 {{-- EGO_BOOKING_ROOM_MENU_START --}}
 <li class="ego-item" data-title="Booking phòng họp" data-ego-menu-permission="menu.booking">
                 <a href="{{ route('meeting-room-bookings.index') }}"
@@ -471,10 +378,10 @@ Chấm công thực tế của hệ thống đang dùng:
             @if($canCustomerMenu)
                 <li class="ego-item ego-item--has-sub" data-title="Khách hàng" data-ego-sub="true" data-ego-menu-permission="menu.customers">
                     <a href="#menuKhachHang"
-                       class="ego-link {{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') ? 'active' : '' }}"
+                       class="ego-link {{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') || request()->routeIs('sales.work-reports.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
                        data-ego-type="toggle"
-                       aria-expanded="{{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') ? 'true' : 'false' }}"
+                       aria-expanded="{{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') || request()->routeIs('sales.work-reports.*') ? 'true' : 'false' }}"
                        aria-controls="menuKhachHang">
                         <span class="ego-ic"><i class="bi bi-person-lines-fill"></i></span>
                         <span class="ego-txt">Khách hàng</span>
@@ -482,15 +389,35 @@ Chấm công thực tế của hệ thống đang dùng:
                     </a>
 
                     <ul id="menuKhachHang"
-                        class="ego-sub collapse {{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') ? 'show' : '' }}"
+                        class="ego-sub collapse {{ request()->routeIs('customers.*') || request()->routeIs('customer-profiles.*') || request()->routeIs('sales.work-reports.*') ? 'show' : '' }}"
                         data-ego-submenu>
                         <li>
                             <a href="{{ route('customers.index') }}"
-                               class="ego-sublink {{ active_route('customers.index') }}"
+                               class="ego-sublink {{ request()->routeIs('customers.index', 'customers.show', 'customers.edit') ? 'active' : '' }}"
                                data-ego-type="nav">
                                 Danh sách KH
                             </a>
                         </li>
+
+                        @if(\Illuminate\Support\Facades\Route::has('customers.pipeline'))
+                            <li>
+                                <a href="{{ route('customers.pipeline') }}"
+                                   class="ego-sublink {{ request()->routeIs('customers.pipeline', 'sales.work-reports.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Chăm sóc &amp; Pipeline
+                                </a>
+                            </li>
+                        @endif
+
+                        @if(\Illuminate\Support\Facades\Route::has('customers.overview'))
+                            <li>
+                                <a href="{{ route('customers.overview') }}"
+                                   class="ego-sublink {{ request()->routeIs('customers.overview') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Tổng quan khách hàng
+                                </a>
+                            </li>
+                        @endif
 
                         @if(\Illuminate\Support\Facades\Route::has('customer-profiles.index'))
                             <li>
@@ -526,6 +453,19 @@ Chấm công thực tế của hệ thống đang dùng:
                 </li>
             @endif
 
+
+            {{-- EGO_CUSTOMER_CONSIGNMENT_MENU_START --}}
+            @if($egoCanConsignmentsMenu)
+                <li class="ego-item" data-title="Ký gửi hàng hóa" data-ego-menu-permission="menu.consignments">
+                    <a href="{{ route('customer-consignments.index') }}"
+                       class="ego-link {{ request()->routeIs('customer-consignments.*') ? 'active' : '' }}"
+                       data-ego-type="nav">
+                        <span class="ego-ic"><i class="bi bi-box-seam"></i></span>
+                        <span class="ego-txt">Ký gửi hàng hóa</span>
+                    </a>
+                </li>
+            @endif
+            {{-- EGO_CUSTOMER_CONSIGNMENT_MENU_END --}}
             {{-- ĐƠN HÀNG --}}
             @if($egoCanOrdersMenu)
             <li class="ego-item ego-item--has-sub" data-title="Đơn hàng" data-ego-sub="true" data-ego-menu-permission="menu.orders">
@@ -568,7 +508,30 @@ Chấm công thực tế của hệ thống đang dùng:
                     
 
 
-                    @if($egoCanWarrantyLookupMenu && \Illuminate\Support\Facades\Route::has('serial-warranty.index'))
+                    @php
+                            /* EGO_SERIAL_WARRANTY_MENU_ACCESS_START */
+                            $egoSerialWarrantyUser = auth()->user();
+                            $egoSerialWarrantyWarehouseMenu = false;
+
+                            if ($egoSerialWarrantyUser) {
+                                if (method_exists($egoSerialWarrantyUser, 'hasAnyRole')) {
+                                    $egoSerialWarrantyWarehouseMenu = $egoSerialWarrantyUser->hasAnyRole(['admin', 'warehouse', 'kho']);
+                                } elseif (method_exists($egoSerialWarrantyUser, 'hasRole')) {
+                                    $egoSerialWarrantyWarehouseMenu =
+                                        $egoSerialWarrantyUser->hasRole('admin') ||
+                                        $egoSerialWarrantyUser->hasRole('warehouse') ||
+                                        $egoSerialWarrantyUser->hasRole('kho');
+                                } else {
+                                    $egoSerialWarrantyWarehouseMenu = in_array(
+                                        strtolower((string) ($egoSerialWarrantyUser->role ?? '')),
+                                        ['admin', 'warehouse', 'kho'],
+                                        true
+                                    );
+                                }
+                            }
+                            /* EGO_SERIAL_WARRANTY_MENU_ACCESS_END */
+                        @endphp
+                        @if((($egoCanWarrantyLookupMenu ?? false) || $egoSerialWarrantyWarehouseMenu) && \Illuminate\Support\Facades\Route::has('serial-warranty.index'))
                         <li>
                             <a href="{{ route('serial-warranty.index') }}"
                                class="ego-sublink {{ request()->routeIs('serial-warranty.*') ? 'active' : '' }}"
@@ -580,143 +543,121 @@ Chấm công thực tế của hệ thống đang dùng:
                 </ul>
             </li>
             @endif
-
-            {{-- EGO_PROJECT_TEST_NEW_MENU_START --}}
-            @can('project-test.access')
-                <li class="ego-item" data-title="Công Trình Test new" data-ego-menu-permission="menu.project_test">
-                    <a href="{{ route('project-test.index') }}"
-                       class="ego-link {{ request()->routeIs('project-test.*') && !request()->routeIs('project-test.warehouse.*') ? 'active' : '' }}"
-                       data-ego-type="nav"
-                       style="position:relative;overflow:hidden;">
-                        <span class="ego-ic" style="background:linear-gradient(135deg,rgba(20,184,166,.28),rgba(37,99,235,.22));color:#67e8f9;box-shadow:0 0 20px rgba(34,211,238,.15);"><i class="bi bi-diagram-3"></i></span>
-                        <span class="ego-txt">Công Trình Test new</span>
-                        <span style="margin-left:auto;padding:3px 7px;border-radius:999px;background:linear-gradient(135deg,#fb7185,#e11d48);color:#fff;font-size:8px;font-weight:950;letter-spacing:.08em;box-shadow:0 5px 15px rgba(225,29,72,.35);animation:egoBookingNewPulse 1.5s ease-in-out infinite;">NEW</span>
-                    </a>
-                </li>
-            @endcan
-            {{-- EGO_PROJECT_TEST_NEW_MENU_END --}}
-
-            {{-- CÔNG TRÌNH --}}
-            @if($egoCanConstructionMenu)
-                <li class="ego-item ego-item--has-sub" data-title="Công trình" data-ego-sub="true" data-ego-menu-permission="menu.sites">
-                    <a href="#menuConstruction"
-                       class="ego-link {{ request()->is('cong-trinh*') || request()->is('don-vat-tu*') ? 'active' : '' }}"
-                       data-bs-toggle="collapse"
-                       data-ego-type="toggle"
-                       aria-expanded="{{ request()->is('cong-trinh*') || request()->is('don-vat-tu*') ? 'true' : 'false' }}"
-                       aria-controls="menuConstruction">
-                        <span class="ego-ic"><i class="bi bi-kanban"></i></span>
-                        <span class="ego-txt">Công trình</span>
-                        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
-                    </a>
-
-                    <ul id="menuConstruction"
-                        class="ego-sub collapse {{ request()->is('cong-trinh*') || request()->is('don-vat-tu*') ? 'show' : '' }}"
-                        data-ego-submenu>
-                        {{-- EGO_SITE_WORKSPACE_V2_MENU_START --}}
-                        @if($egoCanSiteWorkspaceMenu)
-                            <li>
-                                <a href="{{ route('sites-v2.index') }}"
-                                   class="ego-sublink {{ request()->routeIs('sites-v2.*') ? 'active' : '' }}"
-                                   data-ego-type="nav">
-                                    Điều phối mới
-                                    <span style="margin-left:6px;padding:2px 6px;border-radius:999px;background:#0f766e;color:#fff;font-size:9px;font-weight:800;">BETA</span>
-                                </a>
-                            </li>
-                        @endif
-                        {{-- EGO_SITE_WORKSPACE_V2_MENU_END --}}
-                        <li>
-                            <a href="{{ url('/cong-trinh') }}"
-                               class="ego-sublink {{ request()->is('cong-trinh*') && !request()->is('cong-trinh-moi*') ? 'active' : '' }}"
-                               data-ego-type="nav">
-                                Công trình
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url('/don-vat-tu') }}"
-                               class="ego-sublink {{ request()->is('don-vat-tu*') ? 'active' : '' }}"
-                               data-ego-type="nav">
-                                Đơn vật tư
-                                @if(($egoPendingMaterialRequestsCount ?? 0) > 0)<span class="ego-count-badge" title="Đơn vật tư chờ duyệt">{{ $egoPendingMaterialRequestsCount }}</span>@endif
-                            </a>
-                        </li>
-
-                        {{-- EGO_SITE_ASSEMBLY_MENU_START --}}
-                        <li>
-                            <a href="{{ route('site-assemblies.index') }}"
-                               class="ego-sublink {{ request()->routeIs('site-assemblies.*') ? 'active' : '' }}"
-                               data-ego-type="nav">
-                                Lắp ráp / Sản xuất
-                            </a>
-                        </li>
-                        {{-- EGO_SITE_ASSEMBLY_MENU_END --}}
-
-                    </ul>
-                </li>
+            {{-- EGO_PRIMARY_PROJECT_MENU_START --}}
+{{-- CÔNG TRÌNH --}}
+@if($egoCanConstructionMenu)
+    @php
+        $egoProjectMenuOpen = (request()->routeIs('projects-unified.*')
+            && !request()->routeIs('projects-unified.maintenance.*'))
+            || request()->routeIs('material-requests.*');
+        $egoMyProjects = request()->routeIs('projects-unified.index')
+            && request()->boolean('mine');
+    @endphp
+    <li class="ego-item ego-item--has-sub" data-title="Công trình" data-ego-sub="true" data-ego-menu-permission="menu.sites">
+        <a href="#menuConstruction" class="ego-link {{ $egoProjectMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoProjectMenuOpen ? 'true' : 'false' }}" aria-controls="menuConstruction">
+            <span class="ego-ic"><i class="bi bi-kanban"></i></span>
+            <span class="ego-txt">Công trình</span>
+            <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+        </a>
+        <ul id="menuConstruction" class="ego-sub collapse {{ $egoProjectMenuOpen ? 'show' : '' }}" data-ego-submenu>
+            <li><a href="{{ route('projects-unified.index') }}" class="ego-sublink {{ request()->routeIs('projects-unified.index') && !request()->query() ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+            <li><a href="{{ route('projects-unified.index', ['view'=>'list']) }}" class="ego-sublink {{ request()->routeIs('projects-unified.index') && request('view')==='list' && !$egoMyProjects ? 'active' : '' }}" data-ego-type="nav">Danh sách công trình</a></li>
+            <li><a href="{{ route('projects-unified.index', ['view'=>'list','mine'=>1]) }}" class="ego-sublink {{ $egoMyProjects ? 'active' : '' }}" data-ego-type="nav">Công trình của tôi</a></li>
+            @if(auth()->check() && (app(\App\Services\Projects\UnifiedProjectAccess::class)->isSalesScoped(auth()->user()) || auth()->user()->hasAnyRole(['admin','super_admin','technical_manager','technical_leader','technical','technician','engineer','engineering'])))
+                <li><a href="{{ route('projects-unified.create') }}" class="ego-sublink {{ request()->routeIs('projects-unified.create') ? 'active' : '' }}" data-ego-type="nav">Tạo công trình</a></li>
             @endif
+            {{-- EGO_CONSTRUCTION_MATERIAL_MENU_START --}}
+            @if(\Illuminate\Support\Facades\Route::has('material-requests.index') && auth()->user()->hasAnyRole(['admin', 'warehouse', 'kho', 'accounting', 'technical', 'sales']))
+                <li><a href="{{ route('material-requests.index') }}" class="ego-sublink {{ request()->routeIs('material-requests.*') ? 'active' : '' }}" data-ego-type="nav">Vật tư công trình</a></li>
+            @endif
+            {{-- EGO_CONSTRUCTION_MATERIAL_MENU_END --}}
+        </ul>
+    </li>
+@endif
 
-            {{-- ĐỀ NGHỊ THANH TOÁN --}}
-            <li class="ego-item" data-title="Đề nghị thanh toán" data-ego-menu-permission="menu.payment_requests">
-                <a href="{{ route('payment_requests.index') }}"
-                   class="ego-link {{ active_route('payment_requests.*') }}"
-                   data-ego-type="nav">
-                    <span class="ego-ic"><i class="bi bi-receipt"></i></span>
-                    <span class="ego-txt">Đề nghị thanh toán</span>
-                    @if(($egoPendingPaymentRequestsCount ?? 0) > 0)<span class="ego-count-badge" title="Đề nghị thanh toán chờ duyệt">{{ $egoPendingPaymentRequestsCount }}</span>@endif
-                </a>
-            </li>
-{{-- ĐỀ XUẤT --}}
-@auth
-<li class="ego-item" data-title="Đề xuất" data-ego-menu-permission="menu.proposals">
-    <a href="{{ route('de-xuat.index') }}"
-       class="ego-link {{ request()->is('de-xuat*') ? 'active' : '' }}"
-       data-ego-type="nav">
 
-        <span class="ego-ic">
-            <i class="bi bi-lightbulb"></i>
-        </span>
-
-        <span class="ego-txt">Đề xuất</span>
-        @if(($egoPendingProposalsCount ?? 0) > 0)<span class="ego-count-badge" title="Đề xuất chờ duyệt">{{ $egoPendingProposalsCount }}</span>@endif
-    </a>
-</li>
-@endauth
 {{-- KỸ THUẬT --}}
 @if($egoCanTechnicalMenu)
+@php
+    $egoTechnicalMenuOpen = request()->routeIs(
+        'ky-thuat.tong-quan',
+        'ky-thuat.ke-hoach*',
+        'ky-thuat.warranty-exchange.*',
+        'ky-thuat.bao-cao*',
+        'ky-thuat.kpis.*',
+        'ky-thuat.luong.*'
+    );
+@endphp
 <li class="ego-item ego-item--has-sub" data-title="Kỹ thuật" data-ego-sub="true" data-ego-menu-permission="menu.technical">
-    <a href="#menuKyThuat"
-       class="ego-link {{ request()->is('ky-thuat*') ? 'active' : '' }}"
-       data-bs-toggle="collapse"
-       data-ego-type="toggle">
-
+    <a href="#menuKyThuat" class="ego-link {{ $egoTechnicalMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoTechnicalMenuOpen ? 'true' : 'false' }}" aria-controls="menuKyThuat">
         <span class="ego-ic"><i class="bi bi-tools"></i></span>
         <span class="ego-txt">Kỹ thuật</span>
         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
     </a>
-
-    <ul id="menuKyThuat"
-        class="ego-sub collapse {{ request()->is('ky-thuat*') ? 'show' : '' }}">
-
-        <li>
-            <a href="{{ route('ky-thuat.maintenance.index') }}"
-               class="ego-sublink {{ request()->routeIs('ky-thuat.maintenance.*') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Lịch bảo trì / bảo hành
-            </a>
-        </li>
-
-        <li>
-            <a href="/ky-thuat/luong"
-               class="ego-sublink"
-               data-ego-type="nav">
-                Tính lương
-            </a>
-        </li>
-
+    <ul id="menuKyThuat" class="ego-sub collapse {{ $egoTechnicalMenuOpen ? 'show' : '' }}" data-ego-submenu>
+        <li><a href="{{ route('ky-thuat.tong-quan') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.tong-quan') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+        <li><a href="{{ route('ky-thuat.ke-hoach') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.ke-hoach*') ? 'active' : '' }}" data-ego-type="nav">Kế hoạch</a></li>
+        <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đề xuất đổi hàng BH</a></li>
+        <li><a href="{{ route('ky-thuat.bao-cao') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.bao-cao*') ? 'active' : '' }}" data-ego-type="nav">Báo cáo</a></li>
+        <li><a href="{{ route('ky-thuat.kpis.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.kpis.*', 'ky-thuat.luong.*') ? 'active' : '' }}" data-ego-type="nav">KPIs</a></li>
     </ul>
 </li>
 @endif
-            {{-- SALES --}}
+
+{{-- BẢO TRÌ / BẢO HÀNH --}}
+@if($egoCanConstructionMenu || $egoCanTechnicalMenu)
+<li class="ego-item" data-title="Bảo trì / Bảo hành" data-ego-menu-permission="menu.sites">
+    <a href="{{ route('projects-unified.maintenance.index') }}" class="ego-link {{ request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*') ? 'active' : '' }}" data-ego-type="nav">
+        <span class="ego-ic"><i class="bi bi-shield-check"></i></span>
+        <span class="ego-txt">Bảo trì / Bảo hành</span>
+    </a>
+</li>
+@endif
+
+
+{{-- EGO_PRIMARY_PROJECT_MENU_END --}}
+
+
+            {{-- ĐỀ NGHỊ THANH TOÁN --}}
+            {{-- EGO_REAL_VN_DNTT_V2_START --}}
+@php
+    $egoPaymentMenuOpen = request()->routeIs('payment_requests.*') || request()->routeIs('payment_advances.*');
+@endphp
+@if(($egoCanPaymentRequestsMenu ?? true) && \Illuminate\Support\Facades\Route::has('payment_requests.index'))
+<li class="ego-item ego-item--has-sub" data-title="Đề nghị thanh toán" data-ego-sub="true" data-ego-shared-finance="true">
+    <a href="#menuDeNghiThanhToan" class="ego-link {{ $egoPaymentMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoPaymentMenuOpen ? 'true' : 'false' }}" aria-controls="menuDeNghiThanhToan">
+        <span class="ego-ic"><i class="bi bi-receipt"></i></span>
+        <span class="ego-txt">Đề nghị thanh toán</span>
+        @if(($egoPendingPaymentRequestsCount ?? 0) > 0)<span class="ego-count-badge" title="Đề nghị thanh toán chờ duyệt">{{ $egoPendingPaymentRequestsCount }}</span>@endif
+        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+    </a>
+    <ul id="menuDeNghiThanhToan" class="ego-sub collapse {{ $egoPaymentMenuOpen ? 'show' : '' }}" data-ego-submenu>
+        <li><a href="{{ route('payment_requests.index') }}" class="ego-sublink {{ request()->routeIs('payment_requests.*') && !request()->routeIs('payment_advances.*') ? 'active' : '' }}" data-ego-type="nav">Đề nghị thanh toán</a></li>
+        @if(\Illuminate\Support\Facades\Route::has('payment_advances.index'))
+            <li><a href="{{ route('payment_advances.index') }}" class="ego-sublink {{ request()->routeIs('payment_advances.*') ? 'active' : '' }}" data-ego-type="nav">Tạm ứng &amp; Hoàn ứng</a></li>
+        @endif
+    </ul>
+</li>
+@endif
+{{-- EGO_REAL_VN_DNTT_V2_END --}}
+
+{{-- ĐỀ XUẤT - DÙNG CHUNG MỌI PHÒNG BAN --}}
+@auth
+@if(\Illuminate\Support\Facades\Route::has('de-xuat.index'))
+<li class="ego-item" data-title="Đề xuất">
+    <a href="{{ route('de-xuat.index') }}"
+       class="ego-link {{ request()->is('de-xuat*') ? 'active' : '' }}"
+       data-ego-type="nav">
+        <span class="ego-ic"><i class="bi bi-lightbulb"></i></span>
+        <span class="ego-txt">Đề xuất</span>
+        @if(($egoPendingProposalsCount ?? 0) > 0)
+            <span class="ego-count-badge" title="Đề xuất chờ duyệt">{{ $egoPendingProposalsCount }}</span>
+        @endif
+    </a>
+</li>
+@endif
+@endauth
+{{-- SALES --}}
             @if($egoCanSalesMenu)
                 <li class="ego-item ego-item--has-sub" data-title="Sales" data-ego-sub="true" data-ego-menu-permission="menu.sales">
                     <a href="#menuSales"
@@ -748,12 +689,6 @@ Chấm công thực tế của hệ thống đang dùng:
             KPI & Công việc
         </a>
 
-
-                        <a href="{{ route('sales.work-reports.index') }}"
-                           class="ego-sales-child-link {{ request()->routeIs('sales.work-reports.*') ? 'active' : '' }}">
-                            <span class="ego-sales-child-dot"></span>
-                            <span>Báo Cáo</span>
-                        </a>
 
 @else
         <a href="#"
@@ -898,6 +833,7 @@ Chấm công thực tế của hệ thống đang dùng:
                 </li>
             @endif
 
+            @if(!$egoTechnicalWorkspace)
             {{-- CÔNG VIỆC --}}
             <li class="ego-item ego-item--has-sub" data-title="Công việc" data-ego-sub="true" data-ego-menu-permission="menu.tasks">
                 <a href="#menuTasks"
@@ -939,7 +875,8 @@ Chấm công thực tế của hệ thống đang dùng:
                 </ul>
             </li>
 
-            {{-- SẢN PHẨM --}}
+            @endif
+            {{-- KHO --}}
             @php
                 $u = auth()->user();
 
@@ -953,267 +890,336 @@ Chấm công thực tế của hệ thống đang dùng:
                         'accounting',
                     ])
                 );
+
+                $egoWarehouseMenuActive =
+                    request()->routeIs('products.*')
+                    || request()->routeIs('product-goods-receipts.*')
+                    || request()->routeIs('categories.*')
+                    || request()->routeIs('warehouses.*')
+                    || request()->routeIs('brands.*')
+                    || request()->routeIs('price-tiers.*')
+                    || request()->routeIs('project-test.warehouse.*')
+                    || request()->routeIs('warehouse-projects.*')
+                    || request()->is('products/goods-receipts*');
             @endphp
 
-          @if($canProductMenu)
-    <li class="ego-item ego-item--has-sub" data-title="Sản phẩm" data-ego-sub="true" data-ego-menu-permission="menu.products">
-        <a href="#menuSP"
-           class="ego-link {{ active_route(['products.input','products.output','products.history','products.serials.*','product-goods-receipts.*','products.create','categories.*','warehouses.*','brands.*','price-tiers.*','company-management.*']) }}"
-           data-bs-toggle="collapse"
-           data-ego-type="toggle"
-           aria-expanded="{{ request()->routeIs('products.input') || request()->routeIs('products.output') || request()->routeIs('products.history') || request()->routeIs('products.serials.*') || request()->routeIs('products.create') || request()->routeIs('categories.*') || request()->routeIs('warehouses.*') || request()->routeIs('brands.*') || request()->routeIs('price-tiers.*') || request()->is('company-management*') || request()->is('products/goods-receipts*') ? 'true' : 'false' }}"
-           aria-controls="menuSP">
-            <span class="ego-ic"><i class="bi bi-box-seam"></i></span>
-            <span class="ego-txt">Sản phẩm</span>
-            <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
-        </a>
-
-        <ul id="menuSP"
-            class="ego-sub collapse {{ (request()->routeIs('products.input') || request()->routeIs('products.output') || request()->routeIs('products.history') || request()->routeIs('products.serials.*') || request()->routeIs('products.create') || request()->routeIs('categories.*') || request()->routeIs('warehouses.*') || request()->routeIs('brands.*') || request()->routeIs('price-tiers.*') || request()->is('company-management*') || request()->is('products/goods-receipts*')) ? 'show' : '' }}"
-            data-ego-submenu>
-
-            @if($canSeeInputProducts && \Illuminate\Support\Facades\Route::has('products.input'))
-                <li>
-                    <a href="{{ route('products.input') }}"
-                       class="ego-sublink {{ request()->routeIs('products.input') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Sản phẩm đầu vào
+            @if($canProductMenu)
+                <li class="ego-item ego-item--has-sub"
+                    data-title="Kho"
+                    data-ego-sub="true"
+                    data-ego-menu-permission="menu.products">
+                    <a href="#menuSP"
+                       class="ego-link {{ $egoWarehouseMenuActive ? 'active' : '' }}"
+                       data-bs-toggle="collapse"
+                       data-ego-type="toggle"
+                       aria-expanded="{{ $egoWarehouseMenuActive ? 'true' : 'false' }}"
+                       aria-controls="menuSP">
+                        <span class="ego-ic"><i class="bi bi-box-seam"></i></span>
+                        <span class="ego-txt">Kho</span>
+                        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
-                </li>
 
-                        {{-- EGO_PRODUCT_GOODS_RECEIPTS_MENU_START --}}
-                        <li>
-                            <a href="{{ url('/products/goods-receipts') }}"
-                               class="ego-sublink {{ request()->is('products/goods-receipts*') ? 'active' : '' }}"
-                               data-ego-type="nav">
-                                Nhập sản phẩm
-                            </a>
-                        </li>
-                        {{-- EGO_PRODUCT_GOODS_RECEIPTS_MENU_END --}}
+                    <ul id="menuSP"
+                        class="ego-sub collapse {{ $egoWarehouseMenuActive ? 'show' : '' }}"
+                        data-ego-submenu>
 
-            @endif
-
-            {{-- EGO_PROJECT_TEST_WAREHOUSE_MENU_START --}}
-            @can('project-test.warehouse')
-                <li>
-                    <a href="{{ route('project-test.warehouse.index') }}"
-                       class="ego-sublink {{ request()->routeIs('project-test.warehouse.*') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Cấp vật tư công trình Test
-                        <span style="margin-left:6px;padding:2px 6px;border-radius:999px;background:#0f766e;color:#fff;font-size:8px;font-weight:900;">NEW</span>
-                    </a>
-                </li>
-            @endcan
-            {{-- EGO_PROJECT_TEST_WAREHOUSE_MENU_END --}}
-
-            @if(\Illuminate\Support\Facades\Route::has('products.output'))
-                <li>
-                    <a href="{{ route('products.output') }}"
-                       class="ego-sublink {{ request()->routeIs('products.output') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Sản phẩm đầu ra
-                    </a>
-                </li>
-            @endif
-
-
-            @if(\Illuminate\Support\Facades\Route::has('products.serials.index'))
-                <li>
-                    <a href="{{ route('products.serials.index') }}"
-                       class="ego-sublink {{ request()->routeIs('products.serials.*') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Quản lý seri
-                    </a>
-                </li>
-            @endif
-
-            @if($u->hasAnyRole(['admin','warehouse']) || $u->can('products.manage'))
-                <li>
-                    <a href="{{ route('products.create') }}"
-                       class="ego-sublink {{ active_route('products.create') }}"
-                       data-ego-type="nav">
-                        Thêm sản phẩm
-                    </a>
-                </li>
-            @endif
-
-            @if($u->hasAnyRole(['admin','warehouse']) || $u->can('categories.manage'))
-                <li>
-                    <a href="{{ route('categories.index') }}"
-                       class="ego-sublink {{ active_route('categories.*') }}"
-                       data-ego-type="nav">
-                        Danh mục sản phẩm
-                    </a>
-                </li>
-            @endif
-
-            @if($u->hasAnyRole(['admin','warehouse']) || $u->can('brands.manage'))
-                <li>
-                    <a href="{{ route('brands.index') }}"
-                       class="ego-sublink {{ active_route('brands.*') }}"
-                       data-ego-type="nav">
-                        Danh mục thương hiệu
-                    </a>
-                </li>
-            @endif
-
-            @if($u->hasAnyRole(['admin','warehouse']) || $u->can('price-tiers.manage'))
-                <li>
-                    <a href="{{ route('price-tiers.index') }}"
-                       class="ego-sublink {{ active_route('price-tiers.*') }}"
-                       data-ego-type="nav">
-                        Loại giá
-                    </a>
-                </li>
-            @endif
-
-            @if($u->hasAnyRole(['admin','warehouse']) || $u->can('warehouse.manage') || $u->can('warehouse.view'))
-                <li>
-                    <a href="{{ route('warehouses.index') }}"
-                       class="ego-sublink {{ active_route('warehouses.index') }}"
-                       data-ego-type="nav">
-                        Danh sách kho
-                    </a>
-                </li>
-            @endif
-
-            <li data-ego-company-management-menu="products">
-                <a href="{{ url('/company-management') }}"
-                   class="ego-sublink {{ request()->is('company-management*') || request()->is('products/goods-receipts*') ? 'active' : '' }}"
-                   data-ego-type="nav">
-                    Quản lý công ty
-                </a>
-            </li>
-
-          
-                        @if(\Illuminate\Support\Facades\Route::has('products.history'))
+                        {{-- 1. NGHIỆP VỤ KHO HÀNG NGÀY --}}
+                        @if($canSeeInputProducts && \Illuminate\Support\Facades\Route::has('products.input'))
+                            <li>
+                                <a href="{{ route('products.input') }}"
+                                   class="ego-sublink {{ request()->routeIs('products.input') || request()->routeIs('products.show') || request()->routeIs('products.edit') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Danh sách sản phẩm
+                                </a>
+                            </li>
+                        {{-- EGO_SITE_ASSEMBLY_WAREHOUSE_MENU_START --}}
+@if(\Illuminate\Support\Facades\Route::has('site-assemblies.index'))
     <li>
-        <a href="{{ route('products.history') }}"
-           class="ego-sublink {{ request()->routeIs('products.history') ? 'active' : '' }}"
+        <a href="{{ route('site-assemblies.index') }}"
+           class="ego-sublink {{ request()->routeIs('site-assemblies.*') ? 'active' : '' }}"
            data-ego-type="nav">
-            Lịch sử xuất/nhập kho
+            Lắp ráp / Sản xuất
         </a>
     </li>
 @endif
-                    </ul>
+{{-- EGO_SITE_ASSEMBLY_WAREHOUSE_MENU_END --}}
+
+                        @endif
+
+                        @if(\Illuminate\Support\Facades\Route::has('product-goods-receipts.index'))
+                            <li>
+                                <a href="{{ route('product-goods-receipts.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('product-goods-receipts.*') || request()->is('products/goods-receipts*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Nhập sản phẩm
+                                </a>
+                            </li>
+                        @else
+                            <li>
+                                <a href="{{ url('/products/goods-receipts') }}"
+                                   class="ego-sublink {{ request()->is('products/goods-receipts*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Nhập sản phẩm
+                                </a>
+                            </li>
+                        @endif
+
+                        @if($u->hasAnyRole(['admin','warehouse']) || $u->can('products.manage'))
+                            <li>
+                                <a href="{{ route('products.create') }}"
+                                   class="ego-sublink {{ request()->routeIs('products.create') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Tạo &amp; nhập sản phẩm
+                                </a>
+                            </li>
+                        @endif
+
+                        @if(\Illuminate\Support\Facades\Route::has('products.output'))
+                            <li>
+                                <a href="{{ route('products.output') }}"
+                                   class="ego-sublink {{ request()->routeIs('products.output') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Sản phẩm đầu ra
+                                </a>
+                            </li>
+                        @endif
+
+                        @can('project-test.warehouse')
+                            <li>
+                                <a href="{{ route('warehouse-projects.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('warehouse-projects.*') || request()->routeIs('project-test.warehouse.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Công trình Kho
+                                </a>
+                            </li>
+                        @endcan
+
+                        {{-- 2. KIỂM SOÁT KHO --}}
+                        @if(\Illuminate\Support\Facades\Route::has('products.serials.index'))
+                            <li>
+                                <a href="{{ route('products.serials.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('products.serials.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Quản lý serial
+                                </a>
+                            </li>
+                        @endif
+
+                        @if($u->hasAnyRole(['admin','warehouse']) || $u->can('warehouse.manage') || $u->can('warehouse.view'))
+                            <li>
+                                <a href="{{ route('warehouses.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('warehouses.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Danh sách kho
+                                </a>
+                            </li>
+                        @endif
+
+                        @if(\Illuminate\Support\Facades\Route::has('products.history'))
+                            <li>
+                                <a href="{{ route('products.history') }}"
+                                   class="ego-sublink {{ request()->routeIs('products.history') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Lịch sử xuất/nhập kho
+                                </a>
+                            </li>
+                        @endif
+
+                        {{-- 3. DANH MỤC CẤU HÌNH --}}
+                        @if($u->hasAnyRole(['admin','warehouse']) || $u->can('categories.manage'))
+                            <li>
+                                <a href="{{ route('categories.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('categories.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Danh mục sản phẩm
+                                </a>
+                            </li>
+                        @endif
+
+                        @if($u->hasAnyRole(['admin','warehouse']) || $u->can('brands.manage'))
+                            <li>
+                                <a href="{{ route('brands.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('brands.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Thương hiệu
+                                </a>
+                            </li>
+                        @endif
+
+                        @if($u->hasAnyRole(['admin','warehouse']) || $u->can('price-tiers.manage'))
+                            <li>
+                                <a href="{{ route('price-tiers.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('price-tiers.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Bảng giá
+                                </a>
+                            </li>
+                        @endif
+                    
+                        {{-- EGO_WAREHOUSE_RECEIVABLE_CLASSIC_MENU_V2 --}}
+                        @if(\Illuminate\Support\Facades\Route::has('finance.customer-debts.index') && $u && $u->hasAnyRole(['admin','warehouse','kho']))
+                            <li>
+                                <a href="{{ route('finance.customer-debts.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('finance.customer-debts.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Công nợ phải thu
+                                </a>
+                            </li>
+                        @endif
+                        {{-- EGO_WAREHOUSE_RECEIVABLE_CLASSIC_MENU_V2_END --}}
+</ul>
                 </li>
             @endif
-
             {{-- DIVIDER --}}
             <li class="ego-divider" role="separator"></li>
-{{-- TÀI CHÍNH --}}
-@if($egoCanFinanceMenu)
-<li class="ego-item ego-item--has-sub" data-title="Tài chính" data-ego-sub="true" data-ego-menu-permission="menu.finance">
-    <a href="#menuFinance"
-       class="ego-link {{ request()->is('finance*') ? 'active' : '' }}"
-       data-bs-toggle="collapse"
-       data-ego-type="toggle"
-       aria-expanded="{{ request()->is('finance*') ? 'true' : 'false' }}"
-       aria-controls="menuFinance">
-        <span class="ego-ic"><i class="bi bi-wallet2"></i></span>
-        <span class="ego-txt">Tài chính</span>
+{{-- EGO_MENU_SYNC_FROM_REAL_VN_V2_20260907_START --}}
+{{-- Cấu trúc đối chiếu trực tiếp từ crm.egosolar.vn: Hành chánh + Tài chính kế toán. --}}
+@if($egoCanHrMenu)
+@php
+    $egoHanhChanhActive = request()->routeIs('hr.operations.*')
+        || request()->routeIs('hr.office-expenses.*')
+        || request()->routeIs('hr.office-supply-process.*')
+        || request()->routeIs('hr.gifts.*')
+        || request()->routeIs('hr.document-handovers.*')
+        || request()->routeIs('company-documents.*');
+@endphp
+<li class="ego-item ego-item--has-sub" data-title="Hành chánh" data-ego-sub="true" data-ego-menu-permission="menu.hr">
+    <a href="#menuHanhChanh" class="ego-link {{ $egoHanhChanhActive ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoHanhChanhActive ? 'true' : 'false' }}" aria-controls="menuHanhChanh">
+        <span class="ego-ic"><i class="bi bi-building-gear"></i></span>
+        <span class="ego-txt">Hành chánh</span>
         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
     </a>
-
-    <ul id="menuFinance"
-        class="ego-sub collapse {{ request()->is('finance*') ? 'show' : '' }}"
-        data-ego-submenu>
-
-        <li>
-            <a href="{{ route('finance.index') }}"
-               class="ego-sublink {{ request()->routeIs('finance.index') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Tổng quan
-            </a>
-        </li>
-
-        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Công nợ khách hàng" data-ego-sub="true">
-            <a href="#menuFinanceCustomerDebt"
-               class="ego-sublink ego-sublink--toggle {{ request()->routeIs('finance.customer-debts.*') ? 'active' : '' }}"
-               data-bs-toggle="collapse"
-               data-ego-type="toggle"
-               aria-expanded="{{ request()->routeIs('finance.customer-debts.*') ? 'true' : 'false' }}"
-               aria-controls="menuFinanceCustomerDebt">
-                <span>Công nợ khách hàng</span>
-                <i class="bi bi-chevron-down ego-sub-caret"></i>
-            </a>
-
-            <ul id="menuFinanceCustomerDebt"
-                class="ego-sub ego-sub--nested collapse {{ request()->routeIs('finance.customer-debts.*') ? 'show' : '' }}"
-                data-ego-submenu>
-                <li>
-                    <a href="{{ route('finance.customer-debts.index') }}"
-                       class="ego-sublink {{ request()->routeIs('finance.customer-debts.index') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Danh sách công nợ
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('finance.customer-debts.by-customer') }}"
-                       class="ego-sublink {{ request()->routeIs('finance.customer-debts.by-customer') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Theo khách hàng
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('finance.customer-debts.payment-history') }}"
-                       class="ego-sublink {{ request()->routeIs('finance.customer-debts.payment-history') ? 'active' : '' }}"
-                       data-ego-type="nav">
-                        Lịch sử thanh toán
-                    </a>
-                </li>
+    <ul id="menuHanhChanh" class="ego-sub collapse {{ $egoHanhChanhActive ? 'show' : '' }}" data-ego-submenu>
+        @if(\Illuminate\Support\Facades\Route::has('hr.operations.index'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Chi phí" data-ego-sub="true">
+            <a href="#menuHanhChanhChiPhi" class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.operations.*') && request('tab') === 'expenses' ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ request()->routeIs('hr.operations.*') && request('tab') === 'expenses' ? 'true' : 'false' }}" aria-controls="menuHanhChanhChiPhi"><span>Chi phí</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuHanhChanhChiPhi" class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.operations.*') && request('tab') === 'expenses' ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('hr.operations.index', ['tab'=>'expenses','expense_type'=>'fixed']) }}" class="ego-sublink" data-ego-type="nav">Chi phí cố định</a></li>
+                <li><a href="{{ route('hr.operations.index', ['tab'=>'expenses','expense_type'=>'variable']) }}" class="ego-sublink" data-ego-type="nav">Chi phí không cố định</a></li>
             </ul>
         </li>
-
-        <li>
-            <a href="{{ route('finance.supplier-debts.index') }}"
-               class="ego-sublink {{ request()->routeIs('finance.supplier-debts.index') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Công nợ nhà cung cấp
-            </a>
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Tài sản" data-ego-sub="true">
+            <a href="#menuHanhChanhTaiSan" class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.operations.*') && request('tab') === 'assets' ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ request()->routeIs('hr.operations.*') && request('tab') === 'assets' ? 'true' : 'false' }}" aria-controls="menuHanhChanhTaiSan"><span>Tài sản</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuHanhChanhTaiSan" class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.operations.*') && request('tab') === 'assets' ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('hr.operations.index', ['tab'=>'assets','asset_group'=>'fixed']) }}" class="ego-sublink" data-ego-type="nav">Tài sản cố định</a></li>
+                <li><a href="{{ route('hr.operations.index', ['tab'=>'assets','asset_group'=>'technical']) }}" class="ego-sublink" data-ego-type="nav">Máy móc kỹ thuật</a></li>
+            </ul>
         </li>
+        @endif
 
-
-
-        <li>
-            <a href="{{ url('/payment-requests') }}"
-   class="ego-sublink {{ request()->is('payment-requests*') ? 'active' : '' }}"
-   data-ego-type="nav">
-    Đề nghị thanh toán
-    @if(($egoPendingPaymentRequestsCount ?? 0) > 0)<span class="ego-count-badge" title="Đề nghị thanh toán chờ duyệt">{{ $egoPendingPaymentRequestsCount }}</span>@endif
-</a>
+        @if(\Illuminate\Support\Facades\Route::has('hr.office-supply-process.index'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Văn phòng phẩm" data-ego-sub="true">
+            <a href="#menuHanhChanhVPP" class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.office-supply-process.*') ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ request()->routeIs('hr.office-supply-process.*') ? 'true' : 'false' }}" aria-controls="menuHanhChanhVPP"><span>Văn phòng phẩm</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuHanhChanhVPP" class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.office-supply-process.*') ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('hr.office-supply-process.index', ['view'=>'list']) }}" class="ego-sublink" data-ego-type="nav">Danh sách</a></li>
+                <li><a href="{{ route('hr.office-supply-process.index', ['view'=>'import']) }}" class="ego-sublink" data-ego-type="nav">Nhập</a></li>
+                <li><a href="{{ route('hr.office-supply-process.index', ['view'=>'export']) }}" class="ego-sublink" data-ego-type="nav">Xuất</a></li>
+                <li><a href="{{ route('hr.office-supply-process.index', ['view'=>'stock']) }}" class="ego-sublink" data-ego-type="nav">Tồn</a></li>
+            </ul>
         </li>
+        @endif
 
-        <li>
-            <a href="{{ route('finance.salary') }}"
-               class="ego-sublink {{ request()->routeIs('finance.salary') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Lương & Hoa hồng
-            </a>
+        @if(\Illuminate\Support\Facades\Route::has('hr.gifts.index'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Quà tặng" data-ego-sub="true">
+            <a href="#menuHanhChanhQuaTang" class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.gifts.*') ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ request()->routeIs('hr.gifts.*') ? 'true' : 'false' }}" aria-controls="menuHanhChanhQuaTang"><span>Quà tặng</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuHanhChanhQuaTang" class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.gifts.*') ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('hr.gifts.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.index') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+                @if(\Illuminate\Support\Facades\Route::has('hr.gifts.catalog.index'))<li><a href="{{ route('hr.gifts.catalog.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.catalog.*') ? 'active' : '' }}" data-ego-type="nav">Danh sách</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('hr.gifts.receipts.index'))<li><a href="{{ route('hr.gifts.receipts.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.receipts.*') ? 'active' : '' }}" data-ego-type="nav">Nhập</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('hr.gifts.requests.index'))<li><a href="{{ route('hr.gifts.requests.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}" data-ego-type="nav">Xuất</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('hr.gifts.stock.index'))<li><a href="{{ route('hr.gifts.stock.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.stock.*') || request()->routeIs('hr.gifts.reports.*') ? 'active' : '' }}" data-ego-type="nav">Tồn kho</a></li>@endif
+            </ul>
         </li>
+        @endif
 
-        <li>
-            <a href="{{ route('finance.budget') }}"
-               class="ego-sublink {{ request()->routeIs('finance.budget') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Ngân sách
-            </a>
-        </li>
-
-        <li>
-            <a href="{{ route('finance.reports') }}"
-               class="ego-sublink {{ request()->routeIs('finance.reports') ? 'active' : '' }}"
-               data-ego-type="nav">
-                Báo cáo
-            </a>
-        </li>
+        @if(\Illuminate\Support\Facades\Route::has('hr.operations.index'))
+            <li><a href="{{ route('hr.operations.index', ['tab'=>'suppliers']) }}" class="ego-sublink {{ request()->routeIs('hr.operations.*') && request('tab') === 'suppliers' ? 'active' : '' }}" data-ego-type="nav">Nhà cung cấp</a></li>
+        @endif
+        @if(\Illuminate\Support\Facades\Route::has('hr.document-handovers.index'))
+            <li><a href="{{ route('hr.document-handovers.index') }}" class="ego-sublink {{ request()->routeIs('hr.document-handovers.*') ? 'active' : '' }}" data-ego-type="nav">Văn thư lưu trữ</a></li>
+        @endif
+        @if(\Illuminate\Support\Facades\Route::has('company-documents.index'))
+            <li><a href="{{ route('company-documents.index') }}" class="ego-sublink {{ request()->routeIs('company-documents.*') ? 'active' : '' }}" data-ego-type="nav">Tài liệu nội bộ</a></li>
+        @endif
+        <li><a href="#" onclick="return false;" class="ego-sublink ego-sublink--soon"><span>Mẫu văn bản</span><em class="ego-menu-soon">Bổ sung sau</em></a></li>
     </ul>
 </li>
 @endif
 
+{{-- TÀI CHÍNH KẾ TOÁN - bám hierarchy thật của .vn, route nào .com.vn chưa có thì tự ẩn. --}}
+@if($egoCanFinanceMenu)
+@php
+    $egoTaiChinhKeToanActive = request()->is('finance*');
+    $egoBaoCaoTaiChinhActive = request()->routeIs('finance.reports*') || request()->routeIs('finance.settlement') || request()->routeIs('finance.audit') || request()->routeIs('finance.accounts.*');
+    $egoNoPhaiThuActive = request()->routeIs('finance.project-receivables.*') || request()->routeIs('finance.customer-debts.*');
+    $egoNoPhaiTraActive = request()->routeIs('finance.supplier-debts.*') || request()->routeIs('finance.ledger.*');
+@endphp
+<li class="ego-item ego-item--has-sub" data-title="Tài chính kế toán" data-ego-sub="true" data-ego-menu-permission="menu.finance">
+    <a href="#menuTaiChinhKeToan" class="ego-link {{ $egoTaiChinhKeToanActive ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoTaiChinhKeToanActive ? 'true' : 'false' }}" aria-controls="menuTaiChinhKeToan">
+        <span class="ego-ic"><i class="bi bi-calculator"></i></span><span class="ego-txt">Tài chính kế toán</span><span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+    </a>
+    <ul id="menuTaiChinhKeToan" class="ego-sub collapse {{ $egoTaiChinhKeToanActive ? 'show' : '' }}" data-ego-submenu>
+        @if(\Illuminate\Support\Facades\Route::has('finance.salary'))
+            <li><a href="{{ route('finance.salary') }}" class="ego-sublink {{ request()->routeIs('finance.salary*') ? 'active' : '' }}" data-ego-type="nav">Bảng tiền lương</a></li>
+        @endif
+
+        @if(\Illuminate\Support\Facades\Route::has('finance.reports'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Báo cáo tài chính / Thuế" data-ego-sub="true">
+            <a href="#menuBaoCaoTaiChinhThue" class="ego-sublink ego-sublink--toggle {{ $egoBaoCaoTaiChinhActive ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoBaoCaoTaiChinhActive ? 'true' : 'false' }}" aria-controls="menuBaoCaoTaiChinhThue"><span>Báo cáo tài chính / Thuế</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuBaoCaoTaiChinhThue" class="ego-sub ego-sub--nested collapse {{ $egoBaoCaoTaiChinhActive ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('finance.reports', ['period'=>'quarter']) }}" class="ego-sublink" data-ego-type="nav">Báo cáo quý</a></li>
+                <li><a href="{{ route('finance.reports', ['period'=>'year']) }}" class="ego-sublink" data-ego-type="nav">Báo cáo năm</a></li>
+                @if(\Illuminate\Support\Facades\Route::has('finance.settlement'))<li><a href="{{ route('finance.settlement') }}" class="ego-sublink {{ request()->routeIs('finance.settlement') ? 'active' : '' }}" data-ego-type="nav">Quyết toán</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('finance.audit'))<li><a href="{{ route('finance.audit') }}" class="ego-sublink {{ request()->routeIs('finance.audit') ? 'active' : '' }}" data-ego-type="nav">Kiểm toán</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('finance.accounts.index'))
+                    <li><span class="ego-menu-group-label">Báo cáo tồn quỹ</span></li>
+                    <li><a href="{{ route('finance.accounts.index', ['type'=>'bank']) }}" class="ego-sublink ego-menu-level3" data-ego-type="nav">Quỹ ngân hàng</a></li>
+                    <li><a href="{{ route('finance.accounts.index', ['type'=>'cash']) }}" class="ego-sublink ego-menu-level3" data-ego-type="nav">Quỹ tiền mặt</a></li>
+                @endif
+            </ul>
+        </li>
+        @endif
+
+        @if(\Illuminate\Support\Facades\Route::has('finance.customer-debts.index') || \Illuminate\Support\Facades\Route::has('finance.project-receivables.index'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Nợ phải thu" data-ego-sub="true">
+            <a href="#menuNoPhaiThu" class="ego-sublink ego-sublink--toggle {{ $egoNoPhaiThuActive ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoNoPhaiThuActive ? 'true' : 'false' }}" aria-controls="menuNoPhaiThu"><span>Nợ phải thu</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuNoPhaiThu" class="ego-sub ego-sub--nested collapse {{ $egoNoPhaiThuActive ? 'show' : '' }}" data-ego-submenu>
+                @if(\Illuminate\Support\Facades\Route::has('finance.project-receivables.index'))<li><a href="{{ route('finance.project-receivables.index') }}" class="ego-sublink {{ request()->routeIs('finance.project-receivables.*') ? 'active' : '' }}" data-ego-type="nav">Phải thu công trình</a></li>@endif
+                @if(\Illuminate\Support\Facades\Route::has('finance.customer-debts.index'))
+                    <li><a href="{{ route('finance.customer-debts.index', ['debt_type'=>'walk_in']) }}" class="ego-sublink ego-menu-level3" data-ego-type="nav">Phải thu khách vãng lai</a></li>
+                    <li><a href="{{ route('finance.customer-debts.index', ['debt_type'=>'dealer']) }}" class="ego-sublink" data-ego-type="nav">Phải thu đại lý</a></li>
+                    <li><a href="{{ route('finance.customer-debts.index', ['debt_type'=>'investment']) }}" class="ego-sublink" data-ego-type="nav">Phải thu dự án đầu tư</a></li>
+                @endif
+            </ul>
+        </li>
+        @endif
+
+        @if(\Illuminate\Support\Facades\Route::has('finance.supplier-debts.index'))
+        <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Nợ phải trả" data-ego-sub="true">
+            <a href="#menuNoPhaiTra" class="ego-sublink ego-sublink--toggle {{ $egoNoPhaiTraActive ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoNoPhaiTraActive ? 'true' : 'false' }}" aria-controls="menuNoPhaiTra"><span>Nợ phải trả</span><i class="bi bi-chevron-down ego-sub-caret"></i></a>
+            <ul id="menuNoPhaiTra" class="ego-sub ego-sub--nested collapse {{ $egoNoPhaiTraActive ? 'show' : '' }}" data-ego-submenu>
+                <li><a href="{{ route('finance.supplier-debts.index') }}" class="ego-sublink" data-ego-type="nav">Phải trả nhà cung cấp</a></li>
+                <li><a href="{{ route('finance.supplier-debts.index', ['scope'=>'domestic']) }}" class="ego-sublink ego-menu-level3" data-ego-type="nav">Phải trả nhà cung cấp trong nước</a></li>
+                <li><a href="{{ route('finance.supplier-debts.index', ['scope'=>'import']) }}" class="ego-sublink" data-ego-type="nav">Phải trả hàng nhập khẩu</a></li>
+                @if(\Illuminate\Support\Facades\Route::has('finance.ledger.index'))
+                    @foreach([['bank','Phải trả ngân hàng'],['loan','Phải trả nợ vay'],['shareholder','Phải trả cổ đông']] as [$egoLedgerCategory,$egoLedgerLabel])
+                        <li><a href="{{ route('finance.ledger.index', ['direction'=>'payable','category'=>$egoLedgerCategory]) }}" class="ego-sublink" data-ego-type="nav">{{ $egoLedgerLabel }}</a></li>
+                    @endforeach
+                @endif
+            </ul>
+        </li>
+        @endif
+
+        {{-- Các màn .com.vn đang có nhưng .vn không có vị trí tương đương được giữ cuối nhóm để không mất chức năng. --}}
+        @if(\Illuminate\Support\Facades\Route::has('finance.index'))<li><a href="{{ route('finance.index') }}" class="ego-sublink {{ request()->routeIs('finance.index') ? 'active' : '' }}" data-ego-type="nav">Tổng quan tài chính</a></li>@endif
+        @if(\Illuminate\Support\Facades\Route::has('finance.budget'))<li><a href="{{ route('finance.budget') }}" class="ego-sublink {{ request()->routeIs('finance.budget') ? 'active' : '' }}" data-ego-type="nav">Ngân sách</a></li>@endif
+    </ul>
+</li>
+@endif
+{{-- EGO_MENU_SYNC_FROM_REAL_VN_V2_20260907_END --}}
 {{-- HỒ SƠ CÔNG TY --}}
 @if(\Illuminate\Support\Facades\Route::has('company-documents.index'))
-<li class="ego-item" data-title="Hồ sơ công ty" data-ego-menu-permission="menu.company">
+<li class="ego-item" data-title="Hồ sơ công ty">
     <a href="{{ route('company-documents.index') }}"
        class="ego-link {{ request()->routeIs('company-documents.*') ? 'active' : '' }}"
        data-ego-type="nav">
@@ -1257,10 +1263,10 @@ Chấm công thực tế của hệ thống đang dùng:
             @if(!$egoCanHrMenu && auth()->check())
                 <li class="ego-item ego-item--has-sub" data-title="Nhân sự cá nhân" data-ego-sub="true">
                     <a href="#menuNhanSuCaNhan"
-                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'active' : '' }}"
+                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
                        data-ego-type="toggle"
-                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'true' : 'false' }}"
+                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'true' : 'false' }}"
                        aria-controls="menuNhanSuCaNhan">
                         <span class="ego-ic"><i class="bi bi-person-workspace"></i></span>
                         <span class="ego-txt">Nhân sự</span>
@@ -1270,9 +1276,12 @@ Chấm công thực tế của hệ thống đang dùng:
                         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
                     <ul id="menuNhanSuCaNhan"
-                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') ? 'show' : '' }}"
+                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'show' : '' }}"
                         data-ego-submenu>
                         <li><a href="{{ route('hr.attendance.my') }}" class="ego-sublink {{ active_route('hr.attendance.my') }}" data-ego-type="nav">Chấm công của tôi</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('hr.gifts.requests.index'))
+                            <li><a href="{{ route('hr.gifts.requests.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}" data-ego-type="nav">Yêu cầu tặng quà</a></li>
+                        @endif
                         <li><a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav">Đơn nghỉ phép / làm online</a></li>
                         @if($egoCanReviewLeave)
                             <li>
@@ -1287,195 +1296,174 @@ Chấm công thực tế của hệ thống đang dùng:
             @endif
             {{-- EGO_PERSONAL_HR_MENU_V110_END --}}
 
-            {{-- NHÂN SỰ --}}
-@if($egoCanHrMenu)
-<li class="ego-item ego-item--has-sub" data-title="Nhân sự" data-ego-sub="true" data-ego-menu-permission="menu.hr">
-        <a href="#menuNhanSu"
-           class="ego-link {{ request()->routeIs('hr.*') ? 'active' : '' }}"
-           data-bs-toggle="collapse"
-           data-ego-type="toggle"
-           aria-expanded="{{ request()->routeIs('hr.*') ? 'true' : 'false' }}"
-           aria-controls="menuNhanSu">
-            <span class="ego-ic"><i class="bi bi-people"></i></span>
-            <span class="ego-txt">Nhân sự</span>
-                        {{-- EGO_LEAVE_HR_PARENT_BADGE_V110_START --}}
-                        @if($egoPendingLeaveApprovalCount > 0)
-                            <em class="ego-leave-parent-badge">{{ $egoPendingLeaveApprovalCount }}</em>
-                        @endif
-                        {{-- EGO_LEAVE_HR_PARENT_BADGE_V110_END --}}
-            <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
-        </a>
-
-        <ul id="menuNhanSu"
-            class="ego-sub collapse {{ request()->routeIs('hr.*') ? 'show' : '' }}"
-            data-ego-submenu>
-
-            <li>
-                <a href="{{ route('hr.dashboard') }}"
-                   class="ego-sublink {{ active_route('hr.dashboard') }}"
-                   data-ego-type="nav">
-                    Tổng quan
-                </a>
-            </li>
-
-            <li>
-                <a href="{{ route('hr.office-expenses.index') }}"
-                   class="ego-sublink {{ active_route('hr.office-expenses.*') }}"
-                   data-ego-type="nav">
-                    Chi phí VP
-                </a>
-            </li>
-
-            <li>
-                <a href="{{ route('hr.operations.index') }}"
-                   class="ego-sublink {{ active_route('hr.operations.*') }}"
-                   data-ego-type="nav">
-                    HC &amp; Vận Hành
-                </a>
-                <a href="{{ route('hr.recruitment.index') }}" class="ego-recruitment-sidebar-link" style="display:flex;align-items:center;gap:8px;margin:2px 10px;padding:9px 14px 9px 46px;border-radius:12px;color:#dbeafe;text-decoration:none;font-size:13px;font-weight:850;">
-                    <span>Quy trình tuyển dụng</span>
-                </a>
-            </li>
-
-<li class="nav-item">
-    <a href="{{ route('hr.office-supply-process.index') }}" class="nav-link {{ request()->routeIs('hr.office-supply-process.*') ? 'active' : '' }}">
-        <i class="fa fa-box-open"></i>
-        <span>Quy trình phân bổ VPP</span>
-    </a>
-</li>
-
+            {{-- GIAO NHẬN HỒ SƠ - DÙNG CHUNG TOÀN CÔNG TY --}}
             @if(\Illuminate\Support\Facades\Route::has('hr.document-handovers.index'))
-                <li>
+                <li class="ego-item" data-title="Giao nhận hồ sơ">
                     <a href="{{ route('hr.document-handovers.index') }}"
-                       class="ego-sublink ego-hr-clean-link {{ request()->routeIs('hr.document-handovers.*') ? 'active' : '' }}"
+                       class="ego-link {{ request()->routeIs('hr.document-handovers.*') ? 'active' : '' }}"
                        data-ego-type="nav">
-                        Quy trình giao nhận HS
+                        <span class="ego-ic"><i class="bi bi-folder-symlink"></i></span>
+                        <span class="ego-txt">Giao nhận hồ sơ</span>
                     </a>
                 </li>
             @endif
 
+            {{-- EGO_HR_MENU_HIERARCHY_V4_20260907_START --}}
+@if($egoCanHrMenu)
+    @php
+        $egoHrPeopleOpen = request()->routeIs('hr.employees.*')
+            || request()->routeIs('hr.records.*')
+            || request()->routeIs('hr.departments.*')
+            || request()->routeIs('hr.positions.*')
+            || request()->routeIs('hr.org-chart');
 
+        $egoHrRecruitmentOpen = request()->routeIs('hr.recruitment.*')
+            || request()->routeIs('hr.candidate-processes.*');
 
+        $egoHrTimeOpen = request()->routeIs('hr.attendance.*')
+            || request()->routeIs('hr.leave.*')
+            || request()->routeIs('hr.overtime.*');
 
-            <li>
-                <a href="{{ route('hr.records.index') }}"
-                   class="ego-sublink {{ active_route('hr.records.*') }}"
-                   data-ego-type="nav">
-                    HS nhân sự
-                </a>
+        $egoHrAnyOpen = request()->routeIs('hr.*')
+            && !request()->routeIs('hr.document-handovers.*')
+            && !request()->routeIs('hr.operations.*')
+            && !request()->routeIs('hr.office-expenses.*')
+            && !request()->routeIs('hr.office-supply-process.*')
+            && !request()->routeIs('hr.gifts.*');
+    @endphp
+
+    <li class="ego-item ego-item--has-sub"
+        data-title="Nhân sự"
+        data-ego-sub="true"
+        data-ego-menu-permission="menu.hr">
+
+        <a href="#menuNhanSu"
+           class="ego-link {{ $egoHrAnyOpen ? 'active' : '' }}"
+           data-bs-toggle="collapse"
+           data-ego-type="toggle"
+           aria-expanded="{{ $egoHrAnyOpen ? 'true' : 'false' }}"
+           aria-controls="menuNhanSu">
+            <span class="ego-ic"><i class="bi bi-people"></i></span>
+            <span class="ego-txt">Nhân sự</span>
+            @if(($egoPendingLeaveApprovalCount ?? 0) > 0)
+                <em class="ego-leave-parent-badge">{{ $egoPendingLeaveApprovalCount }}</em>
+            @endif
+            <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+        </a>
+
+        <ul id="menuNhanSu"
+            class="ego-sub collapse {{ $egoHrAnyOpen ? 'show' : '' }} ego-hr-v4-root"
+            data-ego-submenu>
+
+            @if(\Illuminate\Support\Facades\Route::has('hr.dashboard'))
+                <li class="ego-hr-v4-direct">
+                    <a href="{{ route('hr.dashboard') }}"
+                       class="ego-sublink {{ request()->routeIs('hr.dashboard') ? 'active' : '' }}"
+                       data-ego-type="nav">Tổng quan</a>
+                </li>
+            @endif
+
+            <li class="ego-hr-v4-group">
+                <details class="ego-hr-v4-details" {{ $egoHrPeopleOpen ? 'open' : '' }}>
+                    <summary class="ego-sublink ego-hr-v4-summary {{ $egoHrPeopleOpen ? 'active' : '' }}">
+                        <span>Nhân viên &amp; cơ cấu</span>
+                        <i class="bi bi-chevron-down ego-hr-v4-chevron"></i>
+                    </summary>
+                    <ul class="ego-hr-v4-children">
+                        @if(\Illuminate\Support\Facades\Route::has('hr.employees.index'))
+                            <li><a href="{{ route('hr.employees.index') }}" class="ego-sublink {{ request()->routeIs('hr.employees.*') ? 'active' : '' }}" data-ego-type="nav">Danh sách nhân viên</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.records.index'))
+                            <li><a href="{{ route('hr.records.index') }}" class="ego-sublink {{ request()->routeIs('hr.records.*') ? 'active' : '' }}" data-ego-type="nav">Hồ sơ nhân viên</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.departments.index'))
+                            <li><a href="{{ route('hr.departments.index') }}" class="ego-sublink {{ request()->routeIs('hr.departments.*') ? 'active' : '' }}" data-ego-type="nav">Phòng ban</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.positions.index'))
+                            <li><a href="{{ route('hr.positions.index') }}" class="ego-sublink {{ request()->routeIs('hr.positions.*') ? 'active' : '' }}" data-ego-type="nav">Chức vụ</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.org-chart'))
+                            <li><a href="{{ route('hr.org-chart') }}" class="ego-sublink {{ request()->routeIs('hr.org-chart') ? 'active' : '' }}" data-ego-type="nav">Sơ đồ tổ chức</a></li>
+                        @endif
+                    </ul>
+                </details>
             </li>
 
-
-            {{-- Nhân viên: gom Hồ sơ nhân sự + Phòng ban + Chức vụ vào bên trong --}}
-            <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Nhân viên" data-ego-sub="true">
-                <a href="#menuNhanSuNhanVien"
-                   class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.employees.*') || request()->routeIs('hr.departments.*') || request()->routeIs('hr.positions.*') ? 'active' : '' }}"
-                   data-bs-toggle="collapse"
-                   data-ego-type="toggle"
-                   aria-expanded="{{ request()->routeIs('hr.employees.*') || request()->routeIs('hr.departments.*') || request()->routeIs('hr.positions.*') ? 'true' : 'false' }}"
-                   aria-controls="menuNhanSuNhanVien">
-                    <span>Nhân viên</span>
-                    <i class="bi bi-chevron-down ego-sub-caret"></i>
-                </a>
-
-                <ul id="menuNhanSuNhanVien"
-                    class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.employees.*') || request()->routeIs('hr.departments.*') || request()->routeIs('hr.positions.*') ? 'show' : '' }}"
-                    data-ego-submenu>
-                    <li>
-                        <a href="{{ route('hr.employees.index') }}"
-                           class="ego-sublink {{ active_route('hr.employees.*') }}"
-                           data-ego-type="nav">
-                            Danh sách nhân viên
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('hr.departments.index') }}"
-                           class="ego-sublink {{ active_route('hr.departments.*') }}"
-                           data-ego-type="nav">
-                            Phòng ban
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('hr.positions.index') }}"
-                           class="ego-sublink {{ active_route('hr.positions.*') }}"
-                           data-ego-type="nav">
-                            Chức vụ
-                        </a>
-                    </li>
-                </ul>
+            <li class="ego-hr-v4-group">
+                <details class="ego-hr-v4-details" {{ $egoHrTimeOpen ? 'open' : '' }}>
+                    <summary class="ego-sublink ego-hr-v4-summary {{ $egoHrTimeOpen ? 'active' : '' }}">
+                        <span>Chấm công &amp; nghỉ phép</span>
+                        <i class="bi bi-chevron-down ego-hr-v4-chevron"></i>
+                    </summary>
+                    <ul class="ego-hr-v4-children">
+                        @if($egoCanViewCompanyAttendance && \Illuminate\Support\Facades\Route::has('hr.attendance.index'))
+                            <li><a href="{{ route('hr.attendance.index') }}" class="ego-sublink {{ request()->routeIs('hr.attendance.index') ? 'active' : '' }}" data-ego-type="nav">Bảng chấm công</a></li>
+                        @elseif(\Illuminate\Support\Facades\Route::has('hr.attendance.my'))
+                            <li><a href="{{ route('hr.attendance.my') }}" class="ego-sublink {{ request()->routeIs('hr.attendance.my') ? 'active' : '' }}" data-ego-type="nav">Chấm công</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.overtime.index'))
+                            <li><a href="{{ route('hr.overtime.index') }}" class="ego-sublink {{ request()->routeIs('hr.overtime.*') ? 'active' : '' }}" data-ego-type="nav">Tăng ca</a></li>
+                        @endif
+                        @if(\Illuminate\Support\Facades\Route::has('hr.leave.index'))
+                            <li><a href="{{ route('hr.leave.index', ['tab'=>'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab','mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav">Đơn nghỉ phép</a></li>
+                            @if($egoCanReviewLeave)
+                                <li>
+                                    <a href="{{ route('hr.leave.index', ['tab'=>'approval','status'=>'pending']) }}"
+                                       class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}"
+                                       data-ego-type="nav">
+                                        <span>Duyệt đơn nhân sự</span>
+                                        @if(($egoPendingLeaveApprovalCount ?? 0) > 0)
+                                            <span class="ego-booking-new-badge">{{ $egoPendingLeaveApprovalCount }}</span>
+                                        @endif
+                                    </a>
+                                </li>
+                            @endif
+                        @endif
+                    </ul>
+                </details>
             </li>
 
-            {{-- Chấm công --}}
-            <li class="ego-item ego-item--nested ego-item--has-sub" data-title="Chấm công" data-ego-sub="true">
-                <a href="#menuNhanSuChamCong"
-                   class="ego-sublink ego-sublink--toggle {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.overtime.*') ? 'active' : '' }}"
-                   data-bs-toggle="collapse"
-                   data-ego-type="toggle"
-                   aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.overtime.*') ? 'true' : 'false' }}"
-                   aria-controls="menuNhanSuChamCong">
-                    <span>Chấm công</span>
-                    <i class="bi bi-chevron-down ego-sub-caret"></i>
-                </a>
-
-                <ul id="menuNhanSuChamCong"
-                    class="ego-sub ego-sub--nested collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.overtime.*') ? 'show' : '' }}"
-                    data-ego-submenu>
-
-                    <li>
-                        <a href="{{ route('hr.attendance.my') }}"
-                           class="ego-sublink {{ active_route('hr.attendance.my') }}"
-                           data-ego-type="nav">
-                            Chấm công của tôi
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}"
-                           class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}"
-                           data-ego-type="nav">
-                            Đơn của tôi
-                        </a>
-                    </li>
-
-                    @if($egoCanReviewLeave)
-                        <li>
-                            <a href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}"
-                               class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}"
-                               data-ego-type="nav"
-                               style="display:flex;align-items:center;gap:8px">
-                                <span>Duyệt đơn nhân sự</span>
-                                @if($egoPendingLeaveApprovalCount > 0)
-                                    <span class="ego-booking-new-badge" style="min-width:24px!important;height:17px!important;padding:0 6px!important;line-height:17px!important">
-                                        {{ $egoPendingLeaveApprovalCount }}
-                                    </span>
-                                @endif
-                            </a>
-                        </li>
-                    @endif
-
-                    @if($egoCanViewCompanyAttendance)
-                        <li>
-                            <a href="{{ route('hr.attendance.index') }}"
-                               class="ego-sublink {{ active_route('hr.attendance.index') }}"
-                               data-ego-type="nav">
-                                Bảng công nhân sự
-                            </a>
-                        </li>
-                    @endif
-
-                    <li>
-                        <a href="{{ route('hr.overtime.index') }}"
-                           class="ego-sublink {{ request()->routeIs('hr.overtime.*') ? 'active' : '' }}"
-                           data-ego-type="nav">
-                            Đăng ký tăng ca
-                        </a>
-                    </li>
-
-                </ul>
-            </li>
+            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.index') || \Illuminate\Support\Facades\Route::has('hr.candidate-processes.index'))
+                <li class="ego-hr-v4-group">
+                    <details class="ego-hr-v4-details" {{ $egoHrRecruitmentOpen ? 'open' : '' }}>
+                        <summary class="ego-sublink ego-hr-v4-summary {{ $egoHrRecruitmentOpen ? 'active' : '' }}">
+                            <span>Tuyển dụng &amp; hồ sơ</span>
+                            <i class="bi bi-chevron-down ego-hr-v4-chevron"></i>
+                        </summary>
+                        <ul class="ego-hr-v4-children">
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.index'))
+                                <li><a href="{{ route('hr.recruitment.index') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.index') ? 'active' : '' }}" data-ego-type="nav">Tổng quan tuyển dụng</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.requests'))
+                                <li><a href="{{ route('hr.recruitment.requests') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.requests*') ? 'active' : '' }}" data-ego-type="nav">Yêu cầu tuyển dụng</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.candidates'))
+                                <li><a href="{{ route('hr.recruitment.candidates') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.candidates*') ? 'active' : '' }}" data-ego-type="nav">Kho ứng viên</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.interviews'))
+                                <li><a href="{{ route('hr.recruitment.interviews') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.interviews') ? 'active' : '' }}" data-ego-type="nav">Lịch / thư mời phỏng vấn</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.offers'))
+                                <li><a href="{{ route('hr.recruitment.offers') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.offers') ? 'active' : '' }}" data-ego-type="nav">Thư mời nhận việc</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.onboarding'))
+                                <li><a href="{{ route('hr.recruitment.onboarding') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.onboarding') ? 'active' : '' }}" data-ego-type="nav">Tiếp nhận nhân sự</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.archives'))
+                                <li><a href="{{ route('hr.recruitment.archives') }}" class="ego-sublink {{ request()->routeIs('hr.recruitment.archives') ? 'active' : '' }}" data-ego-type="nav">Hồ sơ lưu trữ</a></li>
+                            @endif
+                            @if(\Illuminate\Support\Facades\Route::has('hr.candidate-processes.index'))
+                                <li><a href="{{ route('hr.candidate-processes.index') }}" class="ego-sublink {{ request()->routeIs('hr.candidate-processes.*') ? 'active' : '' }}" data-ego-type="nav">Quy trình ứng viên</a></li>
+                            @endif
+                        </ul>
+                    </details>
+                </li>
+            @endif
         </ul>
     </li>
 @endif
+{{-- EGO_HR_MENU_HIERARCHY_V4_20260907_END --}}
+
             {{-- EGO_SETTINGS_MENU_START --}}
             @php
                 $egoSettingsRouteActive =
@@ -1496,7 +1484,6 @@ Chấm công thực tế của hệ thống đang dùng:
                        aria-controls="menuSettings">
                         <span class="ego-ic"><i class="bi bi-gear"></i></span>
                         <span class="ego-txt">Cài đặt</span>
-                        <span class="ego-booking-new-badge" style="min-width:29px!important">NEW</span>
                         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
 
@@ -1505,11 +1492,13 @@ Chấm công thực tế của hệ thống đang dùng:
                         data-ego-submenu>
                         <li><a href="{{ route('admin.settings.index') }}" class="ego-sublink {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
                         <li><a href="{{ route('admin.settings.appearance') }}" class="ego-sublink {{ request()->routeIs('admin.settings.appearance*') ? 'active' : '' }}" data-ego-type="nav">Giao diện &amp; thương hiệu</a></li>
+                        <li><a href="{{ route('admin.settings.ai.index') }}" class="ego-sublink {{ request()->routeIs('admin.settings.ai.*') ? 'active' : '' }}" data-ego-type="nav">API &amp; mô hình AI</a></li>
+                        <li><a href="{{ route('admin.settings.ai.governance.index') }}" class="ego-sublink {{ request()->routeIs('admin.settings.ai.governance.*') ? 'active' : '' }}" data-ego-type="nav">Phân quyền &amp; nhật ký AI</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('companies.index'))
+                            <li><a href="{{ route('companies.index') }}" class="ego-sublink {{ request()->is('companies*') ? 'active' : '' }}" data-ego-type="nav">Công ty &amp; pháp nhân</a></li>
+                        @endif
                         @if(\Illuminate\Support\Facades\Route::has('payment-methods.index'))
                             <li><a href="{{ route('payment-methods.index') }}" class="ego-sublink {{ request()->routeIs('payment-methods.*') ? 'active' : '' }}" data-ego-type="nav">Phương thức thanh toán</a></li>
-                        @endif
-                        @if(\Illuminate\Support\Facades\Route::has('companies.index'))
-                            <li><a href="{{ route('companies.index') }}" class="ego-sublink {{ request()->is('companies*') ? 'active' : '' }}" data-ego-type="nav">Thông tin công ty</a></li>
                         @endif
                         <li><a href="{{ route('admin.settings.roles') }}" class="ego-sublink {{ request()->routeIs('admin.settings.roles') ? 'active' : '' }}" data-ego-type="nav">Vai trò &amp; nhân sự</a></li>
                         <li><a href="{{ route('admin.settings.pages') }}" class="ego-sublink {{ request()->routeIs('admin.settings.pages') ? 'active' : '' }}" data-ego-type="nav">Phân quyền trang</a></li>
@@ -1593,7 +1582,7 @@ Chấm công thực tế của hệ thống đang dùng:
 
             try {
                 if (\Illuminate\Support\Facades\Schema::hasTable('companies')) {
-                    $egoCompanyQueryV4 = \Illuminate\Support\Facades\DB::table('companies')->select('id', 'code', 'name');
+                    $egoCompanyQueryV4 = \Illuminate\Support\Facades\DB::table('companies')->select('id', 'code', 'name')->where('id', \App\Support\EgoCompanyLock::id());
 
                     if (\Illuminate\Support\Facades\Schema::hasColumn('companies', 'is_active')) {
                         $egoCompanyQueryV4->where('is_active', 1);
@@ -1647,34 +1636,15 @@ Chấm công thực tế của hệ thống đang dùng:
                     </div>
                 </div>
 
-                @if($egoSidebarCompaniesV4->count())
-                    <div class="ego-company-picker-final">
-                        <div class="ego-company-picker-final__label">
-                            <i class="bi bi-building"></i>
-                            <span>Chọn công ty</span>
-                        </div>
-
-                        <div class="ego-company-picker-final__switch">
-                            @foreach($egoSidebarCompaniesV4 as $company)
-                                @php
-                                    $activeCompanyV4 = (string)$egoCurrentCompanyIdV4 === (string)$company->id;
-                                    $companyLabelV4 = $egoCompanyLabelV4($company);
-                                @endphp
-
-                                <form method="POST" action="{{ $egoCompanySwitchActionV4 }}">
-                                    @csrf
-                                    <input type="hidden" name="company_id" value="{{ $company->id }}">
-                                    <button type="submit"
-                                            class="ego-company-picker-final__btn {{ $activeCompanyV4 ? 'active' : '' }}"
-                                            data-company-id="{{ $company->id }}"
-                                            title="{{ $company->name ?? $companyLabelV4 }}">
-                                        {{ $companyLabelV4 }}
-                                    </button>
-                                </form>
-                            @endforeach
-                        </div>
+                <div class="ego-company-picker-final">
+                    <div class="ego-company-picker-final__label">
+                        <i class="bi bi-building"></i>
+                        <span>Công ty làm việc</span>
                     </div>
-                @endif
+                    <div class="ego-company-picker-final__switch">
+                        <span class="ego-company-picker-final__btn active" title="CÔNG TY TNHH THƯƠNG MẠI KỸ THUẬT QUỐC TẾ EGO">QT</span>
+                    </div>
+                </div>
 
                 <div class="ego-status-grid">
                     @foreach($egoStatusItems as $item)
@@ -2000,8 +1970,12 @@ Chấm công thực tế của hệ thống đang dùng:
     }
   }
 
-  egoForceRefreshStatus();
-  window.setInterval(egoForceRefreshStatus, 30000);
+  window.setTimeout(egoForceRefreshStatus, 120000);
+  window.setInterval(function () {
+    if (document.visibilityState === 'visible') {
+      egoForceRefreshStatus();
+    }
+  }, 120000);
   // ===== Customer modal AJAX =====
   window.openCustomerForm = async function (url = "{{ route('customers.popup-form') }}") {
     const modalElement = document.getElementById("customerModal");
@@ -2160,6 +2134,12 @@ Chấm công thực tế của hệ thống đang dùng:
 .ego-txt{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1 1 auto; }
 .ego-caret{ opacity:.75; flex:0 0 auto; }
 
+/* EGO_PAYMENT_ADVANCE_MENU_CSS_V1 */
+.ego-pr-parent-row{display:flex;align-items:stretch;gap:4px;}
+.ego-pr-parent-row>.ego-link{flex:1 1 auto;min-width:0;}
+.ego-pr-parent-toggle{width:38px;min-width:38px;border:1px solid transparent;border-radius:12px;background:transparent;color:rgba(255,255,255,.76);display:flex;align-items:center;justify-content:center;transition:.15s ease;}
+.ego-pr-parent-toggle:hover{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.18);color:#fff;}
+.ego-sidebar.ego-collapsed .ego-pr-parent-toggle{display:none;}
 /* Divider */
 .ego-divider{
   height:1px; margin:10px 8px;
@@ -3447,7 +3427,7 @@ Chấm công thực tế của hệ thống đang dùng:
     setTimeout(initStatusFinal, 100);
     setTimeout(initStatusFinal, 500);
     setTimeout(initStatusFinal, 1200);
-    setInterval(cleanStatusCardFinal, 800);
+    setTimeout(cleanStatusCardFinal, 1600);
 })();
 </script>
 <!-- EGO_STATUS_FINAL_V4_END -->
@@ -3503,3 +3483,408 @@ Chấm công thực tế của hệ thống đang dùng:
 
 {{-- EGO_ROLE_PERMISSION_SIDEBAR_GUARD --}}
 @includeIf('admin.role-permissions.partials.sidebar-guard')
+
+{{-- EGO_TECH_MENU_CLEAN_V5_START --}}
+<style>
+/* =========================================================
+   MENU WORKSPACE KỸ THUẬT — CLEAN V5
+========================================================= */
+
+.ego-tech-menu {
+    margin-bottom: 3px !important;
+}
+
+/* Nhóm menu chính */
+.ego-tech-menu > .ego-link {
+    min-height: 42px !important;
+    padding: 7px 9px !important;
+    border-radius: 12px !important;
+    gap: 9px !important;
+}
+
+/* Số thứ tự nhỏ và nhẹ hơn */
+.ego-tech-menu-index {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 21px !important;
+    height: 21px !important;
+    min-width: 21px !important;
+    border-radius: 7px !important;
+
+    background: rgba(255, 255, 255, .07) !important;
+    border: 1px solid rgba(255, 255, 255, .08) !important;
+    color: rgba(226, 232, 240, .88) !important;
+
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    box-shadow: none !important;
+}
+
+.ego-tech-menu > .ego-link:hover .ego-tech-menu-index,
+.ego-tech-menu > .ego-link.active .ego-tech-menu-index {
+    background: rgba(34, 211, 238, .16) !important;
+    border-color: rgba(34, 211, 238, .25) !important;
+    color: #dffcff !important;
+}
+
+/* Tên nhóm */
+.ego-tech-group-label {
+    font-size: 13px !important;
+    font-weight: 760 !important;
+    letter-spacing: -.01em !important;
+}
+
+/* Submenu gọn, không thụt quá sâu */
+.ego-tech-menu > .ego-sub {
+    position: relative !important;
+
+    margin: 4px 0 8px 13px !important;
+    padding: 4px 0 4px 13px !important;
+
+    gap: 2px !important;
+    border-left: 1px solid rgba(148, 163, 184, .17) !important;
+}
+
+/* Xóa dấu chấm cũ gây rối */
+.ego-tech-menu .ego-sublink::before {
+    display: none !important;
+    content: none !important;
+}
+
+/* Link submenu */
+.ego-tech-menu .ego-sublink {
+    display: flex !important;
+    align-items: center !important;
+
+    width: 100% !important;
+    min-height: 34px !important;
+
+    margin: 0 !important;
+    padding: 8px 10px !important;
+
+    border: 1px solid transparent !important;
+    border-radius: 9px !important;
+
+    color: rgba(203, 213, 225, .78) !important;
+    background: transparent !important;
+
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+
+    white-space: normal !important;
+    box-shadow: none !important;
+}
+
+.ego-tech-menu .ego-sublink:hover {
+    color: #f1fbff !important;
+    background: rgba(34, 211, 238, .075) !important;
+    border-color: rgba(34, 211, 238, .10) !important;
+}
+
+.ego-tech-menu .ego-sublink.active {
+    color: #eaffff !important;
+    background:
+        linear-gradient(
+            90deg,
+            rgba(34, 211, 238, .15),
+            rgba(14, 165, 233, .055)
+        ) !important;
+
+    border-color: rgba(34, 211, 238, .20) !important;
+    box-shadow: inset 3px 0 0 rgba(34, 211, 238, .82) !important;
+}
+
+/* Không cho nút tạo xuất hiện trong menu */
+.ego-tech-menu .ego-sublink--create {
+    display: none !important;
+}
+
+/* Khoảng cách giữa các nhóm */
+.ego-tech-menu + .ego-tech-menu {
+    margin-top: 2px !important;
+}
+
+/* Badge */
+.ego-tech-menu .ego-count-badge {
+    min-width: 19px !important;
+    height: 19px !important;
+    padding: 0 5px !important;
+    margin-left: auto !important;
+    border-radius: 7px !important;
+    font-size: 10px !important;
+}
+
+/* Mobile */
+@media (max-width: 991px) {
+    .ego-tech-menu > .ego-link {
+        min-height: 44px !important;
+    }
+
+    .ego-tech-menu > .ego-sub {
+        margin-left: 12px !important;
+        padding-left: 12px !important;
+    }
+
+    .ego-tech-menu .ego-sublink {
+        min-height: 38px !important;
+        padding: 9px 10px !important;
+        font-size: 12.8px !important;
+    }
+}
+</style>
+{{-- EGO_TECH_MENU_CLEAN_V5_END --}}
+
+{{-- EGO_TECH_MENU_ACCORDION_V5_START --}}
+<script>
+(function () {
+    function initTechnicalMenuAccordion() {
+        const panels = Array.from(
+            document.querySelectorAll(
+                '#menuTechProjects,' +
+                '#menuTechCoordination,' +
+                '#menuTechDocuments,' +
+                '#menuTechWarranty,' +
+                '#menuTechReports'
+            )
+        );
+
+        if (!panels.length) {
+            return;
+        }
+
+        panels.forEach((panel) => {
+            panel.addEventListener(
+                'show.bs.collapse',
+                function () {
+                    panels.forEach((otherPanel) => {
+                        if (
+                            otherPanel === panel ||
+                            !otherPanel.classList.contains('show')
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            window.bootstrap &&
+                            window.bootstrap.Collapse
+                        ) {
+                            const collapse =
+                                window.bootstrap.Collapse
+                                    .getOrCreateInstance(
+                                        otherPanel,
+                                        { toggle: false }
+                                    );
+
+                            collapse.hide();
+                        } else {
+                            otherPanel.classList.remove('show');
+
+                            const toggle = document.querySelector(
+                                '[href="#' + otherPanel.id + '"]'
+                            );
+
+                            if (toggle) {
+                                toggle.classList.remove('active');
+                                toggle.setAttribute(
+                                    'aria-expanded',
+                                    'false'
+                                );
+                            }
+                        }
+                    });
+                }
+            );
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            initTechnicalMenuAccordion
+        );
+    } else {
+        initTechnicalMenuAccordion();
+    }
+})();
+</script>
+{{-- EGO_TECH_MENU_ACCORDION_V5_END --}}
+
+{{-- EGO_FORCE_DEPARTMENT_NAVY_START --}}
+<style>
+/* Chỉ áp dụng khi có menu Workspace V4; Admin/Giám đốc không bị ảnh hưởng */
+@media (min-width:992px){
+    html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card){
+        width:252px!important;
+        min-width:252px!important;
+        max-width:252px!important;
+        flex:0 0 252px!important;
+    }
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card){
+    background:
+        radial-gradient(circle at 20% 0%,rgba(8,145,178,.18),transparent 30%),
+        linear-gradient(180deg,#071827 0%,#071524 54%,#05111e 100%)!important;
+    border-right:1px solid rgba(34,211,238,.14)!important;
+    color:#e5edf6!important;
+    box-shadow:8px 0 28px rgba(2,8,23,.18)!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sidebar__header,
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sidebar__scroll,
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sidebar__footer,
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-nav{
+    background:transparent!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sidebar__header{
+    min-height:66px!important;
+    padding:12px 16px!important;
+    border-bottom:1px solid rgba(148,163,184,.12)!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-brand--logoonly{
+    justify-content:flex-start!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-brand__logo-big{
+    width:auto!important;
+    height:31px!important;
+    max-width:128px!important;
+    object-fit:contain!important;
+    filter:none!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-toggle{
+    width:31px!important;
+    height:31px!important;
+    background:#10243a!important;
+    border:1px solid rgba(148,163,184,.22)!important;
+    color:#d7e3ef!important;
+}
+
+/* Thẻ Workspace */
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-v4-workspace-card{
+    margin:12px 10px 15px!important;
+    padding:11px!important;
+    border:1px solid rgba(34,211,238,.25)!important;
+    border-radius:12px!important;
+    background:linear-gradient(145deg,#0b3047,#0a263b)!important;
+    box-shadow:0 10px 22px rgba(0,0,0,.18)!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-v4-workspace-card__label{
+    color:#7891a8!important;
+    font-size:8px!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-v4-workspace-card__current strong{
+    color:#fff!important;
+    font-size:12px!important;
+    white-space:nowrap!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-v4-workspace-card__actions{
+    grid-template-columns:1fr 1fr!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-v4-workspace-card__actions a{
+    height:29px!important;
+    background:#102b42!important;
+    border-color:rgba(148,163,184,.18)!important;
+    color:#d7e3ef!important;
+    font-size:9px!important;
+}
+
+/* Tiêu đề nhóm */
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-excel-section{
+    margin:14px 12px 5px!important;
+    border-color:rgba(148,163,184,.12)!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-excel-section > span{
+    color:#7089a0!important;
+    font-size:8.5px!important;
+}
+
+/* Menu phòng ban */
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-link{
+    min-height:42px!important;
+    margin:1px 2px!important;
+    padding:7px 9px!important;
+    border-radius:9px!important;
+    border:1px solid transparent!important;
+    background:transparent!important;
+    color:#c4d2df!important;
+    box-shadow:none!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-link .ego-ic{
+    width:28px!important;
+    height:28px!important;
+    flex:0 0 28px!important;
+    border-radius:8px!important;
+    background:rgba(148,163,184,.08)!important;
+    color:#8da6bb!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-link .ego-txt{
+    color:inherit!important;
+    font-size:11.5px!important;
+    font-weight:750!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-link:hover{
+    background:rgba(8,145,178,.13)!important;
+    border-color:rgba(34,211,238,.14)!important;
+    color:#fff!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-link.active{
+    background:linear-gradient(90deg,rgba(8,145,178,.34),rgba(14,116,144,.16))!important;
+    border-color:rgba(34,211,238,.23)!important;
+    color:#fff!important;
+    box-shadow:inset 3px 0 0 #22d3ee!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-link.active .ego-ic{
+    background:#078ca2!important;
+    color:#fff!important;
+}
+
+/* Menu con */
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sub,
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-excel-nested{
+    border-color:rgba(34,211,238,.14)!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sublink{
+    color:#8fa6ba!important;
+    font-size:10.5px!important;
+}
+
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sublink:hover,
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card) .ego-sublink.active{
+    background:rgba(8,145,178,.13)!important;
+    color:#fff!important;
+}
+
+/* Thanh cuộn */
+html body #sidebar.ego-sidebar:has(.ego-v4-workspace-card)
+.ego-sidebar__scroll{
+    padding:4px 8px 13px!important;
+    scrollbar-color:rgba(34,211,238,.30) transparent!important;
+}
+</style>
+{{-- EGO_FORCE_DEPARTMENT_NAVY_END --}}

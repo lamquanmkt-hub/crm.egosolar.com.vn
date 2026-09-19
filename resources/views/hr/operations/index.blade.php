@@ -78,8 +78,8 @@
             <div class="hc-sub">Gộp đúng luồng: quản lý hồ sơ, quản lý tài sản, chi phí văn phòng, phân bổ VPP, bảo trì trang thiết bị và giao nhận hồ sơ.</div>
         </div>
         <div class="hc-actions">
-            <a class="hc-btn-outline" href="{{ route('hr.recruitment.index') }}">Quy trình tuyển dụng</a>
-            <a class="hc-btn-outline" href="{{ route('hr.office-supply-process.index') }}">Quy trình phân bổ VPP</a>
+            <a class="hc-btn-outline" href="{{ route('hr.recruitment.index') }}">Tuyển dụng</a>
+            <a class="hc-btn-outline" href="{{ route('hr.office-supply-process.index') }}">Văn phòng phẩm</a>
             <a class="hc-btn-outline" href="{{ route('hr.document-handovers.index') }}">Giao nhận hồ sơ</a>
             <a class="hc-btn-outline" href="{{ route('hr.records.index') }}">HS nhân sự</a>
         </div>
@@ -139,7 +139,7 @@
             </div>
             <div class="hc-flow">
                 <div>
-                    <h4>4. Quy trình phân bổ VPP</h4>
+                    <h4>4. Văn phòng phẩm</h4>
                     <p>Cấp phát văn phòng phẩm theo phòng ban, ghi nhận văn phòng được cấp và định kỳ 1 tháng cấp 1 lần.</p>
                     <ul><li>Cấp phát cho phòng ban nào</li><li>Ghi nhận vật phẩm được cấp</li><li>Theo dõi đã duyệt, đã xuất, đã nhận</li></ul>
                 </div>

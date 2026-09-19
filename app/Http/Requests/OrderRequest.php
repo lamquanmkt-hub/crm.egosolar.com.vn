@@ -111,9 +111,8 @@ class OrderRequest extends FormRequest
 
             $this->validateDuplicateProductsByWarehouse($validator);
 
-            if ($this->isMethod('post')) {
-                $this->validateCreateStockAvailability($validator);
-            }
+            // Cho phép tạo đơn dù tồn = 0 hoặc số lượng lớn hơn tồn.
+            // Chỉ chặn tồn tại bước Kho duyệt / Xuất kho.
         });
     }
 

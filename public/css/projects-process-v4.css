@@ -1,0 +1,77 @@
+/* EGO SOLAR · Công trình practical workflow v4
+   Mục tiêu: cột trái là quy trình; bên phải chỉ hiển thị nội dung bước được chọn. */
+
+.pw2-page{background:#f3f7fb!important}
+.pw2-shell{max-width:1780px!important}
+.pw2-workspace{display:block!important}
+.pw2-main{min-width:0!important;width:100%!important}
+.pw2-side{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px!important;position:static!important;width:auto!important}
+.pw2-side>*{min-width:0!important;margin:0!important}
+.pw2-tabs{display:none!important}
+
+.epv4-workflow-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
+.epv4-flow-main{min-width:0}
+.epv4-rail{position:sticky;top:78px;background:#fff;border:1px solid #dfe7ef;border-radius:15px;overflow:hidden;box-shadow:0 8px 26px rgba(15,23,42,.055)}
+.epv4-rail-head{padding:17px 16px 14px;background:linear-gradient(135deg,#06233a 0%,#0b4e68 100%);color:#fff}
+.epv4-rail-head>span{display:block;color:#8ee6da;font-size:10px;font-weight:900;letter-spacing:.09em}
+.epv4-rail-head>strong{display:block;margin-top:3px;font-size:19px;font-weight:900}
+.epv4-rail-head>small{display:block;margin-top:5px;color:rgba(255,255,255,.7);font-size:11px;line-height:1.45}
+.epv4-step{appearance:none;width:100%;border:0;border-bottom:1px solid #edf1f5;background:#fff;display:grid;grid-template-columns:32px minmax(0,1fr) 14px;align-items:center;gap:9px;padding:12px 13px;text-align:left;text-decoration:none;color:#334155;cursor:pointer;transition:.16s ease}
+.epv4-step:hover{background:#f6fbfb;color:#0f766e}
+.epv4-step.is-active,.epv4-step.is-pane-active{background:#eaf8f5;color:#0b6d65;box-shadow:inset 3px 0 0 #0f9f8d}
+.epv4-step-no,.epv4-step-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#f0f4f8;color:#64748b;font-size:11px;font-weight:900}
+.epv4-step.is-active .epv4-step-no,.epv4-step.is-pane-active .epv4-step-no,.epv4-step.is-pane-active .epv4-step-icon{background:#d6f2ec;color:#08766b}
+.epv4-rail.is-pane-mode .epv4-step.is-active:not(.is-pane-active){background:#fff;color:#334155;box-shadow:none}.epv4-rail.is-pane-mode .epv4-step.is-active:not(.is-pane-active) .epv4-step-no{background:#f0f4f8;color:#64748b}
+.epv4-step-copy{min-width:0}
+.epv4-step-copy strong{display:block;color:inherit;font-size:12px;font-weight:900;line-height:1.3}
+.epv4-step-copy small{display:block;margin-top:3px;font-size:9.5px;color:#8a97a8;font-weight:700;line-height:1.35}
+.epv4-step-copy small.state-approved{color:#059669}.epv4-step-copy small.state-in_progress{color:#d97706}.epv4-step-copy small.state-submitted{color:#7c3aed}.epv4-step-copy small.state-revision{color:#dc2626}.epv4-step-copy small.state-assigned,.epv4-step-copy small.state-accepted{color:#2563eb}
+.epv4-step>i{color:#a5b1bf;font-size:11px}
+.epv4-rail-divider{height:10px;background:#f5f8fb;border-bottom:1px solid #edf1f5}
+.epv4-maintenance{display:grid;grid-template-columns:34px minmax(0,1fr) 15px;align-items:center;gap:9px;padding:13px;background:#f0fbf7;color:#176c59;text-decoration:none;border-bottom:1px solid #e3efe9}
+.epv4-maintenance-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:#dff6ec;color:#0b8a68}
+.epv4-maintenance strong{display:block;font-size:11.5px;font-weight:900}.epv4-maintenance small{display:block;margin-top:2px;font-size:9.5px;color:#6e8a81}.epv4-maintenance>i{font-size:11px}
+.epv4-maintenance.is-locked{background:#f8fafc;color:#8492a6}.epv4-maintenance.is-locked .epv4-maintenance-icon{background:#eef2f6;color:#94a3b8}
+.epv4-rail-tools{padding:8px;background:#fff}.epv4-rail-tools button{width:100%;border:0;background:transparent;border-radius:8px;padding:8px 9px;display:flex;align-items:center;gap:8px;color:#64748b;font-size:10.5px;font-weight:800;text-align:left}.epv4-rail-tools button:hover,.epv4-rail-tools button.is-pane-active{background:#f1f6f8;color:#0f766e}
+
+.epv4-flow-main>.pw2-pane{display:none!important}.epv4-flow-main>.pw2-pane.is-active{display:block!important}
+.epv4-flow-intro{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;background:#fff;border:1px solid #dfe7ef;border-radius:14px;padding:18px 20px;margin-bottom:10px;box-shadow:0 6px 18px rgba(15,23,42,.035)}
+.epv4-flow-title>span{display:block;color:#0d8c80;font-size:10px;font-weight:900;letter-spacing:.08em}.epv4-flow-title h2{margin:4px 0 4px;color:#102438;font-size:22px;font-weight:900}.epv4-flow-title p{margin:0;color:#6f7f91;font-size:11.5px;line-height:1.5}
+.epv4-flow-state{min-width:170px;text-align:right}.epv4-flow-state>span{display:inline-flex;border-radius:999px;background:#e9f8f4;color:#0f766e;padding:6px 9px;font-size:10px;font-weight:900}.epv4-flow-state small{display:block;margin-top:6px;color:#8492a6;font-size:9.5px}
+.epv4-substep-switch{display:flex;gap:7px;margin-bottom:10px;padding:6px;background:#fff;border:1px solid #dfe7ef;border-radius:12px}.epv4-substep-switch a{display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:8px 12px;color:#607083;text-decoration:none;font-size:10.5px;font-weight:850}.epv4-substep-switch a:hover{background:#f3f8fa;color:#0f766e}.epv4-substep-switch a.is-active{background:#e8f7f4;color:#0b766c;box-shadow:inset 0 0 0 1px #c2ebe3}
+
+/* Biến workflow 7 bước cũ thành form xử lý gọn bên phải; dữ liệu/route vẫn giữ nguyên. */
+.epv4-flow-main .wf2-workspace{background:transparent!important}
+.epv4-flow-main .wf2-step-hero{display:none!important}
+.epv4-flow-main .wf2-horizontal-flow{display:none!important}
+.epv4-flow-main .wf2-grid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
+.epv4-flow-main .wf2-card{border-radius:13px!important;border-color:#dfe7ef!important;box-shadow:0 5px 16px rgba(15,23,42,.03)!important}
+.epv4-flow-main .wf2-card>header{padding:14px 16px!important;background:#fbfcfe!important;border-bottom:1px solid #e8edf3!important}
+.epv4-flow-main .wf2-card>header h3{font-size:14px!important;color:#16283b!important}
+.epv4-flow-main .wf2-kicker{font-size:9px!important;color:#0b8c7e!important;letter-spacing:.07em!important}
+.epv4-flow-main .wf2-chip{font-size:9px!important;padding:5px 8px!important}
+.epv4-flow-main .wf2-info-list,.epv4-flow-main .wf2-assignment-list,.epv4-flow-main .wf2-assignment-summary,.epv4-flow-main .wf2-data-form,.epv4-flow-main .wf2-document-checklist,.epv4-flow-main .wf2-upload-form,.epv4-flow-main .wf2-files,.epv4-flow-main .wf2-approval-tracks,.epv4-flow-main .wf2-my-work{margin-left:16px!important;margin-right:16px!important}
+.epv4-flow-main .wf2-info-list{margin-top:12px!important;margin-bottom:12px!important}
+.epv4-flow-main .wf2-info-list>div{background:#f7f9fb!important;border:1px solid #e7ecf2!important;border-radius:9px!important;padding:10px 11px!important}
+.epv4-flow-main .wf2-field span,.epv4-flow-main .wf2-info-list dt,.epv4-flow-main .wf2-assignment-summary dt{font-size:9.5px!important;color:#708196!important;font-weight:850!important}
+.epv4-flow-main .wf2-field input,.epv4-flow-main .wf2-field select,.epv4-flow-main .wf2-field textarea,.epv4-flow-main .wf2-data-form input,.epv4-flow-main .wf2-data-form select,.epv4-flow-main .wf2-data-form textarea{border-radius:9px!important;border-color:#dbe3ec!important;background:#fff!important;font-size:11px!important}
+.epv4-flow-main .wf2-document-guide{margin:12px 16px 8px!important;padding:9px 11px!important;font-size:10px!important}
+.epv4-flow-main .wf2-doc-requirement{border-radius:9px!important;padding:10px!important}
+.epv4-flow-main .wf2-doc-requirement strong{font-size:11px!important}.epv4-flow-main .wf2-doc-requirement small{font-size:9.5px!important}
+.epv4-flow-main .wf2-btn{border-radius:9px!important;font-size:10.5px!important;padding:8px 11px!important}
+.epv4-flow-main .wf2-card-approval{margin-bottom:0!important}
+
+/* Bước Vật tư: bỏ cảm giác một module rời, đưa về đúng form của bước 3. */
+.epv4-flow-main [data-pane="materials"] .pw22-workspace{background:transparent!important}
+.epv4-flow-main [data-pane="materials"] .pw22-head{background:#fff;border:1px solid #dfe7ef;border-radius:14px;padding:18px 20px;margin-bottom:10px}
+.epv4-flow-main [data-pane="materials"] .pw22-head h2{font-size:21px!important}
+.epv4-flow-main [data-pane="materials"] .pw22-kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
+.epv4-flow-main [data-pane="materials"] .pw22-kpis article{border-radius:11px!important;padding:11px!important}
+.epv4-flow-main [data-pane="materials"] .pw22-proposal{border-radius:12px!important}
+
+/* Các pane phụ vẫn là nội dung bên phải của cùng công trình. */
+.epv4-flow-main [data-pane="overview"] .pw2-overview-grid,.epv4-flow-main [data-pane="technical"] .pw2-technical-cards,.epv4-flow-main [data-pane="maintenance"] .pw2-om-grid{gap:9px!important}
+.epv4-flow-main .pw2-card{border-radius:13px!important;box-shadow:0 5px 18px rgba(15,23,42,.035)!important}
+
+@media(max-width:1180px){.epv4-workflow-layout{grid-template-columns:225px minmax(0,1fr)}.epv4-flow-main [data-pane="materials"] .pw22-kpis{grid-template-columns:repeat(2,1fr)!important}.pw2-side{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.pw2-side{grid-template-columns:1fr}.epv4-workflow-layout{display:block}.epv4-rail{position:relative;top:auto;margin-bottom:10px}.epv4-rail-head{padding:13px 14px}.epv4-step{padding:10px 12px}.epv4-flow-intro{flex-direction:column}.epv4-flow-state{text-align:left;min-width:0}.epv4-substep-switch{overflow:auto}.epv4-substep-switch a{white-space:nowrap}}

@@ -32,7 +32,7 @@
                 <div class="col-md-4">
                     <label class="form-label">Mã công ty <span class="text-danger">*</span></label>
                     <input type="text" name="code" class="form-control"
-                           value="{{ old('code', $company->code) }}" placeholder="VD: EGO_VN" required>
+                           value="{{ old('code', $company->code) }}" placeholder="VD: EGO_INT" required>
                 </div>
 
                 <div class="col-md-4">

@@ -1,0 +1,48 @@
+MỤC TIÊU
+========
+Hoàn CT-OLD-000036 / VT-202607-0001 về đúng trạng thái:
+
+- Chưa có bất kỳ ai phê duyệt.
+- Phiếu vật tư: pending_admin.
+- reviewed_by: NULL.
+- reviewed_at: NULL.
+- review_note: NULL.
+- Công trình: materials_admin_review.
+- Đơn vị giữ bước: admin.
+- Tiến độ workflow: 56%.
+- Kho chưa được ghép hàng, giữ hàng hoặc xuất kho.
+
+CÁCH CHẠY
+=========
+1. Upload file:
+
+RESET_CT_OLD_000036_CHUA_AI_PHE_DUYET.php
+
+vào:
+
+/home/egosola1/crm.egosolar.com.vn/
+
+Không upload vào routes và không ghi đè web.php.
+
+2. Terminal:
+
+cd /home/egosola1/crm.egosolar.com.vn
+php RESET_CT_OLD_000036_CHUA_AI_PHE_DUYET.php
+php artisan optimize:clear
+
+3. Mở lại CT-OLD-000036, nhấn Ctrl + F5.
+
+Giao diện đúng phải hiển thị:
+- Đơn vị giữ bước: Admin.
+- Phiếu đang chờ Admin duyệt.
+- Có form Duyệt / Trả Kỹ thuật.
+- Kho bị khóa ghép hàng cho đến khi Admin duyệt lại.
+
+4. Khi kiểm tra xong:
+
+rm -f /home/egosola1/crm.egosolar.com.vn/RESET_CT_OLD_000036_CHUA_AI_PHE_DUYET.php
+
+AN TOÀN
+=======
+Script tạo backup trong storage/app/ego-backups trước khi cập nhật.
+Script tự dừng nếu đã xuất kho, bàn giao hoặc đã có dòng ghép/giữ hàng.

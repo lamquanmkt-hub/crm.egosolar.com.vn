@@ -6,6 +6,7 @@ use App\Contracts\Services\SupplierDebtServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\SupplierDebtPaymentRoundRequest;
 use App\Http\Requests\Finance\SupplierDebtRequest;
+use App\Support\EgoCompanyScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +24,15 @@ class SupplierDebtController extends Controller
     public function __construct(
         private readonly SupplierDebtServiceInterface $supplierDebtService,
     ) {}
+
+    /**
+     * Query công nợ NCC bị khóa tuyệt đối theo Công ty Quốc Tế EGO.
+     */
+    private function supplierDebtQuery()
+    {
+        return DB::table('finance_supplier_debts')
+            ->whereIn('company_name', EgoCompanyScope::companyNames());
+    }
 
     /**
      * Chuẩn hóa các trường tiền tệ trong request trước khi validate.
@@ -88,7 +98,7 @@ class SupplierDebtController extends Controller
         $paymentFilesByRound = collect();
 
         if (Schema::hasTable('finance_supplier_debts')) {
-            $query = DB::table('finance_supplier_debts');
+            $query = $this->supplierDebtQuery();
 
             if ($period === 'month') {
                 $query->where(function ($q) use ($monthStart, $monthEnd) {
@@ -338,7 +348,7 @@ class SupplierDebtController extends Controller
             $payload['bank_info'] = $data['bank_info'] ?? null;
         }
 
-        $debtId = DB::table('finance_supplier_debts')->insertGetId($payload);
+        $debtId = $this->supplierDebtQuery()->insertGetId($payload);
 
         $this->storeDebtFiles($request, (int) $debtId);
         $this->supplierDebtService->syncSupplierDebtTotals((int) $debtId);
@@ -382,7 +392,7 @@ class SupplierDebtController extends Controller
             $payload['bank_info'] = $data['bank_info'] ?? null;
         }
 
-        DB::table('finance_supplier_debts')
+        $this->supplierDebtQuery()
             ->where('id', $id)
             ->update($payload);
 
@@ -399,7 +409,7 @@ class SupplierDebtController extends Controller
      */
     public function destroy($id)
     {
-        $debt = DB::table('finance_supplier_debts')->where('id', $id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', $id)->first();
 
         if (! $debt) {
             abort(404);
@@ -463,7 +473,7 @@ class SupplierDebtController extends Controller
                 ->delete();
         }
 
-        DB::table('finance_supplier_debts')
+        $this->supplierDebtQuery()
             ->where('id', $id)
             ->delete();
 
@@ -485,7 +495,7 @@ class SupplierDebtController extends Controller
             return back()->withErrors(['error' => 'Chưa có bảng finance_supplier_debt_payments.']);
         }
 
-        $debt = DB::table('finance_supplier_debts')->where('id', $id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', $id)->first();
 
         if (! $debt) {
             abort(404);
@@ -691,7 +701,7 @@ class SupplierDebtController extends Controller
             abort(404);
         }
 
-        $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', $round->supplier_debt_id)->first();
 
         if (! $debt) {
             abort(404);
@@ -802,7 +812,7 @@ class SupplierDebtController extends Controller
             abort(404);
         }
 
-        $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', $round->supplier_debt_id)->first();
 
         if (! empty($round->payment_request_id) && $this->supplierDebtService->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id) && ! $this->canEditCompletedFinanceRecord()) {
             return back()->withErrors([
@@ -854,7 +864,7 @@ class SupplierDebtController extends Controller
             abort(404);
         }
 
-        $debt = DB::table('finance_supplier_debts')->where('id', $round->supplier_debt_id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', $round->supplier_debt_id)->first();
 
         if (! $debt) {
             abort(404);
@@ -899,7 +909,7 @@ class SupplierDebtController extends Controller
         }
 
         $reason = $this->supplierDebtService->supplierDebtPaymentReason($debt, $round);
-        $company = $debt->company_name ?: 'Công ty TNHH Ego Việt Nam';
+        $company = $debt->company_name ?: 'Công ty TNHH TMKT Quốc Tế EGO';
 
         $columns = Schema::getColumnListing('payment_requests');
         $data = [];
@@ -914,28 +924,8 @@ class SupplierDebtController extends Controller
         $put('doc_type', 'payment_request');
         $put('company', $company);
 
-        if (in_array('company_id', $columns, true) && Schema::hasTable('companies')) {
-            $companyId = (int) DB::table('companies')->where('name', $company)->value('id');
-
-            if (! $companyId) {
-                if (stripos($company, 'Quốc') !== false || stripos($company, 'Quoc') !== false || stripos($company, 'TMKT') !== false || stripos($company, 'QT') !== false) {
-                    $companyId = (int) DB::table('companies')
-                        ->where('name', 'like', '%Quốc%')
-                        ->orWhere('name', 'like', '%Quoc%')
-                        ->orWhere('name', 'like', '%TMKT%')
-                        ->value('id');
-                } else {
-                    $companyId = (int) DB::table('companies')
-                        ->where('name', 'like', '%Ego Việt Nam%')
-                        ->orWhere('name', 'like', '%Ego Viet Nam%')
-                        ->orWhere('name', 'like', '%EGO VIETNAM%')
-                        ->value('id');
-                }
-            }
-
-            if ($companyId > 0) {
-                $put('company_id', $companyId);
-            }
+        if (in_array('company_id', $columns, true)) {
+            $put('company_id', \App\Support\EgoCompanyLock::id());
         }
 
         if (in_array('payment_due_date', $columns, true) && ! empty($round->payment_date)) {
@@ -1009,7 +999,7 @@ class SupplierDebtController extends Controller
             return back()->withErrors(['error' => 'Đợt này chưa có ĐNTT liên kết.']);
         }
 
-        $debt = DB::table('finance_supplier_debts')->where('id', (int) $round->supplier_debt_id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', (int) $round->supplier_debt_id)->first();
 
         if (! $debt) {
             abort(404);
@@ -1177,7 +1167,7 @@ class SupplierDebtController extends Controller
     {
         $this->ensureSupplierDebtTables();
 
-        $debt = DB::table('finance_supplier_debts')->where('id', (int) $id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', (int) $id)->first();
 
         abort_unless($debt, 404);
 
@@ -1225,7 +1215,7 @@ class SupplierDebtController extends Controller
 
         abort_unless($file, 404);
 
-        $debt = DB::table('finance_supplier_debts')->where('id', (int) $file->supplier_debt_id)->first();
+        $debt = $this->supplierDebtQuery()->where('id', (int) $file->supplier_debt_id)->first();
 
         if (! empty($file->path)) {
             Storage::disk('public')->delete($file->path);

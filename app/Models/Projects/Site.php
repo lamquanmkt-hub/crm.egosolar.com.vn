@@ -2,6 +2,7 @@
 
 namespace App\Models\Projects;
 
+use App\Models\Concerns\LockedToEgoInternational;
 use App\Models\Payment;
 use App\Models\Payments\PaymentRequest;
 use App\Models\Receipt;
@@ -9,12 +10,30 @@ use Illuminate\Database\Eloquent\Model;
 
 class Site extends Model
 {
+    use LockedToEgoInternational;
+    use \App\Models\Concerns\HasUnifiedSalesVisibility;
     protected $table = 'sites';
 
     protected $fillable = [
         // Core
         'company_id',
         'created_by',
+        'request_source',
+        'sales_user_id',
+        'sales_order_id',
+        'project_type',
+        'project_code',
+        'project_phase',
+        'progress_percent',
+        'priority',
+        'lead_engineer_id',
+        'target_completion_at',
+        'workflow_version',
+        'workflow_current_step',
+        'workflow_status',
+        'workflow_progress_percent',
+        'legacy_source',
+        'legacy_source_id',
         'name',
         'status',
         'address',
@@ -45,6 +64,11 @@ class Site extends Model
 
         // Finance
         'contract_amount',
+        'contract_amount_before_vat',
+        'vat_rate',
+        'contract_amount_after_vat',
+        'handover_at',
+        'warranty_started_at',
         'labor_cost',
         'transport_cost',
         'other_cost',
@@ -70,6 +94,14 @@ class Site extends Model
         'solar_panel_wp' => 'float',
         'battery_kwh' => 'float',
         'contract_amount' => 'decimal:2',
+        'contract_amount_before_vat' => 'decimal:2',
+        'vat_rate' => 'decimal:3',
+        'contract_amount_after_vat' => 'decimal:2',
+        'handover_at' => 'date',
+        'warranty_started_at' => 'date',
+        'workflow_progress_percent' => 'integer',
+        'progress_percent' => 'integer',
+        'target_completion_at' => 'date',
     ];
 
     public function plannedMaterials()
@@ -126,5 +158,15 @@ class Site extends Model
             PaymentRequest::class,
             'site_id'
         );
+    }
+
+    public function leadEngineer()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'lead_engineer_id');
+    }
+
+    public function tasks()
+    {
+        return $this->hasMany(\App\Models\Tasks\Task::class, 'site_id');
     }
 }

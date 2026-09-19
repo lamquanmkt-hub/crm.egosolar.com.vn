@@ -38,7 +38,7 @@
     <header class="oc-section-head oc-products-head">
         <div>
             <h2>Sản phẩm</h2>
-            <p>Chọn sản phẩm trước, hệ thống sẽ hiển thị kho còn hàng.</p>
+            <p>Chọn sản phẩm trước, hệ thống sẽ hiển thị tất cả kho và tồn hiện tại.</p>
         </div>
 
         <div class="oc-products-actions">

@@ -2313,3 +2313,220 @@ html.crm-navigation-ready body #sidebar.ego-sidebar
 
 /* EGO_MOBILE_CORE_REPAIR_V9_END */
 
+
+/* EGO_MOBILE_TOPBAR_SNAP_LEFT_V152_START */
+
+/*
+|--------------------------------------------------------------------------
+| MOBILE TOPBAR — KHÓA VỊ TRÍ CUỐI CÙNG
+|--------------------------------------------------------------------------
+| File này được nạp sau crm-topbar.css nên đây là lớp quyết định cuối.
+|
+| Trái:  Ba gạch + Ba chấm, cách mép 8px.
+| Giữa: Logo căn đúng tâm màn hình.
+| Phải: Chuông + Avatar, cách mép 8px.
+*/
+
+@media (max-width: 991.98px) {
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    > .crm-topbar__inner {
+        position: relative !important;
+
+        display: block !important;
+
+        width: 100% !important;
+        max-width: none !important;
+
+        height: 58px !important;
+        min-height: 58px !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        overflow: visible !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__left {
+        position: absolute !important;
+
+        top: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: 8px !important;
+
+        z-index: 6 !important;
+
+        display: flex !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+
+        align-items: center !important;
+        justify-content: flex-start !important;
+
+        gap: 2px !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        transform: translateY(-50%) !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__right {
+        position: absolute !important;
+
+        top: 50% !important;
+        right: 8px !important;
+        bottom: auto !important;
+        left: auto !important;
+
+        z-index: 6 !important;
+
+        display: flex !important;
+
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+
+        height: auto !important;
+
+        align-items: center !important;
+        justify-content: flex-end !important;
+
+        gap: 3px !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        transform: translateY(-50%) !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    > .crm-topbar__inner
+    > .crm-topbar__mobile-brand {
+        position: absolute !important;
+
+        top: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: 50% !important;
+
+        z-index: 4 !important;
+
+        display: inline-flex !important;
+
+        width: 108px !important;
+        min-width: 108px !important;
+        max-width: 108px !important;
+
+        height: 40px !important;
+
+        align-items: center !important;
+        justify-content: center !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        transform: translate(-50%, -50%) !important;
+
+        pointer-events: none !important;
+    }
+
+    /*
+     * Hai nút desktop bị xóa tuyệt đối khỏi mobile,
+     * áp dụng cho cả class cũ lẫn class đã đổi ở V15.1.
+     */
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__sidebar-toggle,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__app-launcher,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__desktop-sidebar-toggle,
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__desktop-app-launcher {
+        display: none !important;
+
+        position: absolute !important;
+
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+
+        opacity: 0 !important;
+        visibility: hidden !important;
+
+        pointer-events: none !important;
+        overflow: hidden !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-menu {
+        order: 1 !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__mobile-more {
+        order: 2 !important;
+    }
+}
+
+@media (max-width: 359.98px) {
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__left {
+        left: 5px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    .crm-topbar__right {
+        right: 5px !important;
+    }
+
+    html.crm-navigation-ready
+    body
+    #crmTopbar
+    > .crm-topbar__inner
+    > .crm-topbar__mobile-brand {
+        width: 94px !important;
+        min-width: 94px !important;
+        max-width: 94px !important;
+    }
+}
+
+/* EGO_MOBILE_TOPBAR_SNAP_LEFT_V152_END */

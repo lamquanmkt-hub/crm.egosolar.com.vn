@@ -136,6 +136,14 @@ class PaymentAttachmentController extends Controller
                 )
             );
 
+            if (count($files) > 15) {
+                return response()->json([
+                    'ok' => false,
+                    'success' => false,
+                    'message' => 'Mỗi lần chỉ được tải tối đa 15 chứng từ.',
+                ], 422);
+            }
+
             if (count($files) === 0) {
                 $uploadErrors = [];
 
@@ -312,7 +320,7 @@ class PaymentAttachmentController extends Controller
             return response()->json([
                 'ok' => true,
                 'success' => true,
-                'message' => 'Đã tải chứng từ thành công.',
+                'message' => 'Đã tải '.count($savedFiles).' chứng từ thành công.',
                 'payment_request_id' => $paymentRequestId,
                 'files' => $savedFiles,
             ], 201);

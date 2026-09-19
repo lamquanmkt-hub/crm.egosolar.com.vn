@@ -193,7 +193,12 @@ class TechnicalPayrollController extends Controller
     }
 
     /**
-     * Danh sách nhân viên kỹ thuật đang hoạt động kèm tên chức vụ.
+     * Danh sách nhân sự Kỹ thuật đang hoạt động.
+     *
+     * Không phụ thuộc duy nhất vào role "technical" vì CRM đang dùng song song
+     * ky_thuat / technical / technician / technical_staff...
+     * Đồng thời nhận diện theo phòng ban/chức vụ để nhân sự HR đã xếp vào
+     * phòng Kỹ thuật vẫn xuất hiện dù role chưa được chuẩn hoá.
      */
     private function employees()
     {
@@ -201,31 +206,90 @@ class TechnicalPayrollController extends Controller
             return collect();
         }
 
-        $query = DB::table('users');
+        $technicalRoles = [
+            'ky_thuat',
+            'technical',
+            'technician',
+            'technical_staff',
+            'engineer',
+            'technical_leader',
+            'technical_manager',
+            'truong_phong_ky_thuat',
+        ];
 
-        if (
-            $this->tableExists('roles')
-            && $this->tableExists('model_has_roles')
-        ) {
-            $query
-                ->join('model_has_roles', function ($join) {
-                    $join->on('users.id', '=', 'model_has_roles.model_id');
-                })
-                ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-                ->where('roles.name', 'ky_thuat');
+        $hasRoleClassifier = $this->tableExists('roles')
+            && $this->tableExists('model_has_roles');
+
+        $hasDepartmentClassifier = $this->tableExists('departments')
+            && $this->hasColumn('users', 'department_id')
+            && $this->hasColumn('departments', 'id');
+
+        $hasPositionClassifier = $this->tableExists('positions')
+            && $this->hasColumn('users', 'position_id')
+            && $this->hasColumn('positions', 'id');
+
+        if (! $hasRoleClassifier && ! $hasDepartmentClassifier && ! $hasPositionClassifier) {
+            return collect();
         }
 
-        if (
-            $this->tableExists('positions')
-            && $this->hasColumn('users', 'position_id')
-            && $this->hasColumn('positions', 'id')
-        ) {
-            $query->leftJoin('positions', 'positions.id', '=', 'users.position_id');
+        $query = DB::table('users');
 
+        if ($hasPositionClassifier) {
+            $query->leftJoin('positions', 'positions.id', '=', 'users.position_id');
             $positionSelect = DB::raw('COALESCE(positions.name, "Kỹ thuật") as position_name');
         } else {
             $positionSelect = DB::raw('"Kỹ thuật" as position_name');
         }
+
+        $query->where(function ($scope) use (
+            $technicalRoles,
+            $hasRoleClassifier,
+            $hasDepartmentClassifier,
+            $hasPositionClassifier
+        ) {
+            $hasCondition = false;
+
+            if ($hasRoleClassifier) {
+                $scope->whereExists(function ($roleQuery) use ($technicalRoles) {
+                    $roleQuery->selectRaw('1')
+                        ->from('model_has_roles as mhr')
+                        ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                        ->whereColumn('mhr.model_id', 'users.id')
+                        ->where('mhr.model_type', \App\Models\User::class)
+                        ->whereIn('r.name', $technicalRoles);
+                });
+                $hasCondition = true;
+            }
+
+            if ($hasDepartmentClassifier) {
+                $method = $hasCondition ? 'orWhereExists' : 'whereExists';
+                $scope->{$method}(function ($departmentQuery) {
+                    $departmentQuery->selectRaw('1')
+                        ->from('departments as d')
+                        ->whereColumn('d.id', 'users.department_id')
+                        ->where(function ($nameQuery) {
+                            $nameQuery
+                                ->where('d.name', 'like', '%Kỹ thuật%')
+                                ->orWhere('d.name', 'like', '%Ky thuat%')
+                                ->orWhere('d.name', 'like', '%Technical%')
+                                ->orWhere('d.code', 'like', '%ky_thuat%')
+                                ->orWhere('d.code', 'like', '%technical%');
+                        });
+                });
+                $hasCondition = true;
+            }
+
+            if ($hasPositionClassifier) {
+                $method = $hasCondition ? 'orWhere' : 'where';
+                $scope->{$method}(function ($positionQuery) {
+                    $positionQuery
+                        ->where('positions.name', 'like', '%Kỹ thuật%')
+                        ->orWhere('positions.name', 'like', '%Ky thuat%')
+                        ->orWhere('positions.name', 'like', '%Technical%')
+                        ->orWhere('positions.name', 'like', '%Engineer%');
+                });
+            }
+        });
 
         if ($this->hasColumn('users', 'is_active')) {
             $query->where('users.is_active', 1);
@@ -238,9 +302,11 @@ class TechnicalPayrollController extends Controller
                 'users.email',
                 $positionSelect
             )
+            ->distinct()
             ->orderBy('users.name')
             ->get();
     }
+
 
     /**
      * Lấy thông tin một nhân viên kỹ thuật theo id kèm tên chức vụ.

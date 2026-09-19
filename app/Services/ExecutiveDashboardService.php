@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Schema;
  */
 final class ExecutiveDashboardService
 {
-    private const CACHE_SECONDS = 45;
+    private const CACHE_SECONDS = 300;
 
     /** @var array<string, bool> */
     private array $tableCache = [];
@@ -43,7 +43,7 @@ final class ExecutiveDashboardService
 
         $cacheKey = 'executive-dashboard:v3:'.sha1(json_encode([
             'company_id' => $companyId,
-            'user_id' => $user->id,
+            'scope_user_id' => $access['own_only'] ? (int) $user->id : 0,
             'roles' => $access['roles'],
             'filters' => $filters,
             'range' => [

@@ -455,7 +455,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('tasks.store') }}" enctype="multipart/form-data">
+    <form id="taskCreateForm" method="POST" action="{{ route('tasks.store') }}" enctype="multipart/form-data">
         @csrf
 
         <div class="task-layout">
@@ -475,6 +475,8 @@
                                    required
                                    placeholder="Ví dụ: Kiểm tra tiến độ công trình A">
                         </div>
+
+                        @include('tasks.partials.technical-context')
 
                         <div class="mb-3">
                             <label class="form-label">Người nhận việc <span class="text-danger">*</span></label>
@@ -628,7 +630,7 @@
                         Hủy
                     </a>
 
-                    <button type="submit" class="btn btn-success task-btn-pill px-5">
+                    <button type="submit" id="taskCreateSubmit" form="taskCreateForm" class="btn btn-success task-btn-pill px-5">
                         <i class="bi bi-send"></i> Giao việc
                     </button>
                 </div>
@@ -673,6 +675,14 @@
             </div>
         </div>
     </form>
+
+
+    {{-- Form độc lập cho drawer Tạo nhanh công trình; control được liên kết bằng thuộc tính form. --}}
+    <form id="taskQuickProjectForm"
+          method="POST"
+          action="{{ route('tasks.projects.quick') }}"
+          class="d-none"
+          aria-hidden="true"></form>
 </div>
 
 <script>
@@ -934,4 +944,44 @@ document.addEventListener('DOMContentLoaded', function () {
     refreshFileList();
 });
 </script>
+
+
+{{-- EGO_TASK_SUBMIT_FIX_V2_START --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('taskCreateForm');
+    const submitButton = document.getElementById('taskCreateSubmit');
+    const assigneeBox = document.getElementById('assigneeBox');
+
+    if (!form || !submitButton) return;
+
+    form.addEventListener('submit', function (event) {
+        const assignees = form.querySelectorAll('input[name="assignee_ids[]"]');
+
+        if (!assignees.length) {
+            event.preventDefault();
+            alert('Vui lòng chọn ít nhất một người nhận việc.');
+            assigneeBox?.scrollIntoView({behavior: 'smooth', block: 'center'});
+            return;
+        }
+
+        if (!form.checkValidity()) {
+            event.preventDefault();
+            form.reportValidity();
+            return;
+        }
+
+        if (submitButton.dataset.submitting === '1') {
+            event.preventDefault();
+            return;
+        }
+
+        submitButton.dataset.submitting = '1';
+        submitButton.disabled = true;
+        submitButton.innerHTML =
+            '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> Đang giao việc...';
+    });
+});
+</script>
+{{-- EGO_TASK_SUBMIT_FIX_V2_END --}}
 @endsection

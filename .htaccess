@@ -1,66 +1,17 @@
-# To prevent access to .env and other files
-<Files .*>
-# Apache 2.2
-<IfModule !mod_authz_core.c>
-Order deny,allow
-Deny from all
+<IfModule mod_autoindex.c>
+    Options -Indexes
 </IfModule>
-# Apache 2.4
-<IfModule mod_authz_core.c>
-Require all denied
-</IfModule>
-</Files>
 
-<IfModule mod_alias.c>
-#RedirectMatch 301 ^/$ http://crm.egosolar.vn/
-</IfModule>
 <IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteRule ^(.*)$ public/$1 [L]
-</IfModule>
+    RewriteEngine On
 
-# BEGIN cPanel-generated php ini directives, do not edit
-# Manual editing of this file may result in unexpected behavior.
-# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)
-# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)
-<IfModule php7_module>
-   php_flag display_errors On
-   php_value max_execution_time 3600
-   php_value max_input_time 6000
-   php_value max_input_vars 1000
-   php_value memory_limit 2G
-   php_value post_max_size 320M
-   php_value session.gc_maxlifetime 1440
-   php_value session.save_path "/var/cpanel/php/sessions/ea-php74"
-   php_value upload_max_filesize 320M
-   php_flag zlib.output_compression On
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
-<IfModule lsapi_module>
-   php_flag display_errors On
-   php_value max_execution_time 3600
-   php_value max_input_time 6000
-   php_value max_input_vars 1000
-   php_value memory_limit 2G
-   php_value post_max_size 320M
-   php_value session.gc_maxlifetime 1440
-   php_value session.save_path "/var/cpanel/php/sessions/ea-php74"
-   php_value upload_max_filesize 320M
-   php_flag zlib.output_compression On
-</IfModule>
-# END cPanel-generated php ini directives, do not edit
 
 # php -- BEGIN cPanel-generated handler, do not edit
-# Set the “ea-php74” package as the default “PHP” programming language.
+# Set the “ea-php56” package as the default “PHP” programming language.
 <IfModule mime_module>
-  AddHandler application/x-httpd-ea-php74___lsphp .php .php7 .phtml
+  AddHandler application/x-httpd-ea-php56___lsphp .php .php5 .phtml
 </IfModule>
 # php -- END cPanel-generated handler, do not edit
-
-# EGO_UPLOAD_LIMIT_START
-# Nếu server dùng PHP-FPM và báo lỗi 500, xóa block này.
-php_value upload_max_filesize 2048M
-php_value post_max_size 2100M
-php_value memory_limit 2048M
-php_value max_execution_time 600
-php_value max_input_time 600
-# EGO_UPLOAD_LIMIT_END

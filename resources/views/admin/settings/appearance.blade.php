@@ -33,6 +33,7 @@
         <nav class="eas-settings-nav">
             <a href="{{ route('admin.settings.index') }}"><i class="bi bi-grid-1x2"></i>Tổng quan</a>
             <a class="active" href="{{ route('admin.settings.appearance') }}"><i class="bi bi-palette"></i>Giao diện</a>
+            <a href="{{ route('admin.settings.workspace') }}"><i class="bi bi-grid-3x3-gap"></i>Ứng dụng theo vai trò</a>
             @if(\Illuminate\Support\Facades\Route::has('payment-methods.index'))
                 <a href="{{ route('payment-methods.index') }}"><i class="bi bi-credit-card"></i>Thanh toán</a>
             @endif

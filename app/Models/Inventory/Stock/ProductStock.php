@@ -2,6 +2,7 @@
 
 namespace App\Models\Inventory\Stock;
 
+use App\Models\Concerns\LockedToEgoInternational;
 use App\Models\Core\Warehouse;
 use App\Models\Inventory\Catalog\Product;
 use Illuminate\Database\Eloquent\Model;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductStock extends Model
 {
+    use LockedToEgoInternational;
     protected $table = 'crm_product_stock';
 
     public $timestamps = false;

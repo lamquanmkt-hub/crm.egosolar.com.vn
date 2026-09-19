@@ -1,0 +1,18 @@
+/* EGO SOLAR · Project Progress & Approval V2.3 */
+.pw23-hero-progress em{display:block;margin-top:4px;font-size:10px;font-style:normal;font-weight:800;color:rgba(255,255,255,.78)}
+.pw23-donut{position:relative}.pw23-donut em{position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);white-space:nowrap;font-size:10px;font-style:normal;font-weight:800;color:#64748b}
+.pw23-approval-card{border:1px solid #dbe7ee!important;background:linear-gradient(180deg,#fff,#f8fbfc)!important}
+.pw23-approval-card.is-pending_approval{border-color:#c4b5fd!important;background:linear-gradient(180deg,#faf8ff,#fff)!important}
+.pw23-approval-card.is-revision{border-color:#fed7aa!important;background:linear-gradient(180deg,#fff8ed,#fff)!important}
+.pw23-approval-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#e8f7f4;color:#0f8f83;font-size:18px}
+.is-pending_approval .pw23-approval-icon{background:#ede9fe;color:#7c3aed}.is-revision .pw23-approval-icon{background:#ffedd5;color:#ea580c}
+.pw23-progress-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.pw23-progress-trio div{padding:10px;border:1px solid #e6edf2;border-radius:12px;background:#fff}.pw23-progress-trio small{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#718096}.pw23-progress-trio strong{font-size:17px;color:#0b213d}
+.pw23-review-note,.pw23-waiting{display:flex;gap:9px;align-items:flex-start;margin:10px 0;padding:11px 12px;border-radius:12px;font-size:11px;line-height:1.45}.pw23-review-note{background:#fff7ed;color:#9a3412}.pw23-waiting{background:#f5f3ff;color:#5b21b6}
+.pw23-approval-actions{display:grid;gap:8px}.pw23-approval-actions .pw2-btn{justify-content:center}
+.pw23-btn-warning{background:#f59e0b!important;color:#fff!important;border-color:#f59e0b!important}
+.pw23-check-state-pending_approval .pw2-check-icon{background:#ede9fe!important;color:#7c3aed!important}.pw23-check-state-revision .pw2-check-icon{background:#ffedd5!important;color:#ea580c!important}
+.pw23-side-state-pending_approval i{color:#7c3aed!important}.pw23-side-state-revision i{color:#ea580c!important}
+.pw23-submit-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}.pw23-submit-summary>div{padding:14px;border-radius:14px;background:#f7fafc;border:1px solid #e3ebf0}.pw23-submit-summary small{display:block;color:#64748b;font-size:10px}.pw23-submit-summary strong{font-size:22px;color:#0b213d}
+.pw23-review-box{display:flex;gap:12px;align-items:center;padding:15px;border:1px solid #dce8ed;border-radius:14px;background:#f8fbfc;margin-bottom:16px}.pw23-review-box>i{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:#dff7ef;color:#078a73;font-size:21px}.pw23-review-box strong,.pw23-review-box small{display:block}.pw23-review-box small{margin-top:4px;color:#64748b}
+.pw23-clear-override{display:flex!important;align-items:flex-start;gap:10px;padding:12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa}.pw23-clear-override input{margin-top:2px}.pw23-clear-override span{font-size:12px;color:#9a3412}
+@media(max-width:767px){.pw23-progress-trio,.pw23-submit-summary{grid-template-columns:1fr 1fr}.pw23-progress-trio div:last-child,.pw23-submit-summary>div:last-child{grid-column:1/-1}.pw23-approval-actions{grid-template-columns:1fr}}

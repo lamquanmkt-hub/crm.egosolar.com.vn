@@ -1,0 +1,11 @@
+/* Scoped additions: keep the CRM's existing project styles. */
+.pu-page .pu-canonical-revenue{display:flex;flex-direction:column;gap:3px;white-space:normal;line-height:1.5;min-width:0}
+.pu-page .pu-canonical-revenue strong{font-size:12px;color:#102b46;font-variant-numeric:tabular-nums}
+.pu-page .pu-canonical-revenue small{font-size:10px;color:#64748b}
+.pu-page .pu-canonical-revenue .debt{color:#b45309}
+.pu-page .pu-canonical-progress{display:block;margin-top:6px;color:#64748b;font-size:10px}
+.pword-page .pu-sales-revenue-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;background:#fff;border:1px solid #dbe6ef;border-radius:12px;padding:18px;margin:12px 0 16px}
+.pword-page .pu-sales-revenue-summary small{display:block;color:#64748b;font-size:12px;margin-bottom:5px}
+.pword-page .pu-sales-revenue-summary strong{font-size:18px;font-variant-numeric:tabular-nums;color:#102b46}
+.pword-page .pu-sales-revenue-summary p{grid-column:1/-1;margin:0;font-size:11px;color:#64748b}
+@media(max-width:640px){.pword-page .pu-sales-revenue-summary{grid-template-columns:1fr;gap:14px}.pu-page .pu-canonical-revenue strong{font-size:13px}}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
+use App\Support\EgoCompanyLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -37,7 +38,8 @@ class SiteAssemblyController extends Controller
                 'p.sku as finished_product_sku',
                 'mw.name as material_warehouse_name',
                 'fw.name as finished_warehouse_name',
-            ]);
+            ])
+            ->where('a.company_id', EgoCompanyLock::id());
 
         if ($q !== '') {
             $query->where(function ($x) use ($q) {
@@ -56,9 +58,9 @@ class SiteAssemblyController extends Controller
         $assemblies = $query->orderByDesc('a.id')->paginate(20)->appends($request->query());
 
         $stats = [
-            'total' => DB::table('site_assemblies')->count(),
-            'draft' => DB::table('site_assemblies')->where('status', 'draft')->count(),
-            'completed' => DB::table('site_assemblies')->where('status', 'completed')->count(),
+            'total' => DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->count(),
+            'draft' => DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('status', 'draft')->count(),
+            'completed' => DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('status', 'completed')->count(),
         ];
 
         return view('site-assemblies.index', array_merge($this->formData(), compact('assemblies', 'stats', 'q', 'status')));
@@ -125,7 +127,7 @@ class SiteAssemblyController extends Controller
 
                 $id = DB::table('site_assemblies')->insertGetId([
                     'code' => $this->makeCode(),
-                    'company_id' => (int) $request->input('company_id'),
+                    'company_id' => EgoCompanyLock::id(),
                     'site_id' => $request->filled('site_id') ? (int) $request->input('site_id') : null,
                     'material_warehouse_id' => (int) $request->input('material_warehouse_id'),
                     'finished_warehouse_id' => (int) $request->input('finished_warehouse_id'),
@@ -185,7 +187,7 @@ class SiteAssemblyController extends Controller
      */
     public function destroy($id)
     {
-        $assembly = DB::table('site_assemblies')->where('id', (int) $id)->first();
+        $assembly = DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('id', (int) $id)->first();
         abort_unless($assembly, 404);
 
         if (($assembly->status ?? '') === 'completed') {
@@ -194,7 +196,7 @@ class SiteAssemblyController extends Controller
 
         DB::transaction(function () use ($id) {
             DB::table('site_assembly_materials')->where('assembly_id', (int) $id)->delete();
-            DB::table('site_assemblies')->where('id', (int) $id)->delete();
+            DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('id', (int) $id)->delete();
         });
 
         return back()->with('success', 'Đã xóa phiếu lắp ráp nháp.');
@@ -205,7 +207,7 @@ class SiteAssemblyController extends Controller
      */
     private function completeInsideTransaction(int $id): void
     {
-        $assembly = DB::table('site_assemblies')->where('id', $id)->lockForUpdate()->first();
+        $assembly = DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('id', $id)->lockForUpdate()->first();
 
         if (! $assembly) {
             throw new \RuntimeException('Không tìm thấy phiếu lắp ráp.');
@@ -257,7 +259,7 @@ class SiteAssemblyController extends Controller
         $this->createFinishedLot($assembly);
         $this->createInventoryRef($eventId, 'site_assembly', $id);
 
-        DB::table('site_assemblies')->where('id', $id)->update([
+        DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('id', $id)->update([
             'status' => 'completed',
             'completed_by' => auth()->id(),
             'completed_at' => now(),
@@ -271,18 +273,24 @@ class SiteAssemblyController extends Controller
     private function formData(): array
     {
         $companies = Schema::hasTable('companies')
-            ? DB::table('companies')->select('id', 'code', 'name')->where('is_active', 1)->orderBy('id')->get()
+            ? DB::table('companies')->select('id', 'code', 'name')->where('id', EgoCompanyLock::id())->where('is_active', 1)->orderBy('id')->get()
             : collect();
 
         $warehouses = Schema::hasTable('crm_warehouses')
-            ? DB::table('crm_warehouses')->select('id', 'company_id', 'name', 'location')->orderBy('company_id')->orderBy('name')->get()
+            ? DB::table('crm_warehouses')->select('id', 'company_id', 'name', 'location')->where('company_id', EgoCompanyLock::id())->orderBy('company_id')->orderBy('name')->get()
             : collect();
 
         $products = Schema::hasTable('crm_product_catalog')
             ? DB::table('crm_product_catalog as p')
-                ->leftJoin('crm_product_stock as st', 'st.product_id', '=', 'p.id')
+                ->leftJoin('crm_product_stock as st', function ($join) {
+                    $join->on('st.product_id', '=', 'p.id')
+                        ->where('st.company_id', EgoCompanyLock::id());
+                })
                 ->selectRaw('p.id, p.company_id, p.sku, p.name, p.unit, p.is_active, COALESCE(SUM(st.qty),0) as stock_qty')
                 ->where('p.is_active', 1)
+                ->where(function ($query) {
+                    $query->where('p.company_id', EgoCompanyLock::id())->orWhereNull('p.company_id');
+                })
                 ->groupBy('p.id', 'p.company_id', 'p.sku', 'p.name', 'p.unit', 'p.is_active')
                 ->orderBy('p.name')
                 ->limit(2000)
@@ -290,7 +298,7 @@ class SiteAssemblyController extends Controller
             : collect();
 
         $sites = Schema::hasTable('sites')
-            ? DB::table('sites')->select('id', 'company_id', 'name', 'contact_name', 'contact_phone', 'address')->orderByDesc('id')->limit(500)->get()
+            ? DB::table('sites')->select('id', 'company_id', 'name', 'contact_name', 'contact_phone', 'address')->where('company_id', EgoCompanyLock::id())->orderByDesc('id')->limit(500)->get()
             : collect();
 
         return compact('companies', 'warehouses', 'products', 'sites');
@@ -348,7 +356,7 @@ class SiteAssemblyController extends Controller
     private function makeCode(): string
     {
         $prefix = 'LR-'.now()->format('Ymd').'-';
-        $count = DB::table('site_assemblies')->where('code', 'like', $prefix.'%')->count() + 1;
+        $count = DB::table('site_assemblies')->where('company_id', EgoCompanyLock::id())->where('code', 'like', $prefix.'%')->count() + 1;
 
         return $prefix.str_pad((string) $count, 4, '0', STR_PAD_LEFT);
     }

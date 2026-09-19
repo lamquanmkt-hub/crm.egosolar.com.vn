@@ -1,0 +1,400 @@
+/* =========================================================
+   EGO WORKSPACE MOBILE PREMIUM V6
+   Chỉ tác động mobile/tablet nhỏ, không đổi giao diện desktop.
+========================================================= */
+
+@media (max-width: 700px) {
+    :root {
+        --ws5-topbar-height: 64px !important;
+    }
+
+    html,
+    body,
+    .ws5 {
+        min-height: 100dvh !important;
+    }
+
+    body {
+        background: #08243c !important;
+    }
+
+    .ws5 {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    }
+
+    .ws5-backdrop {
+        background-position: 48% top !important;
+        filter: saturate(.92) brightness(.82) contrast(1.02) !important;
+        transform: scale(1.015) !important;
+    }
+
+    .ws5-vignette {
+        background:
+            linear-gradient(180deg, rgba(3, 25, 43, .20) 0%, rgba(3, 25, 43, .08) 24%, rgba(3, 20, 35, .42) 100%),
+            radial-gradient(circle at 50% 18%, rgba(57, 189, 207, .12), transparent 38%) !important;
+    }
+
+    /* ---------------- Topbar ---------------- */
+
+    .ws5-topbar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 80 !important;
+        display: grid !important;
+        grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+        align-items: center !important;
+        gap: 8px !important;
+        min-height: 64px !important;
+        padding: 9px 12px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, .10) !important;
+        background: rgba(5, 29, 48, .86) !important;
+        box-shadow: 0 8px 24px rgba(2, 17, 31, .18) !important;
+        backdrop-filter: blur(18px) saturate(1.15) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(1.15) !important;
+    }
+
+    .ws5-brand {
+        grid-column: 1 !important;
+        width: 42px !important;
+        min-width: 42px !important;
+        height: 42px !important;
+        gap: 0 !important;
+    }
+
+    .ws5-brand__logo {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 13px !important;
+        box-shadow: 0 8px 20px rgba(2, 20, 35, .16) !important;
+    }
+
+    .ws5-brand__logo img {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    .ws5-brand__copy {
+        display: none !important;
+    }
+
+    .ws5-search {
+        grid-column: 2 !important;
+        min-width: 0 !important;
+        min-height: 42px !important;
+        height: 42px !important;
+        padding: 0 12px !important;
+        gap: 8px !important;
+        border-color: rgba(255, 255, 255, .18) !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, .11) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, .08),
+            0 8px 18px rgba(2, 20, 35, .10) !important;
+    }
+
+    .ws5-search > i {
+        font-size: 14px !important;
+    }
+
+    .ws5-search input {
+        font-size: 12px !important;
+        font-weight: 500 !important;
+    }
+
+    .ws5-search kbd {
+        display: none !important;
+    }
+
+    .ws5-top-actions {
+        grid-column: 3 !important;
+        justify-content: flex-end !important;
+        gap: 0 !important;
+        min-width: 42px !important;
+    }
+
+    .ws5-top-actions > .ws5-dashboard-button,
+    .ws5-top-actions > .ws5-icon-button,
+    .ws5-account__copy,
+    .ws5-account__button > i {
+        display: none !important;
+    }
+
+    .ws5-account,
+    .ws5-account__button {
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    .ws5-account__button {
+        display: grid !important;
+        place-items: center !important;
+        padding: 0 !important;
+        border: 1px solid rgba(255, 255, 255, .16) !important;
+        border-radius: 14px !important;
+        background: rgba(255, 255, 255, .10) !important;
+        box-shadow: 0 8px 20px rgba(2, 20, 35, .14) !important;
+    }
+
+    .ws5-avatar {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 11px !important;
+    }
+
+    .ws5-account__menu {
+        position: fixed !important;
+        top: 70px !important;
+        right: 10px !important;
+        width: min(300px, calc(100vw - 20px)) !important;
+    }
+
+    /* ---------------- Stage + department rail ---------------- */
+
+    .ws5-stage {
+        min-height: calc(100dvh - 64px) !important;
+        padding: 12px 12px calc(22px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .ws5-flash {
+        top: 74px !important;
+        width: calc(100vw - 24px) !important;
+        justify-content: center !important;
+    }
+
+    .ws5-workspace-nav {
+        display: block !important;
+        width: calc(100% + 24px) !important;
+        margin: 0 -12px 12px !important;
+        padding: 0 12px !important;
+    }
+
+    .ws5-rail-arrow,
+    .ws5-filter-icon {
+        display: none !important;
+    }
+
+    .ws5-workspace-rail {
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        width: 100% !important;
+        padding: 2px 0 7px !important;
+        overflow-x: auto !important;
+        scroll-snap-type: x proximity !important;
+        scrollbar-width: none !important;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%) !important;
+        mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%) !important;
+    }
+
+    .ws5-workspace-rail::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .ws5-filter-pill,
+    .ws5-workspace-pill {
+        scroll-snap-align: start !important;
+        min-height: 36px !important;
+        padding: 0 14px !important;
+        border-radius: 999px !important;
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+        background: rgba(9, 39, 62, .52) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+    }
+
+    .ws5-filter-pill.is-active,
+    .ws5-workspace-pill.is-active {
+        border-color: rgba(94, 234, 212, .55) !important;
+        background: linear-gradient(135deg, rgba(13, 148, 136, .82), rgba(2, 132, 199, .66)) !important;
+        box-shadow:
+            0 8px 20px rgba(2, 30, 47, .18),
+            inset 0 1px 0 rgba(255, 255, 255, .16) !important;
+    }
+
+    .ws5-context {
+        display: none !important;
+    }
+
+    /* ---------------- App launcher ---------------- */
+
+    .ws5-app-shell {
+        display: block !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+    }
+
+    .ws5-page-arrow {
+        display: none !important;
+    }
+
+    .ws5-app-viewport {
+        width: 100% !important;
+        min-height: 0 !important;
+        padding: 15px 8px 12px !important;
+        border: 1px solid rgba(255, 255, 255, .12) !important;
+        border-radius: 24px !important;
+        background: linear-gradient(180deg, rgba(7, 31, 51, .28), rgba(7, 31, 51, .18)) !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, .07),
+            0 18px 40px rgba(2, 18, 31, .14) !important;
+        backdrop-filter: blur(9px) saturate(1.06) !important;
+        -webkit-backdrop-filter: blur(9px) saturate(1.06) !important;
+    }
+
+    .ws5-app-page,
+    .ws5-app-page.is-active {
+        min-height: 0 !important;
+    }
+
+    .ws5-app-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-auto-rows: minmax(104px, auto) !important;
+        gap: 12px 8px !important;
+        width: 100% !important;
+        max-width: 390px !important;
+        margin: 0 auto !important;
+    }
+
+    .ws5-app-card {
+        min-width: 0 !important;
+        border: 0 !important;
+        border-radius: 18px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .ws5-app-card:active {
+        transform: scale(.97) !important;
+        background: rgba(255, 255, 255, .08) !important;
+    }
+
+    .ws5-app-link {
+        gap: 8px !important;
+        min-height: 102px !important;
+        padding: 8px 3px 6px !important;
+    }
+
+    .ws5-app-icon {
+        width: 58px !important;
+        height: 58px !important;
+        border-radius: 18px !important;
+        border-color: rgba(255, 255, 255, .20) !important;
+        box-shadow:
+            0 11px 23px rgba(2, 18, 31, .22),
+            inset 0 1px 0 rgba(255, 255, 255, .24) !important;
+    }
+
+    .ws5-app-icon > i {
+        font-size: 25px !important;
+    }
+
+    .ws5-app-link strong {
+        min-height: 29px !important;
+        max-width: 104px !important;
+        color: rgba(255, 255, 255, .96) !important;
+        font-size: 10.5px !important;
+        font-weight: 700 !important;
+        line-height: 1.35 !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, .36) !important;
+    }
+
+    .ws5-favorite-button {
+        display: none !important;
+    }
+
+    .ws5-badge {
+        top: -7px !important;
+        right: -7px !important;
+        min-width: 23px !important;
+        height: 23px !important;
+        padding: 0 5px !important;
+        border-width: 2px !important;
+        font-size: 8.5px !important;
+    }
+
+    .ws5-empty {
+        min-height: 340px !important;
+        padding: 28px 16px !important;
+    }
+
+    /* ---------------- Pagination ---------------- */
+
+    .ws5-bottom-bar {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin: 10px auto 0 !important;
+        padding: 0 !important;
+    }
+
+    .ws5-app-hint,
+    .ws5-filter-state {
+        display: none !important;
+    }
+
+    .ws5-pagination {
+        min-height: 24px !important;
+        gap: 6px !important;
+    }
+
+    .ws5-page-dot {
+        width: 6px !important;
+        height: 6px !important;
+        background: rgba(255, 255, 255, .38) !important;
+    }
+
+    .ws5-page-dot.is-active {
+        width: 22px !important;
+        background: #ffffff !important;
+    }
+}
+
+@media (max-width: 370px) {
+    .ws5-topbar {
+        grid-template-columns: 40px minmax(0, 1fr) 40px !important;
+        gap: 6px !important;
+        padding-inline: 8px !important;
+    }
+
+    .ws5-brand,
+    .ws5-brand__logo,
+    .ws5-account,
+    .ws5-account__button {
+        width: 40px !important;
+        min-width: 40px !important;
+        height: 40px !important;
+    }
+
+    .ws5-search {
+        padding-inline: 10px !important;
+    }
+
+    .ws5-search input {
+        font-size: 11px !important;
+    }
+
+    .ws5-app-viewport {
+        padding-inline: 5px !important;
+    }
+
+    .ws5-app-grid {
+        gap-inline: 3px !important;
+    }
+
+    .ws5-app-icon {
+        width: 55px !important;
+        height: 55px !important;
+    }
+
+    .ws5-app-link strong {
+        max-width: 94px !important;
+        font-size: 9.8px !important;
+    }
+}
+
+@media (min-width: 701px) {
+    /* Desktop/tablet lớn giữ nguyên giao diện V5. */
+}

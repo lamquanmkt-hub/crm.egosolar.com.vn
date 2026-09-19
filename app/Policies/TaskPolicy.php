@@ -15,13 +15,50 @@ class TaskPolicy
      */
     private function canAssign(User $user): bool
     {
+        /*
+         * EGO_TECHNICAL_MANAGER_POLICY:
+         * Hỗ trợ tài khoản role ky_thuat nhưng có chức danh Trưởng phòng,
+         * Manager hoặc Leader thuộc Phòng Kỹ thuật.
+         */
+        $position = mb_strtolower(
+            (string) optional($user->position)->name
+        );
+
+        $department = mb_strtolower(
+            (string) optional($user->department)->name
+        );
+
+        $isTechnicalManagerByPosition = (
+            str_contains($position, 'trưởng')
+            || str_contains($position, 'truong')
+            || str_contains($position, 'manager')
+            || str_contains($position, 'leader')
+            || str_contains($position, 'quản lý')
+            || str_contains($position, 'quan ly')
+        ) && (
+            str_contains($department, 'kỹ thuật')
+            || str_contains($department, 'ky thuat')
+            || str_contains($department, 'technical')
+        );
+
+        if ($isTechnicalManagerByPosition) {
+            return true;
+        }
+
         // Nếu dùng Spatie Permission
         if (method_exists($user, 'hasRole')) {
             return $user->hasRole([
                 'admin',
+            'manager',
+            'management',
+                'manager',
+                'management',
                 'sales_manager',
                 'marketing',
                 'marketing_manager',
+                'technical_manager',
+                'technical_leader',
+                'truong_phong_ky_thuat',
             ]);
         }
 

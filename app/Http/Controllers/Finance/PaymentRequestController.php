@@ -63,12 +63,45 @@ class PaymentRequestController extends Controller
     }
 
     /**
+     * Kiểm tra người dùng có thuộc phòng Nhân sự (HR).
+     * HR chỉ được mở rộng phạm vi XEM; không tự động có quyền duyệt/sửa/xóa.
+     */
+    private function isHr($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        $roles = ['hr'];
+
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole($roles)) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('hr')) {
+            return true;
+        }
+
+        return strtolower(trim((string) ($user->role ?? ''))) === 'hr';
+    }
+
+    /**
+     * Quyền xem toàn bộ đề nghị thanh toán.
+     * Admin/Kế toán giữ nguyên quyền hiện tại; HR được xem toàn bộ nhưng không có quyền xử lý.
+     */
+    private function canViewAllPaymentRequests($user): bool
+    {
+        return $this->isAdmin($user)
+            || $this->isAccounting($user)
+            || $this->isHr($user);
+    }
+
+    /**
      * Danh sách công ty dùng cho form.
      */
     private function companyOptions(): array
     {
         return [
-            'Công ty TNHH Ego Việt Nam',
             'Công ty TNHH TMKT Quốc Tế EGO',
         ];
     }
@@ -466,7 +499,7 @@ class PaymentRequestController extends Controller
         $canAdminApprove = $this->isAdmin($user);
         $canAccountingApprove = $this->isAccounting($user);
         $canBulkApprove = ($canAdminApprove || $canAccountingApprove);
-        $canViewAll = $canBulkApprove;
+        $canViewAll = $this->canViewAllPaymentRequests($user);
 
         /*
          * Mặc định danh sách là tất cả công ty.
@@ -580,7 +613,7 @@ class PaymentRequestController extends Controller
     public function exportExcel(Request $request)
     {
         $user = auth()->user();
-        $canViewAll = ($this->isAdmin($user) || $this->isAccounting($user));
+        $canViewAll = $this->canViewAllPaymentRequests($user);
 
         [$selectedDatePreset, $effectiveDateFrom, $effectiveDateTo] = $this->resolveDateFilter($request);
 
@@ -639,7 +672,7 @@ class PaymentRequestController extends Controller
     public function exportPdf(Request $request)
     {
         $user = auth()->user();
-        $canViewAll = ($this->isAdmin($user) || $this->isAccounting($user));
+        $canViewAll = $this->canViewAllPaymentRequests($user);
 
         [$selectedDatePreset, $effectiveDateFrom, $effectiveDateTo] = $this->resolveDateFilter($request);
 
@@ -745,7 +778,7 @@ class PaymentRequestController extends Controller
             if (! $request->filled('company')) {
                 $fallbackCompany = (string) session('active_company_name', '');
                 if ($fallbackCompany === '') {
-                    $fallbackCompany = $this->companyOptions()[0] ?? 'Công ty TNHH Ego Việt Nam';
+                    $fallbackCompany = $this->companyOptions()[0] ?? 'Công ty TNHH TMKT Quốc Tế EGO';
                 }
                 $request->merge(['company' => $fallbackCompany]);
             }
@@ -772,10 +805,11 @@ class PaymentRequestController extends Controller
                 'amount' => 'nullable|integer|min:0',
                 'payment_due_date' => 'nullable|date',
                 'bank_info' => 'nullable|string|max:10000',
-                'attachments' => ['nullable', 'array'],
+                'attachments' => ['nullable', 'array', 'max:15'],
                 'attachments.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
             ], [
                 'amount.min' => 'Số tiền không được nhỏ hơn 0.',
+                'attachments.max' => 'Mỗi phiếu chỉ được tải tối đa 15 chứng từ trong một lần.',
                 'attachments.*.max' => 'File chứng từ không được vượt quá 20MB.',
                 'attachments.*.mimes' => 'Chứng từ chỉ nhận JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX.',
             ]);
@@ -798,33 +832,7 @@ class PaymentRequestController extends Controller
             }
 
             if (in_array('company_id', $columns, true)) {
-                $companyId = 0;
-
-                if (Schema::hasTable('companies')) {
-                    $companyId = (int) DB::table('companies')
-                        ->where('name', $data['company'])
-                        ->value('id');
-
-                    if (! $companyId) {
-                        if (stripos($data['company'], 'Quốc') !== false || stripos($data['company'], 'Quoc') !== false || stripos($data['company'], 'TMKT') !== false || stripos($data['company'], 'QT') !== false) {
-                            $companyId = (int) DB::table('companies')
-                                ->where('name', 'like', '%Quốc%')
-                                ->orWhere('name', 'like', '%Quoc%')
-                                ->orWhere('name', 'like', '%TMKT%')
-                                ->value('id');
-                        } else {
-                            $companyId = (int) DB::table('companies')
-                                ->where('name', 'like', '%Ego Việt Nam%')
-                                ->orWhere('name', 'like', '%Ego Viet Nam%')
-                                ->orWhere('name', 'like', '%EGO VIETNAM%')
-                                ->value('id');
-                        }
-                    }
-                }
-
-                if (! $companyId) {
-                    $companyId = (int) $request->input('company_id', session('active_company_id', 0));
-                }
+                $companyId = \App\Support\EgoCompanyLock::id();
 
                 if ($companyId > 0) {
                     $data['company_id'] = $companyId;
@@ -878,7 +886,7 @@ class PaymentRequestController extends Controller
                     'ok' => true,
                     'message' => 'Đã tạo đề nghị thanh toán thành công.',
                     'id' => (int) $prId,
-                    'redirect_url' => route('payment_requests.index'),
+                    'redirect_url' => route('payment_requests.show', $prId),
                 ], 201);
             }
             /* EGO_PR_AJAX_CREATE_RESPONSE_END */
@@ -909,7 +917,7 @@ class PaymentRequestController extends Controller
         $item = PaymentRequest::with(['creator', 'attachments'])->findOrFail($id);
         $user = auth()->user();
 
-        if (! ($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
+        if (! $this->canViewAllPaymentRequests($user) && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 
@@ -1184,7 +1192,7 @@ class PaymentRequestController extends Controller
         $item = PaymentRequest::with(['creator'])->findOrFail($id);
         $user = auth()->user();
 
-        if (! ($this->isAdmin($user) || $this->isAccounting($user)) && (int) $item->created_by !== (int) $user->id) {
+        if (! $this->canViewAllPaymentRequests($user) && (int) $item->created_by !== (int) $user->id) {
             abort(403);
         }
 

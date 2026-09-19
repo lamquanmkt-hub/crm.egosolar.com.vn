@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Controller quản lý hoa hồng sales và KPI hằng ngày của đội kinh doanh.
@@ -327,15 +329,24 @@ class SalesCommissionController extends Controller
     /**
      * Subquery tổng hợp thanh toán theo đơn (tổng đã thu, ngày thanh toán cuối).
      */
-    private function paymentSummarySubquery()
+    private function paymentSummarySubquery(?Carbon $from = null, ?Carbon $to = null)
     {
-        return DB::table('crm_payments as p')
+        $query = DB::table('crm_payments as p')
             ->select([
                 'p.order_id',
                 DB::raw('SUM(COALESCE(p.amount, 0)) as paid_total'),
                 DB::raw('MAX(COALESCE(p.payment_date, p.created_at)) as final_payment_date'),
-            ])
-            ->groupBy('p.order_id');
+            ]);
+
+        // Doanh số hoa hồng được ghi nhận theo đúng thời điểm tiền thực tế về.
+        if ($from && $to) {
+            $query->whereRaw(
+                'COALESCE(p.payment_date, p.created_at) BETWEEN ? AND ?',
+                [$from->format('Y-m-d H:i:s'), $to->format('Y-m-d H:i:s')]
+            );
+        }
+
+        return $query->groupBy('p.order_id');
     }
 
     /**
@@ -343,7 +354,7 @@ class SalesCommissionController extends Controller
      */
     private function buildQuery(Request $request, $user, ?Carbon $from, ?Carbon $to)
     {
-        $paymentSub = $this->paymentSummarySubquery();
+        $paymentSub = $this->paymentSummarySubquery($from, $to);
 
         /*
         |--------------------------------------------------------------------------
@@ -420,7 +431,7 @@ class SalesCommissionController extends Controller
             ->leftJoin('crm_product_catalog as pc', 'pc.id', '=', 'oi.product_id')
             ->where('u.name', '!=', SalesCommissionScope::EXCLUDED_SALES_NAME)
             ->whereNotNull('pay.final_payment_date')
-            ->whereRaw('COALESCE(pay.paid_total, 0) >= COALESCE(o.total_amount, 0)');
+            ->whereRaw('COALESCE(pay.paid_total, 0) > 0');
 
         if ($hasProductPrices && $priceSub) {
             $q->leftJoinSub($priceSub, 'pp', function ($join) {
@@ -464,11 +475,22 @@ class SalesCommissionController extends Controller
             }
         }
 
+        // Chính sách chuẩn: Lead/ADS 0,5%; mọi trạng thái còn lại 1%.
         $rateCase = "
             CASE
-                WHEN c.customer_status = 'lead'   THEN 0.5
-                WHEN c.customer_status = 'member' THEN 1
-                WHEN c.customer_status = 'retail' THEN 2
+                WHEN LOWER(TRIM(COALESCE(c.customer_status, ''))) LIKE '%lead%'
+                    OR LOWER(TRIM(COALESCE(c.customer_status, ''))) LIKE '%ads%' THEN 0.5
+                ELSE 1
+            END
+        ";
+
+        // Chỉ tính trên phần tiền thực thu trong kỳ, quy đổi tỷ lệ về doanh thu trước VAT.
+        $paidBeforeVatSql = "
+            CASE
+                WHEN COALESCE(o.total_amount, 0) > 0
+                    THEN ({$baseAmountSql})
+                        * LEAST(COALESCE(pay.paid_total, 0), COALESCE(o.total_amount, 0))
+                        / COALESCE(o.total_amount, 1)
                 ELSE 0
             END
         ";
@@ -487,16 +509,19 @@ class SalesCommissionController extends Controller
             'u.name as sales_name',
             DB::raw("COALESCE(co.name, '-') as company_name"),
         ])
-            ->selectRaw("{$baseAmountSql} as total_amount")
+            ->selectRaw("{$paidBeforeVatSql} as total_amount")
+            ->selectRaw("COALESCE(o.total_amount, 0) as order_total_amount")
             ->selectRaw("GROUP_CONCAT(DISTINCT pc.barcode ORDER BY pc.barcode SEPARATOR ', ') as product_codes")
             ->selectRaw("GROUP_CONCAT(DISTINCT pc.name ORDER BY pc.name SEPARATOR ', ') as product_names")
             ->selectRaw("{$rateCase} as rate_percent")
-            ->selectRaw("(({$baseAmountSql}) * ({$rateCase}) / 100) as commission_calc")
+            ->selectRaw("(({$paidBeforeVatSql}) * ({$rateCase}) / 100) as commission_calc")
             ->groupBy(
                 'o.id',
                 'l.customer_id',
                 'o.created_by',
                 'o.order_code',
+                'o.total_amount',
+                'o.tax_amount',
                 'c.name',
                 'c.customer_status',
                 'u.name',
@@ -507,7 +532,7 @@ class SalesCommissionController extends Controller
 
         if ($request->filled('min_commission')) {
             $min = (float) $request->get('min_commission');
-            $q->havingRaw("(({$baseAmountSql}) * ({$rateCase}) / 100) >= ?", [$min]);
+            $q->havingRaw("(({$paidBeforeVatSql}) * ({$rateCase}) / 100) >= ?", [$min]);
         }
 
         return $q;
@@ -595,13 +620,13 @@ class SalesCommissionController extends Controller
         */
         $defaultPolicy = (object) [
             'period_month' => $month,
-            'project_rate_percent' => 4,
+            'project_rate_percent' => 3,
             'trade_rate_percent' => 1,
-            'panel_fixed_amount' => 15000,
+            'panel_fixed_amount' => 0,
             'only_paid' => 1,
             'only_shipped' => 0,
             'only_completed' => 0,
-            'hold_if_debt' => 1,
+            'hold_if_debt' => 0,
             'note' => null,
         ];
 
@@ -674,10 +699,51 @@ class SalesCommissionController extends Controller
      */
     public function exportExcel(Request $request)
     {
-        return $this->commissionExporter->download(
-            (string) $request->get('month', ''),
-            (int) $request->get('sales_id', 0),
-        );
+        if (! class_exists(Spreadsheet::class)) {
+            return response('Server chưa có PhpSpreadsheet.', 500);
+        }
+
+        $user = auth()->user();
+        [$from, $to] = $this->resolveDateRange($request);
+        $rows = $this->buildQuery($request, $user, $from, $to)
+            ->orderByDesc('completed_date')
+            ->get();
+
+        $sheetBook = new Spreadsheet();
+        $sheet = $sheetBook->getActiveSheet();
+        $sheet->setTitle('Hoa hong Sales');
+        $sheet->fromArray([
+            ['STT', 'Mã đơn', 'Ngày thu tiền', 'Sales', 'Khách hàng', 'Trạng thái khách', 'Tiền thực thu', 'Doanh thu trước VAT tính HH', 'Tỷ lệ', 'Hoa hồng'],
+        ], null, 'A1');
+
+        $rowNo = 2;
+        foreach ($rows as $index => $row) {
+            $sheet->fromArray([[
+                $index + 1,
+                $row->order_code ?? '',
+                $row->completed_date ?? '',
+                $row->sales_name ?? '',
+                $row->customer_name ?? '',
+                $row->customer_status ?? '',
+                (float) ($row->paid_total ?? 0),
+                (float) ($row->total_amount ?? 0),
+                (float) ($row->rate_percent ?? 0),
+                (float) ($row->commission_calc ?? 0),
+            ]], null, 'A'.$rowNo);
+            $rowNo++;
+        }
+
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $sheet->getStyle('G2:J'.max(2, $rowNo - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+        foreach (range('A', 'J') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $filename = 'hoa_hong_sales_'.($request->get('month', now()->format('Y-m'))).'_'.now()->format('Ymd_His').'.xlsx';
+        $tmp = storage_path('app/'.$filename);
+        (new Xlsx($sheetBook))->save($tmp);
+
+        return response()->download($tmp, $filename)->deleteFileAfterSend(true);
     }
 
     /**
@@ -692,12 +758,13 @@ class SalesCommissionController extends Controller
             ->orderByDesc('completed_date')
             ->get();
 
-        $engine = app(CommissionEngineService::class);
-        $engine->ensureSchema();
-        $month = $request->get('month', now()->format('Y-m'));
-        $policy = $engine->currentPolicy($month);
-        $rules = $engine->rulesForPolicy((int) $policy->id);
-        $rows = $engine->recalculateRows($rows, $policy, $rules);
+        $rows = $rows->map(function ($row) {
+            $row->revenue_before_vat = (float) ($row->total_amount ?? 0);
+            $row->revenue_after_vat = (float) ($row->paid_total ?? 0);
+            $row->commission_calc = (float) ($row->commission_calc ?? 0);
+            $row->rate_percent = (float) ($row->rate_percent ?? 0);
+            return $row;
+        });
 
         $totalCommission = (float) $rows->sum('commission_calc');
         $totalOrders = (int) $rows->count();

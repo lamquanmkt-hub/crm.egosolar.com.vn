@@ -176,9 +176,9 @@
             </div>
         </div>
 
-        <a href="{{ route('material-requests.index') }}" class="btn btn-outline-secondary">
+        <x-ui.button href="{{ route('material-requests.index') }}" variant="outline-secondary">
             <i class="bi bi-arrow-left"></i> Quay lại
-        </a>
+        </x-ui.button>
     </div>
 
     @if ($errors->any())
@@ -384,10 +384,10 @@
                                                 </td>
 
                                                 <td class="text-end">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-danger btnRemoveRow">
+                                                    <x-ui.button type="button"
+                                                            variant="outline-danger" size="sm" class="btnRemoveRow">
                                                         <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    </x-ui.button>
                                                 </td>
 
                                                 <input type="hidden" class="stock-kind" value="{{ $section['kind'] }}">
@@ -447,10 +447,10 @@
                                                 </td>
 
                                                 <td class="text-end">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-danger btnRemoveRow">
+                                                    <x-ui.button type="button"
+                                                            variant="outline-danger" size="sm" class="btnRemoveRow">
                                                         <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    </x-ui.button>
                                                 </td>
 
                                                 <input type="hidden" class="external-kind" value="{{ $section['kind'] }}">
@@ -560,9 +560,9 @@
                                 <i class="bi bi-save"></i> Lưu đơn
                             </button>
 
-                            <a href="{{ route('material-requests.index') }}" class="btn btn-outline-secondary w-100 mt-2">
+                            <x-ui.button href="{{ route('material-requests.index') }}" variant="outline-secondary" class="w-100 mt-2">
                                 Quay lại
-                            </a>
+                            </x-ui.button>
                         </div>
                     </div>
 

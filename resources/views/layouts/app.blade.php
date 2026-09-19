@@ -151,10 +151,12 @@
     {{-- EGO_LEAVE_DASHBOARD_ALERTS_CSS_V110_START --}}
     <link rel="stylesheet" href="{{ asset('css/ego-leave-dashboard-alerts.css') }}?v={{ file_exists(public_path('css/ego-leave-dashboard-alerts.css')) ? filemtime(public_path('css/ego-leave-dashboard-alerts.css')) : '1.1.0' }}">
     {{-- EGO_LEAVE_DASHBOARD_ALERTS_CSS_V110_END --}}
+    {{-- EGO_SMART_SEARCH_CSS_START --}}
+    <link rel="stylesheet" href="{{ asset('css/ego-smart-search.css') }}?v={{ file_exists(public_path('css/ego-smart-search.css')) ? filemtime(public_path('css/ego-smart-search.css')) : '1.0.0' }}">
+    {{-- EGO_SMART_SEARCH_CSS_END --}}
 </head>
 
 <body>
-
 
 <div class="ego-shell">
     {{-- Sidebar (full top) --}}
@@ -170,7 +172,9 @@
     </div>
 </div>
 
-
+{{-- EGO_SMART_SEARCH_WIDGET_START --}}
+@include('smart-search.widget')
+{{-- EGO_SMART_SEARCH_WIDGET_END --}}
 {{-- EGO_TASK_FLOAT_ALL_ROLES_V150_START --}}
 @if(
     auth()->check()
@@ -212,5 +216,21 @@
 </div>
 
 @include('company_context.switcher')
+
+{{-- EGO_SMART_SEARCH_JS_START --}}
+<script src="{{ asset('js/ego-smart-search.js') }}?v={{ file_exists(public_path('js/ego-smart-search.js')) ? filemtime(public_path('js/ego-smart-search.js')) : '1.0.0' }}" defer></script>
+{{-- EGO_SMART_SEARCH_JS_END --}}
+@include('partials.mobile-ui-v5')
+
+{{-- CRM_SIDEBAR_MISA_CLEAN_V2_START --}}
+<link
+    rel="stylesheet"
+    href="{{ asset('css/crm-sidebar-misa.css') }}?v={{ file_exists(public_path('css/crm-sidebar-misa.css')) ? filemtime(public_path('css/crm-sidebar-misa.css')) : '2.0.0' }}"
+>
+<script
+    src="{{ asset('js/crm-sidebar-misa.js') }}?v={{ file_exists(public_path('js/crm-sidebar-misa.js')) ? filemtime(public_path('js/crm-sidebar-misa.js')) : '2.0.0' }}"
+    defer
+></script>
+{{-- CRM_SIDEBAR_MISA_CLEAN_V2_END --}}
 </body>
 </html>

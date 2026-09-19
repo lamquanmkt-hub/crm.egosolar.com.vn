@@ -4,6 +4,7 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/project-test.css') }}?v={{ file_exists(public_path('css/project-test.css')) ? filemtime(public_path('css/project-test.css')) : time() }}">
+<link rel="stylesheet" href="{{ asset('css/project-warehouse-360-v1.css') }}?v={{ file_exists(public_path('css/project-warehouse-360-v1.css')) ? filemtime(public_path('css/project-warehouse-360-v1.css')) : time() }}">
 @endpush
 
 @section('content')
@@ -11,6 +12,24 @@
     $state = $materialRequest->computed_warehouse_state;
     $locked = $materialRequest->status === 'issued';
     $reserved = $materialRequest->warehouse_status === 'reserved';
+    $pw360WarehouseUser = auth()->user();
+    $pw360WarehouseCanViewCost = $pw360WarehouseUser && $pw360WarehouseUser->hasAnyRole(['admin','management','manager','warehouse','kho']);
+    $pw360WarehouseCostRows = $materialRequest->items->map(function ($item) {
+        $allocation = $item->allocations->first();
+        $qty = (float) ($allocation?->issued_quantity ?: $allocation?->reserved_quantity ?: $allocation?->allocated_quantity ?: 0);
+        $unitCost = $allocation?->unit_cost !== null ? (float) $allocation->unit_cost : null;
+        return [
+            'need' => $item->item_name,
+            'product' => $allocation?->product?->name ?: 'Chưa kiểm tra SKU',
+            'sku' => $allocation?->product?->sku ?: '—',
+            'qty' => $qty,
+            'unit' => $allocation?->product?->unit ?: $item->unit,
+            'unit_cost' => $unitCost,
+            'total' => $unitCost === null ? null : $qty * $unitCost,
+        ];
+    });
+    $pw360WarehouseKnownCosts = $pw360WarehouseCostRows->whereNotNull('total');
+    $pw360WarehouseTotalCost = (float) $pw360WarehouseKnownCosts->sum('total');
 @endphp
 <div class="pt-page pt-wh-v2-page"
      data-warehouse-v2-root
@@ -36,13 +55,38 @@
         <a href="{{ route('project-test.show',$materialRequest->project_id) }}" class="pt-btn pt-btn--light"><i class="bi bi-box-arrow-up-right"></i> Hồ sơ công trình</a>
     </section>
 
+    {{-- EGO_PROJECT_WAREHOUSE_360_V1_WAREHOUSE_COST --}}
+    @if($pw360WarehouseCanViewCost)
+        <section class="ego-material-cost-panel" style="margin-top:14px">
+            <div class="ego-material-cost-panel__head">
+                <div><h3><i class="bi bi-cash-stack"></i> Giá vốn hàng ghép cho công trình</h3><p>Giá vốn lấy từ allocation/lô xuất thực tế. Dòng chưa có dữ liệu không bị hiểu là 0 đồng.</p></div>
+                <span class="ego-material-cost-panel__badge">CHỈ KHO / ADMIN</span>
+            </div>
+            <div class="ego-material-cost-grid">
+                <div><small>Tổng giá vốn tạm tính</small><strong>{{ $pw360WarehouseKnownCosts->isEmpty() ? 'Chưa đủ dữ liệu' : number_format($pw360WarehouseTotalCost, 0, ',', '.').' đ' }}</strong></div>
+                <div><small>Dòng đã ghép</small><strong>{{ $summary['mapped'] }}/{{ $summary['total'] }}</strong></div>
+                <div><small>Dòng có giá vốn</small><strong>{{ $pw360WarehouseKnownCosts->count() }}/{{ $pw360WarehouseCostRows->count() }}</strong></div>
+                <div><small>Dòng chưa có giá</small><strong>{{ $pw360WarehouseCostRows->whereNull('unit_cost')->count() }}</strong></div>
+            </div>
+            @if($pw360WarehouseCostRows->isNotEmpty())
+            <table class="ego-material-cost-table">
+                <thead><tr><th>Nhu cầu</th><th>SKU thực tế</th><th>SL</th><th>Giá vốn</th><th>Thành tiền</th></tr></thead>
+                <tbody>
+                @foreach($pw360WarehouseCostRows as $row)
+                    <tr><td>{{ $row['need'] }}</td><td><strong>{{ $row['product'] }}</strong><br><small>{{ $row['sku'] }}</small></td><td>{{ rtrim(rtrim(number_format($row['qty'],3,'.',''),'0'),'.') }} {{ $row['unit'] }}</td><td class="is-money">{{ $row['unit_cost'] === null ? 'Chưa có giá vốn' : number_format($row['unit_cost'],0,',','.').' đ' }}</td><td class="is-money">{{ $row['total'] === null ? '—' : number_format($row['total'],0,',','.').' đ' }}</td></tr>
+                @endforeach
+                </tbody>
+            </table>
+            @endif
+        </section>
+    @endif
     <section class="pt-wh-v2-steps">
         <div class="pt-wh-v2-step done"><span>1</span><div><strong>Kỹ thuật yêu cầu</strong><small>{{ $summary['total'] }} dòng đã được Admin duyệt</small></div></div>
         <div class="pt-wh-v2-step {{ $summary['mapped'] ? 'active' : '' }}"><span>2</span><div><strong>Kho chọn SKU trước</strong><small>Sau đó hệ thống hiện các kho đang có tồn</small></div></div>
         <div class="pt-wh-v2-step {{ $reserved || $locked ? 'active' : '' }}"><span>3</span><div><strong>Giữ & bàn giao</strong><small>Chọn serial rồi giao cho Kỹ thuật</small></div></div>
     </section>
 
-    <div class="pt-alert pt-alert--info pt-wh-v2-safe" style="margin-top:14px"><i class="bi bi-shield-check"></i><span><strong>Thứ tự đúng:</strong> chọn sản phẩm thật → chọn kho đang có sản phẩm → chọn số lượng/serial → giữ hàng → bàn giao. Bản Test chưa trừ tồn kho thật.</span></div>
+    <div class="pt-alert pt-alert--info pt-wh-v2-safe" style="margin-top:14px"><i class="bi bi-shield-check"></i><span><strong>Thứ tự đúng:</strong> chọn sản phẩm thật → chọn kho đang có sản phẩm → chọn số lượng/serial → giữ hàng → bàn giao. Tồn kho sẽ được trừ chính thức khi xác nhận xuất.</span></div>
 
     <div class="pt-wh-v2-detail-grid">
         <main>
@@ -51,12 +95,12 @@
                 @csrf
                 <div class="pt-wh-v2-section-head">
                     <div><span class="pt-wh-v2-number">2</span><div><h2>Ghép yêu cầu với hàng thật</h2><p>Mỗi dòng có thể lấy từ kho khác nhau. Kho chỉ hiện sau khi đã chọn SKU.</p></div></div>
-                    @if(!$reserved)<button class="pt-btn pt-btn--brand"><i class="bi bi-save"></i> Lưu ghép hàng</button>@else<span class="pt-wh-v2-state pt-wh-v2-state--reserved">Đang giữ hàng · bỏ giữ để sửa</span>@endif
+                    @if(!$reserved)<button class="pt-btn pt-btn--brand"><i class="bi bi-save"></i> Lưu kiểm tra tồn</button>@else<span class="pt-wh-v2-state pt-wh-v2-state--reserved">Đang giữ hàng · bỏ giữ để sửa</span>@endif
                 </div>
 
                 <div class="pt-wh-v2-order-note">
                     <span><b>1</b> Chọn sản phẩm</span><i class="bi bi-arrow-right"></i>
-                    <span><b>2</b> Chọn kho có tồn</span><i class="bi bi-arrow-right"></i>
+                    <span><b>2</b> Chọn kho kiểm tra tồn</span><i class="bi bi-arrow-right"></i>
                     <span><b>3</b> Chọn số lượng & serial</span>
                 </div>
 
@@ -78,10 +122,10 @@
                             </section>
 
                             <section class="pt-wh-v2-stock-side">
-                                <div class="pt-wh-v2-side-label">Kho cấp thực tế</div>
+                                <div class="pt-wh-v2-side-label">Kho kiểm tra cấp hàng</div>
 
                                 <div class="pt-wh-v2-picker-step">
-                                    <div class="pt-wh-v2-picker-step__head"><span>1</span><div><strong>Chọn sản phẩm thật</strong><small>Tìm theo tên, SKU hoặc barcode trên toàn bộ danh mục.</small></div></div>
+                                    <div class="pt-wh-v2-picker-step__head"><span>1</span><div><strong>Sản phẩm theo yêu cầu</strong><small>Tìm theo tên, SKU hoặc barcode trên toàn bộ danh mục.</small></div></div>
                                     <input type="hidden" name="items[{{ $item->id }}][product_id]" value="{{ $allocation?->product_id }}" data-product-id>
                                     <div class="pt-wh-v2-product-picker">
                                         <i class="bi bi-search"></i>
@@ -120,8 +164,8 @@
                                 <div class="pt-wh-v2-picker-step {{ $allocation ? '' : 'is-disabled' }}" data-quantity-step>
                                     <div class="pt-wh-v2-picker-step__head"><span>3</span><div><strong>Số lượng và serial</strong><small>Không được vượt số lượng Kỹ thuật yêu cầu hoặc tồn khả dụng.</small></div></div>
                                     <div class="pt-wh-v2-allocation-fields">
-                                        <label><span>Số lượng cấp</span><input class="pt-input" type="number" step="0.001" min="0.001" max="{{ $item->quantity }}" name="items[{{ $item->id }}][quantity]" value="{{ $allocation?->allocated_quantity ?: $item->quantity }}" data-allocated-qty required {{ $reserved ? 'readonly' : '' }}></label>
-                                        <label><span>Ghi chú Kho</span><input class="pt-input" name="items[{{ $item->id }}][note]" value="{{ $allocation?->note }}" placeholder="Hàng thay thế, lô ưu tiên..." {{ $reserved ? 'readonly' : '' }}></label>
+                                        <label><span>Số lượng cấp</span><input class="pt-input" type="number" step="0.001" min="0" max="{{ $item->quantity }}" name="items[{{ $item->id }}][quantity]" value="{{ $allocation?->allocated_quantity ?: $item->quantity }}" data-allocated-qty required {{ $reserved ? 'readonly' : '' }}></label>
+                                        <label><span>Ghi chú Kho</span><input class="pt-input" name="items[{{ $item->id }}][note]" value="{{ $allocation?->note }}" placeholder="Thiếu hàng, cần điều chuyển, chờ nhập..." {{ $reserved ? 'readonly' : '' }}></label>
                                     </div>
 
                                     <div class="pt-wh-v2-serial-box" data-serial-box @if(!$allocation?->is_serialized) hidden @endif>
@@ -134,9 +178,9 @@
 
                                 <div class="pt-wh-v2-row-result" data-row-result>
                                     @if($allocation)
-                                        <span class="pt-wh-v2-state pt-wh-v2-state--{{ $allocation->status }}">{{ $allocation->status==='shortage' ? 'Thiếu hàng' : ($allocation->status==='reserved' ? 'Đã giữ' : 'Đã ghép SKU & kho') }}</span>
+                                        <span class="pt-wh-v2-state pt-wh-v2-state--{{ $allocation->status }}">{{ $allocation->status==='shortage' ? 'Thiếu hàng' : ($allocation->status==='reserved' ? 'Đã giữ' : 'Đã kiểm tra tồn') }}</span>
                                     @else
-                                        <span class="pt-wh-v2-state pt-wh-v2-state--waiting_match">Chưa ghép</span>
+                                        <span class="pt-wh-v2-state pt-wh-v2-state--waiting_match">Chưa kiểm tra</span>
                                     @endif
                                 </div>
                             </section>
@@ -158,6 +202,12 @@
                     </div>
                 </section>
             @endif
+            @if(in_array($materialRequest->status, ['warehouse_check','preparing'], true))
+                <form method="POST" action="{{ route('project-test.warehouse.manager.submit',$materialRequest) }}" class="pt-card pt-section" data-confirm="Gửi kết quả kiểm tra tồn cho Quản lý phê duyệt?">
+                    @csrf
+                    <button class="pt-btn pt-btn--brand pt-wh-v2-full"><i class="bi bi-send-check"></i> Gửi Quản lý phê duyệt</button>
+                </form>
+            @endif
         </main>
 
         <aside class="pt-wh-v2-summary-side">
@@ -165,7 +215,7 @@
                 <div class="pt-wh-v2-section-head"><div><span class="pt-wh-v2-number">3</span><div><h2>Kiểm tra & bàn giao</h2><p>Chỉ bấm xuất khi mọi dòng đã đủ SKU, kho và serial.</p></div></div></div>
                 <div class="pt-wh-v2-summary-grid">
                     <div><small>Dòng yêu cầu</small><strong data-summary-total>{{ $summary['total'] }}</strong></div>
-                    <div><small>Đã chọn SKU & kho</small><strong data-summary-mapped>{{ $summary['mapped'] }}/{{ $summary['total'] }}</strong></div>
+                    <div><small>Đã kiểm tra tồn</small><strong data-summary-mapped>{{ $summary['mapped'] }}/{{ $summary['total'] }}</strong></div>
                     <div><small>Dòng thiếu hàng</small><strong data-summary-shortage>{{ $summary['shortage'] }}</strong></div>
                     <div><small>Serial đã chọn</small><strong data-summary-serial>{{ $summary['serialSelected'] }}/{{ $summary['serialRequired'] }}</strong></div>
                 </div>
@@ -177,12 +227,12 @@
 
                 @if(!$locked)
                     @if(!$reserved)
-                        <form method="POST" action="{{ route('project-test.warehouse.reserve',$materialRequest) }}" data-confirm="Giữ số hàng này cho công trình trong module Test?">@csrf<button class="pt-btn pt-btn--dark pt-wh-v2-full" @disabled($state!=='ready')><i class="bi bi-bookmark-check"></i> Giữ hàng Test</button></form>
+                        <form method="POST" action="{{ route('project-test.warehouse.reserve',$materialRequest) }}" data-confirm="Giữ số hàng này cho công trình trong module?">@csrf<button class="pt-btn pt-btn--dark pt-wh-v2-full" @disabled($state!=='ready')><i class="bi bi-bookmark-check"></i> Giữ hàng</button></form>
                     @else
                         <form method="POST" action="{{ route('project-test.warehouse.release',$materialRequest) }}" data-confirm="Bỏ giữ toàn bộ hàng của phiếu này?">@csrf<button class="pt-btn pt-btn--light pt-wh-v2-full"><i class="bi bi-bookmark-x"></i> Bỏ giữ hàng</button></form>
                     @endif
 
-                    <form method="POST" action="{{ route('project-test.warehouse.issue',$materialRequest) }}" data-confirm="Xác nhận bàn giao hàng cho Kỹ thuật? Tồn thật chưa bị trừ trong bản Test." class="pt-wh-v2-issue-form">@csrf
+                    <form method="POST" action="{{ route('project-test.warehouse.issue',$materialRequest) }}" data-confirm="Xác nhận bàn giao hàng cho Kỹ thuật? Tồn kho thật sẽ được trừ ngay sau khi xác nhận." class="pt-wh-v2-issue-form">@csrf
                         <label class="pt-label">Người nhận hàng</label>
                         <select class="pt-select" name="receiver_id" required @disabled(!$reserved)>
                             <option value="">-- Chọn Kỹ thuật nhận --</option>
@@ -190,7 +240,7 @@
                         </select>
                         <label class="pt-label" style="margin-top:10px">Ghi chú bàn giao</label>
                         <textarea class="pt-textarea" name="issue_note" placeholder="Tình trạng hàng, số kiện, người vận chuyển..." @disabled(!$reserved)>{{ $materialRequest->issue_note }}</textarea>
-                        <button class="pt-btn pt-btn--brand pt-wh-v2-full" style="margin-top:10px" @disabled(!$reserved)><i class="bi bi-box-arrow-up-right"></i> Xuất kho Test & bàn giao</button>
+                        <button class="pt-btn pt-btn--brand pt-wh-v2-full" style="margin-top:10px" @disabled(!$reserved)><i class="bi bi-box-arrow-up-right"></i> Xuất kho công trình & bàn giao</button>
                     </form>
                 @else
                     <div class="pt-alert pt-alert--success"><strong>Đã bàn giao:</strong> {{ optional($materialRequest->handed_over_at ?: $materialRequest->issued_at)->format('d/m/Y H:i') }}<br>Người nhận: {{ $materialRequest->receiver?->name ?: '—' }}<br>Người xuất: {{ $materialRequest->issuer?->name ?: '—' }}</div>
@@ -200,10 +250,10 @@
             <section class="pt-card pt-section pt-wh-v2-rule-card">
                 <h3>Kho chỉ cần làm đúng thứ tự</h3>
                 <ol>
-                    <li><strong>Chọn SKU thật</strong> phù hợp yêu cầu Kỹ thuật.</li>
-                    <li><strong>Chọn kho có tồn</strong> từ danh sách hệ thống gợi ý.</li>
-                    <li><strong>Chọn số lượng/serial</strong> đúng kho vừa chọn.</li>
-                    <li><strong>Giữ và bàn giao</strong> cho người Kỹ thuật nhận.</li>
+                    <li><strong>Kiểm tra đúng mã hàng</strong> phù hợp yêu cầu Kỹ thuật.</li>
+                    <li><strong>Chọn kho kiểm tra tồn</strong> từ danh sách hệ thống gợi ý.</li>
+                    <li><strong>Cập nhật số lượng chuẩn bị/serial</strong> đúng kho vừa chọn.</li>
+                    <li><strong>Sau khi Quản lý duyệt: giữ và xuất kho</strong> cho người Kỹ thuật nhận.</li>
                 </ol>
             </section>
         </aside>
@@ -215,4 +265,8 @@
 @push('scripts')
 <script src="{{ asset('js/project-test.js') }}?v={{ file_exists(public_path('js/project-test.js')) ? filemtime(public_path('js/project-test.js')) : time() }}"></script>
 <script src="{{ asset('js/project-test-warehouse-v2.js') }}?v={{ file_exists(public_path('js/project-test-warehouse-v2.js')) ? filemtime(public_path('js/project-test-warehouse-v2.js')) : time() }}"></script>
+@endpush
+
+@push('scripts')
+<script src="{{ asset('js/project-warehouse-360-v1.js') }}?v={{ file_exists(public_path('js/project-warehouse-360-v1.js')) ? filemtime(public_path('js/project-warehouse-360-v1.js')) : time() }}"></script>
 @endpush

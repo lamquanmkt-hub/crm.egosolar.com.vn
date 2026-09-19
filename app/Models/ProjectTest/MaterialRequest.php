@@ -57,8 +57,33 @@ class MaterialRequest extends Model
         return $this->belongsTo(User::class, 'receiver_id');
     }
 
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
+
+    public function parentRequest()
+    {
+        return $this->belongsTo(self::class, 'parent_request_id');
+    }
+
+    public function childRequests()
+    {
+        return $this->hasMany(self::class, 'parent_request_id');
+    }
+
+    public function aftercareRequest()
+    {
+        return $this->belongsTo(MaterialAftercareRequest::class, 'aftercare_request_id');
+    }
+
+    public function aftercareRequests()
+    {
+        return $this->hasMany(MaterialAftercareRequest::class, 'material_request_id')->latest('id');
     }
 }

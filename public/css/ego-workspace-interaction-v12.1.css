@@ -1,0 +1,64 @@
+/*
+===============================================================================
+EGO WORKSPACE — AVATAR + SWIPE/WHEEL V12.1
+- Hiển thị ảnh đại diện thật nếu tài khoản đã có avatar.
+- Mobile vuốt trái/phải để đổi trang ứng dụng.
+- Desktop dùng con lăn/trackpad để đổi trang ứng dụng.
+===============================================================================
+*/
+
+.ws5-avatar {
+    overflow: hidden !important;
+}
+
+.ws5-avatar > img[data-ego-workspace-avatar] {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: inherit !important;
+}
+
+.ws5-app-viewport {
+    touch-action: pan-y pinch-zoom !important;
+}
+
+@media (min-width: 701px) {
+    .ws5-app-viewport {
+        cursor: grab !important;
+        overscroll-behavior: contain !important;
+    }
+
+    .ws5-app-viewport:active {
+        cursor: grabbing !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .ws5-app-viewport {
+        touch-action: pan-y !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    .ws5-pagination {
+        position: relative !important;
+        z-index: 10 !important;
+        min-height: 28px !important;
+        pointer-events: auto !important;
+    }
+
+    .ws5-page-dot {
+        width: 7px !important;
+        height: 7px !important;
+        min-width: 7px !important;
+        border: 0 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+    }
+
+    .ws5-page-dot.is-active {
+        width: 24px !important;
+        min-width: 24px !important;
+    }
+}

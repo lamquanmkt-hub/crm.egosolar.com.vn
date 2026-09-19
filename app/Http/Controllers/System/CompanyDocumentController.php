@@ -21,6 +21,7 @@ class CompanyDocumentController extends Controller
         'accounting' => ['label' => 'Kế toán', 'roles' => ['accounting']],
         'assistant' => ['label' => 'Trợ lý', 'roles' => ['assistant', 'tro_ly', 'management']],
         'warehouse' => ['label' => 'Kho', 'roles' => ['warehouse', 'kho']],
+        'hr' => ['label' => 'Nhân sự', 'roles' => ['hr', 'hr_manager', 'human_resources', 'nhan_su']],
         'media' => ['label' => 'Tư liệu hình ảnh', 'roles' => ['*']],
     ];
 
@@ -498,6 +499,9 @@ class CompanyDocumentController extends Controller
         if (! $user) {
             return [];
         }
+
+        /* EGO_COMPANY_DOCS_ALL_AUTH_ROLES_V2 */
+        return array_keys($this->departments);
 
         if ($this->hasAnyRole($user, ['admin', 'management', 'warehouse', 'kho'])) {
             return array_keys($this->departments);

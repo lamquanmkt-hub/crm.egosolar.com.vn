@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\SolarSiteDocument;
 use App\Services\Technical\SolarMaintenanceQueryService;
+use App\Services\Technical\SolarMaintenanceWorkflowService;
 use App\Support\EgoCompanyScope;
 use App\Support\SolarMaintenanceAccess;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +25,10 @@ class SolarMaintenanceDetailController extends Controller
     /**
      * Khởi tạo controller với service truy vấn bảo trì.
      */
-    public function __construct(private readonly SolarMaintenanceQueryService $queryService) {}
+    public function __construct(
+        private readonly SolarMaintenanceQueryService $queryService,
+        private readonly SolarMaintenanceWorkflowService $workflow,
+    ) {}
 
     /**
      * Trang hồ sơ công trình: các chu kỳ bảo trì, tài liệu, serial và nhật ký hoạt động.
@@ -72,7 +76,11 @@ class SolarMaintenanceDetailController extends Controller
             ->map(function (Collection $items, string $key) {
                 $first = $items->first();
                 $planned = max(1, (int) ($first?->total_rounds ?? $items->count()));
-                $completed = $items->where('status', 'completed')->count();
+                $completed = $items->filter(fn (SolarMaintenanceSchedule $item) =>
+                    $item->status === 'completed'
+                    && $item->approval_status === 'approved'
+                    && $item->approved_at
+                )->count();
 
                 return [
                     'key' => $key,
@@ -104,6 +112,7 @@ class SolarMaintenanceDetailController extends Controller
             'statuses' => SolarMaintenanceSchedule::STATUSES,
             'types' => SolarMaintenanceSchedule::TYPES,
             'approvalStatuses' => SolarMaintenanceSchedule::APPROVAL_STATUSES,
+            'assignmentApprovalStatuses' => SolarMaintenanceSchedule::ASSIGNMENT_APPROVAL_STATUSES,
             'permissions' => [
                 'create' => $request->user()->can('create', SolarMaintenanceSchedule::class),
                 'upload' => SolarMaintenanceAccess::isTechnician($request->user())
@@ -121,6 +130,7 @@ class SolarMaintenanceDetailController extends Controller
         $schedule->loadMissing([
             'site',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
+            'maintenanceProfile',
         ]);
 
         if (! $request->user()->can('view', $schedule)) {
@@ -132,11 +142,26 @@ class SolarMaintenanceDetailController extends Controller
             'creator:id,name',
             'submitter:id,name',
             'approver:id,name',
+            'assignmentSubmitter:id,name',
+            'assignmentApprover:id,name',
+            'assignmentRevisionRequester:id,name',
+            'externalLaborPaymentRequest:id,code,status,amount,created_by',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
             'approvals.approver:id,name',
             'approvals.submitter:id,name',
             'attachments.uploader:id,name',
             'statusHistories.user:id,name',
+            'checklistItems.completer:id,name',
+            'checklistItems.attachments.uploader:id,name',
+            'checklistItems.template',
+            'maintenanceProfile',
+        ]);
+
+        $this->workflow->ensureChecklist($schedule);
+        $schedule->load([
+            'checklistItems.completer:id,name',
+            'checklistItems.attachments.uploader:id,name',
+            'checklistItems.template',
         ]);
 
         $siblingQuery = SolarMaintenanceSchedule::query()
@@ -171,16 +196,33 @@ class SolarMaintenanceDetailController extends Controller
             'memberIds' => $memberIds,
             'statuses' => SolarMaintenanceSchedule::STATUSES,
             'approvalStatuses' => SolarMaintenanceSchedule::APPROVAL_STATUSES,
+            'assignmentApprovalStatuses' => SolarMaintenanceSchedule::ASSIGNMENT_APPROVAL_STATUSES,
             'types' => SolarMaintenanceSchedule::TYPES,
             'priorities' => SolarMaintenanceSchedule::PRIORITIES,
+            'reportConclusions' => SolarMaintenanceWorkflowService::CONCLUSIONS,
             'permissions' => [
-                'update' => $request->user()->can('update', $schedule),
-                'upload' => $request->user()->can('uploadAttachment', $schedule),
+                /*
+                 * Mọi nhân sự Kỹ thuật / Tech Manager
+                 * được bắt đầu và thực hiện công việc khi đợt đã phân công.
+                 * Phân công không dùng để ẩn quyền thao tác cơ bản.
+                 */
+                'update' =>
+                    SolarMaintenanceAccess::isTechnician($request->user())
+                    || SolarMaintenanceAccess::isManager($request->user())
+                    || $request->user()->can('update', $schedule),
+                'assign' => SolarMaintenanceAccess::canAssign($request->user()),
+                'assignment_approve' => $request->user()->can('approve', $schedule),
+                // Mọi nhân sự Kỹ thuật / Tech Manager được upload minh chứng.
+                // Trạng thái hồ sơ vẫn được kiểm tra tại AttachmentController.
+                'upload' =>
+                    SolarMaintenanceAccess::isTechnician($request->user())
+                    || SolarMaintenanceAccess::isManager($request->user()),
                 'submit' => $request->user()->can('submitForApproval', $schedule),
                 'approve' => $request->user()->can('approve', $schedule),
                 'revision' => $request->user()->can('requestRevision', $schedule),
                 'reject' => $request->user()->can('reject', $schedule),
                 'reopen' => $request->user()->can('reopen', $schedule),
+                'admin' => SolarMaintenanceAccess::isAdmin($request->user()),
             ],
         ]);
     }
@@ -190,7 +232,13 @@ class SolarMaintenanceDetailController extends Controller
      */
     private function canAccessSite(Request $request, Site $site): bool
     {
-        if (SolarMaintenanceAccess::isAdmin($request->user())) {
+        // EGO_TECHNICAL_CROSS_COMPANY_SITE_VIEW_V2
+        // Admin và mọi nhân sự Kỹ thuật được xem hồ sơ công trình
+        // bất kể company đang chọn.
+        if (
+            SolarMaintenanceAccess::isAdmin($request->user())
+            || SolarMaintenanceAccess::isTechnician($request->user())
+        ) {
             return true;
         }
 

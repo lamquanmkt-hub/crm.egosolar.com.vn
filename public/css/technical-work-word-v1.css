@@ -1,0 +1,274 @@
+.ego-tech-word-page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 26px 18px 48px;
+    color: #15273a;
+}
+
+.ego-tech-word-page .ego-doc-heading.compact {
+    display: block;
+    padding: 0 12px;
+    margin: 0 0 8px;
+}
+
+.ego-tech-word-page .ego-doc-kicker {
+    color: #0792a3;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.ego-tech-word-page .ego-doc-heading h1 {
+    margin: 7px 0 10px;
+    font-size: 30px;
+    line-height: 1.15;
+    color: #15273a;
+}
+
+.ego-tech-word-page .ego-doc-heading p {
+    margin: 0;
+    color: #647991;
+    font-size: 14px;
+}
+
+.ego-tech-word-bar {
+    height: 32px;
+    margin: 8px 12px 24px;
+    background: #daf4f7;
+}
+
+.ego-tech-word-note {
+    margin: 0 0 24px;
+    padding: 10px 12px;
+    border: 1px solid #c8d5df;
+    background: #f6f8fa;
+    color: #60758d;
+    font-size: 14px;
+}
+
+.ego-tech-word-page .ego-process-layout.technical {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 0;
+    align-items: stretch;
+}
+
+.ego-tech-word-page .ego-process-rail {
+    border: 1px solid #a9bdca;
+    border-right: 0;
+    border-radius: 0;
+    background: #f4f7f9;
+    box-shadow: none;
+    padding: 14px 10px;
+}
+
+.ego-tech-word-page .ego-process-title {
+    padding: 0 4px 10px;
+    border: 0;
+}
+
+.ego-tech-word-page .ego-process-title span {
+    color: #15273a;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.ego-tech-word-page .ego-process-title strong,
+.ego-tech-word-page .ego-process-link .icon,
+.ego-tech-word-page .ego-process-link small,
+.ego-tech-word-page .ego-process-link > i {
+    display: none !important;
+}
+
+.ego-tech-word-page .ego-process-link {
+    position: relative;
+    display: block;
+    min-height: 25px;
+    margin: 0;
+    padding: 4px 8px 4px 24px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #263b50;
+    font-size: 14px;
+    line-height: 1.25;
+}
+
+.ego-tech-word-page .ego-process-link::before {
+    content: "○";
+    position: absolute;
+    left: 7px;
+    top: 3px;
+    color: #173b55;
+}
+
+.ego-tech-word-page .ego-process-link.active {
+    background: #d3f1f4;
+    color: #05869a;
+}
+
+.ego-tech-word-page .ego-process-link.active::before {
+    content: "●";
+    color: #0794a6;
+}
+
+.ego-tech-word-page .ego-process-link strong {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.ego-tech-word-page .ego-process-link.active strong {
+    font-weight: 800;
+}
+
+.ego-tech-word-page .ego-process-content {
+    min-width: 0;
+    border: 1px solid #a9bdca;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.ego-tech-word-page .ego-business-step-heading {
+    display: block;
+    margin: 0;
+    padding: 14px 14px 4px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+}
+
+.ego-tech-word-page .ego-business-step-heading span,
+.ego-tech-word-page .ego-business-step-heading p {
+    display: none;
+}
+
+.ego-tech-word-page .ego-business-step-heading h2 {
+    margin: 0;
+    color: #15273a;
+    font-size: 18px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.ego-tech-word-page .ego-step-unit,
+.ego-tech-word-page .ego-form-section {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+}
+
+.ego-tech-word-page .ego-form-section {
+    padding: 8px 14px 10px;
+}
+
+.ego-tech-word-page .ego-form-section h4 {
+    margin: 0 0 10px;
+    color: #078b9d;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.ego-tech-word-page .ego-form-section:first-child h4 {
+    color: #15273a;
+}
+
+.ego-tech-word-page .ego-grid-form,
+.ego-tech-word-page .ego-grid-form.cols-3 {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-width: 680px;
+}
+
+.ego-tech-word-page .ego-grid-form > label {
+    display: grid;
+    grid-template-columns: 190px minmax(0, 360px);
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: #263b50;
+    font-size: 14px;
+}
+
+.ego-tech-word-page .ego-grid-form > label > span {
+    margin: 0;
+}
+
+.ego-tech-word-page input,
+.ego-tech-word-page select,
+.ego-tech-word-page textarea {
+    border: 1px solid #b8c9d5;
+    border-radius: 3px;
+    background: #fff;
+    color: #24384d;
+    font: inherit;
+}
+
+.ego-tech-word-page input:not([type="file"]),
+.ego-tech-word-page select {
+    min-height: 32px;
+    padding: 5px 8px;
+}
+
+.ego-tech-word-page select[multiple] {
+    min-height: 72px;
+    height: 72px;
+}
+
+.ego-tech-word-page textarea {
+    display: block;
+    width: 100%;
+    min-height: 62px !important;
+    padding: 8px 10px;
+    resize: vertical;
+}
+
+.ego-tech-word-page .ego-form-section:nth-of-type(3) textarea {
+    min-height: 82px !important;
+}
+
+.ego-tech-word-page input[type="file"] {
+    width: 100%;
+    padding: 5px;
+}
+
+.ego-tech-word-page .ego-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 0 0;
+}
+
+.ego-tech-word-page .ego-form-actions .btn,
+.ego-tech-word-page button[type="submit"] {
+    min-height: 34px;
+    padding: 7px 14px;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+@media (max-width: 820px) {
+    .ego-tech-word-page {
+        padding: 18px 10px 36px;
+    }
+
+    .ego-tech-word-page .ego-process-layout.technical {
+        grid-template-columns: 1fr;
+    }
+
+    .ego-tech-word-page .ego-process-rail {
+        border-right: 1px solid #a9bdca;
+        border-bottom: 0;
+    }
+
+    .ego-tech-word-page .ego-grid-form > label {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+}

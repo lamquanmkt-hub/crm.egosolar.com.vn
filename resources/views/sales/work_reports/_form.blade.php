@@ -22,10 +22,12 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap">
         <div>
             <h1 style="font-size:28px;font-weight:900;margin:0">{{ $title }}</h1>
-            <div class="swr-muted">Phase này chỉ lưu bên Sales, chưa đồng bộ sang Khách hàng.</div>
+            <div class="swr-muted">Dữ liệu này được đồng bộ vào hồ sơ Khách hàng và dùng chung cho Chăm sóc & Pipeline.</div>
         </div>
-        <a class="swr-btn dark" href="{{ route('sales.work-reports.index') }}">Quay lại</a>
+        <a class="swr-btn dark" href="{{ route('customers.pipeline') }}">Quay lại</a>
     </div>
+
+    @include('customers._module_nav')
 
     @if($errors->any())
         <div class="swr-card" style="background:#fee2e2;color:#991b1b;margin-bottom:14px">

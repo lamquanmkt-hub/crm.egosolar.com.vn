@@ -90,24 +90,46 @@ class OrderReturnController extends Controller
         $available = [];
         $serials = [];
         foreach ($order->items as $item) {
-            $used = (int) DB::table('order_return_items as ri')
+            // Phiếu đã hoàn tất: trừ theo SL kho thực sự chấp nhận.
+            $completedAccepted = (int) DB::table('order_return_items as ri')
                 ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
                 ->where('ri.order_item_id', $item->id)
-                ->whereNotIn('r.status', ['rejected', 'cancelled'])
+                ->whereNull('r.deleted_at')
+                ->where('r.status', 'completed')
                 ->sum('ri.accepted_quantity');
-            $pending = (int) DB::table('order_return_items as ri')
+
+            // Phiếu đang xử lý: giữ chỗ theo SL đang yêu cầu để tránh hoàn trùng.
+            // Không cộng accepted_quantity lần nữa vì sẽ làm trừ hai lần ở trạng thái inspected/stocked_in.
+            $openRequested = (int) DB::table('order_return_items as ri')
                 ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
                 ->where('ri.order_item_id', $item->id)
+                ->whereNull('r.deleted_at')
                 ->whereNotIn('r.status', ['completed', 'rejected', 'cancelled'])
                 ->sum('ri.requested_quantity');
-            $available[$item->id] = max(0, (int) $item->quantity - $used - $pending);
+
+            $available[$item->id] = max(
+                0,
+                (int) $item->quantity - $completedAccepted - $openRequested
+            );
+
+            // Serial đã nằm trong một phiếu hoàn còn hiệu lực thì không cho chọn lại.
+            $blockedSerialIds = DB::table('order_return_serials as ors')
+                ->join('order_return_items as ri', 'ri.id', '=', 'ors.order_return_item_id')
+                ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
+                ->where('ri.order_item_id', $item->id)
+                ->whereNull('r.deleted_at')
+                ->whereNotIn('r.status', ['rejected', 'cancelled'])
+                ->pluck('ors.serial_unit_id');
+
             $serials[$item->id] = DB::table('crm_order_item_serial_units as oi')
                 ->join('crm_serial_units as su', 'su.id', '=', 'oi.serial_unit_id')
                 ->leftJoin('crm_serial_unit_identifiers as sui', 'sui.serial_unit_id', '=', 'su.id')
                 ->leftJoin('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
                 ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'su.id')
                 ->where('oi.order_item_id', $item->id)
+                ->when($blockedSerialIds->isNotEmpty(), fn ($q) => $q->whereNotIn('su.id', $blockedSerialIds->all()))
                 ->select('su.id', DB::raw("COALESCE(si.code, CONCAT('#', su.id)) as code"), 'st.state')
+                ->distinct()
                 ->get();
         }
 
@@ -143,6 +165,23 @@ class OrderReturnController extends Controller
             'items.*.serial_ids.*' => ['integer'],
             'attachments.*' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,mp4', 'max:20480'],
         ]);
+
+        // Chỉ giữ các dòng người dùng thực sự chọn hoàn. Một đơn có nhiều sản phẩm
+        // vẫn có thể hoàn đúng 1 dòng / 1 sản phẩm; các dòng quantity = 0 bị bỏ qua.
+        if (($data['type'] ?? null) !== 'cancel') {
+            $data['items'] = collect($data['items'] ?? [])
+                ->filter(fn ($row) => is_array($row) && (int) ($row['quantity'] ?? 0) > 0)
+                ->all();
+
+            if ($data['items'] === []) {
+                throw ValidationException::withMessages([
+                    'items' => 'Hãy chọn ít nhất một sản phẩm cần hoàn và nhập số lượng lớn hơn 0.',
+                ]);
+            }
+        } else {
+            $data['items'] = [];
+        }
+
         /*
         |--------------------------------------------------------------------------
         | EGO_COMPLETED_ORDER_RETURN_GUARD_V1
@@ -186,7 +225,7 @@ class OrderReturnController extends Controller
     {
         $this->ensureCanViewReturn($orderReturn);
         $orderReturn->load([
-            'order.items.product', 'order.lead.customer', 'items.product', 'items.orderItem', 'items.serials.serialUnit.identifiers.serialIdentifier',
+            'order.items.product', 'order.lead.customer', 'order.payments', 'items.product', 'items.orderItem', 'items.serials.serialUnit.identifiers',
             'attachments', 'approvals.approver', 'histories.user', 'refunds', 'requester', 'receivingWarehouse',
         ]);
 
@@ -213,6 +252,14 @@ class OrderReturnController extends Controller
     public function approve(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureApprovalRole($orderReturn, $request->user());
+
+        $approvedStage = match ($orderReturn->status) {
+            'pending_sales_manager' => 'Sales Manager',
+            'pending_accounting' => 'Kế toán',
+            'pending_management' => 'Ban Giám đốc',
+            default => 'phê duyệt',
+        };
+
         $updated = $this->service->approve($orderReturn, $request->user(), $request->input('comment'));
         if ($updated->type === 'cancel' && $updated->status === 'approved_waiting_return') {
             DB::transaction(function () use ($updated, $request) {
@@ -228,9 +275,20 @@ class OrderReturnController extends Controller
                     'inventory_status' => 'not_required',
                 ]);
             });
+
+            return redirect()->route('order-returns.show', $updated)
+                ->with('success', 'Đã duyệt bước '.$approvedStage.'. Phiếu hủy đơn đã hoàn tất.');
         }
 
-        return back()->with('success', 'Đã phê duyệt.');
+        $nextText = match ($updated->status) {
+            'pending_accounting' => 'Tiếp theo: chờ Kế toán duyệt.',
+            'pending_management' => 'Tiếp theo: chờ Ban Giám đốc duyệt.',
+            'approved_waiting_return' => 'Đã duyệt đủ. Phiếu chuyển sang bước Thu hồi hàng.',
+            default => 'Trạng thái mới: '.$updated->status.'.',
+        };
+
+        return redirect()->route('order-returns.show', $updated)
+            ->with('success', 'Đã duyệt bước '.$approvedStage.'. '.$nextText);
     }
 
     /**
@@ -310,9 +368,20 @@ class OrderReturnController extends Controller
     public function stockIn(Request $request, OrderReturn $orderReturn): RedirectResponse
     {
         $this->ensureAny(['orders.return.stock_in'], ['admin', 'warehouse', 'kho']);
-        $this->inventoryService->stockIn($orderReturn, $request->user());
+        $updated = $this->inventoryService->stockIn($orderReturn, $request->user());
 
-        return back()->with('success', 'Đã xử lý kho. Chỉ hàng đạt chuẩn bán lại được cộng tồn.');
+        $message = match (true) {
+            $updated->status === 'completed' && $updated->financial_status === 'not_required'
+                => 'Đã nhập hoàn kho và hoàn tất phiếu. Không phát sinh tiền phải hoàn; công nợ đã được điều chỉnh nếu có.',
+            $updated->status === 'pending_refund'
+                => 'Đã nhập hoàn kho. Hệ thống đã tính số tiền thực tế cần hoàn/cấn cho khách.',
+            $updated->type === 'exchange'
+                => 'Đã nhập hàng thu hồi. Phiếu đổi hàng không bắt buộc hoàn tiền; tiếp tục nghiệp vụ xuất hàng đổi.',
+            default
+                => 'Đã xử lý kho. Chỉ hàng đạt chuẩn bán lại được cộng tồn.',
+        };
+
+        return back()->with('success', $message);
     }
 
     /**

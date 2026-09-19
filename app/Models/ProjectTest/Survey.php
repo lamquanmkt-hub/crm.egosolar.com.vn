@@ -14,6 +14,12 @@ class Survey extends Model
     protected $casts = [
         'scheduled_at' => 'datetime',
         'completed_at' => 'datetime',
+        'check_in_at' => 'datetime',
+        'check_out_at' => 'datetime',
+        'check_in_lat' => 'decimal:7',
+        'check_in_lng' => 'decimal:7',
+        'check_out_lat' => 'decimal:7',
+        'check_out_lng' => 'decimal:7',
     ];
 
     public function project()

@@ -9,10 +9,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\WarehouseRequest;
 use App\Models\Core\Company;
 use App\Models\Core\Warehouse;
-use App\Models\Inventory\Stock\ProductStock as CrmProductStock;
+use App\Models\Inventory\Catalog\Product;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Controller quản lý kho hàng (Warehouse) — chỉ điều phối, nghiệp vụ nằm ở service.
+ * Controller quan ly kho hang (Warehouse) — chi dieu phoi, nghiep vu nam o service.
  */
 class WarehouseController extends Controller
 {
@@ -23,9 +26,7 @@ class WarehouseController extends Controller
 
     public function index()
     {
-        // ✅ filter theo nhiều công ty (optional)
         $companies = Company::query()->orderBy('name')->get();
-
         $query = Warehouse::query()->with(['companies', 'manager'])->orderByDesc('id');
 
         $selectedCompanyIds = request()->input('company_ids', []);
@@ -54,21 +55,15 @@ class WarehouseController extends Controller
     public function store(WarehouseRequest $request)
     {
         $data = $request->validated();
-
-        // lấy company_ids từ form (multi-select)
         $companyIds = $request->input('company_ids', []);
         if (is_string($companyIds)) {
             $companyIds = array_filter(explode(',', $companyIds));
         }
 
         $warehouse = $this->service->create($data);
-
-        // ✅ sync pivot many-to-many
         $warehouse->companies()->sync($companyIds);
 
-        return redirect()
-            ->route('warehouses.index')
-            ->with('success', 'Tạo kho thành công');
+        return redirect()->route('warehouses.index')->with('success', 'Tạo kho thành công');
     }
 
     public function edit(Warehouse $warehouse)
@@ -82,38 +77,86 @@ class WarehouseController extends Controller
     public function update(WarehouseRequest $request, Warehouse $warehouse)
     {
         $data = $request->validated();
-
         $companyIds = $request->input('company_ids', []);
         if (is_string($companyIds)) {
             $companyIds = array_filter(explode(',', $companyIds));
         }
 
         $this->service->update($warehouse, $data);
-
-        // ✅ sync pivot many-to-many
         $warehouse->companies()->sync($companyIds);
 
-        return redirect()
-            ->route('warehouses.index')
-            ->with('success', 'Cập nhật kho thành công');
+        return redirect()->route('warehouses.index')->with('success', 'Cập nhật kho thành công');
     }
 
     public function destroy(Warehouse $warehouse)
     {
         $this->service->delete($warehouse);
 
-        return redirect()
-            ->route('warehouses.index')
-            ->with('success', 'Xóa kho thành công');
+        return redirect()->route('warehouses.index')->with('success', 'Xóa kho thành công');
     }
 
-    public function inventory(Warehouse $warehouse)
+    /**
+     * EGO V10: Danh sach ton cua mot kho phai lay catalog san pham lam bang goc.
+     * San pham khong co dong crm_product_stock (hoac qty = 0) van phai hien.
+     */
+    public function inventory(Request $request, Warehouse $warehouse)
     {
-        $inventory = CrmProductStock::query()
-            ->with('product')
-            ->where('warehouse_id', $warehouse->id)
-            ->get();
+        $keyword = trim((string) $request->get('search', ''));
+        $product = new Product;
+        $productTable = $product->getTable();
 
-        return view('warehouses.inventory', compact('warehouse', 'inventory'));
+        $query = Product::query();
+
+        if (Schema::hasColumn($productTable, 'is_active')) {
+            $query->where(function ($q) {
+                $q->where('is_active', 1)->orWhereNull('is_active');
+            });
+        }
+
+        if ($keyword !== '') {
+            $query->where(function ($q) use ($keyword, $productTable) {
+                if (Schema::hasColumn($productTable, 'name')) {
+                    $q->where($productTable.'.name', 'like', '%'.$keyword.'%');
+                }
+
+                if (Schema::hasColumn($productTable, 'sku')) {
+                    $q->orWhere($productTable.'.sku', 'like', '%'.$keyword.'%');
+                }
+            });
+        }
+
+        $query->select($productTable.'.*')
+            ->selectSub(function ($sub) use ($warehouse, $productTable) {
+                $sub->from('crm_product_stock as s')
+                    ->selectRaw('COALESCE(SUM(s.qty), 0)')
+                    ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.warehouse_id', $warehouse->id);
+            }, 'warehouse_qty');
+
+        if (Schema::hasColumn('crm_product_stock', 'updated_at')) {
+            $query->selectSub(function ($sub) use ($warehouse, $productTable) {
+                $sub->from('crm_product_stock as s')
+                    ->selectRaw('MAX(s.updated_at)')
+                    ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.warehouse_id', $warehouse->id);
+            }, 'last_stock_updated');
+        } elseif (Schema::hasColumn('crm_product_stock', 'last_updated')) {
+            $query->selectSub(function ($sub) use ($warehouse, $productTable) {
+                $sub->from('crm_product_stock as s')
+                    ->selectRaw('MAX(s.last_updated)')
+                    ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.warehouse_id', $warehouse->id);
+            }, 'last_stock_updated');
+        } else {
+            $query->selectRaw('NULL as last_stock_updated');
+        }
+
+        $inventory = $query
+            ->orderByRaw('CASE WHEN COALESCE(warehouse_qty, 0) > 0 THEN 0 ELSE 1 END')
+            ->orderBy($productTable.'.name')
+            ->paginate(100)
+            ->withQueryString();
+
+        return view('warehouses.inventory', compact('warehouse', 'inventory', 'keyword'));
     }
 }

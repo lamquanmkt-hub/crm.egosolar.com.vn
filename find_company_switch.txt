@@ -1,0 +1,59 @@
+resources/views/company_context/select.blade.php:258:                    <form method="POST" action="{{ url('/chon-cong-ty') }}">
+resources/views/company_context/switcher.blade.php:78:.ego-company-live-tiny{
+resources/views/company_context/switcher.blade.php:97:.ego-company-live-tiny form{
+resources/views/company_context/switcher.blade.php:105:.ego-company-live-tab,
+resources/views/company_context/switcher.blade.php:106:.ego-company-live-btn{
+resources/views/company_context/switcher.blade.php:130:.ego-company-live-tab.active{
+resources/views/company_context/switcher.blade.php:136:.ego-company-live-btn{
+resources/views/company_context/switcher.blade.php:142:.ego-company-live-btn:hover{
+resources/views/company_context/switcher.blade.php:147:body.ego-sidebar-collapsed .ego-company-live-tiny{
+resources/views/company_context/switcher.blade.php:152:    .ego-company-live-tiny{
+resources/views/company_context/switcher.blade.php:158:    .ego-company-live-tiny{
+resources/views/company_context/switcher.blade.php:164:<div class="ego-company-live-tiny no-print">
+resources/views/company_context/switcher.blade.php:171:            <span class="ego-company-live-tab active" title="{{ $company->name }}">
+resources/views/company_context/switcher.blade.php:175:            <form method="POST" action="{{ url('/chon-cong-ty') }}">
+resources/views/company_context/switcher.blade.php:178:                <button type="submit" class="ego-company-live-btn" title="{{ $company->name }}">
+resources/views/partials/sidebar.blade.php:2878:.ego-company-context-row{
+resources/views/partials/sidebar.blade.php:2891:.ego-company-context-label{
+resources/views/partials/sidebar.blade.php:2903:.ego-company-context-label i{color:#22d3ee !important;font-size:14px !important;}
+resources/views/partials/sidebar.blade.php:2911:.ego-status-grid .ego-status-row:not(.ego-company-context-row) > *:not(.ego-status-row__label):not(strong){
+resources/views/partials/sidebar.blade.php:2914:.ego-company-context-control{
+resources/views/partials/sidebar.blade.php:2928:.ego-company-context-control > *,
+resources/views/partials/sidebar.blade.php:2929:.ego-company-context-control form,
+resources/views/partials/sidebar.blade.php:2930:.ego-company-context-control div{
+resources/views/partials/sidebar.blade.php:2941:.ego-company-context-control a,
+resources/views/partials/sidebar.blade.php:2942:.ego-company-context-control button,
+resources/views/partials/sidebar.blade.php:2943:.ego-company-context-control span{
+resources/views/partials/sidebar.blade.php:2963:.ego-company-context-control a:hover,
+resources/views/partials/sidebar.blade.php:2964:.ego-company-context-control button:hover{color:#fff !important;background:rgba(34,211,238,.16) !important;}
+resources/views/partials/sidebar.blade.php:2965:.ego-company-context-control .active,
+resources/views/partials/sidebar.blade.php:2966:.ego-company-context-control .is-active,
+resources/views/partials/sidebar.blade.php:2967:.ego-company-context-control [aria-current="page"],
+resources/views/partials/sidebar.blade.php:2968:.ego-company-context-control [aria-pressed="true"],
+resources/views/partials/sidebar.blade.php:2969:.ego-company-context-control a:first-child,
+resources/views/partials/sidebar.blade.php:2970:.ego-company-context-control button:first-child,
+resources/views/partials/sidebar.blade.php:2971:.ego-company-context-control span:first-child{
+resources/views/partials/sidebar.blade.php:3005:        var row = document.querySelector('.ego-company-context-row');
+resources/views/partials/sidebar.blade.php:3008:            row.className = 'ego-company-context-row';
+resources/views/partials/sidebar.blade.php:3009:            row.innerHTML = '<span class="ego-company-context-label"><i class="bi bi-building"></i><span>Chọn công ty</span></span><div class="ego-company-context-control"></div>';
+resources/views/partials/sidebar.blade.php:3012:        return row.querySelector('.ego-company-context-control');
+resources/views/partials/sidebar.blade.php:3018:        if(el.closest('.ego-company-context-row')) return true;
+resources/views/partials/sidebar.blade.php:3046:            if(row.classList.contains('ego-company-context-row')) return;
+resources/views/partials/sidebar.blade.php:3094:#sidebar .ego-company-context-row,
+resources/views/partials/sidebar.blade.php:3148:#sidebar .ego-status-grid .ego-status-row .ego-company-live-tiny{
+resources/views/partials/sidebar.blade.php:3153:#sidebar .ego-company-switch-row .ego-company-live-tiny{
+resources/views/partials/sidebar.blade.php:3171:#sidebar .ego-company-switch-row .ego-company-live-tiny form{
+resources/views/partials/sidebar.blade.php:3177:#sidebar .ego-company-switch-row .ego-company-live-tab,
+resources/views/partials/sidebar.blade.php:3178:#sidebar .ego-company-switch-row .ego-company-live-btn{
+resources/views/partials/sidebar.blade.php:3199:#sidebar .ego-company-switch-row .ego-company-live-tab.active{
+resources/views/partials/sidebar.blade.php:3259:        document.querySelectorAll('#sidebar .ego-company-context-row, #sidebar .ego-company-choice-row, #sidebar .ego-company-switch-row').forEach(el => el.remove());
+resources/views/partials/sidebar.blade.php:3262:        const switches = Array.from(document.querySelectorAll('#sidebar .ego-company-live-tiny'));
+app/Http/Controllers.bak-20260605-143127/EgoCompanyContextController.php:80:        return redirect('/chon-cong-ty');
+app/Http/Controllers/EgoCompanyContextController.php:80:        return redirect('/chon-cong-ty');
+app/Http/Middleware/EgoCompanyContextMiddleware.php:26:            'chon-cong-ty',
+app/Http/Middleware/EgoCompanyContextMiddleware.php:27:            'doi-cong-ty',
+app/Http/Middleware/EgoCompanyContextMiddleware.php:28:            'company-context/current',
+app/Http/Middleware/EgoCompanyContextMiddleware.php:41:            return redirect('/chon-cong-ty');
+routes/web.php:125:    Route::get('/chon-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'select'])->name('company-context.select');
+routes/web.php:126:    Route::post('/chon-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'store'])->name('company-context.store');
+routes/web.php:127:    Route::post('/doi-cong-ty', [\App\Http\Controllers\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');

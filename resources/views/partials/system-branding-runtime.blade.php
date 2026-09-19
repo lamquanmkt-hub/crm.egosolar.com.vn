@@ -36,6 +36,20 @@
         $egoTheme = $egoThemeDefaults;
     }
 
+
+    /*
+     * Luôn bổ sung các giá trị mặc định để tránh lỗi 500
+     * khi cache thương hiệu cũ bị thiếu trường.
+     */
+    $egoTheme = array_merge(
+        $egoThemeDefaults,
+        is_array($egoTheme) ? $egoTheme : []
+    );
+    /* EGO_BRANDING_DEFAULT_GUARD_V3 */
+    $egoTheme = array_merge(
+        $egoThemeDefaults,
+        is_array($egoTheme ?? null) ? $egoTheme : []
+    );
     $egoSafeHex = static function ($value, string $fallback): string {
         $value = strtoupper(trim((string) $value));
         return preg_match('/^#[0-9A-F]{6}$/', $value) ? $value : $fallback;

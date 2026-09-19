@@ -725,20 +725,8 @@ window.EGO_EXECUTIVE_DASHBOARD = {{ Illuminate\Support\Js::from([
 <script src="{{ asset('js/executive-dashboard.js') }}?v={{ filemtime(public_path('js/executive-dashboard.js')) }}"></script>
 @endpush
 
-{{-- EGO_EXECUTIVE_PROMAX_MOTION --}}
-@push('styles')
-    <link
-        rel="stylesheet"
-        href="{{ asset('css/executive-dashboard-promax-motion.css') }}?v={{ filemtime(public_path('css/executive-dashboard-promax-motion.css')) }}"
-    >
-@endpush
-
+{{-- EGO_EXECUTIVE_PROMAX_MOTION_DISABLED_FOR_PERFORMANCE --}}
 @push('scripts')
-    <script
-        src="{{ asset('js/executive-dashboard-promax-motion.js') }}?v={{ filemtime(public_path('js/executive-dashboard-promax-motion.js')) }}"
-        defer
-    ></script>
-
 {{-- EGO_LEAVE_FLOAT_DRAWER_JS_V120_START --}}
 <script
     src="{{ asset('js/ego-leave-dashboard-drawer.js') }}?v={{ file_exists(public_path('js/ego-leave-dashboard-drawer.js')) ? filemtime(public_path('js/ego-leave-dashboard-drawer.js')) : '1.2.0' }}"

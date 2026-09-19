@@ -7,3 +7,6 @@ Stack trace:
 #0 Command line code(2): require()
 #1 {main}
   thrown in /home/crmegoso/public_html/bootstrap/app.php on line 7
+[23-Jul-2026 14:22:44 Asia/Ho_Chi_Minh] PHP Deprecated:  Directive 'allow_url_include' is deprecated in Unknown on line 0
+[23-Jul-2026 14:27:10 Asia/Ho_Chi_Minh] PHP Deprecated:  Directive 'allow_url_include' is deprecated in Unknown on line 0
+[23-Jul-2026 14:27:14 Asia/Ho_Chi_Minh] PHP Deprecated:  Directive 'allow_url_include' is deprecated in Unknown on line 0

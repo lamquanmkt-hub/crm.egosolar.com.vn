@@ -1,0 +1,102 @@
+/* Project list UI aligned with Orders screen. Scoped to .project-list-ui. */
+.project-list-ui{padding-top:18px}
+.project-list-ui .erp-container{max-width:1540px}
+.project-list-ui .erp-page-head{margin-bottom:14px}
+.project-money-stat{font-size:18px!important}
+
+.project-origin-nav,
+.project-stage-strip{
+    display:flex;
+    gap:8px;
+    overflow:auto;
+    padding:6px;
+    margin-bottom:14px;
+    background:#fff;
+    border:1px solid var(--erp-border);
+    border-radius:14px;
+    box-shadow:var(--erp-shadow);
+    scrollbar-width:thin;
+}
+.project-origin-nav a,
+.project-stage-strip a{
+    min-height:38px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:8px 11px;
+    border:1px solid transparent;
+    border-radius:10px;
+    color:#526174;
+    font-size:12px;
+    font-weight:750;
+    white-space:nowrap;
+    transition:.16s ease;
+}
+.project-origin-nav a:hover,
+.project-stage-strip a:hover{background:#f7fafc;color:var(--erp-navy)}
+.project-origin-nav a.active,
+.project-stage-strip a.active{
+    color:#fff;
+    background:var(--erp-navy);
+    border-color:var(--erp-navy);
+    box-shadow:0 5px 14px rgba(16,42,67,.14)
+}
+.project-origin-nav a strong,
+.project-stage-strip a strong{
+    min-width:21px;
+    height:21px;
+    padding:0 6px;
+    border-radius:999px;
+    display:inline-grid;
+    place-items:center;
+    background:#edf2f7;
+    color:#526174;
+    font-size:10px;
+}
+.project-origin-nav a.active strong,
+.project-stage-strip a.active strong{background:rgba(255,255,255,.18);color:#fff}
+
+.project-filter-grid{
+    display:grid;
+    grid-template-columns:minmax(250px,1.45fr) repeat(3,minmax(155px,1fr)) auto;
+    gap:10px;
+    align-items:end;
+}
+.project-filter-actions{display:flex;gap:7px;align-items:center}
+
+.project-table{min-width:1280px}
+.project-table td{vertical-align:top}
+.project-table .project-name{margin-top:6px;max-width:245px}
+.project-table .project-address{max-width:260px}
+.project-table .project-status-text{max-width:220px}
+.project-table .erp-menu-panel{min-width:205px}
+.project-table .erp-progress{min-width:130px}
+.project-debt{color:var(--erp-red)!important;font-weight:750}
+.project-paid{color:var(--erp-teal)!important;font-weight:750}
+.project-mobile-name{margin-top:4px;max-width:230px}
+.project-mobile-actions{display:flex;gap:8px;margin-top:13px}
+.project-mobile-actions .erp-btn-primary{flex:1}
+.project-mobile-list{display:none}
+
+@media(max-width:1280px){
+    .project-filter-grid{grid-template-columns:1.3fr 1fr 1fr}
+    .project-filter-grid>div:nth-child(4){grid-column:auto}
+    .project-filter-actions{grid-column:1/-1}
+}
+
+@media(max-width:768px){
+    .project-list-ui{padding:12px}
+    .project-origin-nav,.project-stage-strip{margin-left:-2px;margin-right:-2px}
+    .project-filter-grid{grid-template-columns:1fr}
+    .project-filter-actions{grid-column:auto}
+    .project-filter-actions .erp-btn-primary{flex:1}
+    .project-desktop-table{display:none}
+    .project-mobile-list{display:block}
+    .project-list-ui .erp-stats{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:480px){
+    .project-list-ui .erp-stats{grid-template-columns:1fr}
+    .project-origin-nav a,.project-stage-strip a{padding:8px 10px}
+}

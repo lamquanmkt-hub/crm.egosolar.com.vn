@@ -29,6 +29,19 @@ class OrderFormManager {
     this.productsUrl = this.builder?.dataset.productsUrl || '/orders/product-catalog';
     this.warehousesUrl = this.builder?.dataset.warehousesUrl || '/orders/product-warehouses';
     this.mode = this.builder?.dataset.mode || 'create';
+
+    // EGO_EDIT_PRESERVE_HISTORY_START
+    this.editInitialRows = this.mode === 'edit'
+      ? this.rows().map(row => ({
+          row,
+          priceTierId: row.querySelector('.price-tier-select')?.value || '',
+          unitPrice: row.querySelector('.unit-price')?.value || '',
+          vatPercent: row.querySelector('.item-vat-percent')?.value || '',
+          lineTotal: row.querySelector('.line-total')?.value || '',
+        }))
+      : [];
+    // EGO_EDIT_PRESERVE_HISTORY_END
+
     this.customerTypeId = window.customerTypeId || null;
     this.customerPriceTierId = null;
     this.allPriceTiers = Array.isArray(window.allPriceTiers) ? window.allPriceTiers : [];
@@ -51,10 +64,74 @@ class OrderFormManager {
     };
 
     this.bindGlobalEvents();
-    this.bootstrap().catch(error => {
-      console.error(error);
-      this.toast('Không thể khởi tạo trang tạo đơn hàng.', 'danger');
-    });
+    this.bootstrap()
+      .then(() => {
+        // EGO_EDIT_RESTORE_HISTORY_START
+        if (this.mode !== 'edit' || !this.editInitialRows.length) return;
+
+        this.editInitialRows.forEach(snapshot => {
+          const row = snapshot.row;
+          if (!row?.isConnected) return;
+
+          const tierSelect = row.querySelector('.price-tier-select');
+          const priceInput = row.querySelector('.unit-price');
+          const vatInput = row.querySelector('.item-vat-percent');
+          const totalInput = row.querySelector('.line-total');
+
+          if (
+            tierSelect
+            && Array.from(tierSelect.options).some(
+              option => option.value === String(snapshot.priceTierId)
+            )
+          ) {
+            tierSelect.value = String(snapshot.priceTierId);
+          }
+
+          if (priceInput && snapshot.unitPrice !== '') {
+            priceInput.value = snapshot.unitPrice;
+          }
+
+          if (vatInput && snapshot.vatPercent !== '') {
+            vatInput.value = snapshot.vatPercent;
+          }
+
+          if (totalInput && snapshot.lineTotal !== '') {
+            totalInput.value = snapshot.lineTotal;
+          }
+
+          const price = this.parseNumber(priceInput?.value);
+          const quantity = Math.max(
+            0,
+            Number(row.querySelector('.quantity')?.value || 0)
+          );
+
+          const subtotal = price * quantity;
+
+          const percent = this.clampPercent(
+            row.querySelector('.discount-percent')?.value
+          );
+
+          const amount = Math.max(
+            0,
+            this.parseNumber(
+              row.querySelector('.discount-per-unit')?.value
+            )
+          );
+
+          const discount = amount > 0
+            ? Math.min(subtotal, amount * quantity)
+            : Math.min(subtotal, subtotal * percent / 100);
+
+          row.dataset.discountTotal = String(discount);
+        });
+
+        this.updateTotals();
+        // EGO_EDIT_RESTORE_HISTORY_END
+      })
+      .catch(error => {
+        console.error(error);
+        this.toast('Không thể khởi tạo form đơn hàng.', 'danger');
+      });
   }
 
   rows() {
@@ -760,39 +837,79 @@ class OrderFormManager {
     const select = row.querySelector('.warehouse-select');
     if (!select) return;
 
-    const allWarehouses = Array.isArray(row._warehouses) ? row._warehouses : [];
-    const availableWarehouses = allWarehouses.filter(warehouse => Number(warehouse.available_qty || 0) > 0);
-    const preserved = allWarehouses.find(warehouse => String(warehouse.id) === String(preserveWarehouseId || ''));
+    const allWarehouses = Array.isArray(row._warehouses)
+      ? row._warehouses
+      : [];
 
-    select.innerHTML = '<option value="">Chọn kho còn hàng</option>';
+    const inStockCount = allWarehouses.filter(
+      warehouse => Number(warehouse.available_qty || 0) > 0
+    ).length;
 
-    availableWarehouses.forEach(warehouse => {
+    select.innerHTML = '<option value="">Chọn kho xuất</option>';
+
+    allWarehouses.forEach(warehouse => {
       const option = document.createElement('option');
+      const available = Number(warehouse.available_qty || 0);
+
       option.value = String(warehouse.id);
-      option.textContent = `${warehouse.name} — khả dụng ${this.formatNumber(warehouse.available_qty)}`;
-      option.dataset.companyId = String(warehouse.company_id || '');
-      option.dataset.companyName = warehouse.company_name || '';
+
+      option.textContent = available > 0
+        ? `${warehouse.name} — khả dụng ${this.formatNumber(available)}`
+        : `${warehouse.name} — tồn 0 (vẫn lên đơn)`;
+
+      option.dataset.companyId =
+        String(warehouse.company_id || '');
+
+      option.dataset.companyName =
+        warehouse.company_name || '';
+
       select.appendChild(option);
     });
 
-    if (
-      this.mode === 'edit'
-      && preserved
-      && !availableWarehouses.some(warehouse => String(warehouse.id) === String(preserved.id))
-    ) {
-      const option = document.createElement('option');
-      option.value = String(preserved.id);
-      option.textContent = `${preserved.name} — không còn tồn (dữ liệu cũ)`;
-      select.appendChild(option);
-    }
+    select.disabled = allWarehouses.length === 0;
 
-    select.disabled = availableWarehouses.length === 0 && !(this.mode === 'edit' && preserved);
+    if (allWarehouses.length === 0) {
 
-    if (availableWarehouses.length === 0) {
-      this.setStockStatus(row, 'Không có kho nào còn hàng.', 'danger');
-      this.setRowError(row, 'Sản phẩm hiện không có kho nào còn tồn khả dụng.');
+      this.setStockStatus(
+        row,
+        'Sản phẩm chưa có kho xuất phù hợp.',
+        'danger'
+      );
+
+      this.setRowError(
+        row,
+        'Sản phẩm chưa được gán vào kho xuất nào.'
+      );
+
+    } else if (inStockCount === 0) {
+
+      this.setStockStatus(
+        row,
+        'Kho đang tồn 0 — vẫn có thể tạo đơn.',
+        'warning'
+      );
+
+      this.clearRowError(row);
+
+    } else if (inStockCount < allWarehouses.length) {
+
+      this.setStockStatus(
+        row,
+        `${inStockCount}/${allWarehouses.length} kho còn hàng; kho tồn 0 vẫn chọn được.`,
+        'warning'
+      );
+
+      this.clearRowError(row);
+
     } else {
-      this.setStockStatus(row, `${availableWarehouses.length} kho còn hàng.`, 'success');
+
+      this.setStockStatus(
+        row,
+        `${inStockCount} kho còn hàng.`,
+        'success'
+      );
+
+      this.clearRowError(row);
     }
   }
 
@@ -802,10 +919,17 @@ class OrderFormManager {
 
     status.textContent = message;
     status.className = 'oc-stock-status';
+    status.style.removeProperty('color');
 
-    if (state === 'loading') status.classList.add('is-loading');
-    else if (state === 'danger') status.classList.add('is-danger');
-    else if (state === 'success') status.classList.add('is-success');
+    if (state === 'loading') {
+      status.classList.add('is-loading');
+    } else if (state === 'danger') {
+      status.classList.add('is-danger');
+    } else if (state === 'success') {
+      status.classList.add('is-success');
+    } else if (state === 'warning') {
+      status.style.color = '#d97706';
+    }
   }
 
   clearWarehouseArea(row) {
@@ -965,37 +1089,99 @@ class OrderFormManager {
     const warehouse = row._selectedWarehouse;
     const quantityInput = row.querySelector('.quantity');
     const help = row.querySelector('[data-qty-help]');
-    const availableValue = row.querySelector('[data-available-value]');
+    const availableValue =
+      row.querySelector('[data-available-value]');
 
     if (!quantityInput) return;
 
     if (!product || !warehouse) {
       quantityInput.removeAttribute('max');
       quantityInput.classList.remove('is-invalid');
+
       row.dataset.availableForRow = '0';
-      if (help) help.textContent = 'Chọn kho để kiểm tra tồn.';
-      if (availableValue) availableValue.textContent = '—';
+
+      if (help) {
+        help.textContent = 'Chọn kho để xem tồn hiện tại.';
+      }
+
+      if (availableValue) {
+        availableValue.textContent = '—';
+      }
+
       return;
     }
 
-    const otherQuantity = this.getOtherRowsQuantity(row, product.id, warehouse.id);
-    const availableForRow = Math.max(0, Number(warehouse.available_qty || 0) - otherQuantity);
-    const currentQuantity = Math.max(0, Number(quantityInput.value || 0));
+    const otherQuantity = this.getOtherRowsQuantity(
+      row,
+      product.id,
+      warehouse.id
+    );
 
-    row.dataset.availableForRow = String(availableForRow);
-    quantityInput.max = String(availableForRow);
-    if (availableValue) availableValue.textContent = this.formatNumber(availableForRow);
+    const availableForRow = Math.max(
+      0,
+      Number(warehouse.available_qty || 0) - otherQuantity
+    );
 
-    if (availableForRow <= 0 || currentQuantity > availableForRow) {
-      quantityInput.classList.add('is-invalid');
-      if (help) help.innerHTML = `<span style="color:var(--oc-danger)">Tối đa ${this.formatNumber(availableForRow)}</span>`;
-      this.setRowError(
+    const currentQuantity = Math.max(
+      0,
+      Number(quantityInput.value || 0)
+    );
+
+    row.dataset.availableForRow =
+      String(availableForRow);
+
+    // Không giới hạn số lượng theo tồn khi tạo đơn
+    quantityInput.removeAttribute('max');
+    quantityInput.classList.remove('is-invalid');
+
+    if (availableValue) {
+      availableValue.textContent =
+        this.formatNumber(availableForRow);
+    }
+
+    if (availableForRow <= 0) {
+
+      if (help) {
+        help.innerHTML =
+          '<span style="color:#d97706">Tồn 0 — vẫn được tạo đơn; kho bổ sung hàng trước khi xuất.</span>';
+      }
+
+      this.setStockStatus(
         row,
-        `Kho ${warehouse.name} chỉ còn ${this.formatNumber(availableForRow)} sản phẩm khả dụng cho dòng này.`
+        `Kho ${warehouse.name} đang tồn 0 — vẫn có thể tạo đơn.`,
+        'warning'
       );
+
+      this.clearRowError(row);
+
+    } else if (currentQuantity > availableForRow) {
+
+      if (help) {
+        help.innerHTML =
+          `<span style="color:#d97706">Khả dụng ${this.formatNumber(availableForRow)} — vẫn được tạo đơn.</span>`;
+      }
+
+      this.setStockStatus(
+        row,
+        `Kho ${warehouse.name} đang thiếu ${this.formatNumber(currentQuantity - availableForRow)} — vẫn có thể tạo đơn.`,
+        'warning'
+      );
+
+      this.clearRowError(row);
+
     } else {
-      quantityInput.classList.remove('is-invalid');
-      if (help) help.textContent = `Tối đa ${this.formatNumber(availableForRow)}`;
+
+      if (help) {
+        help.textContent =
+          `Khả dụng ${this.formatNumber(availableForRow)}`;
+      }
+
+      this.setStockStatus(
+        row,
+        'Kho đã sẵn sàng.',
+        'success'
+      );
+
       this.clearRowError(row, true);
     }
 
@@ -1310,21 +1496,30 @@ class OrderFormManager {
   isFormReady() {
     if (!this.customerSelect?.value) return false;
 
-    const selectedRows = this.rows().filter(row => row._product || row.querySelector('.product-select')?.value);
+    const selectedRows = this.rows().filter(
+      row =>
+        row._product ||
+        row.querySelector('.product-select')?.value
+    );
+
     if (!selectedRows.length) return false;
 
     return selectedRows.every(row => {
       const product = row._product;
       const warehouse = row._selectedWarehouse;
-      const quantity = Number(row.querySelector('.quantity')?.value || 0);
-      const available = Number(row.dataset.availableForRow || 0);
-      const price = this.parseNumber(row.querySelector('.unit-price')?.value);
+
+      const quantity = Number(
+        row.querySelector('.quantity')?.value || 0
+      );
+
+      const price = this.parseNumber(
+        row.querySelector('.unit-price')?.value
+      );
 
       return Boolean(product)
         && Boolean(warehouse)
         && quantity > 0
-        && price >= 0
-        && (this.mode === 'edit' || (available > 0 && quantity <= available));
+        && price >= 0;
     });
   }
 
@@ -1338,23 +1533,45 @@ class OrderFormManager {
     let firstInvalid = null;
 
     if (!this.customerSelect?.value) {
-      this.setCustomerSearchStatus('Vui lòng chọn khách hàng.', 'danger');
+      this.setCustomerSearchStatus(
+        'Vui lòng chọn khách hàng.',
+        'danger'
+      );
+
       this.customerSelect?.tomselect?.focus();
       valid = false;
     }
 
-    const orderDate = document.getElementById('orderDate');
+    const orderDate =
+      document.getElementById('orderDate');
+
     if (!orderDate?.value) {
       orderDate?.classList.add('is-invalid');
-      if (!firstInvalid) firstInvalid = orderDate;
+
+      if (!firstInvalid) {
+        firstInvalid = orderDate;
+      }
+
       valid = false;
     }
 
-    const selectedRows = this.rows().filter(row => row._product || row.querySelector('.product-select')?.value);
+    const selectedRows = this.rows().filter(
+      row =>
+        row._product ||
+        row.querySelector('.product-select')?.value
+    );
 
     if (!selectedRows.length) {
-      this.toast('Vui lòng chọn ít nhất một sản phẩm.', 'danger');
-      this.rows()[0]?.querySelector('.product-select')?.tomselect?.focus();
+      this.toast(
+        'Vui lòng chọn ít nhất một sản phẩm.',
+        'danger'
+      );
+
+      this.rows()[0]
+        ?.querySelector('.product-select')
+        ?.tomselect
+        ?.focus();
+
       return false;
     }
 
@@ -1363,39 +1580,83 @@ class OrderFormManager {
     selectedRows.forEach(row => {
       const product = row._product;
       const warehouse = row._selectedWarehouse;
-      const quantity = Number(row.querySelector('.quantity')?.value || 0);
-      const available = Number(row.dataset.availableForRow || 0);
-      const duplicateKey = product && warehouse ? `${product.id}|${warehouse.id}` : '';
+
+      const quantity = Number(
+        row.querySelector('.quantity')?.value || 0
+      );
+
+      const duplicateKey =
+        product && warehouse
+          ? `${product.id}|${warehouse.id}`
+          : '';
+
       let rowValid = true;
 
       if (!product) {
-        this.setRowError(row, 'Vui lòng chọn sản phẩm.');
+
+        this.setRowError(
+          row,
+          'Vui lòng chọn sản phẩm.'
+        );
+
         rowValid = false;
+
       } else if (!warehouse) {
-        this.setRowError(row, 'Vui lòng chọn một kho còn hàng.');
+
+        this.setRowError(
+          row,
+          'Vui lòng chọn kho xuất.'
+        );
+
         rowValid = false;
+
       } else if (quantity <= 0) {
-        this.setRowError(row, 'Số lượng phải lớn hơn 0.');
+
+        this.setRowError(
+          row,
+          'Số lượng phải lớn hơn 0.'
+        );
+
         rowValid = false;
-      } else if (duplicateKey && seen.has(duplicateKey)) {
-        this.setRowError(row, 'Sản phẩm bị trùng trong cùng kho. Hãy gộp số lượng.');
-        rowValid = false;
-      } else if (this.mode === 'create' && quantity > available) {
-        this.setRowError(row, `Số lượng vượt tồn khả dụng tại ${warehouse.name}.`);
+
+      } else if (
+        duplicateKey &&
+        seen.has(duplicateKey)
+      ) {
+
+        this.setRowError(
+          row,
+          'Sản phẩm bị trùng trong cùng kho. Hãy gộp số lượng.'
+        );
+
         rowValid = false;
       }
 
-      if (duplicateKey) seen.add(duplicateKey);
+      // Không chặn quantity > available
+
+      if (duplicateKey) {
+        seen.add(duplicateKey);
+      }
 
       if (!rowValid) {
         valid = false;
-        if (!firstInvalid) firstInvalid = row;
+
+        if (!firstInvalid) {
+          firstInvalid = row;
+        }
       }
     });
 
     if (!valid) {
-      firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      this.toast('Vui lòng xử lý các trường đang báo lỗi.', 'danger');
+      firstInvalid?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+
+      this.toast(
+        'Vui lòng xử lý các trường đang báo lỗi.',
+        'danger'
+      );
     }
 
     return valid;

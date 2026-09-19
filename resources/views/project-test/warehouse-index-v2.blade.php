@@ -1,9 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Cấp vật tư Công trình Test')
+@section('title', 'Công trình Kho')
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/project-test.css') }}?v={{ file_exists(public_path('css/project-test.css')) ? filemtime(public_path('css/project-test.css')) : time() }}">
+<link rel="stylesheet" href="{{ asset('css/project-warehouse-360-v1.css') }}?v={{ file_exists(public_path('css/project-warehouse-360-v1.css')) ? filemtime(public_path('css/project-warehouse-360-v1.css')) : time() }}">
 @endpush
 
 @section('content')
@@ -15,19 +16,19 @@
     <section class="pt-hero pt-wh-v2-hero">
         <div class="pt-hero__row">
             <div>
-                <div class="pt-kicker"><i class="bi bi-box-seam"></i> Sản phẩm & Kho <span class="pt-new">V2 TEST</span></div>
-                <h1>Cấp vật tư công trình</h1>
-                <p>Kho chỉ xử lý 4 việc: xem Kỹ thuật cần gì, ghép SKU thật, giữ hàng và bàn giao. Không cần mở hồ sơ công trình.</p>
+                <div class="pt-kicker"><i class="bi bi-box-seam"></i> CÔNG TRÌNH KHO <span class="pt-new">VẬN HÀNH</span></div>
+                <h1>Trung tâm Công trình Kho</h1>
+                <p>Quản lý tập trung các công trình đang chờ vật tư, ghép SKU/serial, giữ hàng và xuất bàn giao cho Kỹ thuật.</p>
             </div>
             <div class="pt-actions">
-                <a class="pt-btn pt-btn--light" href="{{ route('project-test.index') }}"><i class="bi bi-kanban"></i> Công Trình Test new</a>
+                <a class="pt-btn pt-btn--light" href="{{ route('project-test.index') }}"><i class="bi bi-kanban"></i> Công trình</a>
             </div>
         </div>
     </section>
 
     <div class="pt-alert pt-alert--info pt-wh-v2-safe" style="margin-top:14px">
         <i class="bi bi-shield-check"></i>
-        <span><strong>Chế độ Test an toàn:</strong> màn hình đọc sản phẩm và tồn thật từ kho, nhưng thao tác giữ/xuất chưa trừ <code>crm_product_stock</code>.</span>
+        <span><strong>Vận hành kho chính thức:</strong> màn hình đọc tồn kho thật; thao tác xuất sẽ trừ tồn theo FIFO và ghi lịch sử kho.</span>
     </div>
 
     <section class="pt-card pt-wh-v2-tabs" style="margin-top:14px">
@@ -103,3 +104,7 @@
 </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/project-warehouse-360-v1.js') }}?v={{ file_exists(public_path('js/project-warehouse-360-v1.js')) ? filemtime(public_path('js/project-warehouse-360-v1.js')) : time() }}"></script>
+@endpush

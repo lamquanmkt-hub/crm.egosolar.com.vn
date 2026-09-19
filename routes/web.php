@@ -86,7 +86,7 @@ use App\Http\Controllers\Inventory\ProductCategoryController;
 use App\Http\Controllers\Inventory\ProductController;
 use App\Http\Controllers\System\PushSubscriptionController;
 use App\Http\Controllers\CRM\SalesCommissionController;
-use App\Http\Controllers\Projects\SiteController;
+use App\Http\Controllers\CRM\SalesCompensationV2Controller;
 use App\Http\Controllers\Solar\SolarCalculatorController;
 use App\Http\Controllers\Solar\SolarSettingController;
 use App\Http\Controllers\Tasks\TaskController;
@@ -105,6 +105,36 @@ Route::middleware(['auth'])->group(function () {
 });
 /* EGO_COMPANY_CONTEXT_ROUTES_END */
 
+
+/* EGO_WORKSPACE_APP_CENTER_ROUTES_START */
+Route::middleware(['auth'])
+    ->prefix('workspace')
+    ->name('workspace.')
+    ->controller(\App\Http\Controllers\System\WorkspaceController::class)
+    ->group(function (): void {
+        Route::get('/', 'index')->name('index');
+    });
+
+Route::middleware(['auth', 'role:admin|management'])
+    ->prefix('workspace/settings')
+    ->name('workspace.settings.')
+    ->controller(\App\Http\Controllers\Admin\WorkspaceSettingsController::class)
+    ->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::put('/', 'update')->name('update');
+        Route::delete('/reset', 'reset')->name('reset');
+    });
+/* EGO_WORKSPACE_APP_CENTER_ROUTES_END */
+/* EGO_WORKSPACE_CONTEXT_V1_START */
+Route::middleware(['auth'])
+    ->prefix('workspace')
+    ->name('workspace.')
+    ->controller(\App\Http\Controllers\System\WorkspaceContextController::class)
+    ->group(function (): void {
+        Route::post('/switch', 'switch')->name('context.switch');
+        Route::delete('/switch', 'reset')->name('context.reset');
+    });
+/* EGO_WORKSPACE_CONTEXT_V1_END */
 /*
 |--------------------------------------------------------------------------
 | Public / Auth Routes
@@ -127,23 +157,47 @@ Route::controller(LoginController::class)->group(function () {
 */
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/sales/commissions', [SalesCommissionController::class, 'index'])
+    Route::get('/sales/commissions', [SalesCompensationV2Controller::class, 'index'])
         ->name('sales.commissions.index');
 
-    Route::get('/sales/commissions/export/excel', [SalesCommissionController::class, 'exportExcel'])
+    Route::get('/sales/commissions/export/excel', [SalesCompensationV2Controller::class, 'exportExcel'])
         ->name('sales.commissions.export.excel');
 
-    Route::get('/sales/commissions/export/pdf', [SalesCommissionController::class, 'exportPdf'])
+    Route::get('/sales/commissions/export/pdf', [SalesCompensationV2Controller::class, 'exportPdf'])
         ->name('sales.commissions.export.pdf');
 
     Route::middleware(['role:admin|sales_manager|accounting'])->group(function () {
-        Route::get('/sales/commissions/settings', [SalesCommissionController::class, 'commissionSettings'])
+        Route::get('/sales/commissions/settings', [SalesCompensationV2Controller::class, 'settings'])
             ->name('sales.commissions.settings');
 
-        Route::post('/sales/commissions/settings', [SalesCommissionController::class, 'commissionSettingsSave'])
+        Route::post('/sales/commissions/settings', [SalesCompensationV2Controller::class, 'savePolicy'])
             ->name('sales.commissions.settings.save');
     });
 
+    /* EGO_SALES_COMPENSATION_V2_ROUTES_START */
+    Route::post('/sales/commissions/policy/copy-previous', [SalesCompensationV2Controller::class, 'copyPrevious'])
+        ->name('sales.commissions.policy.copy');
+    Route::post('/sales/commissions/policy/submit', [SalesCompensationV2Controller::class, 'submit'])
+        ->name('sales.commissions.policy.submit');
+    Route::post('/sales/commissions/policy/approve', [SalesCompensationV2Controller::class, 'approve'])
+        ->name('sales.commissions.policy.approve');
+    Route::post('/sales/commissions/policy/reject', [SalesCompensationV2Controller::class, 'reject'])
+        ->name('sales.commissions.policy.reject');
+    Route::post('/sales/commissions/policy/lock', [SalesCompensationV2Controller::class, 'lock'])
+        ->name('sales.commissions.policy.lock');
+    Route::post('/sales/commissions/policy/unlock', [SalesCompensationV2Controller::class, 'unlock'])
+        ->name('sales.commissions.policy.unlock');
+    Route::post('/sales/commissions/staff', [SalesCompensationV2Controller::class, 'saveStaff'])
+        ->name('sales.commissions.staff.save');
+    Route::post('/sales/commissions/orders/{orderId}/override', [SalesCompensationV2Controller::class, 'saveOverride'])
+        ->whereNumber('orderId')->name('sales.commissions.overrides.save');
+    Route::delete('/sales/commissions/orders/{orderId}/override', [SalesCompensationV2Controller::class, 'deleteOverride'])
+        ->whereNumber('orderId')->name('sales.commissions.overrides.delete');
+    Route::post('/sales/commissions/adjustments', [SalesCompensationV2Controller::class, 'addAdjustment'])
+        ->name('sales.commissions.adjustments.store');
+    Route::delete('/sales/commissions/adjustments/{adjustmentId}', [SalesCompensationV2Controller::class, 'deleteAdjustment'])
+        ->whereNumber('adjustmentId')->name('sales.commissions.adjustments.destroy');
+    /* EGO_SALES_COMPENSATION_V2_ROUTES_END */
     Route::get('/sales/kpi', [SalesCommissionController::class, 'kpiDashboard'])
         ->name('sales.kpi.index');
 
@@ -179,7 +233,7 @@ Route::middleware(['auth'])->prefix('company-management')->name('company-managem
 });
 /* EGO_COMPANY_MANAGEMENT_END */
 
-Route::get('/', [\App\Http\Controllers\System\RoleHomeController::class, 'index'])
+Route::get('/dashboard', [\App\Http\Controllers\System\RoleHomeController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
 
@@ -282,6 +336,7 @@ Route::middleware('auth')
             Route::get('/tasks', 'index')->name('tasks.index');
             Route::get('/tasks/create', 'create')->name('tasks.create');
             Route::post('/tasks', 'store')->name('tasks.store');
+            Route::post('/tasks/projects/quick', 'quickProjectStore')->name('tasks.projects.quick');
             Route::match(['get', 'post'], '/tasks/{task}/submit', 'submitResult')->name('tasks.submit');
             Route::post('/tasks/{task}/attachments/{attachment}/replace', 'replaceAttachment')->whereNumber('attachment')->name('tasks.attachments.replace');
             Route::match(['post', 'delete'], '/tasks/{task}/attachments/{attachment}', 'destroyAttachment')->whereNumber('attachment')->name('tasks.attachments.destroy');
@@ -314,61 +369,8 @@ Route::middleware('auth')
             Route::post('/{conversation}/send', 'send')->name('chat.send');
         });
     });
-
-
-/* EGO_SITE_WORKSPACE_V2_ROUTES_START */
-Route::middleware(['auth'])
-    ->prefix('cong-trinh-moi')
-    ->name('sites-v2.')
-    ->controller(\App\Http\Controllers\Projects\SiteWorkspaceController::class)
-    ->group(function () {
-        Route::get('/', 'index')->name('index');
-    });
-/* EGO_SITE_WORKSPACE_V2_ROUTES_END */
-
-/*
-|--------------------------------------------------------------------------
-| Công trình (Sites) - Refactored
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales|sales'])
-    ->prefix('cong-trinh')
-    ->name('sites.')
-    ->controller(SiteController::class)
-    ->group(function () {
-
-        Route::get('/', 'index')->name('index');
-
-        Route::get('/tao', 'create')->name('create');
-        Route::post('/', 'store')->name('store');
-
-        Route::get('/{id}/sua', 'edit')->name('edit')->whereNumber('id');
-
-        Route::post('/{id}/cap-nhat', 'update')->name('update')->whereNumber('id');
-
-        Route::post('/{id}/ghi-nhan-thanh-toan', 'recordPayment')
-            ->name('record-payment')
-            ->whereNumber('id');
-
-        Route::put('/{id}/thanh-toan/{receipt}/cap-nhat', 'updatePayment')
-            ->name('payments.update')
-            ->whereNumber('id')
-            ->whereNumber('receipt');
-
-        Route::delete('/{id}/thanh-toan/{receipt}/xoa', 'destroyPayment')
-            ->name('payments.destroy')
-            ->whereNumber('id')
-            ->whereNumber('receipt');
-
-        Route::post('/{id}/xoa', 'destroy')->name('destroy')->whereNumber('id');
-
-        Route::get('/file/{file}', 'file')
-            ->whereNumber('file')
-            ->name('file');
-
-        Route::get('/{id}', 'show')->name('show')->whereNumber('id');
-    });
-
+/* EGO_MATERIAL_REQUEST_LEGACY_ROUTES_DISABLED_START */
+if (false) {
 /* EGO_MR_ADMIN_DELETE_COMPLETED_ROUTE_START */
 Route::match(['post', 'delete'], '/don-vat-tu/{materialRequest}/xoa', function ($materialRequest) {
     $id = (int) $materialRequest;
@@ -513,6 +515,12 @@ Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales']
 // Status tracking
 Route::get('/theo-doi-trang-thai', fn () => 'Theo dõi trạng thái - OK')
     ->middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales|sales']);
+}
+/* EGO_MATERIAL_REQUEST_LEGACY_ROUTES_DISABLED_END */
+
+/* EGO_SYNC_VN_MATERIAL_REQUEST_ROUTES_START */
+require __DIR__.'/material_requests_synced.php';
+/* EGO_SYNC_VN_MATERIAL_REQUEST_ROUTES_END */
 
 /*
 |--------------------------------------------------------------------------
@@ -570,6 +578,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('customers.handover');
     /* EGO_CUSTOMER_HANDOVER_V32_END */
 
+    /* EGO_CUSTOMER_MODULE_TABS_ROUTES_START */
+    Route::get('/customers/pipeline', [\App\Http\Controllers\CRM\SalesWorkReportController::class, 'index'])
+        ->name('customers.pipeline');
+    Route::get('/customers/overview', [CustomerController::class, 'overview'])
+        ->name('customers.overview');
+    /* EGO_CUSTOMER_MODULE_TABS_ROUTES_END */
     Route::resource('customers', CustomerController::class);
 
     /* EGO_CUSTOMER_PROFILES_ROUTES_START */
@@ -636,13 +650,19 @@ Route::middleware(['auth'])->group(function () {
         ->controller(\App\Http\Controllers\Inventory\ProductGoodsReceiptController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
+            Route::post('/suppliers', 'storeSupplier')->name('suppliers.store');
+            Route::get('/{id}', 'show')->whereNumber('id')->name('show');
             Route::post('/', 'store')->name('store');
             Route::post('/{id}/nhap-kho', 'post')->whereNumber('id')->name('post');
             Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
         });
     /* EGO_PRODUCT_GOODS_RECEIPTS_ROUTES_END */
 
-    // ProductController không có method show — loại khỏi resource để /products/{id} trả 404 thay vì 500.
+    // Hồ sơ sản phẩm: mở trực tiếp từ tên, SKU hoặc toàn bộ dòng sản phẩm.
+    Route::get('/products/{product}', [ProductController::class, 'show'])
+        ->whereNumber('product')
+        ->name('products.show');
+
     Route::resource('products', ProductController::class)->except(['show']);
 
     // Media
@@ -793,7 +813,7 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless(\Illuminate\Support\Facades\Schema::hasTable('payment_requests'), 404);
 
-        $old = \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->first();
+        $old = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
 
         abort_unless($old, 404);
 
@@ -866,11 +886,20 @@ Route::middleware(['auth'])->group(function () {
             $data['updated_at'] = now();
         }
 
+        if (in_array('company_id', $columns, true)) {
+            $data['company_id'] = \App\Support\EgoCompanyLock::id();
+        }
+
+        if (in_array('company', $columns, true)) {
+            $data['company'] = \App\Support\EgoCompanyLock::name();
+        }
+
         if (empty($data)) {
             return back()->with('success', 'Không có dữ liệu cần cập nhật.');
         }
 
         \Illuminate\Support\Facades\DB::table('payment_requests')
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
             ->where('id', $id)
             ->update($data);
 
@@ -886,7 +915,7 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless(\Illuminate\Support\Facades\Schema::hasTable('payment_requests'), 404);
 
-        $row = \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->first();
+        $row = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
 
         abort_unless($row, 404);
 
@@ -922,13 +951,14 @@ Route::middleware(['auth'])->group(function () {
 
             if ($schema::hasColumn('payment_requests', 'deleted_at')) {
                 $db::table('payment_requests')
+                    ->where('company_id', \App\Support\EgoCompanyLock::id())
                     ->where('id', $id)
                     ->update([
                         'deleted_at' => now(),
                         'updated_at' => now(),
                     ]);
             } else {
-                $db::table('payment_requests')->where('id', $id)->delete();
+                $db::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->delete();
             }
         });
 
@@ -946,7 +976,7 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless(\Illuminate\Support\Facades\Schema::hasTable('payment_requests'), 404);
 
-        $row = \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->first();
+        $row = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
 
         abort_unless($row, 404);
 
@@ -982,13 +1012,14 @@ Route::middleware(['auth'])->group(function () {
 
             if ($schema::hasColumn('payment_requests', 'deleted_at')) {
                 $db::table('payment_requests')
+                    ->where('company_id', \App\Support\EgoCompanyLock::id())
                     ->where('id', $id)
                     ->update([
                         'deleted_at' => now(),
                         'updated_at' => now(),
                     ]);
             } else {
-                $db::table('payment_requests')->where('id', $id)->delete();
+                $db::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->delete();
             }
         });
 
@@ -1033,7 +1064,7 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
 
     abort_unless(\Illuminate\Support\Facades\Schema::hasTable('payment_requests'), 404);
 
-    $old = \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->first();
+    $old = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
     abort_unless($old, 404);
 
     $columns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_requests');
@@ -1047,6 +1078,7 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
     $startPos = strlen($prefix) + 1;
 
     $maxNo = \Illuminate\Support\Facades\DB::table('payment_requests')
+        ->where('company_id', \App\Support\EgoCompanyLock::id())
         ->where('code', 'like', $prefix.'%')
         ->selectRaw("MAX(CAST(SUBSTRING(code, {$startPos}) AS UNSIGNED)) as max_no")
         ->value('max_no');
@@ -1102,6 +1134,14 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
 
     if (in_array('updated_at', $columns, true)) {
         $data['updated_at'] = now();
+    }
+
+    if (in_array('company_id', $columns, true)) {
+        $data['company_id'] = \App\Support\EgoCompanyLock::id();
+    }
+
+    if (in_array('company', $columns, true)) {
+        $data['company'] = \App\Support\EgoCompanyLock::name();
     }
 
     $newId = \Illuminate\Support\Facades\DB::table('payment_requests')->insertGetId($data);
@@ -1641,10 +1681,12 @@ Route::middleware(['auth', 'role:ky_thuat|technical|technician|technical_staff|t
     ->prefix('ky-thuat/bao-tri-bao-hanh')
     ->name('ky-thuat.maintenance.')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'index'])->name('index');
+        // Đường dẫn O&M cũ chỉ giữ để tương thích bookmark/menu cache.
+        // Giao diện chuẩn đã được đồng bộ tại /du-an/bao-tri-bao-hanh.
+        Route::get('/', fn () => redirect()->route('projects-unified.maintenance.index'))->name('index');
         Route::get('/sites/search', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'sitesSearch'])->name('sites-search');
         Route::post('/', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'store'])->name('store');
-        Route::get('/cong-trinh/{site}', [\App\Http\Controllers\Technical\SolarMaintenanceDetailController::class, 'site'])->whereNumber('site')->name('site');
+        Route::get('/cong-trinh/{site}', fn ($site) => redirect()->route('projects-unified.maintenance.site', ['site' => $site]))->whereNumber('site')->name('site');
         Route::post('/cong-trinh/{site}/files', [\App\Http\Controllers\Technical\SolarMaintenanceAttachmentController::class, 'storeSite'])->whereNumber('site')->name('site-files.store');
         Route::get('/site-files/{document}/preview', [\App\Http\Controllers\Technical\SolarMaintenanceAttachmentController::class, 'previewSite'])->whereNumber('document')->name('site-files.preview');
         Route::get('/site-files/{document}/download', [\App\Http\Controllers\Technical\SolarMaintenanceAttachmentController::class, 'downloadSite'])->whereNumber('document')->name('site-files.download');
@@ -1662,7 +1704,7 @@ Route::middleware(['auth', 'role:ky_thuat|technical|technician|technical_staff|t
         Route::put('/{schedule}', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'update'])->whereNumber('schedule')->name('update');
         Route::post('/{schedule}/status', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'updateStatus'])->whereNumber('schedule')->name('status');
         Route::delete('/{schedule}', [\App\Http\Controllers\Technical\SolarMaintenanceController::class, 'destroy'])->whereNumber('schedule')->name('destroy');
-        Route::get('/{schedule}', [\App\Http\Controllers\Technical\SolarMaintenanceDetailController::class, 'show'])->whereNumber('schedule')->name('show');
+        Route::get('/{schedule}', fn ($schedule) => redirect()->route('projects-unified.maintenance.show', ['schedule' => $schedule]))->whereNumber('schedule')->name('show');
     });
 
 /*
@@ -1725,7 +1767,7 @@ Route::middleware(['auth'])
 /* EGO_HR_ANNOUNCEMENTS_ROUTES_END */
 
 /* EGO_SITE_ASSEMBLY_ROUTES_START */
-Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales'])
+Route::middleware(['auth', 'role:ky_thuat|accounting|admin|warehouse|kho|sales|management|manager'])
     ->prefix('cong-trinh/lap-rap-san-xuat')
     ->name('site-assemblies.')
     ->controller(\App\Http\Controllers\Projects\SiteAssemblyController::class)
@@ -2340,7 +2382,7 @@ Route::middleware(['auth'])
 
         abort_unless(\Illuminate\Support\Facades\Schema::hasTable('payment_requests'), 404);
 
-        $pr = \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->first();
+        $pr = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
 
         abort_unless($pr, 404);
 
@@ -2369,13 +2411,14 @@ Route::middleware(['auth'])
 
         if (\Illuminate\Support\Facades\Schema::hasColumn('payment_requests', 'deleted_at')) {
             \Illuminate\Support\Facades\DB::table('payment_requests')
+                ->where('company_id', \App\Support\EgoCompanyLock::id())
                 ->where('id', $id)
                 ->update([
                     'deleted_at' => now(),
                     'updated_at' => now(),
                 ]);
         } else {
-            \Illuminate\Support\Facades\DB::table('payment_requests')->where('id', $id)->delete();
+            \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->delete();
         }
 
         if (
@@ -2384,7 +2427,7 @@ Route::middleware(['auth'])
             \Illuminate\Support\Facades\Schema::hasTable('finance_supplier_debt_payments')
         ) {
             foreach ($affectedDebtIds as $debtId) {
-                $debt = \Illuminate\Support\Facades\DB::table('finance_supplier_debts')->where('id', (int) $debtId)->first();
+                $debt = \Illuminate\Support\Facades\DB::table('finance_supplier_debts')->whereIn('company_name', \App\Support\EgoCompanyScope::companyNames())->where('id', (int) $debtId)->first();
 
                 if (! $debt) {
                     continue;
@@ -2398,6 +2441,7 @@ Route::middleware(['auth'])
 
                     if (! empty($round->payment_request_id)) {
                         $linked = \Illuminate\Support\Facades\DB::table('payment_requests')
+                            ->where('company_id', \App\Support\EgoCompanyLock::id())
                             ->where('id', (int) $round->payment_request_id)
                             ->first();
 
@@ -2418,6 +2462,7 @@ Route::middleware(['auth'])
                 $status = $total > 0 && $paid >= $total ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid');
 
                 \Illuminate\Support\Facades\DB::table('finance_supplier_debts')
+                    ->whereIn('company_name', \App\Support\EgoCompanyScope::companyNames())
                     ->where('id', (int) $debtId)
                     ->update([
                         'paid_amount' => $paid,
@@ -2456,7 +2501,7 @@ Route::middleware(['auth'])
 /* EGO_SERIAL_WARRANTY_ROUTES_END */
 
 /* EGO_COMPANY_DOCUMENTS_ROUTES_START */
-Route::middleware(['auth', 'role:admin|sales|sales_manager|marketing|marketing_manager|ky_thuat|accounting|assistant|tro_ly|management|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho|warehouse|kho'])
+Route::middleware(['auth'])
     ->prefix('company-documents')
     ->name('company-documents.')
     ->controller(\App\Http\Controllers\System\CompanyDocumentController::class)
@@ -2619,10 +2664,77 @@ Route::delete(
     ->middleware('auth')
     ->name('orders.soft-delete');
 
+/* EGO_AI_COPILOT_ROUTES_START */
+require __DIR__.'/ai.php';
+/* EGO_AI_COPILOT_ROUTES_END */
 /* EGO_ROLE_PERMISSION_SETTINGS_ROUTES */
 require __DIR__.'/role_permissions.php';
+
+
+/* EGO_MATERIAL_WORKFLOW_V71_DECISION_PAGE_ROUTE */
+Route::middleware(['auth', \App\Http\Middleware\RetireLegacyProjectModule::class])->get(
+    '/cong-trinh/{project}/vat-tu/{materialRequest}/xu-ly-quyet-dinh',
+    [\App\Http\Controllers\Projects\ProjectMaterialDecisionPageController::class, 'show']
+)->whereNumber('project')
+  ->whereNumber('materialRequest')
+  ->name('ego-material-decision.page');
 
 /* EGO_PROJECT_TEST_NEW_ROUTES_START */
 require __DIR__.'/project_test.php';
 /* EGO_PROJECT_TEST_NEW_ROUTES_END */
+/* EGO_TECHNICAL_WORKSPACE_V1_ROUTES_START */
+require __DIR__.'/technical_workspace.php';
+/* EGO_TECHNICAL_WORKSPACE_V1_ROUTES_END */
 
+/* EGO_SYNC_VN_PROJECT_TECHNICAL_ROUTES_START */
+require __DIR__.'/project_unified.php';
+require __DIR__.'/project_workflow_document_settings.php';
+require __DIR__.'/technical.php';
+/* EGO_SYNC_VN_PROJECT_TECHNICAL_ROUTES_END */
+/* EGO_SMART_SEARCH_ROUTES_START */
+Route::middleware(['auth', 'throttle:90,1'])
+    ->prefix('smart-search')
+    ->name('smart-search.')
+    ->controller(\App\Http\Controllers\System\SmartSearchController::class)
+    ->group(function () {
+        Route::get('/bootstrap', 'bootstrap')->name('bootstrap');
+        Route::get('/query', 'query')->name('query');
+    });
+/* EGO_SMART_SEARCH_ROUTES_END */
+
+
+/* EGO_CUSTOMER_CONSIGNMENT_ROUTES_START */
+Route::middleware(['auth'])
+    ->prefix('ky-gui-hang-hoa')
+    ->name('customer-consignments.')
+    ->controller(\App\Http\Controllers\CRM\CustomerConsignmentController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/quy-trinh', 'process')->name('process');
+        Route::get('/tao', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{customerConsignment}/sua', 'edit')->whereNumber('customerConsignment')->name('edit');
+        Route::put('/{customerConsignment}', 'update')->whereNumber('customerConsignment')->name('update');
+        Route::post('/{customerConsignment}/gui-duyet', 'submit')->whereNumber('customerConsignment')->name('submit');
+        Route::post('/{customerConsignment}/phe-duyet', 'approve')->whereNumber('customerConsignment')->name('approve');
+        Route::post('/{customerConsignment}/yeu-cau-chinh-sua', 'requestRevision')->whereNumber('customerConsignment')->name('request-revision');
+        Route::post('/{customerConsignment}/tu-choi', 'reject')->whereNumber('customerConsignment')->name('reject');
+        Route::post('/{customerConsignment}/kho-xuat', 'warehouseIssue')->whereNumber('customerConsignment')->name('warehouse-issue');
+        Route::post('/{customerConsignment}/huy', 'cancel')->whereNumber('customerConsignment')->name('cancel');
+        Route::get('/{customerConsignment}', 'show')->whereNumber('customerConsignment')->name('show');
+    });
+/* EGO_CUSTOMER_CONSIGNMENT_ROUTES_END */
+// EGO_WORKSPACE_DEFAULT_HOME_V2_START
+// Trang gốc mở Workspace. Dashboard theo vai trò nằm tại /dashboard.
+Route::get('/', function () {
+    return redirect()->route('workspace.index');
+})->name('home');
+// EGO_WORKSPACE_DEFAULT_HOME_V2_END
+
+/* EGO_PAYMENT_ADVANCE_ROUTE_LOADER_20260906_START */
+require_once __DIR__.'/payment_advances.php';
+/* EGO_PAYMENT_ADVANCE_ROUTE_LOADER_20260906_END */
+
+/* EGO_BUSINESS_TRIP_ROUTES_V1_START */
+require_once __DIR__.'/business_trips.php';
+/* EGO_BUSINESS_TRIP_ROUTES_V1_END */

@@ -35,6 +35,19 @@ class SolarMaintenanceAssignee extends Model
         'completed_at' => 'datetime',
     ];
 
+
+    protected static function booted(): void
+    {
+        $sync = function (self $assignee): void {
+            if ($assignee->schedule) {
+                app(\App\Services\Technical\TechnicalScheduleSyncService::class)->syncMaintenance($assignee->schedule);
+            }
+        };
+
+        static::saved($sync);
+        static::deleted($sync);
+    }
+
     public function schedule(): BelongsTo
     {
         return $this->belongsTo(SolarMaintenanceSchedule::class, 'maintenance_schedule_id');

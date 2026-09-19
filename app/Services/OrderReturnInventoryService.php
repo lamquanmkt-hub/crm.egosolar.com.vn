@@ -20,7 +20,10 @@ class OrderReturnInventoryService
     /**
      * Khởi tạo service với service quản lý lô tồn kho.
      */
-    public function __construct(private readonly StockLotService $stockLotService) {}
+    public function __construct(
+        private readonly StockLotService $stockLotService,
+        private readonly OrderReturnFinancialService $financialService,
+    ) {}
 
     /**
      * Nhập kho hàng hoàn: chỉ hàng đạt điều kiện bán lại được cộng tồn, cập nhật serial.
@@ -113,7 +116,12 @@ class OrderReturnInventoryService
                 'Kho đã xử lý hàng hoàn. Chỉ hàng sellable được cộng tồn bán được.', $user
             );
 
-            return $return->fresh(['items.serials']);
+            // V4: kho và tài chính là hai nhánh độc lập. Sau khi nhập hoàn,
+            // hệ thống tự đối chiếu số tiền khách đã thanh toán để quyết định:
+            // giảm công nợ, hoàn tiền hay hoàn tất ngay nếu không phát sinh tiền hoàn.
+            $return = $this->financialService->reconcileAfterStockIn($return, $user);
+
+            return $return->fresh(['items.serials', 'refunds']);
         });
     }
 

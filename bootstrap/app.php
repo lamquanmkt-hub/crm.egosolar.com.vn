@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\UpdateUserLastSeen::class,
             \App\Http\Middleware\EnforcePageAccess::class,
+            \App\Http\Middleware\ResolveWorkspaceContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

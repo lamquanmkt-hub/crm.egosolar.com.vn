@@ -8,6 +8,7 @@ use App\Http\Controllers\Hr\DepartmentController;
 use App\Http\Controllers\Hr\PositionController;
 use App\Http\Controllers\Hr\LeaveRequestController;
 use App\Http\Controllers\Hr\AttendanceController;
+use App\Http\Controllers\Hr\AttendanceCorrectionController;
 use App\Http\Controllers\Hr\AttendanceSettingController;
 use App\Http\Controllers\Hr\OvertimeRequestController;
 use App\Http\Controllers\Hr\OfficeExpenseController;
@@ -347,6 +348,31 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
     Route::get('cham-cong-cua-toi', [AttendanceController::class, 'myAttendance'])
         ->name('attendance.my');
 
+    Route::get('cham-cong/yeu-cau-sua', [AttendanceCorrectionController::class, 'index'])
+        ->name('attendance-corrections.index');
+
+    Route::post('cham-cong/yeu-cau-sua', [AttendanceCorrectionController::class, 'store'])
+        ->name('attendance-corrections.store');
+
+    Route::post('cham-cong/yeu-cau-sua/{correction}/approve', [AttendanceCorrectionController::class, 'approve'])
+        ->middleware(['role:hr'])
+        ->whereNumber('correction')
+        ->name('attendance-corrections.approve');
+
+    Route::post('cham-cong/yeu-cau-sua/{correction}/reject', [AttendanceCorrectionController::class, 'reject'])
+        ->middleware(['role:hr'])
+        ->whereNumber('correction')
+        ->name('attendance-corrections.reject');
+
+    Route::post('cham-cong/yeu-cau-sua/{correction}/cancel', [AttendanceCorrectionController::class, 'cancel'])
+        ->whereNumber('correction')
+        ->name('attendance-corrections.cancel');
+
+    Route::get('cham-cong/yeu-cau-sua/{correction}/attachments/{attachment}/download', [AttendanceCorrectionController::class, 'downloadAttachment'])
+        ->whereNumber('correction')
+        ->whereNumber('attachment')
+        ->name('attendance-corrections.attachments.download');
+
     Route::post('cham-cong/check-in', [AttendanceController::class, 'checkIn'])
         ->name('attendance.checkin');
 
@@ -418,4 +444,48 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
             Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
         });
 
+    /* EGO_GIFT_MANAGEMENT_V1_ROUTES_START */
+    Route::prefix('qua-tang')->name('gifts.')->group(function (): void {
+        Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftDashboardController::class, 'index'])->name('index');
+
+        Route::prefix('kho')->name('stock.')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftStockController::class, 'index'])->name('index');
+        });
+
+        Route::prefix('danh-muc')->name('catalog.')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftCatalogController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hr\Gifts\GiftCatalogController::class, 'store'])->name('store');
+            Route::put('/{gift}', [\App\Http\Controllers\Hr\Gifts\GiftCatalogController::class, 'update'])->whereNumber('gift')->name('update');
+            Route::delete('/{gift}', [\App\Http\Controllers\Hr\Gifts\GiftCatalogController::class, 'destroy'])->whereNumber('gift')->name('destroy');
+        });
+
+        Route::prefix('nhap-kho')->name('receipts.')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'store'])->name('store');
+            Route::get('/{receipt}', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'show'])->whereNumber('receipt')->name('show');
+            Route::post('/{receipt}/gui-duyet', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'submit'])->whereNumber('receipt')->name('submit');
+            Route::post('/{receipt}/duyet', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'approve'])->whereNumber('receipt')->name('approve');
+            Route::post('/{receipt}/tu-choi', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'reject'])->whereNumber('receipt')->name('reject');
+            Route::post('/{receipt}/huy', [\App\Http\Controllers\Hr\Gifts\GiftReceiptController::class, 'cancel'])->whereNumber('receipt')->name('cancel');
+        });
+
+        Route::prefix('yeu-cau')->name('requests.')->group(function (): void {
+            Route::get('/khach-hang/tim-kiem', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'customerSearch'])->name('customers.search');
+            Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'index'])->name('index');
+            Route::get('/tao', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'store'])->name('store');
+            Route::get('/{giftRequest}', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'show'])->whereNumber('giftRequest')->name('show');
+            Route::post('/{giftRequest}/gui-duyet', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'submit'])->whereNumber('giftRequest')->name('submit');
+            Route::post('/{giftRequest}/duyet', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'approve'])->whereNumber('giftRequest')->name('approve');
+            Route::post('/{giftRequest}/tu-choi', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'reject'])->whereNumber('giftRequest')->name('reject');
+            Route::post('/{giftRequest}/trang-thai-giao', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'updateStatus'])->whereNumber('giftRequest')->name('status');
+            Route::post('/{giftRequest}/huy', [\App\Http\Controllers\Hr\Gifts\GiftRequestController::class, 'cancel'])->whereNumber('giftRequest')->name('cancel');
+        });
+
+        Route::prefix('bao-cao-ton')->name('reports.')->group(function (): void {
+            Route::get('/', [\App\Http\Controllers\Hr\Gifts\GiftReportController::class, 'index'])->name('index');
+            Route::get('/xuat', [\App\Http\Controllers\Hr\Gifts\GiftReportController::class, 'export'])->name('export');
+        });
+    });
+    /* EGO_GIFT_MANAGEMENT_V1_ROUTES_END */
 });

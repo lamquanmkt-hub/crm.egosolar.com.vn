@@ -1,0 +1,117 @@
+/*
+===============================================================================
+EGO WORKSPACE — SMOOTH CAROUSEL V12.2
+- Khôi phục click mở ứng dụng.
+- Dot và nút chuyển trang hoạt động trực tiếp.
+- Wheel/trackpad chuyển trang có hiệu ứng trượt mềm.
+- Mobile vuốt có phản hồi chuyển động.
+===============================================================================
+*/
+
+.ws5-avatar {
+    overflow: hidden !important;
+}
+
+.ws5-avatar > img[data-ego-workspace-avatar] {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: inherit !important;
+}
+
+.ws5-app-viewport {
+    position: relative !important;
+    overflow: hidden !important;
+    isolation: isolate !important;
+}
+
+.ws5-app-page {
+    transform-origin: center center !important;
+}
+
+.ws5-app-card,
+.ws5-app-link,
+[data-app-card],
+[data-app-link] {
+    pointer-events: auto !important;
+}
+
+.ws5-app-link {
+    position: relative !important;
+    z-index: 2 !important;
+    touch-action: manipulation !important;
+}
+
+.ws5-pagination {
+    position: relative !important;
+    z-index: 30 !important;
+    min-height: 28px !important;
+    pointer-events: auto !important;
+}
+
+.ws5-page-dot {
+    position: relative !important;
+    z-index: 31 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    transition:
+        width .24s cubic-bezier(.22,.75,.24,1),
+        background .24s ease,
+        transform .18s ease !important;
+}
+
+.ws5-page-dot:hover {
+    transform: scale(1.18) !important;
+}
+
+.ws5-page-dot:active {
+    transform: scale(.90) !important;
+}
+
+.ws5-page-arrow {
+    pointer-events: auto !important;
+    transition:
+        transform .18s ease,
+        opacity .18s ease,
+        background .18s ease !important;
+}
+
+.ws5-page-arrow:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.04) !important;
+}
+
+.ws5-page-arrow:active:not(:disabled) {
+    transform: scale(.94) !important;
+}
+
+@media (min-width: 701px) {
+    .ws5-app-viewport {
+        overscroll-behavior: contain !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .ws5-app-viewport {
+        touch-action: pan-y pinch-zoom !important;
+    }
+
+    .ws5-page-dot {
+        width: 7px !important;
+        min-width: 7px !important;
+        height: 7px !important;
+        border: 0 !important;
+    }
+
+    .ws5-page-dot.is-active {
+        width: 24px !important;
+        min-width: 24px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ws5-page-dot,
+    .ws5-page-arrow {
+        transition: none !important;
+    }
+}

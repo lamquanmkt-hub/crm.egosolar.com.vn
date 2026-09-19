@@ -23,14 +23,30 @@ class SolarMaintenanceAttachmentRequest extends FormRequest
      */
     public function rules(): array
     {
+        $schedule = $this->route('schedule');
+        $scheduleId = is_object($schedule) && method_exists($schedule, 'getKey')
+            ? (int) $schedule->getKey()
+            : (int) $schedule;
+
         return [
             'category' => [
                 'required',
                 Rule::in([
-                    'before', 'during', 'after', 'fault', 'serial', 'report', 'video',
+                    'before', 'during', 'after', 'fault', 'serial', 'report', 'video', 'checklist',
                     'contract', 'survey', 'handover', 'acceptance', 'diagram', 'datasheet',
                     'warranty', 'invoice', 'overview', 'other',
                 ]),
+            ],
+            'checklist_item_id' => [
+                Rule::requiredIf(fn () => $this->input('category') === 'checklist'),
+                'nullable',
+                'integer',
+                Rule::exists('solar_maintenance_checklist_items', 'id')->where(
+                    fn ($query) => $query->where(
+                        'maintenance_schedule_id',
+                        $scheduleId
+                    )
+                ),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_customer_visible' => ['nullable', 'boolean'],

@@ -1,0 +1,204 @@
+/* EGO MATERIAL LAYOUT V4
+   - Khối duyệt + sidebar chỉ nằm ở đầu tab Chuẩn bị vật tư.
+   - Toàn bộ nội dung vật tư phía dưới bung full chiều ngang.
+   - Admin không thấy tab Phê duyệt/Ghép hàng trùng nghiệp vụ.
+*/
+
+.pt-grid.is-material-full-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.pt-grid.is-material-full-layout > .pt-main {
+    width: 100%;
+    max-width: none;
+}
+
+.pt-grid.is-material-full-layout > .pt-side {
+    display: none !important;
+}
+
+.pt-material-stage-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 15px;
+    align-items: start;
+    margin-bottom: 15px;
+}
+
+.pt-material-stage-layout__main,
+.pt-material-stage-content {
+    min-width: 0;
+}
+
+.pt-material-stage-layout__side {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pt-material-stage-layout__side > .pt-card:first-child {
+    position: sticky;
+    top: 82px;
+}
+
+.pt-material-review-card {
+    overflow: hidden;
+    border: 1px solid #bfe6dc !important;
+    background: linear-gradient(135deg, #f8fffd 0%, #ffffff 72%) !important;
+    box-shadow: 0 10px 28px rgba(9, 135, 116, .07) !important;
+}
+
+.pt-material-review-card__bar {
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #cce9e2;
+    background: rgba(241, 253, 249, .92);
+}
+
+.pt-material-review-card__bar > div {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #173d4c;
+}
+
+.pt-material-review-card__bar > div i {
+    color: #078b78;
+}
+
+.pt-material-review-card__bar > div strong {
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.pt-material-review-card__bar > span {
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: #087663;
+    background: #e9f9f4;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .025em;
+}
+
+.pt-material-review-card__body {
+    padding: 18px;
+}
+
+.pt-material-review-card__head {
+    margin-bottom: 16px !important;
+}
+
+.pt-material-review-form .pt-textarea {
+    min-height: 108px;
+}
+
+.pt-material-review-card__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+}
+
+.pt-material-review-note {
+    margin-top: 7px;
+    line-height: 1.55;
+}
+
+.pt-material-approved-state {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.pt-material-approved-state > i {
+    margin-top: 2px;
+}
+
+.pt-material-approved-state p {
+    margin: 4px 0 0;
+    color: #54766d;
+    font-size: 11px;
+}
+
+.pt-material-stage-content > .ego-wh-embedded,
+.pt-material-stage-content > .pt-card,
+.pt-material-stage-content .ego-wh-command,
+.pt-material-stage-content .ego-wh-subtabs,
+.pt-material-stage-content .ego-wh-subpanel {
+    width: 100%;
+    max-width: none;
+}
+
+/* Tab bị khóa vẫn hiển thị lý do trực quan. */
+.ego-wh-subtabs button.is-locked {
+    color: #8d9aaa;
+    background: #f5f7f9;
+}
+
+.ego-wh-subtabs button.is-locked:hover {
+    color: #7d6541;
+    background: #fff8ed;
+}
+
+.ego-wh-subtabs button.is-locked.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, #6c7785, #4f5b6a);
+}
+
+/* Không để các CSS V3 cũ làm mất thanh tab chính nếu máy chủ từng cài bản trước. */
+.pt-tabs.pt-tabs--360 {
+    display: flex !important;
+}
+
+.pt-section-switcher,
+.pt-tab-registry {
+    display: none !important;
+}
+
+@media (max-width: 1200px) {
+    .pt-material-stage-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .pt-material-stage-layout__side {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pt-material-stage-layout__side > .pt-card:first-child {
+        position: static;
+    }
+}
+
+@media (max-width: 900px) {
+    .pt-material-stage-layout__side {
+        display: flex;
+    }
+}
+
+@media (max-width: 680px) {
+    .pt-material-review-card__bar,
+    .pt-material-review-card__head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .pt-material-review-card__bar > span {
+        align-self: flex-start;
+    }
+
+    .pt-material-review-card__body {
+        padding: 14px;
+    }
+
+    .pt-material-review-card__actions,
+    .pt-material-review-card__actions .pt-btn {
+        width: 100%;
+    }
+}

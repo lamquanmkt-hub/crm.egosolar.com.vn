@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Support\EgoCompanyLock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,7 @@ class EgoPaymentRequestAttachmentPreviewController extends Controller
         $paymentRequestId = (int) $paymentRequest;
         $attachmentId = (int) $attachment;
 
-        $pr = DB::table('payment_requests')->where('id', $paymentRequestId)->first();
+        $pr = DB::table('payment_requests')->where('company_id', EgoCompanyLock::id())->where('id', $paymentRequestId)->first();
         abort_unless($pr, 404, 'Không tìm thấy phiếu đề nghị thanh toán.');
 
         $att = DB::table('payment_attachments')

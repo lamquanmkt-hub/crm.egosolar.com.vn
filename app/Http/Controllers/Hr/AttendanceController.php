@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Models\AttendanceCorrectionRequest;
 use App\Models\AttendanceRecord;
 use App\Models\AttendanceSetting;
 use App\Models\Department;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\Hr\AttendanceCorrectionAccessService;
 use App\Services\Hr\LeaveApprovalAccessService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -45,7 +47,10 @@ class AttendanceController extends Controller
         $today = now()->toDateString();
         $setting = $this->getAttendanceSetting();
 
-        $records = AttendanceRecord::with('user')
+        $records = AttendanceRecord::with([
+            'user',
+            'correctionRequests' => fn ($query) => $query->latest(),
+        ])
             ->where('user_id', $user->id)
             ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
             ->orderByDesc('work_date')
@@ -75,6 +80,16 @@ class AttendanceController extends Controller
             ->where('status', 'pending')
             ->count();
 
+        $correctionAccess = app(AttendanceCorrectionAccessService::class);
+        $canReviewCorrections = $correctionAccess->canReview($user);
+        $myPendingCorrectionCount = AttendanceCorrectionRequest::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+        $pendingCorrectionApprovalCount = $canReviewCorrections
+            ? AttendanceCorrectionRequest::query()->where('status', 'pending')->count()
+            : 0;
+
         return view('hr.attendance.my', compact(
             'records',
             'todayRecord',
@@ -85,7 +100,10 @@ class AttendanceController extends Controller
             'canReviewLeave',
             'canViewCompanyAttendance',
             'pendingApprovalCount',
-            'myPendingLeaveCount'
+            'myPendingLeaveCount',
+            'canReviewCorrections',
+            'myPendingCorrectionCount',
+            'pendingCorrectionApprovalCount'
         ));
     }
 

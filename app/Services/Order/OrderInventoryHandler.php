@@ -17,6 +17,7 @@ use App\Services\OrderService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Xử lý xuất kho, trừ tồn và quản lý serial.
@@ -50,6 +51,16 @@ class OrderInventoryHandler
             $order = $orderRepo->find($id);
             $order->loadMissing('items');
 
+            if (Schema::hasTable('customer_consignments')) {
+                $hasConsignment = DB::table('customer_consignments')
+                    ->where('order_id', $order->id)
+                    ->whereNotIn('status', ['cancelled'])
+                    ->exists();
+
+                if ($hasConsignment) {
+                    throw new \Exception('Đơn hàng đang được xử lý qua module Ký gửi hàng hóa. Hãy xuất giao tại hồ sơ ký gửi để tránh trừ tồn hai lần.');
+                }
+            }
             if ($order->current_department !== OrderDepartment::WAREHOUSE->value) {
                 throw new \Exception('Đơn hàng chưa đến bước xuất kho hoặc đã xuất rồi.');
             }

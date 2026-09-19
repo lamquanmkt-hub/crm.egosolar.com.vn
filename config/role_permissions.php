@@ -15,6 +15,7 @@ return [
     */
     'always_enforce_permissions' => [
         'page.orders',
+        'page.consignments',
     ],
 
     'protected_roles' => [
@@ -75,7 +76,15 @@ return [
             'exact_paths' => [],
             'path_prefixes' => ['/customers', '/customer-profiles'],
         ],
-        'page.orders' => [
+        'page.consignments' => [
+            'label' => 'Ký gửi hàng hóa',
+            'description' => 'Truy cập hồ sơ giữ hàng cho khách và các đợt giao hàng ký gửi.',
+            'icon' => 'bi-box-seam',
+            'group' => 'Truy cập trang',
+            'routes' => ['customer-consignments.*'],
+            'exact_paths' => [],
+            'path_prefixes' => ['/ky-gui-hang-hoa'],
+        ],        'page.orders' => [
             'label' => 'Đơn hàng & Báo giá',
             'description' => 'Truy cập đơn hàng, báo giá, đổi trả và hoàn tiền.',
             'icon' => 'bi-receipt',
@@ -89,9 +98,9 @@ return [
             'description' => 'Truy cập công trình, lắp ráp và quy trình đơn vật tư.',
             'icon' => 'bi-building-gear',
             'group' => 'Truy cập trang',
-            'routes' => ['sites.*', 'sites-v2.*', 'project-test.*', 'material-requests.*', 'site-assemblies.*'],
+            'routes' => ['sites.*', 'sites-v2.*', 'project-test.*', 'projects-unified.*', 'material-requests.*', 'site-assemblies.*'],
             'exact_paths' => ['/theo-doi-trang-thai'],
-            'path_prefixes' => ['/cong-trinh', '/cong-trinh-moi', '/cong-trinh-test-new', '/don-vat-tu'],
+            'path_prefixes' => ['/du-an', '/cong-trinh', '/cong-trinh-moi', '/cong-trinh-test-new', '/don-vat-tu'],
         ],
         'page.payment_requests' => [
             'label' => 'Đề nghị thanh toán',
@@ -258,7 +267,12 @@ return [
             'icon' => 'bi-people',
             'page_permission' => 'page.customers',
         ],
-        'menu.orders' => [
+        'menu.consignments' => [
+            'label' => 'Ký gửi hàng hóa',
+            'description' => 'Hiển thị module ký gửi hàng hóa trên sidebar.',
+            'icon' => 'bi-box-seam',
+            'page_permission' => 'page.consignments',
+        ],        'menu.orders' => [
             'label' => 'Đơn hàng',
             'description' => 'Hiển thị nhóm menu đơn hàng và báo giá.',
             'icon' => 'bi-receipt',
@@ -348,6 +362,7 @@ return [
         'lead' => ['label' => 'Lead', 'icon' => 'bi-person-plus'],
         'customer' => ['label' => 'Khách hàng', 'icon' => 'bi-people'],
         'order' => ['label' => 'Đơn hàng', 'icon' => 'bi-receipt'],
+        'consignments' => ['label' => 'Ký gửi hàng hóa', 'icon' => 'bi-box-seam'],
         'orders' => ['label' => 'Đổi trả & Hoàn tiền', 'icon' => 'bi-arrow-left-right'],
         'payment' => ['label' => 'Thanh toán', 'icon' => 'bi-cash-stack'],
         'product' => ['label' => 'Sản phẩm', 'icon' => 'bi-box-seam'],
@@ -361,6 +376,7 @@ return [
         'report' => ['label' => 'Báo cáo', 'icon' => 'bi-bar-chart'],
         'user' => ['label' => 'Người dùng', 'icon' => 'bi-person-gear'],
         'maintenance' => ['label' => 'Bảo trì/Bảo hành', 'icon' => 'bi-tools'],
+        'ai' => ['label' => 'EGO AI Copilot', 'icon' => 'bi-stars'],
         'settings' => ['label' => 'Quản trị hệ thống', 'icon' => 'bi-gear'],
     ],
 
@@ -386,6 +402,8 @@ return [
         'export' => 'Xuất dữ liệu',
         'stock_check' => 'Kiểm kho',
         'stock_update' => 'Cập nhật tồn kho',
+        'warehouse_confirm' => 'Kho xác nhận',
+        'release' => 'Giao hàng',
         'mark_paid' => 'Đánh dấu đã thanh toán',
         'force_approve' => 'Duyệt cưỡng bức',
         'approve_level1' => 'Duyệt cấp 1',
@@ -403,5 +421,20 @@ return [
         'rate' => 'Đánh giá',
         'convert' => 'Chuyển đổi',
         'check_debt' => 'Kiểm tra công nợ',
+        'search_orders' => 'AI tra cứu đơn hàng & công nợ',
+        'search_customers' => 'AI tra cứu khách hàng',
+        'search_inventory' => 'AI tra cứu sản phẩm & tồn kho',
+        'search_tasks' => 'AI tra cứu công việc',
+        'search_sites' => 'AI tra cứu công trình & bảo hành',
+        'search_payment_requests' => 'AI tra cứu đề nghị thanh toán',
+        'search_attendance' => 'AI tra cứu chấm công',
+        'search_marketing' => 'AI tra cứu Marketing & lead',
+        'search_hr' => 'AI tra cứu nhân sự & tuyển dụng',
+        'draft_orders' => 'AI soạn nháp đơn hàng',
+        'draft_customers' => 'AI soạn nháp khách hàng',
+        'draft_tasks' => 'AI soạn nháp công việc',
+        'draft_payment_requests' => 'AI soạn nháp đề nghị thanh toán',
+        'providers_manage' => 'Quản lý API & model AI',
+        'audit_view' => 'Xem nhật ký truy cập AI',
     ],
 ];

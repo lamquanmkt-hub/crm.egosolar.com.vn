@@ -1,0 +1,11 @@
+Patch Booking phòng họp - chuyển form tạo booking thành popup
+
+Cài đặt nhanh:
+cd /home/crmegoso/public_html
+TS=$(date +%Y%m%d_%H%M)
+mkdir -p "$HOME/backup_booking_popup_$TS"
+cp resources/views/meeting-room-bookings/index.blade.php "$HOME/backup_booking_popup_$TS/index.blade.php.bak" 2>/dev/null || true
+unzip -o booking_room_popup_patch_20260703_1105.zip -d /home/crmegoso/public_html
+php artisan optimize:clear
+
+Sau đó mở /booking-phong-hop và bấm Ctrl+F5.

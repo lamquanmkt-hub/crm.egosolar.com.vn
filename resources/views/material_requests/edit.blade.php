@@ -249,9 +249,9 @@
             </div>
         </div>
 
-        <a href="{{ route('material-requests.index') }}" class="btn btn-outline-secondary">
+        <x-ui.button href="{{ route('material-requests.index') }}" variant="outline-secondary">
             <i class="bi bi-arrow-left"></i> Quay lại
-        </a>
+        </x-ui.button>
     </div>
 
     @if ($errors->any())
@@ -421,6 +421,8 @@
                                                 </td>
 
                                                 <td>
+                                                    <input type="search" class="form-control stock-product-search mb-2"
+                                                           placeholder="Gõ tên hoặc SKU để tìm..." autocomplete="off">
                                                     <select class="form-select stock-product"
                                                             data-old="{{ $row['product_id'] ?? '' }}">
                                                         <option value="">{{ $section['placeholder'] }}</option>
@@ -458,10 +460,10 @@
                                                 </td>
 
                                                 <td class="text-end">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-danger btnRemoveRow">
+                                                    <x-ui.button type="button"
+                                                            variant="outline-danger" size="sm" class="btnRemoveRow">
                                                         <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    </x-ui.button>
                                                 </td>
 
                                                 <input type="hidden" class="stock-kind" value="{{ $section['kind'] }}">
@@ -521,10 +523,10 @@
                                                 </td>
 
                                                 <td class="text-end">
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-danger btnRemoveRow">
+                                                    <x-ui.button type="button"
+                                                            variant="outline-danger" size="sm" class="btnRemoveRow">
                                                         <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    </x-ui.button>
                                                 </td>
 
                                                 <input type="hidden" class="external-kind" value="{{ $section['kind'] }}">
@@ -634,9 +636,9 @@
                                 <i class="bi bi-save"></i> Lưu thay đổi
                             </button>
 
-                            <a href="{{ route('material-requests.index') }}" class="btn btn-outline-secondary w-100 mt-2">
+                            <x-ui.button href="{{ route('material-requests.index') }}" variant="outline-secondary" class="w-100 mt-2">
                                 Quay lại
-                            </a>
+                            </x-ui.button>
                         </div>
                     </div>
 
@@ -682,7 +684,7 @@
 
             $egoMrProducts = collect();
 
-            if ($egoMrCurrentProductIds->isNotEmpty() && \Illuminate\Support\Facades\Schema::hasTable('crm_product_catalog')) {
+            if ($egoMrCurrentProductIds->isNotEmpty() && \App\Support\SchemaCache::hasTable('crm_product_catalog')) {
                 $egoMrProducts = \Illuminate\Support\Facades\DB::table('crm_product_catalog')
                     ->whereIn('id', $egoMrCurrentProductIds->all())
                     ->get()
@@ -843,6 +845,20 @@
         egoAppendCurrentProductFallback();
         productSelect.dataset.old = '';
         updateStockRow(row);
+    }
+
+    function filterProductOptions(row, keyword){
+        const select = row.querySelector('.stock-product');
+        if (!select) return;
+        const query = String(keyword || '').trim().toLocaleLowerCase('vi');
+        Array.from(select.options).forEach((option, index) => {
+            if (index === 0 || option.selected) {
+                option.hidden = false;
+                return;
+            }
+            option.hidden = query !== '' && !option.textContent.toLocaleLowerCase('vi').includes(query);
+        });
+        if (query !== '') select.focus();
     }
 
     function updateStockRow(row){
@@ -1149,6 +1165,10 @@
             calcSummary();
         }
 
+        if (stockRow && e.target.matches('.stock-product-search')) {
+            filterProductOptions(stockRow, e.target.value);
+        }
+
         if (stockRow && e.target.matches('.stock-product')) {
             updateStockRow(stockRow);
             calcSummary();
@@ -1158,6 +1178,11 @@
     document.addEventListener('input', e => {
         const stockRow = e.target.closest('.stock-row');
         const externalRow = e.target.closest('.external-row');
+
+        if (stockRow && e.target.matches('.stock-product-search')) {
+            filterProductOptions(stockRow, e.target.value);
+            return;
+        }
 
         if (stockRow) {
             updateStockRow(stockRow);

@@ -1,0 +1,14 @@
+@extends('layouts.app')
+@section('title', 'Báo cáo tồn quà tặng')
+@push('styles')<link rel="stylesheet" href="{{ asset('css/ego-gifts.css') }}?v={{ file_exists(public_path('css/ego-gifts.css')) ? filemtime(public_path('css/ego-gifts.css')) : '1.0.0' }}">@endpush
+@section('content')
+<div class="gift-page">
+    <div class="gift-page-head"><div><div class="gift-eyebrow">BÁO CÁO QUÀ TẶNG</div><h1>Báo cáo tồn kho</h1><p>Tồn đầu + Nhập − Xuất = Tồn cuối, cảnh báo đỏ khi dưới định mức.</p></div><a class="gift-btn gift-btn--success" href="{{ route('hr.gifts.reports.export',request()->query()) }}"><i class="bi bi-file-earmark-spreadsheet"></i>Xuất Excel/CSV</a></div>
+    @include('hr.gifts.partials.nav')
+    @include('hr.gifts.partials.alerts')
+    <section class="gift-card">
+        <form class="gift-filter gift-filter--report" method="get"><label>Từ ngày<input class="gift-input" type="date" name="from" value="{{ $from->format('Y-m-d') }}"></label><label>Đến ngày<input class="gift-input" type="date" name="to" value="{{ $to->format('Y-m-d') }}"></label><input class="gift-input" name="q" value="{{ request('q') }}" placeholder="Tìm SKU, tên quà..."><label class="gift-check"><input type="checkbox" name="low_stock" value="1" @checked(request('low_stock')==='1')> Chỉ tồn thấp</label><button class="gift-btn gift-btn--secondary"><i class="bi bi-funnel"></i>Xem báo cáo</button></form>
+        <div class="gift-table-wrap"><table class="gift-table"><thead><tr><th>SKU</th><th>Tên quà</th><th>Loại quà</th><th>ĐVT</th><th class="text-end">Tồn đầu</th><th class="text-end">Nhập</th><th class="text-end">Xuất</th><th class="text-end">Tồn cuối</th><th class="text-end">Tối thiểu</th><th>Cảnh báo</th></tr></thead><tbody>@forelse($rows as $row)<tr class="{{ $row['is_low'] ? 'gift-row-low' : '' }}"><td><span class="gift-code">{{ $row['gift']->sku }}</span></td><td><strong>{{ $row['gift']->name }}</strong></td><td>{{ $row['gift']->gift_type ?: '—' }}</td><td>{{ $row['gift']->unit }}</td><td class="text-end">{{ number_format($row['opening'],3,',','.') }}</td><td class="text-end gift-text-success">+{{ number_format($row['incoming'],3,',','.') }}</td><td class="text-end gift-text-danger">-{{ number_format($row['outgoing'],3,',','.') }}</td><td class="text-end"><strong>{{ number_format($row['closing'],3,',','.') }}</strong></td><td class="text-end">{{ number_format((float)$row['gift']->minimum_stock,3,',','.') }}</td><td>@if($row['is_low'])<span class="gift-status gift-status--danger"><i class="bi bi-exclamation-triangle-fill"></i> Dưới định mức</span>@else<span class="gift-status gift-status--success">An toàn</span>@endif</td></tr>@empty<tr><td colspan="10" class="gift-empty">Không có dữ liệu trong kỳ báo cáo.</td></tr>@endforelse</tbody></table></div>
+    </section>
+</div>
+@endsection

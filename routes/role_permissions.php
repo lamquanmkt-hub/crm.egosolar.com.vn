@@ -47,3 +47,15 @@ Route::middleware(['auth', 'role:admin'])
 Route::middleware(['auth', 'role:admin'])
     ->get('/cai-dat/phan-quyen', fn () => redirect()->route('admin.settings.roles'))
     ->name('admin.role-permissions.index');
+
+/* EGO_WORKSPACE_MATRIX_SETTINGS_ROUTES_START */
+Route::middleware(['auth', 'role:admin|management|manager|director|ceo'])
+    ->prefix('cai-dat')
+    ->name('admin.settings.')
+    ->controller(\App\Http\Controllers\Admin\WorkspaceSettingsController::class)
+    ->group(function (): void {
+        Route::get('/ung-dung-theo-vai-tro', 'index')->name('workspace');
+        Route::put('/ung-dung-theo-vai-tro', 'update')->name('workspace.update');
+        Route::delete('/ung-dung-theo-vai-tro/reset', 'reset')->name('workspace.reset');
+    });
+/* EGO_WORKSPACE_MATRIX_SETTINGS_ROUTES_END */

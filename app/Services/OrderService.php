@@ -152,7 +152,9 @@ class OrderService implements OrderServiceInterface
                 'payments',
                 'creator',
                 'currentStatusType',
-            ]);
+            ])
+            // Khóa cứng danh sách Đơn hàng về Công ty Quốc Tế EGO.
+            ->where('crm_orders.company_id', 2);
 
         if (
             $user
@@ -205,6 +207,17 @@ class OrderService implements OrderServiceInterface
             $query->whereIn('current_department', $statusMap[$status] ?? [$status]);
         }
 
+        if (! empty($filters['warehouse_id'])) {
+            $warehouseId = (int) $filters['warehouse_id'];
+
+            $query->where(function ($warehouseQuery) use ($warehouseId) {
+                $warehouseQuery
+                    ->where('crm_orders.warehouse_id', $warehouseId)
+                    ->orWhereHas('items', function ($itemQuery) use ($warehouseId) {
+                        $itemQuery->where('warehouse_id', $warehouseId);
+                    });
+            });
+        }
         if (! empty($filters['company_id'])) {
             $companyId = (int) $filters['company_id'];
 
@@ -814,18 +827,41 @@ class OrderService implements OrderServiceInterface
     {
         $prefix = 'ORD'.now()->format('Ymd');
 
-        $lastCode = Order::where('order_code', 'like', $prefix.'%')
+        /*
+         * IMPORTANT:
+         * order_code has a GLOBAL unique index, while the Order model has
+         * company/global scopes and SoftDeletes. Using Order::where(...) can
+         * hide an existing code from another company or a soft-deleted order,
+         * causing ORDyyyymmdd0001 to be generated again.
+         *
+         * Query the physical table directly so every existing code is visible.
+         * This method is called inside createOrder()'s DB transaction, therefore
+         * lockForUpdate() also serializes normal concurrent code generation.
+         */
+        $lastCode = DB::table('crm_orders')
+            ->where('order_code', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('order_code')
             ->value('order_code');
 
         $next = 1;
 
-        if ($lastCode) {
-            $next = (int) substr($lastCode, -4) + 1;
+        if (is_string($lastCode)
+            && preg_match('/^'.preg_quote($prefix, '/').'([0-9]+)$/', $lastCode, $matches)
+        ) {
+            $next = ((int) $matches[1]) + 1;
         }
 
-        return sprintf('%s%04d', $prefix, $next);
+        // Defensive uniqueness check for legacy gaps / unusual historical data.
+        while (true) {
+            $candidate = sprintf('%s%04d', $prefix, $next);
+
+            if (! DB::table('crm_orders')->where('order_code', $candidate)->exists()) {
+                return $candidate;
+            }
+
+            $next++;
+        }
     }
 
     /**

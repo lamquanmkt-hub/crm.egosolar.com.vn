@@ -1,10 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('css/serial-warranty-desk-v4.css') }}?v={{ @filemtime(public_path('css/serial-warranty-desk-v4.css')) ?: time() }}">
+<script defer src="{{ asset('js/serial-warranty-desk-v4.js') }}?v={{ @filemtime(public_path('js/serial-warranty-desk-v4.js')) ?: time() }}"></script>
+
 @php
     $today = now()->startOfDay();
     $user = auth()->user();
-
     $roleText = strtolower(implode(' ', array_filter([
         $user->role ?? null,
         $user->role_name ?? null,
@@ -29,1558 +31,372 @@
     );
 
     $totalSerial = (int) ($stats['total'] ?? 0);
-    $soldSerial = (int) ($stats['sold'] ?? 0);
     $activeWarranty = (int) ($stats['warranty_active'] ?? 0);
+    $inactiveWarranty = max(0, $totalSerial - $activeWarranty);
+    $resultTotal = method_exists($serials, 'total') ? (int) $serials->total() : count($serials);
     $q = $q ?? request('q', '');
+    $state = $state ?? request('state', '');
     $productId = $productId ?? (int) request('product_id', 0);
 @endphp
 
-<style>
-    :root{
-        --sw-navy:#071735;
-        --sw-ink:#0f172a;
-        --sw-muted:#64748b;
-        --sw-line:#dce8f1;
-        --sw-soft:#f5f8fc;
-        --sw-card:#ffffff;
-        --sw-teal:#12a8aa;
-        --sw-blue:#2563eb;
-        --sw-green:#16a34a;
-        --sw-amber:#f59e0b;
-        --sw-red:#ef4444;
-        --sw-shadow:0 18px 48px rgba(15,23,42,.08);
-    }
-
-    .sw-page{
-        padding:20px;
-        background:
-            radial-gradient(circle at top left, rgba(18,168,170,.14), transparent 34%),
-            radial-gradient(circle at top right, rgba(37,99,235,.10), transparent 28%),
-            linear-gradient(180deg,#f8fbff 0%,#f1f6fb 100%);
-        min-height:calc(100vh - 80px);
-    }
-
-    .sw-wrap{
-        max-width:1560px;
-        margin:0 auto;
-    }
-
-    .sw-hero{
-        overflow:hidden;
-        border-radius:26px;
-        padding:22px;
-        margin-bottom:16px;
-        background:linear-gradient(135deg,rgba(7,23,53,.98),rgba(9,79,104,.96) 58%,rgba(18,168,170,.94));
-        box-shadow:0 22px 60px rgba(7,23,53,.18);
-        color:#fff;
-    }
-
-    .sw-hero-grid{
-        display:grid;
-        grid-template-columns:minmax(0,1fr) 460px;
-        gap:18px;
-        align-items:stretch;
-    }
-
-    .sw-kicker{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        padding:8px 12px;
-        border-radius:999px;
-        background:rgba(255,255,255,.12);
-        border:1px solid rgba(255,255,255,.22);
-        color:#d7fffb;
-        font-size:12px;
-        font-weight:950;
-        text-transform:uppercase;
-        margin-bottom:12px;
-    }
-
-    .sw-title{
-        margin:0;
-        font-size:36px;
-        line-height:1.06;
-        font-weight:950;
-        letter-spacing:-.045em;
-        color:#fff;
-    }
-
-    .sw-sub{
-        max-width:850px;
-        margin:10px 0 0;
-        color:#d6edf4;
-        font-size:14px;
-        font-weight:750;
-        line-height:1.55;
-    }
-
-    .sw-role{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        margin-top:16px;
-        background:rgba(255,255,255,.14);
-        border:1px solid rgba(255,255,255,.22);
-        color:#fff;
-        border-radius:999px;
-        padding:9px 13px;
-        font-size:12px;
-        font-weight:900;
-    }
-
-    .sw-hero-stats{
-        display:grid;
-        grid-template-columns:repeat(3,1fr);
-        gap:10px;
-    }
-
-    .sw-hero-stat{
-        padding:16px;
-        border-radius:20px;
-        background:rgba(255,255,255,.12);
-        border:1px solid rgba(255,255,255,.20);
-    }
-
-    .sw-hero-stat span{
-        display:block;
-        color:#c6f7f1;
-        font-size:11px;
-        font-weight:950;
-        text-transform:uppercase;
-    }
-
-    .sw-hero-stat b{
-        display:block;
-        margin-top:8px;
-        font-size:30px;
-        line-height:1;
-        color:#fff;
-    }
-
-    .sw-card{
-        background:rgba(255,255,255,.96);
-        border:1px solid rgba(220,232,241,.95);
-        border-radius:24px;
-        box-shadow:var(--sw-shadow);
-        backdrop-filter:blur(10px);
-    }
-
-    .sw-search{
-        padding:18px;
-        margin-bottom:14px;
-        background:linear-gradient(135deg,#ffffff 0%,#f8ffff 100%);
-    }
-
-    .sw-section-head{
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap:14px;
-        margin-bottom:14px;
-    }
-
-    .sw-section-title{
-        display:flex;
-        align-items:center;
-        gap:10px;
-        margin:0;
-        color:var(--sw-ink);
-        font-size:19px;
-        font-weight:950;
-        letter-spacing:-.025em;
-    }
-
-    .sw-section-icon{
-        width:38px;
-        height:38px;
-        border-radius:15px;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        color:#fff;
-        background:linear-gradient(135deg,var(--sw-teal),var(--sw-blue));
-        box-shadow:0 12px 24px rgba(18,168,170,.20);
-    }
-
-    .sw-section-desc{
-        margin:6px 0 0;
-        color:var(--sw-muted);
-        font-size:13px;
-        font-weight:750;
-        line-height:1.5;
-    }
-
-    .sw-search-form{
-        display:grid;
-        grid-template-columns:minmax(280px,1fr) auto auto;
-        gap:10px;
-        align-items:end;
-    }
-
-    .sw-label{
-        display:block;
-        margin-bottom:6px;
-        font-size:11px;
-        font-weight:950;
-        color:#52657d;
-        text-transform:uppercase;
-        letter-spacing:.065em;
-    }
-
-    .sw-input,
-    .sw-select,
-    .sw-textarea{
-        width:100%;
-        border:1px solid var(--sw-line);
-        background:#fff;
-        color:#0f172a;
-        outline:none;
-        font-weight:800;
-    }
-
-    .sw-input,
-    .sw-select{
-        height:42px;
-        border-radius:13px;
-        padding:0 12px;
-        font-size:13px;
-    }
-
-    .sw-textarea{
-        min-height:96px;
-        border-radius:14px;
-        padding:12px;
-        font-size:13px;
-        line-height:1.45;
-        resize:vertical;
-    }
-
-    .sw-input:focus,
-    .sw-select:focus,
-    .sw-textarea:focus{
-        border-color:#14b8a6;
-        box-shadow:0 0 0 4px rgba(20,184,166,.12);
-    }
-
-    .sw-btn{
-        height:42px;
-        border:0;
-        border-radius:13px;
-        padding:0 15px;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        gap:8px;
-        cursor:pointer;
-        text-decoration:none !important;
-        font-size:13px;
-        font-weight:950;
-        white-space:nowrap;
-        background:#12a8aa;
-        color:#fff !important;
-        box-shadow:0 12px 24px rgba(18,168,170,.16);
-        transition:.15s ease;
-    }
-
-    .sw-btn:hover{
-        transform:translateY(-1px);
-        filter:saturate(1.05);
-    }
-
-    .sw-btn.light{
-        background:#fff;
-        color:#0f766e !important;
-        border:1px solid #bde8e5;
-        box-shadow:none;
-    }
-
-    .sw-btn.green{
-        background:linear-gradient(135deg,#16a34a,#22c55e);
-    }
-
-    .sw-btn.dark{
-        background:#071735;
-    }
-
-    .sw-btn.danger{
-        background:#fff1f2;
-        color:#e11d48 !important;
-        border:1px solid #fecdd3;
-        box-shadow:none;
-    }
-
-    .sw-btn.mini{
-        height:36px;
-        border-radius:11px;
-        padding:0 12px;
-        font-size:12px;
-    }
-
-    .sw-mini-note{
-        margin-top:12px;
-        padding:10px 12px;
-        border:1px dashed #9ee4df;
-        border-radius:14px;
-        background:#effffc;
-        color:#0f766e;
-        font-size:12px;
-        font-weight:800;
-    }
-
-    .sw-toolbar{
-        display:flex;
-        justify-content:flex-end;
-        margin:0 0 14px;
-    }
-
-    .sw-table-card{
-        width:100%;
-        overflow:hidden;
-    }
-
-    .sw-table-head{
-        padding:18px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        border-bottom:1px solid #e5eef6;
-    }
-
-    .sw-table-title{
-        margin:0;
-        color:var(--sw-ink);
-        font-size:22px;
-        font-weight:950;
-        letter-spacing:-.03em;
-    }
-
-    .sw-table-sub{
-        margin-top:4px;
-        color:#607087;
-        font-size:13px;
-        font-weight:800;
-    }
-
-    .sw-table-wrap{
-        width:100%;
-        overflow:auto;
-    }
-
-    .sw-table{
-        width:100%;
-        min-width:1320px;
-        border-collapse:separate;
-        border-spacing:0;
-        background:#fff;
-    }
-
-    .sw-table thead th{
-        position:sticky;
-        top:0;
-        z-index:2;
-        background:#f8fafc;
-        color:#52657d;
-        font-size:11px;
-        font-weight:950;
-        text-align:left;
-        padding:13px 14px;
-        text-transform:uppercase;
-        letter-spacing:.055em;
-        border-bottom:1px solid #e5eef6;
-    }
-
-    .sw-table tbody td{
-        padding:14px;
-        border-bottom:1px solid #eef4f8;
-        vertical-align:middle;
-        color:#0f172a;
-    }
-
-    .sw-table tbody tr:hover{
-        background:#fbfdff;
-    }
-
-    .sw-code{
-        display:inline-flex;
-        align-items:center;
-        max-width:180px;
-        padding:7px 10px;
-        border-radius:999px;
-        background:#eff6ff;
-        border:1px solid #dbeafe;
-        color:#0f172a;
-        font-size:11px;
-        font-weight:950;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-    }
-
-    .sw-product{
-        font-size:15px;
-        font-weight:950;
-        color:#0f172a;
-        line-height:1.35;
-    }
-
-    .sw-name{
-        font-size:14px;
-        font-weight:950;
-        color:#0f172a;
-        line-height:1.35;
-    }
-
-    .sw-muted{
-        margin-top:4px;
-        color:#64748b;
-        font-size:12px;
-        font-weight:800;
-    }
-
-    .sw-note{
-        max-width:240px;
-        color:#334155;
-        font-size:13px;
-        font-weight:800;
-        line-height:1.45;
-        white-space:normal;
-    }
-
-    .sw-badge{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        padding:6px 10px;
-        border-radius:999px;
-        font-size:11px;
-        font-weight:950;
-        white-space:nowrap;
-    }
-
-    .sw-badge.ok{
-        background:#dcfce7;
-        color:#15803d;
-    }
-
-    .sw-badge.warn{
-        background:#fef3c7;
-        color:#b45309;
-    }
-
-    .sw-badge.bad{
-        background:#fee2e2;
-        color:#b91c1c;
-    }
-
-    .sw-order-link{
-        display:inline-flex;
-        align-items:center;
-        gap:7px;
-        max-width:180px;
-        padding:8px 10px;
-        border-radius:999px;
-        background:linear-gradient(135deg,#eff6ff,#ecfeff);
-        border:1px solid #bfdbfe;
-        color:#1d4ed8 !important;
-        text-decoration:none !important;
-        font-size:12px;
-        font-weight:950;
-        line-height:1.15;
-        box-shadow:0 8px 18px rgba(37,99,235,.10);
-    }
-
-    .sw-order-text{
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-    }
-
-    .sw-order-empty{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        width:28px;
-        height:28px;
-        border-radius:999px;
-        background:#f1f5f9;
-        color:#64748b;
-        font-weight:950;
-    }
-
-    .sw-actions{
-        display:flex;
-        align-items:center;
-        gap:8px;
-        flex-wrap:wrap;
-    }
-
-    .sw-empty{
-        padding:54px 20px;
-        text-align:center;
-        color:#64748b;
-        font-size:14px;
-        font-weight:750;
-    }
-
-    .sw-empty b{
-        display:block;
-        color:#0f172a;
-        font-size:18px;
-        margin-bottom:6px;
-    }
-
-    .sw-alert{
-        padding:12px 14px;
-        border-radius:16px;
-        margin-bottom:12px;
-        font-size:13px;
-        font-weight:850;
-    }
-
-    .sw-alert.success{
-        background:#ecfdf5;
-        color:#047857;
-        border:1px solid #a7f3d0;
-    }
-
-    .sw-alert.error{
-        background:#fef2f2;
-        color:#b91c1c;
-        border:1px solid #fecaca;
-    }
-
-    .sw-modal-backdrop{
-        position:fixed;
-        inset:0;
-        z-index:9990;
-        display:none;
-        background:rgba(15,23,42,.58);
-        backdrop-filter:blur(4px);
-    }
-
-    .sw-modal-backdrop.show{
-        display:block;
-    }
-
-    .sw-modal{
-        position:fixed;
-        top:50%;
-        left:50%;
-        z-index:9991;
-        width:min(860px, calc(100vw - 28px));
-        max-height:calc(100vh - 42px);
-        overflow:auto;
-        transform:translate(-50%,-50%);
-        display:none;
-        background:#fff;
-        border:1px solid #dbeafe;
-        border-radius:26px;
-        padding:22px;
-        box-shadow:0 34px 100px rgba(15,23,42,.34);
-    }
-
-    .sw-modal.show{
-        display:block;
-    }
-
-    .sw-modal-head{
-        display:flex;
-        align-items:flex-start;
-        justify-content:space-between;
-        gap:14px;
-        margin-bottom:16px;
-        padding-bottom:14px;
-        border-bottom:1px solid #e2e8f0;
-    }
-
-    .sw-modal-title{
-        margin:0;
-        font-size:20px;
-        font-weight:950;
-        color:#0f172a;
-    }
-
-    .sw-modal-sub{
-        margin-top:5px;
-        color:#64748b;
-        font-size:13px;
-        font-weight:800;
-    }
-
-    .sw-modal-close{
-        width:38px;
-        height:38px;
-        border-radius:999px;
-        border:1px solid #dbeafe;
-        background:#fff;
-        color:#0f172a;
-        font-size:24px;
-        line-height:1;
-        font-weight:950;
-        cursor:pointer;
-        box-shadow:0 10px 22px rgba(15,23,42,.10);
-    }
-
-    .sw-form-grid{
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:13px;
-    }
-
-    .sw-form-grid .wide{
-        grid-column:1 / -1;
-    }
-
-    .sw-modal-actions{
-        display:flex;
-        justify-content:flex-end;
-        gap:10px;
-        margin-top:16px;
-        padding-top:14px;
-        border-top:1px solid #e2e8f0;
-    }
-
-    body.sw-modal-open{
-        overflow:hidden;
-    }
-
-    @media(max-width:1200px){
-        .sw-hero-grid{
-            grid-template-columns:1fr;
-        }
-
-        .sw-hero-stats{
-            grid-template-columns:repeat(3,1fr);
-        }
-    }
-
-    @media(max-width:820px){
-        .sw-page{
-            padding:12px;
-        }
-
-        .sw-title{
-            font-size:28px;
-        }
-
-        .sw-hero-stats,
-        .sw-search-form,
-        .sw-form-grid{
-            grid-template-columns:1fr;
-        }
-
-        .sw-btn{
-            width:100%;
-        }
-
-        .sw-table-head,
-        .sw-modal-actions{
-            flex-direction:column;
-            align-items:stretch;
-        }
-    }
-</style>
-
-<div class="sw-page">
-    <div class="sw-wrap">
-        <div class="sw-hero">
-            <div class="sw-hero-grid">
+<div class="wd-page" data-wd-auto-open-add="{{ $errors->any() && old('serials') ? '1' : '0' }}">
+    <div class="wd-shell">
+        <header class="wd-topbar">
+            <div class="wd-heading">
+                <div class="wd-icon"><i class="bi bi-shield-check"></i></div>
                 <div>
-                    <div class="sw-kicker">⚡ EGO Solar Warranty Center</div>
-                    <h1 class="sw-title">Tra cứu Serial / Bảo hành</h1>
-                    <p class="sw-sub">
-                        Quản lý serial đã bán, thời hạn bảo hành và bổ sung nhanh serial bị quên nhập kho.
-                        Bảng danh sách đã được làm rộng full khung, form thêm/sửa dùng popup nhẹ để không lag.
-                    </p>
-                    <div class="sw-role">
-                        {{ $canManageWarranty ? '✅ Quyền Admin / Kho' : '🔎 Quyền Sales tra cứu' }}
-                    </div>
-                </div>
-
-                <div class="sw-hero-stats">
-                    <div class="sw-hero-stat">
-                        <span>Serial đã bán</span>
-                        <b>{{ number_format($totalSerial) }}</b>
-                    </div>
-                    <div class="sw-hero-stat">
-                        <span>Đã bán / đã xuất</span>
-                        <b>{{ number_format($soldSerial) }}</b>
-                    </div>
-                    <div class="sw-hero-stat">
-                        <span>Còn bảo hành</span>
-                        <b>{{ number_format($activeWarranty) }}</b>
-                    </div>
+                    <div class="wd-eyebrow">Warranty Desk</div>
+                    <h1>Serial & Bảo hành</h1>
+                    <p>Tra cứu, kiểm tra và cập nhật serial đã bán trên một không gian làm việc.</p>
                 </div>
             </div>
-        </div>
+
+            <div class="wd-top-actions">
+                <span class="wd-access-badge">
+                    <i class="bi {{ $canManageWarranty ? 'bi-unlock' : 'bi-eye' }}"></i>
+                    {{ $canManageWarranty ? 'Kho / Admin quản lý' : 'Quyền tra cứu' }}
+                </span>
+                <a href="{{ route('serial-warranty.index') }}" class="wd-btn wd-btn-light">
+                    <i class="bi bi-arrow-clockwise"></i> Làm mới
+                </a>
+                @if($canManageWarranty)
+                    <button type="button" class="wd-btn wd-btn-primary" data-wd-open="add">
+                        <i class="bi bi-plus-lg"></i> Thêm serial
+                    </button>
+                @endif
+            </div>
+        </header>
 
         @if(session('success'))
-            <div class="sw-alert success">{{ session('success') }}</div>
+            <div class="wd-alert wd-alert-success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>
         @endif
-
         @if(session('error'))
-            <div class="sw-alert error">{{ session('error') }}</div>
+            <div class="wd-alert wd-alert-error"><i class="bi bi-exclamation-triangle-fill"></i><span>{{ session('error') }}</span></div>
         @endif
-
         @if($errors->any())
-            <div class="sw-alert error">
-                @foreach($errors->all() as $error)
-                    <div>{{ $error }}</div>
-                @endforeach
+            <div class="wd-alert wd-alert-error">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <div>@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
             </div>
         @endif
 
-        <div class="sw-card sw-search">
-            <div class="sw-section-head">
-                <div>
-                    <h2 class="sw-section-title">
-                        <span class="sw-section-icon">🔍</span>
-                        Nhập serial cần kiểm tra
-                    </h2>
-                    <p class="sw-section-desc">
-                        Có thể tra theo serial, mã sản phẩm, tên khách hàng, số điện thoại hoặc mã đơn hàng.
-                    </p>
+        <div class="wd-workspace">
+            <aside class="wd-sidebar">
+                <section class="wd-panel wd-search-panel">
+                    <div class="wd-panel-title">
+                        <span><i class="bi bi-search"></i></span>
+                        <div><strong>Tìm kiếm</strong><small>Lọc dữ liệu chính xác</small></div>
+                    </div>
+
+                    <form method="GET" action="{{ route('serial-warranty.index') }}" class="wd-filter-form">
+                        <label class="wd-label" for="wd-q">Serial, khách hàng hoặc đơn</label>
+                        <div class="wd-input-icon">
+                            <i class="bi bi-upc-scan"></i>
+                            <input id="wd-q" class="wd-input" type="search" name="q" value="{{ $q }}" placeholder="Nhập nội dung cần tìm...">
+                        </div>
+
+                        <label class="wd-label" for="wd-product">Sản phẩm</label>
+                        <select id="wd-product" class="wd-select" name="product_id">
+                            <option value="">Tất cả sản phẩm</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" @selected((int)$productId === (int)$product->id)>
+                                    {{ $product->sku ? $product->sku.' · ' : '' }}{{ $product->name }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        <label class="wd-label" for="wd-state">Trạng thái giao dịch</label>
+                        <select id="wd-state" class="wd-select" name="state">
+                            <option value="">Đã bán và đã giao</option>
+                            <option value="sold" @selected($state === 'sold')>Đã bán</option>
+                            <option value="delivered" @selected($state === 'delivered')>Đã giao</option>
+                        </select>
+
+                        <div class="wd-filter-actions">
+                            <button class="wd-btn wd-btn-primary" type="submit"><i class="bi bi-search"></i> Tra cứu</button>
+                            <a class="wd-btn wd-btn-light" href="{{ route('serial-warranty.index') }}"><i class="bi bi-x-lg"></i></a>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="wd-panel wd-stats-panel">
+                    <div class="wd-panel-title compact">
+                        <span><i class="bi bi-bar-chart"></i></span>
+                        <div><strong>Tổng quan</strong><small>Dữ liệu toàn hệ thống</small></div>
+                    </div>
+                    <div class="wd-stat-grid">
+                        <article><small>Tổng serial</small><strong>{{ number_format($totalSerial) }}</strong><span>đã bán / đã xuất</span></article>
+                        <article class="success"><small>Còn bảo hành</small><strong>{{ number_format($activeWarranty) }}</strong><span>đang hiệu lực</span></article>
+                        <article class="warning"><small>Hết / chưa BH</small><strong>{{ number_format($inactiveWarranty) }}</strong><span>cần kiểm tra</span></article>
+                        <article class="info"><small>Kết quả lọc</small><strong>{{ number_format($resultTotal) }}</strong><span>serial phù hợp</span></article>
+                    </div>
+                </section>
+
+                <section class="wd-panel wd-guide-panel">
+                    <div class="wd-panel-title compact">
+                        <span><i class="bi bi-lightbulb"></i></span>
+                        <div><strong>Thao tác nhanh</strong><small>Chọn một serial ở danh sách</small></div>
+                    </div>
+                    <ul>
+                        <li><i class="bi bi-mouse"></i><span>Bấm vào thẻ để xem chi tiết bên phải.</span></li>
+                        <li><i class="bi bi-copy"></i><span>Bấm mã serial để sao chép nhanh.</span></li>
+                        <li><i class="bi bi-pencil-square"></i><span>Kho/Admin được sửa thời hạn bảo hành.</span></li>
+                    </ul>
+                </section>
+            </aside>
+
+            <main class="wd-list-column">
+                <section class="wd-list-header">
+                    <div>
+                        <span class="wd-section-kicker">Danh sách serial</span>
+                        <h2>{{ number_format($resultTotal) }} kết quả</h2>
+                    </div>
+                    <div class="wd-view-note"><i class="bi bi-layout-text-window-reverse"></i> Chọn serial để mở hồ sơ</div>
+                </section>
+
+                <div class="wd-quick-filters" role="group" aria-label="Lọc nhanh bảo hành">
+                    <button type="button" class="wd-chip is-active" data-wd-filter="all">Tất cả</button>
+                    <button type="button" class="wd-chip" data-wd-filter="active"><span class="dot green"></span>Còn bảo hành</button>
+                    <button type="button" class="wd-chip" data-wd-filter="expired"><span class="dot red"></span>Hết bảo hành</button>
+                    <button type="button" class="wd-chip" data-wd-filter="inactive"><span class="dot amber"></span>Chưa kích hoạt</button>
+                    <button type="button" class="wd-chip" data-wd-filter="manual"><i class="bi bi-pencil"></i>Bổ sung thủ công</button>
                 </div>
-            </div>
 
-            <form method="GET" action="{{ route('serial-warranty.index') }}" class="sw-search-form">
-                <div>
-                    <label class="sw-label">Mã serial / khách hàng / đơn hàng</label>
-                    <input class="sw-input" type="text" name="q" value="{{ $q }}" placeholder="VD: SN01230, INV123456, Đạt 123456...">
-                </div>
+                <div class="wd-serial-list" id="wdSerialList">
+                    @forelse($serials as $row)
+                        @php
+                            $end = $row->warranty_end_at ? \Carbon\Carbon::parse($row->warranty_end_at)->startOfDay() : null;
+                            $daysLeft = $end ? $today->diffInDays($end, false) : null;
+                            $warrantyState = !$end ? 'inactive' : ($daysLeft >= 0 ? 'active' : 'expired');
+                            $stateLabel = $row->state === 'delivered' ? 'Đã giao' : 'Đã bán';
+                            $serialLabel = $row->serial_code ?: ('#'.$row->id);
+                            $orderLabel = $row->order_code ?: ($row->order_id ? ('Đơn #'.$row->order_id) : 'Chưa gắn đơn');
+                            $orderUrl = $row->order_id
+                                ? (\Illuminate\Support\Facades\Route::has('orders.show') ? route('orders.show', $row->order_id) : url('/orders/'.$row->order_id))
+                                : '';
+                            $noteText = trim((string)($row->note ?? ''));
+                            $isManual = str_contains(strtolower($noteText), 'quên nhập kho') || str_contains(strtolower($noteText), 'bổ sung serial');
+                        @endphp
 
-                <button class="sw-btn" type="submit">Tra cứu</button>
-                <a class="sw-btn light" href="{{ route('serial-warranty.index') }}">Xóa lọc</a>
-            </form>
+                        <article
+                            class="wd-serial-card {{ $loop->first ? 'is-selected' : '' }}"
+                            tabindex="0"
+                            data-wd-card
+                            data-id="{{ $row->id }}"
+                            data-filter-warranty="{{ $warrantyState }}"
+                            data-filter-manual="{{ $isManual ? '1' : '0' }}"
+                            data-serial="{{ e($serialLabel) }}"
+                            data-product-id="{{ $row->product_id }}"
+                            data-product="{{ e($row->product_name ?: 'Chưa có tên sản phẩm') }}"
+                            data-sku="{{ e($row->product_sku ?: 'Chưa có SKU') }}"
+                            data-state="{{ e($stateLabel) }}"
+                            data-customer-id="{{ $row->customer_id }}"
+                            data-customer="{{ e($row->customer_name ?: 'Chưa gắn khách hàng') }}"
+                            data-phone="{{ e($row->customer_phone ?: '—') }}"
+                            data-order-id="{{ $row->order_id }}"
+                            data-order="{{ e($orderLabel) }}"
+                            data-order-url="{{ e($orderUrl) }}"
+                            data-sold-at="{{ $row->sold_at ? \Carbon\Carbon::parse($row->sold_at)->format('Y-m-d') : '' }}"
+                            data-sold-display="{{ $row->sold_at ? \Carbon\Carbon::parse($row->sold_at)->format('d/m/Y') : '—' }}"
+                            data-start="{{ $row->warranty_start_at ? \Carbon\Carbon::parse($row->warranty_start_at)->format('Y-m-d') : '' }}"
+                            data-start-display="{{ $row->warranty_start_at ? \Carbon\Carbon::parse($row->warranty_start_at)->format('d/m/Y') : '—' }}"
+                            data-months="{{ $row->warranty_months ?: 60 }}"
+                            data-end="{{ $row->warranty_end_at ? \Carbon\Carbon::parse($row->warranty_end_at)->format('Y-m-d') : '' }}"
+                            data-end-display="{{ $row->warranty_end_at ? \Carbon\Carbon::parse($row->warranty_end_at)->format('d/m/Y') : '—' }}"
+                            data-days="{{ $daysLeft ?? '' }}"
+                            data-note="{{ e($noteText ?: 'Chưa có ghi chú') }}"
+                        >
+                            <div class="wd-card-accent {{ $warrantyState }}"></div>
+                            <div class="wd-card-main">
+                                <div class="wd-card-topline">
+                                    <button type="button" class="wd-serial-code" data-wd-copy="{{ e($serialLabel) }}" title="Sao chép serial">
+                                        <i class="bi bi-upc-scan"></i><span>{{ $serialLabel }}</span><i class="bi bi-copy copy-icon"></i>
+                                    </button>
+                                    <span class="wd-transaction-badge"><i class="bi bi-check2-circle"></i>{{ $stateLabel }}</span>
+                                </div>
 
-            <div class="sw-mini-note">
-                Mẹo: Sales chỉ thấy serial đã bán / đã xuất. Admin/Kho có quyền sửa bảo hành, xóa khỏi tra cứu và bổ sung serial thủ công.
-            </div>
-        </div>
+                                <h3>{{ $row->product_name ?: 'Chưa có tên sản phẩm' }}</h3>
+                                <div class="wd-card-meta">
+                                    <span><i class="bi bi-box-seam"></i>{{ $row->product_sku ?: 'Chưa có SKU' }}</span>
+                                    <span><i class="bi bi-building"></i>{{ $row->customer_name ?: 'Chưa gắn khách' }}</span>
+                                </div>
 
-        @if($canManageWarranty)
-            <div class="sw-toolbar">
-                <button type="button" class="sw-btn green" onclick="openAddSerialModal()">＋ Thêm serial bảo hành</button>
-            </div>
-        @endif
-
-        <div class="sw-card sw-table-card">
-            <div class="sw-table-head">
-                <div>
-                    <h2 class="sw-table-title">Danh sách kết quả</h2>
-                    <div class="sw-table-sub">{{ $serials->total() }} kết quả đã bán / đã xuất</div>
-                </div>
-                <a class="sw-btn light" href="{{ route('serial-warranty.index') }}">Làm mới</a>
-            </div>
-
-            <div class="sw-table-wrap">
-                <table class="sw-table">
-                    <thead>
-                        <tr>
-                            <th>Serial</th>
-                            <th>Sản phẩm</th>
-                            <th>Trạng thái</th>
-                            <th>Khách hàng</th>
-                            <th>Đơn hàng</th>
-                            <th>Bảo hành</th>
-                            <th>Ghi chú</th>
-                            @if($canManageWarranty)
-                                <th>Thao tác</th>
-                            @endif
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($serials as $row)
-                            @php
-                                $end = $row->warranty_end_at ? \Carbon\Carbon::parse($row->warranty_end_at)->startOfDay() : null;
-                                $daysLeft = $end ? $today->diffInDays($end, false) : null;
-                                $orderLabel = $row->order_code ?: ($row->order_id ? ('Đơn #'.$row->order_id) : '—');
-                            @endphp
-
-                            <tr>
-                                <td>
-                                    <span class="sw-code">{{ $row->serial_code ?: ('#'.$row->id) }}</span>
-                                </td>
-
-                                <td>
-                                    <div class="sw-product">{{ $row->product_name ?: '—' }}</div>
-                                    <div class="sw-muted">{{ $row->product_sku ?: 'Chưa có SKU' }}</div>
-                                </td>
-
-                                <td>
-                                    <span class="sw-badge warn">Đã bán / đã xuất</span>
-                                </td>
-
-                                <td>
-                                    @if($row->customer_name)
-                                        <div class="sw-name">{{ $row->customer_name }}</div>
-                                        <div class="sw-muted">{{ $row->customer_phone }}</div>
-                                    @else
-                                        <div class="sw-muted">—</div>
-                                    @endif
-                                </td>
-
-                                <td>
-                                    @if($row->order_id && \Illuminate\Support\Facades\Route::has('orders.show'))
-                                        <a class="sw-order-link" href="{{ route('orders.show', $row->order_id) }}" title="Mở đơn hàng {{ $orderLabel }}">
-                                            <span>↗</span>
-                                            <span class="sw-order-text">{{ $orderLabel }}</span>
-                                        </a>
-                                    @elseif($row->order_id)
-                                        <a class="sw-order-link" href="{{ url('/orders/'.$row->order_id) }}" title="Mở đơn hàng {{ $orderLabel }}">
-                                            <span>↗</span>
-                                            <span class="sw-order-text">{{ $orderLabel }}</span>
-                                        </a>
-                                    @else
-                                        <span class="sw-order-empty">—</span>
-                                    @endif
-                                </td>
-
-                                <td>
-                                    @if($end)
-                                        <span class="sw-badge {{ $daysLeft >= 0 ? 'ok' : 'bad' }}">
-                                            @if($daysLeft >= 0)
-                                                Còn {{ number_format($daysLeft) }} ngày
-                                            @else
-                                                Hết hạn {{ number_format(abs($daysLeft)) }} ngày
-                                            @endif
-                                        </span>
-
-                                        <div class="sw-muted">
-                                            {{ $row->warranty_start_at ? \Carbon\Carbon::parse($row->warranty_start_at)->format('d/m/Y') : '—' }}
-                                            → {{ \Carbon\Carbon::parse($row->warranty_end_at)->format('d/m/Y') }}
-                                        </div>
-                                    @else
-                                        <span class="sw-badge warn">Chưa kích hoạt</span>
-                                    @endif
-                                </td>
-
-                                <td>
-                                    @if(trim((string)($row->note ?? '')) !== '')
-                                        <div class="sw-note">{{ $row->note }}</div>
-                                    @else
-                                        <span class="sw-muted">—</span>
-                                    @endif
-                                </td>
-
-                                @if($canManageWarranty)
-                                    <td>
-                                        <div class="sw-actions">
-                                            <a class="sw-btn mini dark" href="{{ route('serial-warranty.index', ['q' => $row->serial_code]) }}">Xem</a>
-
-                                            <button
-                                                type="button"
-                                                class="sw-btn mini"
-                                                data-id="{{ $row->id }}"
-                                                data-serial="{{ e($row->serial_code ?: ('#'.$row->id)) }}"
-                                                data-product-id="{{ $row->product_id }}"
-                                                data-customer-id="{{ $row->customer_id }}"
-                                                data-order-id="{{ $row->order_id }}"
-                                                data-sold-at="{{ $row->sold_at ? \Carbon\Carbon::parse($row->sold_at)->format('Y-m-d') : '' }}"
-                                                data-start="{{ $row->warranty_start_at ? \Carbon\Carbon::parse($row->warranty_start_at)->format('Y-m-d') : now()->format('Y-m-d') }}"
-                                                data-months="{{ $row->warranty_months ?: 60 }}"
-                                                data-end="{{ $row->warranty_end_at ? \Carbon\Carbon::parse($row->warranty_end_at)->format('Y-m-d') : '' }}"
-                                                data-note="{{ e($row->note ?? '') }}"
-                                                onclick="openEditWarrantyModal(this)"
-                                            >
-                                                Sửa BH
-                                            </button>
-
-                                            <form method="POST" action="{{ route('serial-warranty.serial.remove-from-lookup', $row->id) }}" onsubmit="return confirm('Xóa serial này khỏi trang tra cứu?')">
-                                                @csrf
-                                                <button type="submit" class="sw-btn mini danger">Xóa</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                @endif
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="{{ $canManageWarranty ? 8 : 7 }}">
-                                    <div class="sw-empty">
-                                        @if($q !== '')
-                                            <b>Không tìm thấy serial phù hợp</b>
-                                            Thử kiểm tra lại mã serial, mã đơn hàng, số điện thoại hoặc tên khách hàng.
+                                <div class="wd-card-footer">
+                                    <span class="wd-warranty-badge {{ $warrantyState }}">
+                                        @if($warrantyState === 'active')
+                                            <i class="bi bi-shield-check"></i>Còn {{ number_format($daysLeft) }} ngày
+                                        @elseif($warrantyState === 'expired')
+                                            <i class="bi bi-shield-x"></i>Hết {{ number_format(abs($daysLeft)) }} ngày
                                         @else
-                                            <b>Nhập serial để bắt đầu tra cứu</b>
-                                            Dữ liệu hiển thị là serial đã bán / đã xuất.
+                                            <i class="bi bi-shield-exclamation"></i>Chưa kích hoạt
                                         @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                                    </span>
+                                    <span class="wd-order-mini"><i class="bi bi-receipt"></i>{{ $orderLabel }}</span>
+                                </div>
+                            </div>
 
-        @if(method_exists($serials, 'links'))
-            <div style="margin-top:14px">
-                {{ $serials->links() }}
-            </div>
-        @endif
+                            <button type="button" class="wd-card-arrow" aria-label="Xem chi tiết"><i class="bi bi-chevron-right"></i></button>
+
+                            @if($canManageWarranty)
+                                <form id="wd-delete-{{ $row->id }}" method="POST" action="{{ route('serial-warranty.serial.remove-from-lookup', $row->id) }}" class="wd-hidden-form">
+                                    @csrf
+                                </form>
+                            @endif
+                        </article>
+                    @empty
+                        <div class="wd-empty-state">
+                            <div><i class="bi bi-search"></i></div>
+                            <h3>Không tìm thấy serial phù hợp</h3>
+                            <p>Kiểm tra lại serial, mã đơn, khách hàng hoặc thay đổi bộ lọc.</p>
+                            <a href="{{ route('serial-warranty.index') }}" class="wd-btn wd-btn-light">Xóa bộ lọc</a>
+                        </div>
+                    @endforelse
+                </div>
+
+                @if(method_exists($serials, 'links'))
+                    <div class="wd-pagination">{{ $serials->links() }}</div>
+                @endif
+            </main>
+
+            <aside class="wd-detail-column">
+                <section class="wd-detail-panel" id="wdDetailPanel">
+                    <div class="wd-detail-empty" id="wdDetailEmpty">
+                        <div><i class="bi bi-cursor"></i></div>
+                        <h3>Chọn một serial</h3>
+                        <p>Thông tin sản phẩm, khách hàng, đơn hàng và bảo hành sẽ hiển thị tại đây.</p>
+                    </div>
+
+                    <div class="wd-detail-content" id="wdDetailContent" hidden>
+                        <div class="wd-detail-head">
+                            <span class="wd-detail-label">Hồ sơ serial</span>
+                            <button type="button" class="wd-copy-detail" id="wdDetailCopy"><i class="bi bi-copy"></i></button>
+                        </div>
+                        <h2 id="wdDetailSerial">—</h2>
+                        <div class="wd-detail-state-row">
+                            <span id="wdDetailTransaction" class="wd-transaction-badge">—</span>
+                            <span id="wdDetailWarranty" class="wd-warranty-badge inactive">—</span>
+                        </div>
+
+                        <div class="wd-detail-section">
+                            <div class="wd-detail-section-title"><i class="bi bi-box-seam"></i>Sản phẩm</div>
+                            <strong id="wdDetailProduct">—</strong>
+                            <small id="wdDetailSku">—</small>
+                        </div>
+
+                        <div class="wd-detail-grid">
+                            <div><span>Khách hàng</span><strong id="wdDetailCustomer">—</strong><small id="wdDetailPhone">—</small></div>
+                            <div><span>Đơn hàng</span><a id="wdDetailOrder" href="#">—</a><small>Ngày bán: <b id="wdDetailSold">—</b></small></div>
+                        </div>
+
+                        <div class="wd-warranty-progress">
+                            <div class="wd-progress-head"><span>Thời hạn bảo hành</span><strong id="wdDetailMonths">—</strong></div>
+                            <div class="wd-progress-track"><span id="wdProgressBar"></span></div>
+                            <div class="wd-progress-dates"><span id="wdDetailStart">—</span><span id="wdDetailEnd">—</span></div>
+                        </div>
+
+                        <div class="wd-detail-note">
+                            <span><i class="bi bi-sticky"></i>Ghi chú</span>
+                            <p id="wdDetailNote">—</p>
+                        </div>
+
+                        <div class="wd-detail-actions">
+                            <a id="wdOpenOrder" href="#" class="wd-btn wd-btn-light"><i class="bi bi-box-arrow-up-right"></i>Mở đơn</a>
+                            @if($canManageWarranty)
+                                <button type="button" class="wd-btn wd-btn-primary" id="wdEditSelected"><i class="bi bi-pencil-square"></i>Sửa bảo hành</button>
+                                <button type="button" class="wd-btn wd-btn-danger" id="wdDeleteSelected"><i class="bi bi-trash3"></i>Xóa khỏi tra cứu</button>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </div>
     </div>
 </div>
 
 @if($canManageWarranty)
-    <div id="swModalBackdrop" class="sw-modal-backdrop" onclick="closeAllSerialModals()"></div>
+    <div class="wd-modal-backdrop" id="wdModalBackdrop"></div>
 
-    <div id="swAddSerialModal" class="sw-modal" role="dialog" aria-modal="true" aria-label="Thêm serial bảo hành">
-        <div class="sw-modal-head">
-            <div>
-                <h3 class="sw-modal-title">Thêm serial bảo hành</h3>
-                <div class="sw-modal-sub">Dùng khi đã bán/xuất hàng nhưng trước đó quên nhập serial trong kho.</div>
-            </div>
-            <button type="button" class="sw-modal-close" onclick="closeAllSerialModals()">×</button>
-        </div>
-
+    <section class="wd-modal" id="wdAddModal" role="dialog" aria-modal="true" aria-labelledby="wdAddTitle" hidden>
+        <header>
+            <div><span>Thêm mới</span><h2 id="wdAddTitle">Bổ sung serial bảo hành</h2><p>Dành cho serial đã bán nhưng quên nhập trước đó.</p></div>
+            <button type="button" data-wd-close aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+        </header>
         <form method="POST" action="{{ route('serial-warranty.manual-add') }}">
             @csrf
-
-            <div class="sw-form-grid">
-                <div class="wide">
-                    <label class="sw-label">Serial cần thêm</label>
-                    <textarea class="sw-textarea" name="serials" placeholder="Mỗi dòng 1 serial. Có thể dán nhiều serial cùng lúc." required>{{ old('serials') }}</textarea>
+            <div class="wd-modal-body">
+                <div class="wd-field full">
+                    <label>Danh sách serial <b>*</b></label>
+                    <textarea name="serials" class="wd-textarea" rows="4" required placeholder="Mỗi dòng một serial">{{ old('serials') }}</textarea>
+                    <small>Có thể dán nhiều serial cùng lúc.</small>
                 </div>
-
-                <div class="wide">
-                    <label class="sw-label">Sản phẩm</label>
-                    <select class="sw-select" name="product_id" required>
-                        <option value="">-- Chọn sản phẩm --</option>
-                        @foreach($products as $product)
-                            <option value="{{ $product->id }}">{{ $product->sku ? $product->sku.' - ' : '' }}{{ $product->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Khách hàng</label>
-                    <select class="sw-select" name="customer_id">
-                        <option value="">-- Chọn khách hàng nếu có --</option>
-                        @foreach($customers as $customer)
-                            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - '.$customer->phone : '' }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Đơn hàng</label>
-                    <select class="sw-select" name="order_id">
-                        <option value="">-- Chọn đơn nếu có --</option>
-                        @foreach($orders as $order)
-                            <option value="{{ $order->id }}">{{ $order->order_code ?: ('Đơn #'.$order->id) }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Ngày bán/xuất</label>
-                    <input class="sw-input" type="date" name="sold_at" value="{{ now()->format('Y-m-d') }}">
-                </div>
-
-                <div>
-                    <label class="sw-label">Bắt đầu BH</label>
-                    <input class="sw-input" type="date" name="warranty_start_at" value="{{ now()->format('Y-m-d') }}">
-                </div>
-
-                <div>
-                    <label class="sw-label">Số tháng BH</label>
-                    <input class="sw-input" type="number" name="warranty_months" min="1" max="240" value="60">
-                </div>
-
-                <div>
-                    <label class="sw-label">Kết thúc BH</label>
-                    <input class="sw-input" type="date" name="warranty_end_at">
-                </div>
-
-                <div class="wide">
-                    <label class="sw-label">Ghi chú</label>
-                    <input class="sw-input" type="text" name="note" value="{{ old('note', 'Quên nhập kho') }}" placeholder="Ghi chú bảo hành">
+                <div class="wd-form-grid">
+                    <div class="wd-field full">
+                        <label>Sản phẩm <b>*</b></label>
+                        <select name="product_id" class="wd-select" required>
+                            <option value="">Chọn sản phẩm</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" @selected((int)old('product_id') === (int)$product->id)>{{ $product->sku ? $product->sku.' · ' : '' }}{{ $product->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="wd-field">
+                        <label>Khách hàng</label>
+                        <select name="customer_id" class="wd-select">
+                            <option value="">Chọn khách hàng</option>
+                            @foreach($customers as $customer)
+                                <option value="{{ $customer->id }}" @selected((int)old('customer_id') === (int)$customer->id)>{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="wd-field">
+                        <label>Đơn hàng</label>
+                        <select name="order_id" class="wd-select">
+                            <option value="">Chọn đơn hàng</option>
+                            @foreach($orders as $order)
+                                <option value="{{ $order->id }}" @selected((int)old('order_id') === (int)$order->id)>{{ $order->order_code ?: ('Đơn #'.$order->id) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="wd-field"><label>Ngày bán / xuất</label><input type="date" name="sold_at" class="wd-input" value="{{ old('sold_at', now()->format('Y-m-d')) }}"></div>
+                    <div class="wd-field"><label>Bắt đầu bảo hành</label><input type="date" name="warranty_start_at" class="wd-input" value="{{ old('warranty_start_at', now()->format('Y-m-d')) }}" data-wd-date-start="add"></div>
+                    <div class="wd-field"><label>Số tháng bảo hành <b>*</b></label><input type="number" name="warranty_months" class="wd-input" min="1" max="240" value="{{ old('warranty_months', 60) }}" required data-wd-months="add"></div>
+                    <div class="wd-field wd-end-preview"><label>Kết thúc dự kiến</label><div id="wdAddEndPreview">—</div></div>
+                    <div class="wd-field full"><label>Ghi chú</label><textarea name="note" class="wd-textarea" rows="3" placeholder="Lý do bổ sung hoặc thông tin cần lưu">{{ old('note', 'Bổ sung serial bảo hành thủ công do quên nhập kho') }}</textarea></div>
                 </div>
             </div>
-
-            <div class="sw-modal-actions">
-                <button type="button" class="sw-btn light" onclick="closeAllSerialModals()">Đóng</button>
-                <button class="sw-btn green" type="submit">Thêm serial bảo hành</button>
-            </div>
+            <footer><button type="button" class="wd-btn wd-btn-light" data-wd-close>Hủy</button><button type="submit" class="wd-btn wd-btn-primary"><i class="bi bi-check2"></i>Lưu serial</button></footer>
         </form>
-    </div>
+    </section>
 
-    <div id="swEditWarrantyModal" class="sw-modal" role="dialog" aria-modal="true" aria-label="Sửa serial bảo hành">
-        <div class="sw-modal-head">
-            <div>
-                <h3 class="sw-modal-title">Sửa serial bảo hành</h3>
-                <div id="swEditSerialText" class="sw-modal-sub">Serial</div>
-            </div>
-            <button type="button" class="sw-modal-close" onclick="closeAllSerialModals()">×</button>
-        </div>
-
-        <form id="swEditWarrantyForm" method="POST" data-action-template="{{ url('/serial-warranty/serial/__ID__/warranty') }}">
+    <section class="wd-modal" id="wdEditModal" role="dialog" aria-modal="true" aria-labelledby="wdEditTitle" hidden>
+        <header>
+            <div><span>Cập nhật</span><h2 id="wdEditTitle">Sửa thông tin bảo hành</h2><p id="wdEditSubtitle">Serial: —</p></div>
+            <button type="button" data-wd-close aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+        </header>
+        <form id="wdEditForm" method="POST" data-action-template="{{ url('/serial-warranty/serial/__ID__/warranty') }}">
             @csrf
-
-            <div class="sw-form-grid">
-                <div class="wide">
-                    <label class="sw-label">Sản phẩm</label>
-                    <select class="sw-select" name="product_id" id="edit_product_id">
-                        <option value="">-- Chọn sản phẩm --</option>
-                        @foreach($products as $product)
-                            <option value="{{ $product->id }}">{{ $product->sku ? $product->sku.' - ' : '' }}{{ $product->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Khách hàng</label>
-                    <select class="sw-select" name="customer_id" id="edit_customer_id">
-                        <option value="">-- Chọn khách hàng nếu có --</option>
-                        @foreach($customers as $customer)
-                            <option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' - '.$customer->phone : '' }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Đơn hàng</label>
-                    <select class="sw-select" name="order_id" id="edit_order_id">
-                        <option value="">-- Chọn đơn nếu có --</option>
-                        @foreach($orders as $order)
-                            <option value="{{ $order->id }}">{{ $order->order_code ?: ('Đơn #'.$order->id) }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="sw-label">Ngày bán/xuất</label>
-                    <input class="sw-input" type="date" name="sold_at" id="edit_sold_at">
-                </div>
-
-                <div>
-                    <label class="sw-label">Bắt đầu BH</label>
-                    <input class="sw-input" type="date" name="warranty_start_at" id="edit_start_at">
-                </div>
-
-                <div>
-                    <label class="sw-label">Số tháng BH</label>
-                    <input class="sw-input" type="number" name="warranty_months" min="1" max="240" id="edit_months">
-                </div>
-
-                <div>
-                    <label class="sw-label">Kết thúc BH</label>
-                    <input class="sw-input" type="date" name="warranty_end_at" id="edit_end_at">
-                </div>
-
-                <div class="wide">
-                    <label class="sw-label">Ghi chú</label>
-                    <input class="sw-input" type="text" name="note" id="edit_note" placeholder="Ghi chú bảo hành">
+            <div class="wd-modal-body">
+                <div class="wd-form-grid">
+                    <div class="wd-field full">
+                        <label>Sản phẩm <b>*</b></label>
+                        <select name="product_id" id="wdEditProduct" class="wd-select" required>
+                            <option value="">Chọn sản phẩm</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}">{{ $product->sku ? $product->sku.' · ' : '' }}{{ $product->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="wd-field"><label>Khách hàng</label><select name="customer_id" id="wdEditCustomer" class="wd-select"><option value="">Chọn khách hàng</option>@foreach($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>@endforeach</select></div>
+                    <div class="wd-field"><label>Đơn hàng</label><select name="order_id" id="wdEditOrder" class="wd-select"><option value="">Chọn đơn hàng</option>@foreach($orders as $order)<option value="{{ $order->id }}">{{ $order->order_code ?: ('Đơn #'.$order->id) }}</option>@endforeach</select></div>
+                    <div class="wd-field"><label>Ngày bán / xuất</label><input type="date" name="sold_at" id="wdEditSold" class="wd-input"></div>
+                    <div class="wd-field"><label>Bắt đầu bảo hành</label><input type="date" name="warranty_start_at" id="wdEditStart" class="wd-input" data-wd-date-start="edit"></div>
+                    <div class="wd-field"><label>Số tháng bảo hành <b>*</b></label><input type="number" name="warranty_months" id="wdEditMonths" class="wd-input" min="1" max="240" required data-wd-months="edit"></div>
+                    <div class="wd-field"><label>Kết thúc bảo hành</label><input type="date" name="warranty_end_at" id="wdEditEnd" class="wd-input"></div>
+                    <div class="wd-field full"><label>Ghi chú</label><textarea name="note" id="wdEditNote" class="wd-textarea" rows="3"></textarea></div>
                 </div>
             </div>
-
-            <div class="sw-modal-actions">
-                <button type="button" class="sw-btn light" onclick="closeAllSerialModals()">Đóng</button>
-                <button class="sw-btn green" type="submit">Lưu thay đổi</button>
-            </div>
+            <footer><button type="button" class="wd-btn wd-btn-light" data-wd-close>Đóng</button><button type="submit" class="wd-btn wd-btn-primary"><i class="bi bi-check2"></i>Lưu thay đổi</button></footer>
         </form>
-    </div>
+    </section>
 @endif
-
-<script>
-(function(){
-    const backdrop = document.getElementById('swModalBackdrop');
-    const addModal = document.getElementById('swAddSerialModal');
-    const editModal = document.getElementById('swEditWarrantyModal');
-
-    function showBackdrop(){
-        if(backdrop){
-            backdrop.classList.add('show');
-        }
-        document.body.classList.add('sw-modal-open');
-    }
-
-    window.closeAllSerialModals = function(){
-        if(backdrop){
-            backdrop.classList.remove('show');
-        }
-
-        if(addModal){
-            addModal.classList.remove('show');
-        }
-
-        if(editModal){
-            editModal.classList.remove('show');
-        }
-
-        document.body.classList.remove('sw-modal-open');
-    };
-
-    window.openAddSerialModal = function(){
-        if(addModal){
-            addModal.classList.add('show');
-            showBackdrop();
-        }
-    };
-
-    function setValue(id, value){
-        const el = document.getElementById(id);
-        if(el){
-            el.value = value || '';
-        }
-    }
-
-    window.openEditWarrantyModal = function(button){
-        if(!button || !editModal){
-            return;
-        }
-
-        const id = button.dataset.id || '';
-        const form = document.getElementById('swEditWarrantyForm');
-        const title = document.getElementById('swEditSerialText');
-
-        if(form){
-            const template = form.dataset.actionTemplate || '/serial-warranty/serial/__ID__/warranty';
-            form.action = template.replace('__ID__', id);
-        }
-
-        if(title){
-            title.textContent = 'Serial: ' + (button.dataset.serial || ('#' + id));
-        }
-
-        setValue('edit_product_id', button.dataset.productId);
-        setValue('edit_customer_id', button.dataset.customerId);
-        setValue('edit_order_id', button.dataset.orderId);
-        setValue('edit_sold_at', button.dataset.soldAt);
-        setValue('edit_start_at', button.dataset.start);
-        setValue('edit_months', button.dataset.months || '60');
-        setValue('edit_end_at', button.dataset.end);
-        setValue('edit_note', button.dataset.note);
-
-        editModal.classList.add('show');
-        showBackdrop();
-    };
-
-    document.addEventListener('keydown', function(event){
-        if(event.key === 'Escape'){
-            window.closeAllSerialModals();
-        }
-    });
-})();
-</script>
-
-
-<!-- EGO_SEARCHABLE_SERIAL_SELECTS_START -->
-<style>
-    .sw-native-hidden-for-search{
-        position:absolute !important;
-        left:-99999px !important;
-        width:1px !important;
-        height:1px !important;
-        opacity:0 !important;
-        pointer-events:none !important;
-    }
-
-    .sw-search-select{
-        position:relative;
-        width:100%;
-    }
-
-    .sw-search-select::after{
-        content:"⌄";
-        position:absolute;
-        right:14px;
-        top:50%;
-        transform:translateY(-50%);
-        color:#64748b;
-        font-weight:950;
-        pointer-events:none;
-        font-size:15px;
-    }
-
-    .sw-search-input{
-        width:100%;
-        height:42px;
-        border:1px solid var(--sw-line, #dce8f1);
-        background:#fff;
-        color:#0f172a;
-        outline:none;
-        font-weight:800;
-        border-radius:13px;
-        padding:0 38px 0 12px;
-        font-size:13px;
-    }
-
-    .sw-search-input:focus{
-        border-color:#14b8a6;
-        box-shadow:0 0 0 4px rgba(20,184,166,.12);
-    }
-
-    .sw-search-select.invalid .sw-search-input{
-        border-color:#ef4444;
-        box-shadow:0 0 0 4px rgba(239,68,68,.12);
-    }
-
-    .sw-search-menu{
-        position:absolute;
-        left:0;
-        right:0;
-        top:calc(100% + 6px);
-        z-index:10050;
-        display:none;
-        max-height:280px;
-        overflow:auto;
-        background:#fff;
-        border:1px solid #dbeafe;
-        border-radius:14px;
-        box-shadow:0 18px 48px rgba(15,23,42,.20);
-        padding:6px;
-    }
-
-    .sw-search-select.open .sw-search-menu{
-        display:block;
-    }
-
-    .sw-search-option{
-        display:block;
-        width:100%;
-        border:0;
-        background:#fff;
-        text-align:left;
-        padding:10px 11px;
-        border-radius:10px;
-        cursor:pointer;
-        color:#0f172a;
-        font-size:13px;
-        font-weight:800;
-        line-height:1.35;
-    }
-
-    .sw-search-option:hover,
-    .sw-search-option.active{
-        background:#ecfeff;
-        color:#0f766e;
-    }
-
-    .sw-search-option.empty{
-        color:#64748b;
-        font-weight:850;
-    }
-
-    .sw-search-no-result{
-        padding:12px;
-        color:#64748b;
-        font-size:13px;
-        font-weight:850;
-        text-align:center;
-    }
-</style>
-
-<script>
-(function(){
-    'use strict';
-
-    function normalizeText(value){
-        return (value || '')
-            .toString()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
-    }
-
-    function closeAllSearchMenus(except){
-        document.querySelectorAll('.sw-search-select.open').forEach(function(box){
-            if(box !== except){
-                box.classList.remove('open');
-            }
-        });
-    }
-
-    function initOneSearchableSelect(select){
-        if(!select || select.dataset.swSearchableReady === '1'){
-            return;
-        }
-
-        select.dataset.swSearchableReady = '1';
-
-        if(select.hasAttribute('required')){
-            select.dataset.swSearchRequired = '1';
-            select.removeAttribute('required');
-        }
-
-        select.classList.add('sw-native-hidden-for-search');
-        select.tabIndex = -1;
-
-        var placeholder = '';
-        if(select.options.length){
-            placeholder = select.options[0].textContent.trim();
-        }
-        placeholder = placeholder || 'Gõ để tìm kiếm...';
-
-        var box = document.createElement('div');
-        box.className = 'sw-search-select';
-
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'sw-search-input';
-        input.autocomplete = 'off';
-        input.placeholder = placeholder;
-
-        var menu = document.createElement('div');
-        menu.className = 'sw-search-menu';
-
-        select.parentNode.insertBefore(box, select.nextSibling);
-        box.appendChild(input);
-        box.appendChild(menu);
-
-        var activeIndex = -1;
-
-        function getOptions(){
-            return Array.prototype.slice.call(select.options || []);
-        }
-
-        function syncInput(){
-            var opt = select.options[select.selectedIndex];
-            if(opt && opt.value !== ''){
-                input.value = opt.textContent.trim();
-            }else{
-                input.value = '';
-            }
-
-            if(select.value){
-                box.classList.remove('invalid');
-            }
-        }
-
-        function setActive(index){
-            var items = Array.prototype.slice.call(menu.querySelectorAll('.sw-search-option'));
-            items.forEach(function(item){
-                item.classList.remove('active');
-            });
-
-            if(!items.length){
-                activeIndex = -1;
-                return;
-            }
-
-            if(index < 0){
-                index = items.length - 1;
-            }
-
-            if(index >= items.length){
-                index = 0;
-            }
-
-            activeIndex = index;
-            items[activeIndex].classList.add('active');
-            items[activeIndex].scrollIntoView({block:'nearest'});
-        }
-
-        function chooseOption(opt){
-            if(!opt){
-                return;
-            }
-
-            select.value = opt.value;
-            syncInput();
-
-            try{
-                select.dispatchEvent(new Event('change', {bubbles:true}));
-            }catch(e){
-                var evt = document.createEvent('HTMLEvents');
-                evt.initEvent('change', true, false);
-                select.dispatchEvent(evt);
-            }
-
-            box.classList.remove('open');
-        }
-
-        function renderMenu(keyword){
-            var q = normalizeText(keyword);
-            var options = getOptions();
-            var shown = 0;
-            var maxShown = 120;
-
-            menu.innerHTML = '';
-            activeIndex = -1;
-
-            options.forEach(function(opt){
-                if(shown >= maxShown){
-                    return;
-                }
-
-                var label = opt.textContent.trim();
-                var value = opt.value || '';
-                var haystack = normalizeText(label + ' ' + value);
-
-                var isPlaceholder = value === '';
-                var match = !q || haystack.indexOf(q) !== -1;
-
-                if(isPlaceholder || match){
-                    var item = document.createElement('button');
-                    item.type = 'button';
-                    item.className = 'sw-search-option' + (isPlaceholder ? ' empty' : '');
-                    item.textContent = label;
-
-                    item.addEventListener('mousedown', function(e){
-                        e.preventDefault();
-                        chooseOption(opt);
-                    });
-
-                    menu.appendChild(item);
-                    shown++;
-                }
-            });
-
-            if(!shown){
-                var empty = document.createElement('div');
-                empty.className = 'sw-search-no-result';
-                empty.textContent = 'Không tìm thấy dữ liệu phù hợp';
-                menu.appendChild(empty);
-            }
-
-            box.classList.add('open');
-            closeAllSearchMenus(box);
-            setActive(0);
-        }
-
-        input.addEventListener('focus', function(){
-            renderMenu('');
-            setTimeout(function(){
-                input.select();
-            }, 0);
-        });
-
-        input.addEventListener('click', function(){
-            renderMenu('');
-            setTimeout(function(){
-                input.select();
-            }, 0);
-        });
-
-        input.addEventListener('input', function(){
-            renderMenu(input.value);
-        });
-
-        input.addEventListener('keydown', function(e){
-            var items = Array.prototype.slice.call(menu.querySelectorAll('.sw-search-option'));
-
-            if(e.key === 'ArrowDown'){
-                e.preventDefault();
-                if(!box.classList.contains('open')){
-                    renderMenu(input.value);
-                }else{
-                    setActive(activeIndex + 1);
-                }
-            }
-
-            if(e.key === 'ArrowUp'){
-                e.preventDefault();
-                setActive(activeIndex - 1);
-            }
-
-            if(e.key === 'Enter'){
-                if(box.classList.contains('open') && items[activeIndex]){
-                    e.preventDefault();
-                    items[activeIndex].dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
-                }
-            }
-
-            if(e.key === 'Escape'){
-                box.classList.remove('open');
-                syncInput();
-            }
-        });
-
-        input.addEventListener('blur', function(){
-            setTimeout(function(){
-                if(!box.classList.contains('open')){
-                    syncInput();
-                }
-            }, 160);
-        });
-
-        select.addEventListener('change', syncInput);
-        select._swSearchSync = syncInput;
-
-        syncInput();
-    }
-
-    function initSearchableSelects(){
-        document.querySelectorAll('#swAddSerialModal select.sw-select, #swEditWarrantyModal select.sw-select').forEach(initOneSearchableSelect);
-    }
-
-    function syncSearchableSelects(){
-        initSearchableSelects();
-
-        document.querySelectorAll('#swAddSerialModal select.sw-select, #swEditWarrantyModal select.sw-select').forEach(function(select){
-            if(typeof select._swSearchSync === 'function'){
-                select._swSearchSync();
-            }
-        });
-    }
-
-    window.swSyncSearchableSerialSelects = syncSearchableSelects;
-
-    document.addEventListener('click', function(e){
-        if(!e.target.closest('.sw-search-select')){
-            closeAllSearchMenus(null);
-        }
-    });
-
-    document.addEventListener('submit', function(e){
-        var form = e.target;
-        if(!form){
-            return;
-        }
-
-        var invalid = null;
-
-        form.querySelectorAll('select.sw-select[data-sw-search-required="1"]').forEach(function(select){
-            if(!invalid && !select.value){
-                invalid = select;
-            }
-        });
-
-        if(invalid){
-            e.preventDefault();
-
-            var box = invalid.nextElementSibling;
-            if(box && box.classList.contains('sw-search-select')){
-                box.classList.add('invalid');
-                var input = box.querySelector('.sw-search-input');
-                if(input){
-                    input.focus();
-                }
-            }
-
-            alert('Vui lòng chọn sản phẩm trước khi lưu.');
-        }
-    }, true);
-
-    document.addEventListener('DOMContentLoaded', syncSearchableSelects);
-    syncSearchableSelects();
-
-    var oldOpenAdd = window.openAddSerialModal;
-    if(typeof oldOpenAdd === 'function' && !oldOpenAdd._swSearchWrapped){
-        window.openAddSerialModal = function(){
-            var result = oldOpenAdd.apply(this, arguments);
-            setTimeout(syncSearchableSelects, 0);
-            return result;
-        };
-        window.openAddSerialModal._swSearchWrapped = true;
-    }
-
-    var oldOpenEdit = window.openEditWarrantyModal;
-    if(typeof oldOpenEdit === 'function' && !oldOpenEdit._swSearchWrapped){
-        window.openEditWarrantyModal = function(){
-            var result = oldOpenEdit.apply(this, arguments);
-            setTimeout(syncSearchableSelects, 0);
-            return result;
-        };
-        window.openEditWarrantyModal._swSearchWrapped = true;
-    }
-})();
-</script>
-<!-- EGO_SEARCHABLE_SERIAL_SELECTS_END -->
-
-
 @endsection

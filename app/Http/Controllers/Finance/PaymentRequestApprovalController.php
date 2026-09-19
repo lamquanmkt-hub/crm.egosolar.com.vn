@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Models\Payments\PaymentRequest;
 use App\Models\Payments\PaymentRequestApproval;
+use App\Services\Finance\PaymentAdvanceService;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -52,6 +54,48 @@ class PaymentRequestApprovalController extends Controller
         return in_array($rawRole, $roles, true) || str_contains($email, 'ketoan');
     }
 
+
+    /**
+     * Quản lý tài chính: Admin/Management hoặc role quản lý tài chính chuyên biệt.
+     */
+    private function isFinanceManager($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $roles = ['management', 'finance_manager', 'accounting_manager', 'financial_manager', 'quan_ly_tai_chinh', 'quanlytaichinh'];
+
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole($roles)) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            foreach ($roles as $role) {
+                if ($user->hasRole($role)) {
+                    return true;
+                }
+            }
+        }
+
+        return in_array(strtolower((string) ($user->role ?? '')), $roles, true);
+    }
+
+    /* EGO_PAYMENT_ADVANCE_REDIRECT_V1 */
+    private function redirectToItem(PaymentRequest $item)
+    {
+        if ($item->doc_type === 'advance' && Route::has('payment_advances.show')) {
+            return redirect()->route('payment_advances.show', $item->id);
+        }
+        if ($item->doc_type === 'salary_advance' && Route::has('salary_advances.show')) {
+            return redirect()->route('salary_advances.show', $item->id);
+        }
+        return redirect()->route('payment_requests.show', $item->id);
+    }
     // User gửi duyệt
     /**
      * Chủ phiếu gửi phiếu đề nghị thanh toán đi duyệt.
@@ -83,9 +127,8 @@ class PaymentRequestApprovalController extends Controller
         ]);
 
         // ✅ QUAN TRỌNG: redirect về trang chi tiết để "view"
-        return redirect()
-            ->route('payment_requests.show', $item->id)
-            ->with('success', 'Đã gửi admin duyệt');
+        return $this->redirectToItem($item)
+            ->with('success', 'Đã gửi Quản lý tài chính duyệt');
     }
 
     // =========================
@@ -96,12 +139,12 @@ class PaymentRequestApprovalController extends Controller
      */
     public function adminApprove(Request $request, $id)
     {
-        abort_unless($this->isAdmin(auth()->user()), 403);
+        abort_unless($this->isFinanceManager(auth()->user()), 403);
 
         $item = PaymentRequest::findOrFail($id);
 
         if ($item->status !== 'submitted') {
-            return response()->json(['message' => 'Chỉ duyệt khi đang submitted'], 422);
+            return response()->json(['message' => 'Chỉ duyệt khi đang chờ Quản lý tài chính'], 422);
         }
 
         $note = $request->input('note');
@@ -121,7 +164,7 @@ class PaymentRequestApprovalController extends Controller
             'note' => $note,
         ]);
 
-        return redirect()->route('payment_requests.show', $item->id);
+        return $this->redirectToItem($item);
 
     }
 
@@ -133,12 +176,12 @@ class PaymentRequestApprovalController extends Controller
      */
     public function adminReject(Request $request, $id)
     {
-        abort_unless($this->isAdmin(auth()->user()), 403);
+        abort_unless($this->isFinanceManager(auth()->user()), 403);
 
         $item = PaymentRequest::findOrFail($id);
 
         if ($item->status !== 'submitted') {
-            return response()->json(['message' => 'Chỉ từ chối khi đang submitted'], 422);
+            return response()->json(['message' => 'Chỉ từ chối khi đang chờ Quản lý tài chính'], 422);
         }
 
         $validated = $request->validate([
@@ -166,7 +209,7 @@ class PaymentRequestApprovalController extends Controller
             'note' => $note,
         ]);
 
-        return redirect()->route('payment_requests.show', $item->id);
+        return $this->redirectToItem($item);
 
     }
 
@@ -203,7 +246,10 @@ class PaymentRequestApprovalController extends Controller
             'note' => $note,
         ]);
 
-        return redirect()->route('payment_requests.show', $item->id);
+        /* EGO_PAYMENT_ADVANCE_AFTER_ACCOUNTING_V1 */
+        PaymentAdvanceService::afterAccountingApproved($item);
+
+        return $this->redirectToItem($item);
     }
 
     // =========================
@@ -247,7 +293,7 @@ class PaymentRequestApprovalController extends Controller
             'note' => $note,
         ]);
 
-        return redirect()->route('payment_requests.show', $item->id);
+        return $this->redirectToItem($item);
     }
 
     /**
@@ -261,7 +307,7 @@ class PaymentRequestApprovalController extends Controller
     public function bulkApprove(Request $request)
     {
         $user = auth()->user();
-        $canAdminApprove = $this->isAdmin($user);
+        $canAdminApprove = $this->isFinanceManager($user);
         $canAccountingApprove = $this->isAccounting($user);
 
         abort_unless($canAdminApprove || $canAccountingApprove, 403);
@@ -345,6 +391,9 @@ class PaymentRequestApprovalController extends Controller
                         'action' => 'approved',
                         'note' => $note,
                     ]);
+
+                    /* EGO_PAYMENT_ADVANCE_BULK_AFTER_ACCOUNTING_V1 */
+                    PaymentAdvanceService::afterAccountingApproved($item);
 
                     $accountingApproved++;
                     $processedIds[] = (int) $item->id;

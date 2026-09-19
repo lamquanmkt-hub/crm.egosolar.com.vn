@@ -8,10 +8,10 @@ use App\Enums\MaterialRequestStatus;
 use App\Models\Inventory\Catalog\Product;
 use App\Models\Projects\MaterialRequest;
 use App\Services\Inventory\Stock\StockLotService;
+use App\Support\SchemaCache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -234,6 +234,22 @@ class MaterialRequestService
                     'status' => MaterialRequestStatus::EXPORTED->value,
                     'updated_at' => now(),
                 ]));
+
+            if (SchemaCache::hasTable('project_material_proposal_items') && SchemaCache::hasTable('project_material_proposals')) {
+                $proposalIds = DB::table('project_material_proposal_items')
+                    ->where('material_request_id', $materialRequest->id)
+                    ->pluck('proposal_id')
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if ($proposalIds !== []) {
+                    DB::table('project_material_proposals')
+                        ->whereIn('id', $proposalIds)
+                        ->update(['status' => 'EXPORTED', 'updated_at' => now()]);
+                }
+            }
 
             Cache::forget('products.dropdown');
             Cache::forget('warehouses.dropdown');
@@ -502,7 +518,7 @@ class MaterialRequestService
          * Vật tư ngoài kho: nhập vào lô rồi xuất ra ngay.
          * Như vậy lịch sử có đủ 2 dòng nhập/xuất, còn tồn cuối không bị ảo.
          */
-        if (Schema::hasTable('crm_product_stock_lots')) {
+        if (SchemaCache::hasTable('crm_product_stock_lots')) {
             $product = Product::find($productId);
             if (! $product) {
                 return;
@@ -547,7 +563,7 @@ class MaterialRequestService
             return;
         }
 
-        if (! Schema::hasTable('crm_product_stock')) {
+        if (! SchemaCache::hasTable('crm_product_stock')) {
             return;
         }
 
@@ -647,7 +663,7 @@ class MaterialRequestService
          * Trước đây đơn vật tư trừ thẳng crm_product_stock nhưng không trừ crm_product_stock_lots.
          * Sửa lại dùng FIFO giống đơn hàng để tồn tổng và lô luôn khớp nhau.
          */
-        if (Schema::hasTable('crm_product_stock_lots')) {
+        if (SchemaCache::hasTable('crm_product_stock_lots')) {
             $companyId = $this->warehouseCompanyId($warehouseId);
 
             app(StockLotService::class)->issueLots(
@@ -668,7 +684,7 @@ class MaterialRequestService
             return;
         }
 
-        if (! Schema::hasTable('crm_product_stock')) {
+        if (! SchemaCache::hasTable('crm_product_stock')) {
             return;
         }
 
@@ -723,7 +739,7 @@ class MaterialRequestService
         ?string $referenceType = null,
         ?string $note = null
     ): void {
-        if (! Schema::hasTable('crm_stock_movements')) {
+        if (! SchemaCache::hasTable('crm_stock_movements')) {
             return;
         }
 
@@ -753,11 +769,11 @@ class MaterialRequestService
      */
     private function refreshProductTotalQty(int $productId): void
     {
-        if (! Schema::hasTable('crm_product_stock') || ! Schema::hasTable('crm_product_catalog')) {
+        if (! SchemaCache::hasTable('crm_product_stock') || ! SchemaCache::hasTable('crm_product_catalog')) {
             return;
         }
 
-        if (! Schema::hasColumn('crm_product_catalog', 'quantity')) {
+        if (! SchemaCache::hasColumn('crm_product_catalog', 'quantity')) {
             return;
         }
 
@@ -778,7 +794,7 @@ class MaterialRequestService
      */
     private function syncSiteMaterialCost(int $siteId): void
     {
-        if ($siteId <= 0 || ! Schema::hasTable('sites')) {
+        if ($siteId <= 0 || ! SchemaCache::hasTable('sites')) {
             return;
         }
 
@@ -792,7 +808,7 @@ class MaterialRequestService
         ];
 
         foreach (['material_cost', 'actual_material_cost', 'project_cost', 'total_cost'] as $column) {
-            if (Schema::hasColumn('sites', $column)) {
+            if (SchemaCache::hasColumn('sites', $column)) {
                 $updates[$column] = $totalCost;
             }
         }
@@ -829,7 +845,7 @@ class MaterialRequestService
             return $fallback;
         }
 
-        if (Schema::hasTable('crm_warehouses')) {
+        if (SchemaCache::hasTable('crm_warehouses')) {
             $firstWarehouse = DB::table('crm_warehouses')
                 ->orderBy('id')
                 ->value('id');
@@ -847,11 +863,11 @@ class MaterialRequestService
      */
     private function warehouseCompanyId(int $warehouseId): ?int
     {
-        if (! Schema::hasTable('crm_warehouses')) {
+        if (! SchemaCache::hasTable('crm_warehouses')) {
             return null;
         }
 
-        if (! Schema::hasColumn('crm_warehouses', 'company_id')) {
+        if (! SchemaCache::hasColumn('crm_warehouses', 'company_id')) {
             return null;
         }
 
@@ -981,7 +997,7 @@ class MaterialRequestService
      */
     private function defaultProductCategoryId(): ?int
     {
-        if (! Schema::hasTable('crm_product_categories')) {
+        if (! SchemaCache::hasTable('crm_product_categories')) {
             return null;
         }
 
@@ -1008,11 +1024,11 @@ class MaterialRequestService
      */
     private function filterColumns(string $table, array $data): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! SchemaCache::hasTable($table)) {
             return $data;
         }
 
-        $columns = Schema::getColumnListing($table);
+        $columns = SchemaCache::columns($table);
 
         return collect($data)
             ->filter(function ($value, string $key) use ($columns) {

@@ -1,0 +1,7 @@
+app/Http/Controllers/Hr/LeaveRequestController.php
+app/Models/User.php
+app/Services/Hr/LeaveApprovalAccessService.php
+app/Services/Hr/LeaveDashboardAlertService.php
+DANH-SACH-FILE.txt
+README-SALES-MANAGER.txt
+routes/web.php

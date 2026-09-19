@@ -1,0 +1,1007 @@
+/*
+===============================================================================
+EGO CRM — SIDEBAR MISA CLEAN V2
+Replaces the old boxed sidebar visual while preserving all routes, permissions,
+badges, workspace filtering and submenu markup.
+===============================================================================
+*/
+
+:root {
+    --misa-sb-width: 184px;
+    --misa-sb-collapsed: 58px;
+    --misa-sb-border: #e6e9ef;
+    --misa-sb-text: #39475a;
+    --misa-sb-muted: #7d899a;
+    --misa-sb-hover: #f5f6fa;
+    --misa-sb-active: #eef0ff;
+    --misa-sb-active-text: #4d56d7;
+    --misa-sb-purple: #5b63df;
+    --ego-sb: var(--misa-sb-width);
+    --ego-sb-collapsed: var(--misa-sb-collapsed);
+    --ego-w: var(--misa-sb-width);
+    --ego-wc: var(--misa-sb-collapsed);
+}
+
+/* ==========================================================================
+   SHARED RESET — loaded last, so the old dark/boxed UI cannot win.
+   ========================================================================== */
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    isolation: isolate !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-right: 1px solid var(--misa-sb-border) !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    background-image: none !important;
+    box-shadow: 4px 0 16px rgba(25, 39, 64, .035) !important;
+    color: var(--misa-sb-text) !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar::before,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar::after,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-status-card__glow {
+    display: none !important;
+    content: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__header {
+    position: relative !important;
+    z-index: 5 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    min-height: 64px !important;
+    padding: 10px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--misa-sb-border) !important;
+    background: #fff !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-brand,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-brand--logoonly {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-brand__logo-big {
+    display: block !important;
+    width: auto !important;
+    max-width: 108px !important;
+    height: 30px !important;
+    object-fit: contain !important;
+    filter: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-toggle {
+    display: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__scroll {
+    position: relative !important;
+    z-index: 2 !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 8px 7px 12px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #d5dbe3 transparent !important;
+    background: #fff !important;
+    background-image: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__scroll::-webkit-scrollbar {
+    width: 4px !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__scroll::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px !important;
+    background: #d5dbe3 !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .crm-misa-search {
+    display: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    margin: 0 !important;
+    padding: 0 0 8px !important;
+    list-style: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-item {
+    position: relative !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 36px !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    padding: 5px 9px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: var(--misa-sb-text) !important;
+    font-size: 12.6px !important;
+    font-weight: 520 !important;
+    line-height: 1.22 !important;
+    letter-spacing: -.012em !important;
+    text-decoration: none !important;
+    transform: none !important;
+    transition: background .14s ease, color .14s ease !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link::before,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link::after {
+    display: none !important;
+    content: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link:hover {
+    border: 0 !important;
+    background: var(--misa-sb-hover) !important;
+    color: #202c3c !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link.active,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link[aria-current="page"],
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-item.is-flyout-open > .ego-link {
+    border: 0 !important;
+    background: var(--misa-sb-active) !important;
+    color: var(--misa-sb-active-text) !important;
+    box-shadow: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-ic,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-ic--modern,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub-ic {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    min-width: 18px !important;
+    max-width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    max-height: 18px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: #778498 !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    transform: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link:hover .ego-ic,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link.active .ego-ic,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link[aria-current="page"] .ego-ic,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-item.is-flyout-open > .ego-link .ego-ic {
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--misa-sb-active-text) !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-tech-menu-index {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #9aa4b2 !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link.active .ego-tech-menu-index,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link:hover .ego-tech-menu-index {
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--misa-sb-active-text) !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-txt,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-tech-group-label {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    color: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    letter-spacing: inherit !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-caret,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub-caret {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    margin: 0 0 0 auto !important;
+    color: #a3adba !important;
+    font-size: 9px !important;
+    opacity: 1 !important;
+    transform: rotate(-90deg) !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-count-badge,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    min-width: 18px !important;
+    height: 17px !important;
+    margin: 0 0 0 auto !important;
+    padding: 0 5px !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: #edf2f6 !important;
+    box-shadow: none !important;
+    color: #477080 !important;
+    font-size: 8.5px !important;
+    font-weight: 750 !important;
+    line-height: 17px !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-booking-new-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 27px !important;
+    height: 16px !important;
+    margin: 0 0 0 auto !important;
+    padding: 0 5px !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: #ff4f68 !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    font-size: 7.5px !important;
+    font-weight: 800 !important;
+    line-height: 16px !important;
+    letter-spacing: .25px !important;
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+}
+
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-divider,
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub-sep {
+    display: block !important;
+    height: 1px !important;
+    margin: 7px 5px !important;
+    border: 0 !important;
+    background: #eceff3 !important;
+    opacity: 1 !important;
+}
+
+/* The old footer/status dashboard does not belong in a compact app menu. */
+html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
+    display: none !important;
+}
+
+/* ==========================================================================
+   DESKTOP — compact menu + detached submenu, matching the MISA reference.
+   ========================================================================== */
+
+@media (min-width: 992px) {
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar {
+        position: sticky !important;
+        top: 0 !important;
+        width: var(--misa-sb-width) !important;
+        min-width: var(--misa-sb-width) !important;
+        max-width: var(--misa-sb-width) !important;
+        flex: 0 0 var(--misa-sb-width) !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        align-self: flex-start !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sub {
+        display: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) > .ego-sidebar__scroll .ego-sub.collapse:not(.show) {
+        display: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) > .ego-sidebar__scroll .ego-sub.collapse.show {
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed {
+        width: var(--misa-sb-collapsed) !important;
+        min-width: var(--misa-sb-collapsed) !important;
+        max-width: var(--misa-sb-collapsed) !important;
+        flex-basis: var(--misa-sb-collapsed) !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sidebar__header {
+        min-height: 58px !important;
+        padding: 9px 7px !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-brand,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-brand--logoonly {
+        justify-content: center !important;
+        width: 100% !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-brand__logo-big {
+        width: 38px !important;
+        max-width: 38px !important;
+        height: 27px !important;
+        object-fit: contain !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sidebar__scroll {
+        padding-right: 7px !important;
+        padding-left: 7px !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-txt,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-tech-group-label,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-tech-menu-index,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-caret,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-sub-caret,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-count-badge,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-badge,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-booking-new-badge {
+        display: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-link {
+        min-height: 38px !important;
+        justify-content: center !important;
+        padding: 5px !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.ego-collapsed .ego-ic {
+        flex-basis: 20px !important;
+        width: 20px !important;
+        min-width: 20px !important;
+        max-width: 20px !important;
+        height: 20px !important;
+        min-height: 20px !important;
+        max-height: 20px !important;
+        font-size: 15px !important;
+    }
+}
+
+/* ==========================================================================
+   MOBILE — same clean language, inline submenus and safe offcanvas behavior.
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        z-index: 4500 !important;
+        width: min(86vw, 300px) !important;
+        min-width: 0 !important;
+        max-width: 300px !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        flex-basis: auto !important;
+        box-shadow: 18px 0 42px rgba(25, 39, 64, .18) !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__header {
+        min-height: 64px !important;
+        padding: 10px 14px !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-link {
+        min-height: 39px !important;
+        border-radius: 7px !important;
+        font-size: 12.8px !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub {
+        position: relative !important;
+        display: none;
+        flex-direction: column !important;
+        gap: 1px !important;
+        margin: 2px 0 4px !important;
+        padding: 0 0 0 30px !important;
+        list-style: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub.show {
+        display: flex !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sub::before {
+        position: absolute !important;
+        top: 3px !important;
+        bottom: 4px !important;
+        left: 18px !important;
+        width: 1px !important;
+        background: #e4e8ee !important;
+        content: "" !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sublink,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sales-child-link {
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: 32px !important;
+        gap: 7px !important;
+        margin: 0 !important;
+        padding: 6px 8px !important;
+        border: 0 !important;
+        border-radius: 6px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #667386 !important;
+        font-size: 11.8px !important;
+        font-weight: 500 !important;
+        line-height: 1.25 !important;
+        text-decoration: none !important;
+        transform: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sublink::before,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sales-child-link::before,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sales-child-dot {
+        display: none !important;
+        content: none !important;
+    }
+
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sublink:hover,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sales-child-link:hover,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sublink.active,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sales-child-link.active {
+        border: 0 !important;
+        background: var(--misa-sb-active) !important;
+        color: var(--misa-sb-active-text) !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .crm-misa-flyout {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   DETACHED DESKTOP SUBMENU
+   ========================================================================== */
+
+.crm-misa-flyout {
+    position: fixed;
+    z-index: 5000;
+    display: none;
+    width: 238px;
+    max-height: min(72vh, 590px);
+    overflow: hidden;
+    border: 1px solid #e2e6ec;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .99);
+    box-shadow: 0 16px 38px rgba(28, 42, 66, .15);
+    color: var(--misa-sb-text);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.crm-misa-flyout.is-open {
+    display: block;
+    animation: crmMisaV2FlyoutIn .13s cubic-bezier(.22, .9, .35, 1);
+}
+
+.crm-misa-flyout__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 43px;
+    padding: 8px 10px 8px 12px;
+    border-bottom: 1px solid #eceff3;
+    background: #fafbfc;
+}
+
+.crm-misa-flyout__title {
+    min-width: 0;
+    overflow: hidden;
+    color: #273447;
+    font-size: 12.4px;
+    font-weight: 650;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.crm-misa-flyout__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 27px;
+    height: 27px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #8994a3;
+    cursor: pointer;
+}
+
+.crm-misa-flyout__close:hover {
+    background: #eef0f4;
+    color: #344257;
+}
+
+.crm-misa-flyout__list {
+    display: grid;
+    gap: 1px;
+    max-height: calc(min(72vh, 590px) - 43px);
+    padding: 6px;
+    overflow-y: auto;
+}
+
+.crm-misa-flyout__link {
+    display: grid;
+    grid-template-columns: 7px minmax(0, 1fr) 13px;
+    align-items: center;
+    gap: 8px;
+    min-height: 33px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #526074;
+    font-size: 11.9px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-decoration: none;
+}
+
+.crm-misa-flyout__link:hover {
+    background: #f4f5f8;
+    color: #26364b;
+}
+
+.crm-misa-flyout__link.is-active {
+    background: var(--misa-sb-active);
+    color: var(--misa-sb-active-text);
+}
+
+.crm-misa-flyout__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #bec6d1;
+}
+
+.crm-misa-flyout__link.is-active .crm-misa-flyout__dot {
+    background: var(--misa-sb-purple);
+}
+
+.crm-misa-flyout__arrow {
+    color: #aab2bf;
+    font-size: 9px;
+    text-align: center;
+}
+
+.crm-misa-empty {
+    padding: 12px;
+    color: #8e99a8;
+    font-size: 11.5px;
+    text-align: center;
+}
+
+@keyframes crmMisaV2FlyoutIn {
+    from {
+        opacity: 0;
+        transform: translate3d(-4px, 0, 0) scale(.99);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crm-misa-flyout.is-open {
+        animation: none;
+    }
+}
+
+/* EGO_TECH_SIDEBAR_CLEAN_V3_START */
+
+/*
+|--------------------------------------------------------------------------
+| NHÓM MENU PHÒNG KỸ THUẬT
+|--------------------------------------------------------------------------
+| Bỏ kiểu đánh số 1–6, dùng icon line và active màu xanh kỹ thuật.
+*/
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-section-label {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 25px !important;
+    margin: 7px 2px 3px !important;
+    padding: 0 8px !important;
+    border: 0 !important;
+    background: transparent !important;
+    list-style: none !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-section-label span {
+    display: block !important;
+    color: #99a4b2 !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    letter-spacing: .095em !important;
+    white-space: nowrap !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-section-label::after {
+    flex: 1 1 auto !important;
+    height: 1px !important;
+    margin-left: 8px !important;
+    background: #edf0f3 !important;
+    content: "" !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu {
+    margin: 0 !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link {
+    position: relative !important;
+    min-height: 38px !important;
+    gap: 8px !important;
+    padding: 6px 8px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: #455367 !important;
+    font-size: 12.3px !important;
+    font-weight: 560 !important;
+    box-shadow: none !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link::before {
+    position: absolute !important;
+    top: 8px !important;
+    bottom: 8px !important;
+    left: 0 !important;
+    display: block !important;
+    width: 3px !important;
+    border-radius: 0 999px 999px 0 !important;
+    background: transparent !important;
+    content: "" !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link:hover {
+    background: #f4f7f8 !important;
+    color: #26384a !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link.active,
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu.is-flyout-open > .ego-link {
+    background: #eaf8f5 !important;
+    color: #087d70 !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link.active::before,
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu.is-flyout-open > .ego-link::before {
+    background: #0aa28d !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 22px !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+    max-height: 22px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    background: #f2f5f7 !important;
+    color: #6c7b8e !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+    line-height: 1 !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link:hover
+.ego-tech-menu-icon {
+    background: #e9eef1 !important;
+    color: #44576a !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link.active
+.ego-tech-menu-icon,
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu.is-flyout-open
+> .ego-link
+.ego-tech-menu-icon {
+    background: #d9f3ee !important;
+    color: #087d70 !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu
+.ego-tech-group-label {
+    font-size: 12.3px !important;
+    font-weight: inherit !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu
+.ego-caret {
+    flex-basis: 14px !important;
+    width: 14px !important;
+    height: 14px !important;
+    color: #a1acb9 !important;
+    font-size: 8px !important;
+    transform: rotate(-90deg) !important;
+}
+
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu > .ego-link[aria-expanded="true"]
+.ego-caret {
+    transform: rotate(0deg) !important;
+}
+
+/*
+ * Nếu source cũ còn số thứ tự thì ẩn tuyệt đối.
+ */
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu-index {
+    display: none !important;
+}
+
+/*
+ * Badge công việc của Điều phối nhỏ và không đẩy lệch caret.
+ */
+html.crm-misa-sidebar-ready
+body
+#sidebar.ego-sidebar
+.ego-tech-menu
+.ego-count-badge {
+    min-width: 17px !important;
+    height: 17px !important;
+    margin-left: auto !important;
+    padding: 0 5px !important;
+    background: #e8f1f3 !important;
+    color: #3e6f79 !important;
+    font-size: 8px !important;
+}
+
+/*
+ * Mobile: submenu mở inline, cùng màu active Kỹ thuật.
+ */
+@media (max-width: 991.98px) {
+    html.crm-misa-sidebar-ready
+    body
+    #sidebar.ego-sidebar
+    .ego-tech-section-label {
+        margin-top: 8px !important;
+    }
+
+    html.crm-misa-sidebar-ready
+    body
+    #sidebar.ego-sidebar
+    .ego-tech-menu
+    .ego-sub {
+        margin: 2px 0 5px !important;
+        padding-left: 34px !important;
+    }
+
+    html.crm-misa-sidebar-ready
+    body
+    #sidebar.ego-sidebar
+    .ego-tech-menu
+    .ego-sublink.active {
+        background: #eaf8f5 !important;
+        color: #087d70 !important;
+    }
+}
+
+/* EGO_TECH_SIDEBAR_CLEAN_V3_END */
+
+/* EGO_SIDEBAR_HIERARCHY_RUNTIME_V6_20260907_START */
+.crm-misa-flyout__text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crm-misa-flyout__group{margin:0;padding:0;border:0}
+.crm-misa-flyout__group-summary{width:100%;text-align:left;font-family:inherit;appearance:none;-webkit-appearance:none;display:grid;grid-template-columns:7px minmax(0,1fr) 13px;align-items:center;gap:8px;min-height:33px;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#526074;font-size:11.9px;font-weight:600;line-height:1.25;cursor:pointer;list-style:none;user-select:none}
+.crm-misa-flyout__group-summary:hover{background:#f4f5f8;color:#26364b}
+.crm-misa-flyout__group-summary.is-active{background:var(--misa-sb-active);color:var(--misa-sb-active-text)}
+.crm-misa-flyout__group-arrow{color:#aab2bf;font-size:12px;text-align:center;transition:transform .15s ease}
+.crm-misa-flyout__group.is-open>.crm-misa-flyout__group-summary .crm-misa-flyout__group-arrow{transform:rotate(90deg)}
+.crm-misa-flyout__group-children{display:none;margin:2px 0 4px 12px;padding:2px 0 2px 8px;border-left:1px solid #e7ebf0}
+.crm-misa-flyout__group.is-open>.crm-misa-flyout__group-children{display:grid;gap:1px}
+.crm-misa-flyout__group-children .crm-misa-flyout__link{min-height:31px;font-size:11.6px}
+.crm-misa-flyout__group-children .crm-misa-flyout__group-summary{min-height:31px;font-size:11.6px}
+/* EGO_SIDEBAR_HIERARCHY_RUNTIME_V6_20260907_END */
+
+/* EGO_SIDEBAR_HIERARCHY_RUNTIME_V8_20260907_START */
+.crm-misa-flyout__drill{width:100%;font-family:inherit}
+.crm-misa-flyout__back{width:100%;display:flex;align-items:center;gap:8px;min-height:31px;margin:0 0 3px;padding:6px 8px;border:0;border-bottom:1px solid #edf0f3;border-radius:6px;background:#fafbfc;color:#6b7788;font-family:inherit;font-size:11.6px;font-weight:600;cursor:pointer;text-align:left}
+.crm-misa-flyout__back:hover{background:#f2f4f7;color:#26364b}
+.crm-misa-flyout__back-icon{font-size:16px;line-height:1;color:#95a0ae}
+.crm-misa-flyout__back-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* EGO_SIDEBAR_HIERARCHY_RUNTIME_V8_20260907_END */
+
+
+/* EGO_TRUE_INLINE_SIDEBAR_V9_20260907_START */
+@media (min-width: 992px) {
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-item--has-sub > .ego-link[aria-expanded=\"true\"],
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-item--nested > .ego-sublink--toggle[aria-expanded=\"true\"] {
+    background: var(--misa-sb-active) !important;
+    color: var(--misa-sb-active-text) !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-link[aria-expanded=\"true\"] .ego-caret,
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink--toggle[aria-expanded=\"true\"] .ego-sub-caret {
+    transform: rotate(0deg) !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sub {
+    position: static !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 2px 0 5px 17px !important;
+    padding: 2px 0 3px 10px !important;
+    border: 0 !important;
+    border-left: 1px solid #e2e8f0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sub .ego-sub {
+    margin-left: 11px !important;
+    padding-left: 10px !important;
+    border-left-style: dashed !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sub > li {
+    margin: 1px 0 !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink,
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink--toggle {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    width: 100% !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: #526074 !important;
+    font-size: 12px !important;
+    font-weight: 560 !important;
+    line-height: 1.25 !important;
+    text-decoration: none !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink:hover,
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink--toggle:hover {
+    background: #f4f6f8 !important;
+    color: #25364a !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-sublink.active {
+    background: #eef0ff !important;
+    color: #4f5ee8 !important;
+  }
+  html.crm-misa-sidebar-ready body #sidebar.ego-sidebar:not(.ego-collapsed) .ego-item--nested > .ego-sublink--toggle .ego-sub-caret {
+    margin-left: auto !important;
+    transition: transform .15s ease !important;
+    transform: rotate(-90deg) !important;
+  }
+}
+/* EGO_TRUE_INLINE_SIDEBAR_V9_20260907_END */

@@ -62,6 +62,10 @@ class SalesWorkReportController extends Controller
             ? (int) ($data['assigned_to'] ?? $userId)
             : $userId;
 
+        // Đồng bộ hồ sơ khách hàng gốc. Chỉ cập nhật khách/lead mới khi cần,
+        // tuyệt đối không sửa crm_orders hoặc lead cũ đã có.
+        $data['customer_id'] = $this->syncCustomerForReport($data);
+
         $data['created_by'] = $userId;
         $data['last_contact_at'] = $data['last_contact_at'] ?? $data['call_2_at'] ?? $data['call_1_at'] ?? $data['first_call_at'] ?? now();
         $data['proof_links'] = $this->linksJson($data['proof_links'] ?? null);
@@ -71,8 +75,8 @@ class SalesWorkReportController extends Controller
         $id = DB::table('sales_work_reports')->insertGetId($data);
 
         return redirect()
-            ->route('sales.work-reports.index')
-            ->with('success', 'Đã lưu báo cáo công việc Sales.');
+            ->route('customers.pipeline')
+            ->with('success', 'Đã lưu dữ liệu chăm sóc khách hàng.');
     }
 
     /**
@@ -135,6 +139,11 @@ class SalesWorkReportController extends Controller
             unset($data['assigned_to']);
         }
 
+        $syncData = $data;
+        $syncData['assigned_to'] = $data['assigned_to'] ?? $report->assigned_to ?? Auth::id();
+        $syncData['customer_id'] = $report->customer_id ?? null;
+        $data['customer_id'] = $this->syncCustomerForReport($syncData);
+
         $data['last_contact_at'] = $data['last_contact_at'] ?? $data['call_2_at'] ?? $data['call_1_at'] ?? $data['first_call_at'] ?? $report->last_contact_at ?? now();
         $data['proof_links'] = $this->linksJson($data['proof_links'] ?? null);
         $data['updated_at'] = now();
@@ -142,8 +151,8 @@ class SalesWorkReportController extends Controller
         DB::table('sales_work_reports')->where('id', $report->id)->update($data);
 
         return redirect()
-            ->route('sales.work-reports.index')
-            ->with('success', 'Đã cập nhật báo cáo Sales.');
+            ->route('customers.pipeline')
+            ->with('success', 'Đã cập nhật chăm sóc khách hàng.');
     }
 
     /**
@@ -174,8 +183,8 @@ class SalesWorkReportController extends Controller
         $report->delete();
 
         return redirect()
-            ->route('sales.work-reports.index')
-            ->with('success', 'Đã xoá báo cáo.');
+            ->route('customers.pipeline')
+            ->with('success', 'Đã xoá dữ liệu chăm sóc.');
     }
 
     /**
@@ -269,6 +278,10 @@ class SalesWorkReportController extends Controller
 
         if (! $this->canManage()) {
             $q->where('r.assigned_to', Auth::id());
+        }
+
+        if ($request->filled('customer_type')) {
+            $q->where('r.customer_type', $request->input('customer_type'));
         }
 
         if ($request->filled('status')) {
@@ -448,6 +461,164 @@ class SalesWorkReportController extends Controller
             'quoteStatuses' => $this->quoteStatuses(),
             'canManage' => $this->canManage(),
         ];
+    }
+
+    /**
+     * Đồng bộ một dòng chăm sóc vào hồ sơ khách hàng gốc.
+     *
+     * Nguyên tắc an toàn đơn hàng:
+     * - Không UPDATE crm_orders.
+     * - Không đổi assigned_to của lead cũ.
+     * - Khách mới tạo từ data chăm sóc mới có một lead mới để sau này tạo đơn được.
+     */
+    private function syncCustomerForReport(array $data): ?int
+    {
+        if (! Schema::hasTable('crm_customers')) {
+            return isset($data['customer_id']) ? (int) $data['customer_id'] : null;
+        }
+
+        $assignedTo = (int) ($data['assigned_to'] ?? Auth::id() ?? 0);
+        $customerId = (int) ($data['customer_id'] ?? 0);
+
+        $phoneKey = $this->normalizePhone($data['customer_phone'] ?? null);
+        $emailKey = mb_strtolower(trim((string) ($data['customer_email'] ?? '')));
+
+        $customer = null;
+
+        if ($customerId > 0) {
+            $customer = DB::table('crm_customers')->where('id', $customerId)->first();
+        }
+
+        if (! $customer && ($phoneKey !== '' || $emailKey !== '')) {
+            $candidates = DB::table('crm_customers')
+                ->select(['id', 'name', 'phone', 'email', 'address', 'owner_id'])
+                ->when($emailKey !== '', function ($q) use ($emailKey) {
+                    $q->whereRaw("LOWER(TRIM(COALESCE(email, ''))) = ?", [$emailKey]);
+                })
+                ->limit(50)
+                ->get();
+
+            if ($phoneKey !== '') {
+                $phoneMatches = DB::table('crm_customers')
+                    ->select(['id', 'name', 'phone', 'email', 'address', 'owner_id'])
+                    ->whereNotNull('phone')
+                    ->get()
+                    ->filter(fn ($row) => $this->normalizePhone($row->phone ?? null) === $phoneKey);
+
+                if ($phoneMatches->count() === 1) {
+                    $customer = $phoneMatches->first();
+                }
+            }
+
+            if (! $customer && $emailKey !== '' && $candidates->count() === 1) {
+                $customer = $candidates->first();
+            }
+        }
+
+        if ($customer) {
+            $updates = [];
+
+            if ($assignedTo > 0 && Schema::hasColumn('crm_customers', 'owner_id')) {
+                $updates['owner_id'] = $assignedTo;
+            }
+
+            if (empty($customer->phone) && ! empty($data['customer_phone']) && Schema::hasColumn('crm_customers', 'phone')) {
+                $updates['phone'] = $data['customer_phone'];
+            }
+
+            if (empty($customer->email) && ! empty($data['customer_email']) && Schema::hasColumn('crm_customers', 'email')) {
+                $updates['email'] = $data['customer_email'];
+            }
+
+            if (empty($customer->address) && ! empty($data['customer_address']) && Schema::hasColumn('crm_customers', 'address')) {
+                $updates['address'] = $data['customer_address'];
+            }
+
+            if ($updates) {
+                if (Schema::hasColumn('crm_customers', 'updated_at')) {
+                    $updates['updated_at'] = now();
+                }
+                DB::table('crm_customers')->where('id', $customer->id)->update($updates);
+            }
+
+            return (int) $customer->id;
+        }
+
+        $columns = Schema::getColumnListing('crm_customers');
+        $insert = [];
+
+        $put = static function (array &$target, array $columns, string $key, mixed $value): void {
+            if (in_array($key, $columns, true)) {
+                $target[$key] = $value;
+            }
+        };
+
+        $put($insert, $columns, 'name', trim((string) ($data['customer_name'] ?? '')) ?: 'Khách hàng mới');
+        $put($insert, $columns, 'phone', $data['customer_phone'] ?? null);
+        $put($insert, $columns, 'email', $data['customer_email'] ?? null);
+        $put($insert, $columns, 'address', $data['customer_address'] ?? ($data['region_text'] ?? null));
+        $put($insert, $columns, 'customer_status', 'lead');
+        $put($insert, $columns, 'is_potential', ($data['priority'] ?? null) === 'hot' ? 1 : 0);
+        $put($insert, $columns, 'owner_id', $assignedTo > 0 ? $assignedTo : null);
+        $put($insert, $columns, 'company_id', $this->currentCompanyId($data['company_id'] ?? null));
+        $put($insert, $columns, 'created_at', now());
+        $put($insert, $columns, 'updated_at', now());
+
+        $newCustomerId = (int) DB::table('crm_customers')->insertGetId($insert);
+
+        // Chỉ tạo lead cho khách vừa sinh mới; không sửa lead lịch sử của khách đã tồn tại.
+        if (Schema::hasTable('crm_leads')) {
+            $leadColumns = Schema::getColumnListing('crm_leads');
+            $lead = [];
+            $put($lead, $leadColumns, 'customer_id', $newCustomerId);
+            $put($lead, $leadColumns, 'assigned_to', $assignedTo > 0 ? $assignedTo : null);
+            $put($lead, $leadColumns, 'contact_date', now()->toDateString());
+            $put($lead, $leadColumns, 'status_id', 1);
+            $put($lead, $leadColumns, 'note', 'Tạo tự động từ Chăm sóc & Pipeline');
+            $put($lead, $leadColumns, 'created_by', Auth::id());
+            $put($lead, $leadColumns, 'created_at', now());
+            $put($lead, $leadColumns, 'updated_at', now());
+            DB::table('crm_leads')->insert($lead);
+        }
+
+        return $newCustomerId;
+    }
+
+    private function normalizePhone(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone) ?: '';
+
+        if (str_starts_with($digits, '84') && strlen($digits) >= 10) {
+            $digits = '0'.substr($digits, 2);
+        }
+
+        return $digits;
+    }
+
+    private function currentCompanyId(mixed $fallback = null): mixed
+    {
+        if (! empty($fallback)) {
+            return $fallback;
+        }
+
+        try {
+            if (class_exists(\App\Support\EgoCompanyLock::class)) {
+                return \App\Support\EgoCompanyLock::id();
+            }
+        } catch (\Throwable $e) {
+            // CLI hoặc context chưa chọn công ty: dùng fallback bên dưới.
+        }
+
+        if (Schema::hasColumn('crm_customers', 'company_id')) {
+            return DB::table('crm_customers')
+                ->whereNotNull('company_id')
+                ->select('company_id', DB::raw('COUNT(*) as total'))
+                ->groupBy('company_id')
+                ->orderByDesc('total')
+                ->value('company_id');
+        }
+
+        return null;
     }
 
     /**

@@ -25,6 +25,11 @@ class SolarMaintenanceSchedulePolicy
      */
     public function view(User $user, SolarMaintenanceSchedule $schedule): bool
     {
+        // EGO_TECHNICAL_VIEW_ALL_POLICY_V2
+        if (\App\Support\SolarMaintenanceAccess::isTechnician($user)) {
+            return true;
+        }
+
         if (! SolarMaintenanceAccess::canViewAny($user) || ! $this->sameCompany($user, $schedule)) {
             return false;
         }
@@ -71,9 +76,17 @@ class SolarMaintenanceSchedulePolicy
      */
     public function uploadAttachment(User $user, SolarMaintenanceSchedule $schedule): bool
     {
-        return $this->update($user, $schedule)
-            || ($this->sameCompany($user, $schedule)
-                && SolarMaintenanceAccess::hasPermission($user, 'maintenance.files.upload'));
+        // Đồng bộ với màn hình O&M và các action workflow: mọi nhân sự Kỹ thuật
+        // hoặc quản lý đều được nộp minh chứng/báo cáo, kể cả khi đợt chưa gán người.
+        // Quyền này cố ý không phụ thuộc isAssigned() để khớp với UI/workflow:
+        // kỹ thuật có thể bổ sung minh chứng trước khi nhóm thực hiện được phân công.
+        if (SolarMaintenanceAccess::isTechnician($user)
+            || SolarMaintenanceAccess::isManager($user)) {
+            return true;
+        }
+
+        return $this->sameCompany($user, $schedule)
+            && SolarMaintenanceAccess::hasPermission($user, 'maintenance.files.upload');
     }
 
     /**

@@ -63,13 +63,24 @@
                     </span>
                     <span class="dept-chip">
                         <i class="bi bi-diagram-3"></i>
-                        {{ $d['user']['department'] }}
+                        {{ $d['context_label'] ?? $d['user']['department'] }}
                     </span>
                     <span class="dept-chip">
                         <i class="bi bi-shield-lock"></i>
                         {{ $d['scope_label'] }}
                     </span>
                 </div>
+
+                @if(!empty($d['primary_actions']))
+                    <div class="dept-primary-actions" aria-label="Thao tác nhanh">
+                        @foreach($d['primary_actions'] as $action)
+                            <a class="dept-primary-action" href="{{ $action['url'] }}">
+                                <i class="bi {{ $action['icon'] }}"></i>
+                                <span>{{ $action['label'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
             </div>
 
             <div class="dept-heading__aside">
@@ -186,6 +197,33 @@
                 </a>
             @endforeach
         </section>
+
+        @if(!empty($d['workflow']))
+            <section class="dept-workflow dept-reveal" aria-label="Quy trình Kỹ thuật">
+                <header class="dept-section-head">
+                    <div>
+                        <span class="dept-section-head__eyebrow">QUY TRÌNH PHÒNG KỸ THUẬT</span>
+                        <h2>Từ tiếp nhận yêu cầu đến nghiệm thu và bảo hành</h2>
+                        <p>Sales, CSKH và nội bộ là nguồn chuyển yêu cầu; Phòng Kỹ thuật tự tiếp nhận và điều phối.</p>
+                    </div>
+                    <span class="dept-count-pill">{{ count($d['workflow']) }} giai đoạn</span>
+                </header>
+                <div class="dept-workflow__grid">
+                    @foreach($d['workflow'] as $step)
+                        <a href="{{ $step['url'] }}" class="dept-workflow__step">
+                            <span class="dept-workflow__number">{{ $step['step'] }}</span>
+                            <span class="dept-workflow__icon"><i class="bi {{ $step['icon'] }}"></i></span>
+                            <span class="dept-workflow__copy">
+                                <strong>{{ $step['label'] }}</strong>
+                                <small>{{ $step['hint'] }}</small>
+                            </span>
+                            <span class="dept-workflow__value">{{ number_format((float)$step['value'], 0, ',', '.') }}</span>
+                            <i class="bi bi-arrow-right dept-workflow__arrow"></i>
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
 
         <section class="dept-action-center dept-reveal">
             <header class="dept-section-head">

@@ -488,95 +488,201 @@ final class DepartmentDashboardService
     private function technical(User $user, array $range, bool $isManager): array
     {
         $teamIds = $this->teamIds(
-            ['ky_thuat', 'technical_manager', 'technical', 'technician'],
+            [
+                'ky_thuat', 'technical_manager', 'technical_leader',
+                'technical', 'technical_staff', 'technician',
+            ],
             ['kỹ thuật', 'ky thuat', 'technical']
         );
         if ($teamIds->isEmpty()) {
-            $teamIds = collect([$user->id]);
+            $teamIds = collect([(int) $user->id]);
         }
 
-        $runningSites = 0;
-        $scheduled = 0;
-        $overdue = 0;
-        $pendingMaterials = 0;
-        $todaySchedules = 0;
+        $projectBase = DB::table('project_test_projects as p');
+        $this->applyCompany($projectBase, 'project_test_projects', 'p');
+        if ($this->hasColumn('project_test_projects', 'deleted_at')) {
+            $projectBase->whereNull('p.deleted_at');
+        }
+
+        if (! $isManager) {
+            $projectBase->where(function (Builder $scope) use ($user): void {
+                $scope->where('p.lead_technician_id', $user->id)
+                    ->orWhere('p.technical_manager_id', $user->id);
+
+                if ($this->hasTable('project_test_assignments')) {
+                    $scope->orWhereExists(function (Builder $assignment) use ($user): void {
+                        $assignment->selectRaw('1')
+                            ->from('project_test_assignments as pa')
+                            ->whereColumn('pa.project_id', 'p.id')
+                            ->where('pa.user_id', $user->id);
+                    });
+                }
+            });
+        }
+
+        $projectIds = (clone $projectBase)->pluck('p.id');
+        $activeStatuses = [
+            'request_new', 'request_accepted', 'survey_pending', 'survey_reschedule', 'survey_confirmed', 'survey_in_progress',
+            'customer_confirmation', 'sales_review', 'proposal_revision', 'installation_pending', 'installation_reschedule',
+            'materials_pending', 'materials_admin_review', 'materials_revision', 'warehouse_preparing',
+            'warehouse_issued', 'assignment_pending', 'ready_install', 'installing', 'acceptance_pending',
+        ];
+
+        $newRequests = (int) (clone $projectBase)
+            ->whereIn('p.status', ['request_new', 'request_accepted'])
+            ->count('p.id');
+        $waitingDesign = (int) (clone $projectBase)
+            ->whereIn('p.status', ['survey_in_progress', 'customer_confirmation', 'sales_review', 'proposal_revision'])
+            ->count('p.id');
+
+        $surveyWaiting = (int) (clone $projectBase)
+            ->whereIn('p.status', ['survey_pending', 'survey_reschedule', 'survey_confirmed', 'survey_in_progress'])
+            ->count('p.id');
+        $runningProjects = (int) (clone $projectBase)->whereIn('p.status', $activeStatuses)->count('p.id');
+        $averageProgress = (float) ((clone $projectBase)->whereIn('p.status', $activeStatuses)->avg('p.progress') ?: 0);
+        $pendingAssignments = (int) (clone $projectBase)
+            ->whereIn('p.status', ['warehouse_issued', 'assignment_pending', 'ready_install'])
+            ->count('p.id');
+        $pendingMaterials = (int) (clone $projectBase)
+            ->whereIn('p.status', [
+                'installation_pending', 'installation_reschedule', 'materials_pending',
+                'materials_admin_review', 'materials_revision', 'warehouse_preparing', 'warehouse_issued',
+            ])->count('p.id');
+        $acceptancePending = (int) (clone $projectBase)->where('p.status', 'acceptance_pending')->count('p.id');
+
+        $todaySurveys = 0;
+        if ($this->hasTable('project_test_surveys')) {
+            $surveyQuery = DB::table('project_test_surveys as ps')->whereIn('ps.project_id', $projectIds->all() ?: [0]);
+            $todaySurveys = (int) (clone $surveyQuery)
+                ->whereDate('ps.scheduled_at', now()->toDateString())
+                ->whereNull('ps.completed_at')
+                ->count('ps.id');
+        }
+
+        $todayInstallation = (int) (clone $projectBase)
+            ->where(function (Builder $date): void {
+                $date->whereDate('p.installation_confirmed_at', now()->toDateString())
+                    ->orWhereDate('p.proposed_installation_at', now()->toDateString());
+            })
+            ->whereNotIn('p.status', ['warranty_active', 'completed', 'cancelled'])
+            ->count('p.id');
+
+        $taskUsers = $isManager ? $teamIds : collect([(int) $user->id]);
+        $taskBase = $this->hasTable('tasks') ? DB::table('tasks as t') : null;
+        if ($taskBase) {
+            $this->applyCompany($taskBase, 'tasks', 't');
+            $taskBase->whereIn('t.assignee_id', $taskUsers->all() ?: [(int) $user->id]);
+            if ($this->hasColumn('tasks', 'task_type')) {
+                $taskBase->where(function (Builder $type): void {
+                    $type->where('t.task_type', 'technical')->orWhereNull('t.task_type');
+                });
+            }
+        }
+        $overdueTasks = $taskBase
+            ? (int) (clone $taskBase)
+                ->whereNotIn('t.status', ['done', 'completed', 'approved', 'cancelled'])
+                ->whereNotNull('t.due_at')
+                ->where('t.due_at', '<', now())
+                ->count('t.id')
+            : 0;
+        $taskTotal = $taskBase ? (int) (clone $taskBase)->count('t.id') : 0;
+        $taskCompleted = $taskBase
+            ? (int) (clone $taskBase)->whereIn('t.status', ['done', 'completed', 'approved'])->count('t.id')
+            : 0;
+        $efficiency = $taskTotal > 0 ? round($taskCompleted / $taskTotal * 100, 1) : 0.0;
+
+        $activeWarranties = 0;
+        $overdueMaintenance = 0;
+        if ($this->hasTable('project_test_warranties')) {
+            $warranty = DB::table('project_test_warranties as w')->whereIn('w.project_id', $projectIds->all() ?: [0]);
+            $activeWarranties = (int) (clone $warranty)->where('w.status', 'active')->count('w.id');
+            $overdueMaintenance = (int) (clone $warranty)
+                ->where('w.status', 'active')
+                ->whereNotNull('w.next_maintenance_at')
+                ->whereDate('w.next_maintenance_at', '<', now()->toDateString())
+                ->count('w.id');
+        }
+
+        $openWarrantyIssues = 0;
+        if ($this->hasTable('crm_serial_warranty_claims')) {
+            $openWarrantyIssues = (int) DB::table('crm_serial_warranty_claims')
+                ->whereNotIn('status', ['resolved', 'completed', 'closed', 'rejected', 'cancelled'])
+                ->count();
+        }
+
         $trend = $this->emptySeries();
-        $watchlist = collect();
-
-        if ($this->hasTable('sites')) {
-            $query = DB::table('sites as s');
-            $this->applyCompany($query, 'sites', 's');
-            if (! $isManager) {
-                $query->where(function (Builder $scope) use ($user): void {
-                    $scope->where('s.created_by', $user->id)
-                        ->orWhere('s.technician_name', 'like', '%'.$user->name.'%');
-                });
-            }
-            $runningSites = (int) (clone $query)
-                ->whereNotIn('s.status', ['completed', 'done', 'cancelled'])
-                ->count('s.id');
+        if ($this->hasTable('project_test_daily_logs')) {
+            $logs = DB::table('project_test_daily_logs as l')
+                ->whereIn('l.project_id', $projectIds->all() ?: [0])
+                ->whereBetween('l.log_date', [$range['from']->toDateString(), $range['to']->toDateString()]);
+            $trend = $this->series($logs, 'project_test_daily_logs', ['log_date', 'created_at'], null, $range);
         }
 
-        if ($this->hasTable('solar_maintenance_schedules')) {
-            $query = DB::table('solar_maintenance_schedules as m');
-            $this->applyCompany($query, 'solar_maintenance_schedules', 'm');
-            if ($this->hasColumn('solar_maintenance_schedules', 'deleted_at')) {
-                $query->whereNull('m.deleted_at');
-            }
-            if (! $isManager) {
-                $query->where(function (Builder $scope) use ($user): void {
-                    $scope->where('m.assigned_to', $user->id)
-                        ->orWhere('m.created_by', $user->id)
-                        ->orWhere('m.assigned_user_ids', 'like', '%'.$user->id.'%');
-                });
-            }
+        $watchlist = (clone $projectBase)
+            ->whereNotIn('p.status', ['completed', 'cancelled'])
+            ->orderByRaw("CASE WHEN p.proposed_survey_at IS NULL AND p.proposed_installation_at IS NULL AND p.target_completion_at IS NULL THEN 1 ELSE 0 END")
+            ->orderByRaw('COALESCE(p.proposed_survey_at, p.proposed_installation_at, p.target_completion_at, p.created_at)')
+            ->limit(8)
+            ->get([
+                'p.id', 'p.code', 'p.name', 'p.address', 'p.status', 'p.progress',
+                'p.proposed_survey_at', 'p.proposed_installation_at', 'p.target_completion_at',
+            ])
+            ->map(function ($row): array {
+                $date = $row->proposed_survey_at ?: $row->proposed_installation_at ?: $row->target_completion_at;
+                $isLate = false;
+                try {
+                    $isLate = $date && Carbon::parse($date)->isPast() && ! in_array($row->status, ['warranty_active', 'completed'], true);
+                } catch (\Throwable) {
+                    $isLate = false;
+                }
 
-            $periodQuery = clone $query;
-            $periodQuery->whereBetween('m.scheduled_date', [
-                $range['from']->toDateString(),
-                $range['to']->toDateString(),
-            ]);
-            $scheduled = (int) $periodQuery->count('m.id');
-            $todaySchedules = (int) (clone $query)
-                ->whereDate('m.scheduled_date', now()->toDateString())
-                ->whereNotIn('m.status', ['completed', 'done', 'cancelled'])
-                ->count('m.id');
-            $overdue = (int) (clone $query)
-                ->whereDate('m.scheduled_date', '<', now()->toDateString())
-                ->whereNotIn('m.status', ['completed', 'done', 'cancelled'])
-                ->count('m.id');
-
-            $trend = $this->series(clone $periodQuery, 'solar_maintenance_schedules', ['scheduled_date', 'created_at'], null, $range);
-            $watchlist = (clone $query)
-                ->whereNotIn('m.status', ['completed', 'done', 'cancelled'])
-                ->orderBy('m.scheduled_date')
-                ->limit(7)
-                ->get()
-                ->map(fn ($row) => $this->watch(
-                    'bi-tools',
-                    (string) ($row->site_name ?? $row->customer_name ?? 'Lịch kỹ thuật #'.$row->id),
+                return $this->watch(
+                    'bi-buildings',
+                    trim((string) $row->code.' · '.(string) $row->name),
                     trim(implode(' • ', array_filter([
-                        $this->formatDate($row->scheduled_date ?? null),
+                        $date ? $this->formatDate($date) : null,
                         (string) ($row->address ?? ''),
                     ]))),
-                    $this->technicalStatusLabel((string) ($row->status ?? 'scheduled')),
-                    ($row->scheduled_date && Carbon::parse($row->scheduled_date)->isPast()) ? 'danger' : 'warning',
-                    $this->routeUrl('technical.maintenance.show', ['schedule' => $row->id], '/technical/maintenance/'.$row->id)
-                ));
-        }
+                    $this->projectTechnicalStatusLabel((string) $row->status),
+                    $isLate ? 'danger' : 'warning',
+                    $this->routeUrl('project-test.show', ['project' => $row->id], '/cong-trinh/'.$row->id),
+                    (int) ($row->progress ?? 0),
+                    'percent'
+                );
+            });
 
-        if ($this->hasTable('material_requests')) {
-            $query = DB::table('material_requests as mr');
-            $this->applyCompany($query, 'material_requests', 'mr');
-            if (! $isManager && $this->hasColumn('material_requests', 'created_by')) {
-                $query->where('mr.created_by', $user->id);
-            }
-            $pendingMaterials = (int) (clone $query)
-                ->whereNotIn(DB::raw('UPPER(mr.status)'), ['COMPLETED', 'DONE', 'ISSUED', 'CANCELLED'])
-                ->count('mr.id');
-        }
-
-        $overdueTasks = $this->taskCount($user, $isManager ? $teamIds : collect([$user->id]), true);
+        $workflow = [
+            [
+                'step' => '01', 'label' => 'Nhận yêu cầu khảo sát', 'icon' => 'bi-inbox',
+                'value' => $surveyWaiting, 'hint' => 'Lịch khảo sát và người phụ trách',
+                'url' => $this->routeUrl('technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+            ],
+            [
+                'step' => '02', 'label' => 'Khảo sát hiện trường', 'icon' => 'bi-geo-alt',
+                'value' => $todaySurveys, 'hint' => 'Check-in/out, ảnh/video, biên bản',
+                'url' => $this->routeUrl('technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+            ],
+            [
+                'step' => '03', 'label' => 'Thiết kế & vật tư', 'icon' => 'bi-badge-3d',
+                'value' => $pendingMaterials, 'hint' => '3D/CAD, bóc tách và trình duyệt',
+                'url' => $this->routeUrl('technical-workspace.documents.materials', [], '/ky-thuat/ho-so/de-xuat-vat-tu'),
+            ],
+            [
+                'step' => '04', 'label' => 'Điều phối thi công', 'icon' => 'bi-people',
+                'value' => $pendingAssignments, 'hint' => 'Phân công người/ca và lịch triển khai',
+                'url' => $this->routeUrl('technical-workspace.coordination.assignments', [], '/ky-thuat/dieu-phoi/phan-cong-nhan-su'),
+            ],
+            [
+                'step' => '05', 'label' => 'Báo cáo & phát sinh', 'icon' => 'bi-journal-check',
+                'value' => $overdueTasks, 'hint' => 'Nhật ký, tiến độ, vật tư và vấn đề',
+                'url' => $this->routeUrl($isManager ? 'technical-workspace.coordination.team-tasks' : 'technical-workspace.coordination.my-tasks', [], $isManager ? '/ky-thuat/dieu-phoi/viec-cua-phong' : '/ky-thuat/dieu-phoi/viec-cua-toi'),
+            ],
+            [
+                'step' => '06', 'label' => 'Nghiệm thu & bảo hành', 'icon' => 'bi-shield-check',
+                'value' => $acceptancePending + $activeWarranties, 'hint' => 'Hồ sơ hoàn công, O&M và bảo hành',
+                'url' => $this->routeUrl('technical-workspace.warranty.maintenance', [], '/ky-thuat/bao-tri-bao-hanh/lich-om'),
+            ],
+        ];
 
         return $this->base($user, $range, [
             'workspace' => $isManager ? 'technical_manager' : 'technical',
@@ -584,41 +690,91 @@ final class DepartmentDashboardService
             'eyebrow' => $isManager ? 'TECHNICAL COMMAND CENTER' : 'MY TECHNICAL WORKSPACE',
             'title' => $isManager ? 'Trung tâm Điều phối Kỹ thuật' : 'Bàn làm việc Kỹ thuật',
             'subtitle' => $isManager
-                ? 'Điều phối lịch, công trình, vật tư và tải công việc của phòng Kỹ thuật.'
-                : 'Chỉ hiển thị lịch, công trình, bảo trì và đơn vật tư do bạn phụ trách.',
+                ? 'Phòng Kỹ thuật tự tiếp nhận, phân công và vận hành từ yêu cầu mới đến khảo sát, thi công, nghiệm thu và bảo hành.'
+                : 'Lịch làm việc, công trình và nhiệm vụ đúng phạm vi bạn được phân công.',
             'role_label' => $isManager ? 'Trưởng phòng Kỹ thuật' : 'Nhân viên Kỹ thuật',
-            'scope_label' => $isManager ? 'Phạm vi: Phòng Kỹ thuật' : 'Phạm vi: Công việc của tôi',
-            'privacy' => 'Không hiển thị doanh thu, lợi nhuận, công nợ hoặc dữ liệu phòng ban khác.',
+            'context_label' => 'Không gian: Phòng Kỹ thuật',
+            'scope_label' => $isManager ? 'Phạm vi: Toàn bộ Phòng Kỹ thuật' : 'Phạm vi: Việc được giao',
+            'privacy' => 'Sales, CSKH và nội bộ chỉ là nguồn chuyển yêu cầu; Trưởng phòng Kỹ thuật là đầu mối tiếp nhận và điều phối.',
+            'primary_actions' => $isManager ? [
+                $this->action('Tạo yêu cầu Kỹ thuật', 'bi-plus-circle', 'project-test.create', ['source' => 'technical'], '/cong-trinh/tao?source=technical'),
+                $this->action('Tạo lịch khảo sát', 'bi-calendar2-plus', 'technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+                $this->action('Giao việc', 'bi-person-plus', 'tasks.create', [], '/chat/tasks/create'),
+                $this->action('Tạo phiếu sự cố', 'bi-shield-exclamation', 'serial-warranty.index', [], '/serial-warranty'),
+            ] : [
+                $this->action('Việc của tôi', 'bi-list-check', 'technical-workspace.coordination.my-tasks', [], '/ky-thuat/dieu-phoi/viec-cua-toi'),
+                $this->action('Lịch khảo sát', 'bi-geo-alt', 'technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+                $this->action('Báo cáo phát sinh', 'bi-exclamation-diamond', 'technical-workspace.reports.incidents', [], '/ky-thuat/bao-cao/phat-sinh'),
+            ],
             'kpis' => [
-                $this->kpi('Công trình đang chạy', $runningSites, 'number', 'bi-buildings', 'blue', 'Đúng phạm vi kỹ thuật', $this->routeUrl('sites.index', [], '/cong-trinh')),
-                $this->kpi('Lịch trong kỳ', $scheduled, 'number', 'bi-calendar2-week', 'violet', $todaySchedules.' lịch hôm nay', $this->routeUrl('technical.maintenance.index', [], '/technical/maintenance')),
-                $this->kpi('Quá hạn xử lý', $overdue + $overdueTasks, 'number', 'bi-exclamation-triangle', ($overdue + $overdueTasks) > 0 ? 'red' : 'green', 'Cần ưu tiên ngay', '#'),
-                $this->kpi('Đơn vật tư chờ', $pendingMaterials, 'number', 'bi-box-seam', 'orange', 'Chưa xuất kho/hoàn tất', $this->routeUrl('material-requests.index', [], '/don-vat-tu')),
+                $this->kpi('Yêu cầu mới', $newRequests, 'number', 'bi-inbox', 'blue', 'Chờ tiếp nhận / lập lịch', $this->routeUrl('project-test.index', ['workspace_stage' => 'new-requests'], '/cong-trinh?workspace_stage=new-requests')),
+                $this->kpi('Chờ khảo sát', $surveyWaiting, 'number', 'bi-geo-alt', 'blue', $todaySurveys.' lịch hôm nay', $this->routeUrl('technical-workspace.projects.waiting-survey', [], '/ky-thuat/cong-trinh/cho-khao-sat')),
+                $this->kpi('Chờ phương án', $waitingDesign, 'number', 'bi-badge-3d', 'violet', 'Khảo sát / xác nhận triển khai', $this->routeUrl('technical-workspace.projects.waiting-design', [], '/ky-thuat/cong-trinh/cho-phuong-an-ky-thuat')),
+                $this->kpi('Chờ vật tư', $pendingMaterials, 'number', 'bi-box-seam', 'orange', 'Bóc tách, duyệt hoặc chuẩn bị', $this->routeUrl('technical-workspace.projects.waiting-materials', [], '/ky-thuat/cong-trinh/cho-vat-tu')),
+                $this->kpi('Đang thi công', (int) (clone $projectBase)->where('p.status', 'installing')->count('p.id'), 'number', 'bi-tools', 'green', $todayInstallation.' lịch hôm nay', $this->routeUrl('technical-workspace.projects.installing', [], '/ky-thuat/cong-trinh/dang-thi-cong')),
+                $this->kpi('Chờ nghiệm thu', $acceptancePending, 'number', 'bi-clipboard-check', 'violet', 'Hoàn công và bàn giao', $this->routeUrl('technical-workspace.projects.waiting-acceptance', [], '/ky-thuat/cong-trinh/cho-nghiem-thu')),
+                $this->kpi('Sự cố / Bảo hành', $openWarrantyIssues + $activeWarranties, 'number', 'bi-shield-exclamation', 'red', $openWarrantyIssues.' phiếu sự cố đang mở', $this->routeUrl('technical-workspace.warranty.issues', [], '/ky-thuat/bao-tri-bao-hanh/phieu-su-co')),
+            ],
+            'workflow' => [
+                [
+                    'step' => '01', 'label' => 'Tiếp nhận yêu cầu', 'icon' => 'bi-inbox',
+                    'value' => $newRequests, 'hint' => 'Từ Sales, CSKH, nội bộ hoặc Kỹ thuật tự tạo',
+                    'url' => $this->routeUrl('project-test.index', ['workspace_stage' => 'new-requests'], '/cong-trinh?workspace_stage=new-requests'),
+                ],
+                [
+                    'step' => '02', 'label' => 'Phân công khảo sát', 'icon' => 'bi-geo-alt',
+                    'value' => $surveyWaiting, 'hint' => 'Trưởng phòng chọn lịch và người thực hiện',
+                    'url' => $this->routeUrl('technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+                ],
+                [
+                    'step' => '03', 'label' => 'Phương án kỹ thuật', 'icon' => 'bi-badge-3d',
+                    'value' => $waitingDesign, 'hint' => 'Khảo sát, 3D/CAD và xác nhận triển khai khi cần',
+                    'url' => $this->routeUrl('technical-workspace.projects.waiting-design', [], '/ky-thuat/cong-trinh/cho-phuong-an-ky-thuat'),
+                ],
+                [
+                    'step' => '04', 'label' => 'Vật tư & điều phối', 'icon' => 'bi-box-seam',
+                    'value' => $pendingMaterials + $pendingAssignments, 'hint' => 'Đề xuất vật tư, Kho và phân công đội',
+                    'url' => $this->routeUrl('technical-workspace.documents.materials', [], '/ky-thuat/ho-so/de-xuat-vat-tu'),
+                ],
+                [
+                    'step' => '05', 'label' => 'Thi công & báo cáo', 'icon' => 'bi-tools',
+                    'value' => $overdueTasks, 'hint' => 'Nhật ký, tiến độ và phát sinh hiện trường',
+                    'url' => $this->routeUrl($isManager ? 'technical-workspace.coordination.team-tasks' : 'technical-workspace.coordination.my-tasks', [], $isManager ? '/ky-thuat/dieu-phoi/viec-cua-phong' : '/ky-thuat/dieu-phoi/viec-cua-toi'),
+                ],
+                [
+                    'step' => '06', 'label' => 'Nghiệm thu & bảo hành', 'icon' => 'bi-shield-check',
+                    'value' => $acceptancePending + $activeWarranties + $openWarrantyIssues, 'hint' => 'Hoàn công, O&M, sự cố và bảo hành',
+                    'url' => $this->routeUrl('technical-workspace.warranty.maintenance', [], '/ky-thuat/bao-tri-bao-hanh/lich-om'),
+                ],
             ],
             'action_title' => 'Việc Kỹ thuật cần xử lý',
-            'action_subtitle' => 'Tập trung lịch đến hạn, vật tư và công việc đang chặn tiến độ.',
+            'action_subtitle' => 'Không phụ thuộc Sales: Trưởng phòng Kỹ thuật tiếp nhận, phân công và xử lý các điểm nghẽn.',
             'action_items' => [
-                $this->attention('Lịch hôm nay', 'Khảo sát, thi công hoặc bảo trì trong ngày', $todaySchedules, 'bi-calendar-check', $todaySchedules > 0 ? 'info' : 'success', $this->routeUrl('technical.maintenance.index', [], '/technical/maintenance')),
-                $this->attention('Lịch quá hạn', 'Lịch chưa hoàn tất nhưng đã qua ngày', $overdue, 'bi-calendar-x', $overdue > 0 ? 'danger' : 'success', $this->routeUrl('technical.maintenance.index', [], '/technical/maintenance')),
-                $this->attention('Đơn vật tư đang chờ', 'Theo dõi duyệt và xuất kho', $pendingMaterials, 'bi-box2-heart', $pendingMaterials > 0 ? 'warning' : 'success', $this->routeUrl('material-requests.index', [], '/don-vat-tu')),
-                $this->attention('Công việc trễ hạn', 'Task kỹ thuật chưa hoàn thành đúng hạn', $overdueTasks, 'bi-list-task', $overdueTasks > 0 ? 'danger' : 'success', $this->routeUrl('tasks.my', [], '/chat/tasks/my')),
+                $this->attention('Yêu cầu chưa tiếp nhận', 'Yêu cầu mới từ nhiều nguồn đang chờ Trưởng phòng xử lý', $newRequests, 'bi-inbox', $newRequests > 0 ? 'warning' : 'success', $this->routeUrl('project-test.index', ['workspace_stage' => 'new-requests'], '/cong-trinh?workspace_stage=new-requests')),
+                $this->attention('Lịch khảo sát chưa phân công', 'Cần chọn người, thời gian và xác nhận lịch', $surveyWaiting, 'bi-calendar2-check', $surveyWaiting > 0 ? 'warning' : 'success', $this->routeUrl('technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat')),
+                $this->attention('Phương án chờ xử lý', 'Hoàn thiện hoặc xác nhận phương án / điều kiện triển khai', $waitingDesign, 'bi-badge-3d', $waitingDesign > 0 ? 'warning' : 'success', $this->routeUrl('technical-workspace.projects.waiting-design', [], '/ky-thuat/cong-trinh/cho-phuong-an-ky-thuat')),
+                $this->attention('Đề xuất vật tư chờ', 'Bóc tách, duyệt hoặc chuẩn bị vật tư theo công trình', $pendingMaterials, 'bi-box-seam', $pendingMaterials > 0 ? 'warning' : 'success', $this->routeUrl('technical-workspace.documents.materials', [], '/ky-thuat/ho-so/de-xuat-vat-tu')),
+                $this->attention('Công việc quá hạn', 'Nhật ký, khảo sát hoặc nhiệm vụ đã quá deadline', $overdueTasks, 'bi-exclamation-triangle', $overdueTasks > 0 ? 'danger' : 'success', $this->routeUrl($isManager ? 'technical-workspace.coordination.team-tasks' : 'technical-workspace.coordination.my-tasks', [], $isManager ? '/ky-thuat/dieu-phoi/viec-cua-phong' : '/ky-thuat/dieu-phoi/viec-cua-toi')),
+                $this->attention('Chờ nghiệm thu', 'Hoàn thiện hồ sơ hoàn công và bàn giao', $acceptancePending, 'bi-clipboard-check', $acceptancePending > 0 ? 'warning' : 'success', $this->routeUrl('technical-workspace.projects.waiting-acceptance', [], '/ky-thuat/cong-trinh/cho-nghiem-thu')),
+                $this->attention('Sự cố / O&M cần xử lý', 'Phiếu sự cố đang mở hoặc lịch bảo trì quá hạn', $openWarrantyIssues + $overdueMaintenance, 'bi-shield-exclamation', ($openWarrantyIssues + $overdueMaintenance) > 0 ? 'danger' : 'success', $this->routeUrl('technical-workspace.warranty.issues', [], '/ky-thuat/bao-tri-bao-hanh/phieu-su-co')),
             ],
             'chart' => [
-                'title' => 'Nhịp lịch Kỹ thuật',
-                'subtitle' => 'Số lịch khảo sát, thi công và bảo trì theo thời gian',
+                'title' => 'Nhịp báo cáo hiện trường',
+                'subtitle' => 'Số nhật ký kỹ thuật phát sinh theo thời gian trong phạm vi hiện tại',
                 'format' => 'number',
                 'labels' => $trend['labels'],
                 'values' => $trend['values'],
             ],
-            'watch_title' => 'Lịch cần theo dõi',
-            'watch_subtitle' => 'Ưu tiên lịch gần nhất và lịch đang trễ',
+            'watch_title' => 'Công trình cần theo dõi',
+            'watch_subtitle' => 'Ưu tiên yêu cầu mới, khảo sát, thi công và hoàn thành gần nhất',
             'watchlist' => $watchlist->all(),
             'actions' => [
-                $this->action('Công trình', 'bi-buildings', 'sites.index', [], '/cong-trinh'),
-                $this->action('Lịch Kỹ thuật', 'bi-calendar3', 'technical.maintenance.index', [], '/technical/maintenance'),
-                $this->action('Đơn vật tư', 'bi-box-seam', 'material-requests.index', [], '/don-vat-tu'),
-                $this->action('Công việc của tôi', 'bi-list-check', 'tasks.my', [], '/chat/tasks/my'),
-                $this->action('Chấm công', 'bi-fingerprint', 'hr.attendance.my', [], '/nhan-su/cham-cong-cua-toi'),
+                $this->action('Tổng quan kỹ thuật', 'bi-speedometer2', 'dashboard', [], '/'),
+                $this->action('Công trình', 'bi-buildings', 'technical-workspace.projects.all', [], '/ky-thuat/cong-trinh'),
+                $this->action('Điều phối kỹ thuật', 'bi-calendar2-week', 'technical-workspace.coordination.survey-schedule', [], '/ky-thuat/dieu-phoi/lich-khao-sat'),
+                $this->action('Hồ sơ kỹ thuật', 'bi-folder2-open', 'technical-workspace.documents.all', [], '/ky-thuat/ho-so/ho-so-bien-ban'),
+                $this->action('Bảo trì & Bảo hành', 'bi-shield-check', 'technical-workspace.warranty.maintenance', [], '/ky-thuat/bao-tri-bao-hanh/lich-om'),
+                $this->action('Báo cáo', 'bi-bar-chart', 'technical-workspace.reports.progress', [], '/ky-thuat/bao-cao/tien-do-cong-trinh'),
             ],
         ]);
     }
@@ -834,7 +990,7 @@ final class DepartmentDashboardService
                 $this->action('Quản lý kho', 'bi-house-gear', 'warehouses.index', [], '/warehouses'),
                 $this->action('Nhập hàng', 'bi-box-arrow-in-down', 'products.input', [], '/products/input'),
                 $this->action('Xuất hàng', 'bi-box-arrow-up', 'products.output', [], '/products/output'),
-                $this->action('Phiếu nhập NCC', 'bi-truck', 'product-goods-receipts.index', [], '/products/goods-receipts'),
+                $this->action('Nhập sản phẩm', 'bi-truck', 'product-goods-receipts.index', [], '/products/goods-receipts'),
                 $this->action('Đơn vật tư', 'bi-box-seam', 'material-requests.index', [], '/don-vat-tu'),
             ],
         ]);
@@ -1411,6 +1567,35 @@ final class DepartmentDashboardService
             'returned' => 'Đã hoàn',
             default => 'Chờ giao',
         };
+    }
+
+    private function projectTechnicalStatusLabel(string $status): string
+    {
+        return [
+            'request_new' => 'Yêu cầu mới',
+            'request_accepted' => 'Đã tiếp nhận',
+            'survey_pending' => 'Chờ xác nhận khảo sát',
+            'survey_reschedule' => 'Cần cập nhật lịch khảo sát',
+            'survey_confirmed' => 'Đã xác nhận khảo sát',
+            'survey_in_progress' => 'Đang khảo sát',
+            'customer_confirmation' => 'Chờ xác nhận triển khai',
+            'sales_review' => 'Chờ xác nhận triển khai',
+            'proposal_revision' => 'Chỉnh phương án',
+            'installation_pending' => 'Chờ sắp lịch thi công',
+            'installation_reschedule' => 'Cần cập nhật lịch thi công',
+            'materials_pending' => 'Chờ đề xuất vật tư',
+            'materials_admin_review' => 'Chờ duyệt vật tư',
+            'materials_revision' => 'Điều chỉnh vật tư',
+            'warehouse_preparing' => 'Kho đang chuẩn bị',
+            'warehouse_issued' => 'Đã xuất vật tư',
+            'assignment_pending' => 'Chờ phân công',
+            'ready_install' => 'Sẵn sàng thi công',
+            'installing' => 'Đang thi công',
+            'acceptance_pending' => 'Chờ nghiệm thu',
+            'warranty_active' => 'Đang bảo hành',
+            'completed' => 'Hoàn tất',
+            'cancelled' => 'Đã hủy',
+        ][$status] ?? Str::headline(str_replace('_', ' ', $status));
     }
 
     private function technicalStatusLabel(string $status): string

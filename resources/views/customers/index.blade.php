@@ -108,6 +108,8 @@
             </div>
         </header>
 
+        @include('customers._module_nav')
+
         <section class="cx-stats">
             <article class="cx-stat cx-panel cx-reveal">
                 <div class="cx-stat__label">

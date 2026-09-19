@@ -69,7 +69,7 @@ class LoginController extends Controller
         //            ]);
         //        }
 
-        return redirect()->intended('/');
+        return redirect()->intended(route('workspace.index'));
     }
 
     /**

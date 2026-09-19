@@ -29,7 +29,7 @@ class CommissionEngineService implements CommissionEngineServiceInterface
                 $table->string('status')->default('active');
                 $table->decimal('project_rate_percent', 8, 4)->default(4);
                 $table->decimal('trade_rate_percent', 8, 4)->default(1);
-                $table->decimal('panel_fixed_amount', 15, 2)->default(15000);
+                $table->decimal('panel_fixed_amount', 15, 2)->default(0);
                 $table->boolean('only_paid')->default(true);
                 $table->boolean('only_shipped')->default(false);
                 $table->boolean('only_completed')->default(false);
@@ -421,7 +421,7 @@ class CommissionEngineService implements CommissionEngineServiceInterface
             'status' => 'active',
             'project_rate_percent' => 4,
             'trade_rate_percent' => 1,
-            'panel_fixed_amount' => 15000,
+            'panel_fixed_amount' => 0,
             'only_paid' => 1,
             'only_shipped' => 0,
             'only_completed' => 0,
@@ -728,10 +728,10 @@ class CommissionEngineService implements CommissionEngineServiceInterface
                 'target_type' => 'all',
                 'base_type' => 'quantity',
                 'calculation_type' => 'fixed_per_item',
-                'fixed_amount' => $policy->panel_fixed_amount ?: 15000,
-                'amount_per_unit' => $policy->panel_fixed_amount ?: 15000,
+                'fixed_amount' => (float) ($policy->panel_fixed_amount ?? 0),
+                'amount_per_unit' => (float) ($policy->panel_fixed_amount ?? 0),
                 'priority' => 100,
-                'is_active' => 1,
+                'is_active' => 0,
                 'note' => 'Tấm pin: set theo sản phẩm / tháng',
             ],
         ];
@@ -829,7 +829,7 @@ class CommissionEngineService implements CommissionEngineServiceInterface
                 'status' => $request->input('status', 'active'),
                 'project_rate_percent' => (float) $request->input('project_rate_percent', 4),
                 'trade_rate_percent' => (float) $request->input('trade_rate_percent', 1),
-                'panel_fixed_amount' => (float) $request->input('panel_fixed_amount', 15000),
+                'panel_fixed_amount' => (float) $request->input('panel_fixed_amount', 0),
                 'only_paid' => $request->boolean('only_paid') ? 1 : 0,
                 'only_shipped' => $request->boolean('only_shipped') ? 1 : 0,
                 'only_completed' => $request->boolean('only_completed') ? 1 : 0,

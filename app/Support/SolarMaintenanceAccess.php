@@ -61,6 +61,15 @@ class SolarMaintenanceAccess
             || self::hasAny($user, ['admin', 'administrator', 'super_admin']);
     }
 
+    public static function isExecutive(?User $user): bool
+    {
+        return self::isAdmin($user)
+            || self::hasAny($user, [
+                'director', 'general_director', 'ceo', 'giam_doc',
+                'tong_giam_doc', 'ban_giam_doc', 'management',
+            ]);
+    }
+
     public static function isManager(?User $user): bool
     {
         return self::isAdmin($user)
@@ -73,6 +82,10 @@ class SolarMaintenanceAccess
                 'ky_thuat_manager',
                 'quan_ly_ky_thuat',
                 'manager',
+                'management',
+                'director',
+                'giam_doc',
+                'ban_giam_doc',
             ]);
     }
 
@@ -125,11 +138,50 @@ class SolarMaintenanceAccess
             ]);
     }
 
+    public static function canPlan(?User $user): bool
+    {
+        return self::isManager($user)
+            || self::hasPermission($user, 'maintenance.plan')
+            || self::hasPermission($user, 'maintenance.create');
+    }
+
+    public static function canCreate(?User $user): bool
+    {
+        return self::canPlan($user);
+    }
+
+    public static function canAssign(?User $user): bool
+    {
+        return self::isManager($user)
+            || self::hasPermission($user, 'maintenance.assign');
+    }
+
+    /** Tương thích code cũ: manage nay đồng nghĩa quản lý kế hoạch, không còn mặc định cho mọi kỹ thuật viên. */
     public static function canManage(?User $user): bool
+    {
+        return self::canPlan($user);
+    }
+
+    public static function isWarehouse(?User $user): bool
+    {
+        return self::isAdmin($user)
+            || self::hasAny($user, ['warehouse', 'kho', 'warehouse_manager', 'inventory_manager'])
+            || self::hasPermission($user, 'maintenance.stock');
+    }
+
+    public static function canCreateWarrantyClaim(?User $user): bool
     {
         return self::isManager($user)
             || self::isTechnician($user)
-            || self::hasPermission($user, 'maintenance.update');
+            || self::hasAny($user, ['cskh', 'customer_service'])
+            || self::hasPermission($user, 'maintenance.claim.create');
+    }
+
+    public static function canHandleWarrantyStock(?User $user): bool
+    {
+        return self::isManager($user)
+            || self::isWarehouse($user)
+            || self::hasPermission($user, 'maintenance.stock');
     }
 
     public static function canApprove(?User $user): bool
@@ -137,6 +189,17 @@ class SolarMaintenanceAccess
         return self::isAdmin($user)
             || self::isManager($user)
             || self::hasPermission($user, 'maintenance.approve');
+    }
+
+    public static function canViewMaintenanceCosts(?User $user): bool
+    {
+        return self::isExecutive($user)
+            || self::hasAny($user, [
+                'accounting', 'ketoan', 'ke_toan', 'chief_accountant',
+                'ke_toan_truong', 'finance', 'finance_manager',
+            ])
+            || self::hasPermission($user, 'maintenance.cost.view')
+            || self::hasPermission($user, 'finance.view');
     }
 
     public static function isTechnicianOnly(?User $user): bool

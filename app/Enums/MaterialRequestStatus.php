@@ -7,8 +7,11 @@ namespace App\Enums;
 enum MaterialRequestStatus: string
 {
     case DRAFT = 'DRAFT';
-    case SUBMITTED = 'SUBMITTED';           // Chờ admin duyệt
-    case ADMIN_APPROVED = 'ADMIN_APPROVED'; // Chờ kho duyệt
-    case EXPORTED = 'EXPORTED';             // Đã xuất kho
-    case REJECTED = 'REJECTED';             // Từ chối
+    case SUBMITTED = 'SUBMITTED';
+    case ACC_APPROVED = 'ACC_APPROVED';
+    case ACC_REJECTED = 'ACC_REJECTED';
+    case ADMIN_APPROVED = 'ADMIN_APPROVED';
+    case ADMIN_REJECTED = 'ADMIN_REJECTED';
+    case EXPORTED = 'EXPORTED';
+    case REJECTED = 'REJECTED';
 }

@@ -26,7 +26,7 @@ class UpdateSolarMaintenanceStatusRequest extends FormRequest
     {
         $manualStatuses = array_values(array_diff(
             array_keys(SolarMaintenanceSchedule::STATUSES),
-            ['pending_approval', 'approved', 'revision_requested']
+            ['pending_approval', 'approved', 'revision_requested', 'completed']
         ));
 
         return [

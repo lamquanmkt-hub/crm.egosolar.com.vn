@@ -194,7 +194,7 @@
             <div class="ego-pr-field">
                 <label for="egoPrCompany">Công ty</label>
                 <select id="egoPrCompany" name="company">
-                    <option value="">Tất cả công ty</option>
+                    <option value="">Công ty Quốc Tế EGO</option>
                     @foreach($companyOptions ?? [] as $c)
                         <option value="{{ $c }}" @selected(request('company') === $c)>{{ $c }}</option>
                     @endforeach
@@ -660,6 +660,9 @@
                 method="POST"
                 action="{{ route('payment_requests.store') }}"
                 enctype="multipart/form-data"
+                data-upload-template="{{ url('/payment-requests/__ID__/attachments') }}"
+                data-max-files="15"
+                data-max-file-size="20971520"
             >
                 @csrf
 
@@ -678,7 +681,7 @@
                         </h5>
 
                         <div class="ego-dntt-head-desc">
-                            Khởi tạo phiếu, đính kèm chứng từ và theo dõi quy trình xử lý.
+                            Phiếu được lưu nháp để bạn bổ sung và gửi duyệt sau.
                         </div>
                     </div>
 
@@ -697,7 +700,7 @@
                         <i class="bi bi-info-circle"></i>
 
                         <span>
-                            Tất cả trường đều có thể để trống và bổ sung sau khi tạo phiếu.
+                            Bạn có thể tạo phiếu nháp trước. Hãy hoàn thiện thông tin cần thiết trước khi gửi duyệt.
                         </span>
                     </div>
 
@@ -911,28 +914,91 @@
                                     </div>
 
                                     <div class="ego-dntt-field is-wide">
-                                        <label class="ego-dntt-label">
+                                        <label class="ego-dntt-label" for="egoPaymentRequestFiles">
                                             <span>Chứng từ đính kèm</span>
-                                            <small class="ego-dntt-optional">Tùy chọn</small>
+                                            <small class="ego-dntt-optional">Tối đa 15 file</small>
                                         </label>
 
-                                        <div class="ego-dntt-file">
-                                            <span class="ego-dntt-file-icon">
-                                                <i class="bi bi-paperclip"></i>
-                                            </span>
+                                        <div
+                                            class="ego-dntt-upload"
+                                            id="egoDnttUpload"
+                                        >
+                                            <input
+                                                class="ego-dntt-file-input"
+                                                id="egoPaymentRequestFiles"
+                                                type="file"
+                                                name="attachments[]"
+                                                multiple
+                                                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp,application/pdf"
+                                            >
 
-                                            <div class="flex-grow-1 min-w-0">
-                                                <input
-                                                    type="file"
-                                                    name="attachments[]"
-                                                    multiple
-                                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                                                >
+                                            <label
+                                                class="ego-dntt-upload-picker"
+                                                for="egoPaymentRequestFiles"
+                                            >
+                                                <span class="ego-dntt-upload-icon">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                </span>
 
-                                                <div class="ego-dntt-file-hint">
-                                                    JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX · tối đa 20MB/file
-                                                </div>
+                                                <span class="ego-dntt-upload-copy">
+                                                    <strong>Chọn nhiều chứng từ</strong>
+                                                    <small>Ảnh, PDF, Word hoặc Excel · tối đa 20MB/file</small>
+                                                </span>
+
+                                                <span class="ego-dntt-upload-button">
+                                                    Chọn file
+                                                </span>
+                                            </label>
+
+                                            <div
+                                                class="ego-dntt-upload-summary"
+                                                id="egoDnttUploadSummary"
+                                                hidden
+                                            >
+                                                <span>
+                                                    <i class="bi bi-paperclip"></i>
+                                                    <strong id="egoDnttUploadCount">0 file</strong>
+                                                </span>
+                                                <span id="egoDnttUploadSize">0 B</span>
                                             </div>
+
+                                            <div
+                                                class="ego-dntt-file-list"
+                                                id="egoDnttFileList"
+                                                role="list"
+                                                aria-live="polite"
+                                            ></div>
+
+                                            <div
+                                                class="ego-dntt-upload-actions"
+                                                id="egoDnttUploadActions"
+                                                hidden
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="ego-dntt-file-action"
+                                                    id="egoDnttAddFiles"
+                                                >
+                                                    <i class="bi bi-plus-circle"></i>
+                                                    Thêm file khác
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    class="ego-dntt-file-action is-danger"
+                                                    id="egoDnttClearFiles"
+                                                >
+                                                    <i class="bi bi-trash3"></i>
+                                                    Xóa tất cả
+                                                </button>
+                                            </div>
+
+                                            <div
+                                                class="ego-dntt-upload-message"
+                                                id="egoDnttUploadMessage"
+                                                role="alert"
+                                                hidden
+                                            ></div>
                                         </div>
                                     </div>
                                 </div>
@@ -942,6 +1008,11 @@
                 </div>
 
                 <div class="modal-footer">
+                    <div class="ego-dntt-footer-note">
+                        <i class="bi bi-shield-check"></i>
+                        Phiếu được lưu ở trạng thái nháp
+                    </div>
+
                     <button
                         type="button"
                         class="ego-dntt-cancel"
@@ -957,7 +1028,7 @@
                         id="egoPaymentRequestCreateSubmit"
                     >
                         <i class="bi bi-check2-circle"></i>
-                        Lưu phiếu
+                        Tạo phiếu nháp
                     </button>
                 </div>
             </form>
@@ -979,8 +1050,14 @@
 
         if (!editor) {
             editor = CKEDITOR.replace('reason_editor', {
-                height: 150,
-                removeButtons: 'Image,Flash,Smiley,SpecialChar,About'
+                height: 112,
+                toolbar: [
+                    { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
+                    { name: 'paragraph', items: ['BulletedList', 'NumberedList'] },
+                    { name: 'links', items: ['Link', 'Unlink'] }
+                ],
+                removeButtons: 'Image,Flash,Smiley,SpecialChar,About',
+                resize_enabled: false
             });
         }
 
@@ -1009,56 +1086,23 @@
 </script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (window.CKEDITOR && CKEDITOR.instances && CKEDITOR.instances.reason_editor) {
-      // ok
-    } else if (window.CKEDITOR) {
-      CKEDITOR.replace('reason_editor');
-    }
-
-    const form = document.querySelector('#createPRModal form');
-
-    if (form) {
-      form.addEventListener('submit', function (event) {
-        const textarea = form.querySelector('[name="reason"]');
-        const editor = window.CKEDITOR
-          && CKEDITOR.instances
-          ? CKEDITOR.instances.reason_editor
-          : null;
-
-        if (editor) {
-          editor.updateElement();
-        }
-
-        const submitButton = form.querySelector(
-          'button[type="submit"]'
-        );
-
-        if (submitButton && !submitButton.disabled) {
-          submitButton.disabled = true;
-          submitButton.innerHTML =
-            '<span class="spinner-border spinner-border-sm me-1"></span>' +
-            ' Đang lưu...';
-        }
-      });
-    }
-
+document.addEventListener('DOMContentLoaded', function () {
     const preset = document.getElementById('date_preset');
     const from = document.getElementById('date_from');
     const to = document.getElementById('date_to');
 
     if (from) {
-      from.addEventListener('change', function () {
-        if (preset) preset.value = 'custom';
-      });
+        from.addEventListener('change', function () {
+            if (preset) preset.value = 'custom';
+        });
     }
 
     if (to) {
-      to.addEventListener('change', function () {
-        if (preset) preset.value = 'custom';
-      });
+        to.addEventListener('change', function () {
+            if (preset) preset.value = 'custom';
+        });
     }
-  });
+});
 </script>
 
 
@@ -1809,6 +1853,321 @@ document.addEventListener('DOMContentLoaded', function () {
 @endif
 
 
+{{-- EGO_DNTT_MULTI_FILE_QUEUE_V3_START --}}
+<script>
+(function () {
+    'use strict';
+
+    function ready(callback) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', callback);
+        } else {
+            callback();
+        }
+    }
+
+    function formatBytes(bytes) {
+        var value = Number(bytes || 0);
+        var units = ['B', 'KB', 'MB', 'GB'];
+        var unitIndex = 0;
+
+        while (value >= 1024 && unitIndex < units.length - 1) {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return (unitIndex === 0 ? value : value.toFixed(value >= 10 ? 1 : 2)) + ' ' + units[unitIndex];
+    }
+
+    function fileKey(file) {
+        return [
+            String(file.name || '').toLowerCase(),
+            Number(file.size || 0),
+            Number(file.lastModified || 0)
+        ].join('::');
+    }
+
+    function extensionOf(fileName) {
+        var parts = String(fileName || '').toLowerCase().split('.');
+        return parts.length > 1 ? parts.pop() : '';
+    }
+
+    function fileIconClass(file) {
+        var extension = extensionOf(file.name);
+
+        if (['jpg', 'jpeg', 'png', 'webp'].indexOf(extension) !== -1) {
+            return 'bi-file-earmark-image';
+        }
+
+        if (extension === 'pdf') {
+            return 'bi-file-earmark-pdf';
+        }
+
+        if (['xls', 'xlsx'].indexOf(extension) !== -1) {
+            return 'bi-file-earmark-spreadsheet';
+        }
+
+        return 'bi-file-earmark-text';
+    }
+
+    ready(function () {
+        var form = document.getElementById('egoPaymentRequestCreateForm');
+        var input = document.getElementById('egoPaymentRequestFiles');
+        var upload = document.getElementById('egoDnttUpload');
+        var list = document.getElementById('egoDnttFileList');
+        var summary = document.getElementById('egoDnttUploadSummary');
+        var countNode = document.getElementById('egoDnttUploadCount');
+        var sizeNode = document.getElementById('egoDnttUploadSize');
+        var actions = document.getElementById('egoDnttUploadActions');
+        var addButton = document.getElementById('egoDnttAddFiles');
+        var clearButton = document.getElementById('egoDnttClearFiles');
+        var message = document.getElementById('egoDnttUploadMessage');
+        var modal = document.getElementById('createPRModal');
+
+        if (!form || !input || !upload || !list) {
+            return;
+        }
+
+        var maximumFiles = Number(form.dataset.maxFiles || 15);
+        var maximumFileSize = Number(form.dataset.maxFileSize || 20971520);
+        var allowedExtensions = [
+            'jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx'
+        ];
+        var selectedFiles = [];
+
+        function showMessage(text, type) {
+            if (!message) {
+                return;
+            }
+
+            message.hidden = !text;
+            message.textContent = text || '';
+            message.classList.toggle('is-error', type === 'error');
+            message.classList.toggle('is-info', type !== 'error');
+        }
+
+        function syncInputFiles() {
+            if (typeof DataTransfer === 'undefined') {
+                return;
+            }
+
+            var transfer = new DataTransfer();
+
+            selectedFiles.forEach(function (file) {
+                transfer.items.add(file);
+            });
+
+            input.files = transfer.files;
+        }
+
+        function renderFiles() {
+            list.innerHTML = '';
+
+            selectedFiles.forEach(function (file, index) {
+                var item = document.createElement('div');
+                var icon = document.createElement('span');
+                var copy = document.createElement('span');
+                var name = document.createElement('strong');
+                var meta = document.createElement('small');
+                var remove = document.createElement('button');
+
+                item.className = 'ego-dntt-file-item';
+                item.setAttribute('role', 'listitem');
+
+                icon.className = 'ego-dntt-file-type';
+                icon.innerHTML = '<i class="bi ' + fileIconClass(file) + '"></i>';
+
+                copy.className = 'ego-dntt-file-copy';
+                name.textContent = file.name;
+                meta.textContent = formatBytes(file.size);
+                copy.appendChild(name);
+                copy.appendChild(meta);
+
+                remove.type = 'button';
+                remove.className = 'ego-dntt-file-remove';
+                remove.setAttribute('aria-label', 'Xóa file ' + file.name);
+                remove.dataset.index = String(index);
+                remove.innerHTML = '<i class="bi bi-x-lg"></i>';
+
+                item.appendChild(icon);
+                item.appendChild(copy);
+                item.appendChild(remove);
+                list.appendChild(item);
+            });
+
+            var totalSize = selectedFiles.reduce(function (sum, file) {
+                return sum + Number(file.size || 0);
+            }, 0);
+            var hasFiles = selectedFiles.length > 0;
+
+            if (summary) {
+                summary.hidden = !hasFiles;
+            }
+
+            if (actions) {
+                actions.hidden = !hasFiles;
+            }
+
+            if (countNode) {
+                countNode.textContent = selectedFiles.length + ' file';
+            }
+
+            if (sizeNode) {
+                sizeNode.textContent = formatBytes(totalSize);
+            }
+
+            upload.classList.toggle('has-files', hasFiles);
+            syncInputFiles();
+        }
+
+        function addFiles(files) {
+            var incoming = Array.from(files || []);
+
+            if (!incoming.length) {
+                return;
+            }
+
+            var existingKeys = new Set(selectedFiles.map(fileKey));
+            var errors = [];
+            var added = 0;
+
+            incoming.forEach(function (file) {
+                var extension = extensionOf(file.name);
+                var key = fileKey(file);
+
+                if (selectedFiles.length >= maximumFiles) {
+                    errors.push('Chỉ được chọn tối đa ' + maximumFiles + ' file.');
+                    return;
+                }
+
+                if (existingKeys.has(key)) {
+                    errors.push('Đã bỏ qua file trùng: ' + file.name);
+                    return;
+                }
+
+                if (allowedExtensions.indexOf(extension) === -1) {
+                    errors.push('Sai định dạng: ' + file.name);
+                    return;
+                }
+
+                if (Number(file.size || 0) <= 0) {
+                    errors.push('File không có dữ liệu: ' + file.name);
+                    return;
+                }
+
+                if (Number(file.size || 0) > maximumFileSize) {
+                    errors.push('Vượt quá 20MB: ' + file.name);
+                    return;
+                }
+
+                selectedFiles.push(file);
+                existingKeys.add(key);
+                added++;
+            });
+
+            renderFiles();
+
+            if (errors.length) {
+                showMessage(errors.join(' · '), 'error');
+            } else if (added > 0) {
+                showMessage('Đã thêm ' + added + ' file vào phiếu.', 'info');
+            }
+
+            input.value = '';
+            syncInputFiles();
+        }
+
+        input.addEventListener('change', function () {
+            addFiles(input.files);
+        });
+
+        list.addEventListener('click', function (event) {
+            var button = event.target.closest('.ego-dntt-file-remove');
+
+            if (!button) {
+                return;
+            }
+
+            var index = Number(button.dataset.index);
+
+            if (!Number.isInteger(index) || index < 0 || index >= selectedFiles.length) {
+                return;
+            }
+
+            selectedFiles.splice(index, 1);
+            showMessage('', 'info');
+            renderFiles();
+        });
+
+        if (addButton) {
+            addButton.addEventListener('click', function () {
+                input.click();
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', function () {
+                selectedFiles = [];
+                input.value = '';
+                showMessage('', 'info');
+                renderFiles();
+            });
+        }
+
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            upload.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                upload.classList.add('is-dragging');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            upload.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                upload.classList.remove('is-dragging');
+            });
+        });
+
+        upload.addEventListener('drop', function (event) {
+            addFiles(event.dataTransfer ? event.dataTransfer.files : []);
+        });
+
+        form.egoSelectedPaymentFiles = function () {
+            return selectedFiles.slice();
+        };
+
+        form.egoResetPaymentFiles = function () {
+            selectedFiles = [];
+            input.value = '';
+            showMessage('', 'info');
+            renderFiles();
+        };
+
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                if (form.dataset.submitting === '1') {
+                    return;
+                }
+
+                form.reset();
+                form.egoResetPaymentFiles();
+
+                if (
+                    window.CKEDITOR &&
+                    CKEDITOR.instances &&
+                    CKEDITOR.instances.reason_editor
+                ) {
+                    CKEDITOR.instances.reason_editor.setData('');
+                }
+            });
+        }
+
+        renderFiles();
+    });
+})();
+</script>
+{{-- EGO_DNTT_MULTI_FILE_QUEUE_V3_END --}}
+
 {{-- EGO_PR_ASYNC_CREATE_FIX_START --}}
 <script>
 (function () {
@@ -1920,6 +2279,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 event.preventDefault();
                 event.stopImmediatePropagation();
 
+                if (form.dataset.submitting === '1') {
+                    return;
+                }
+
+                form.dataset.submitting = '1';
+
                 if (
                     window.CKEDITOR &&
                     CKEDITOR.instances &&
@@ -1930,6 +2295,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 if (!form.checkValidity()) {
+                    form.dataset.submitting = '0';
                     form.reportValidity();
                     return;
                 }
@@ -2012,19 +2378,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     var paymentRequestId =
                         createPayload.id;
 
-                    var fileInput =
-                        form.querySelector(
-                            'input[type="file"]' +
-                            '[name="attachments[]"]'
+                    var files = typeof form.egoSelectedPaymentFiles === 'function'
+                        ? form.egoSelectedPaymentFiles()
+                        : Array.from(
+                            (form.querySelector('#egoPaymentRequestFiles') || {}).files || []
                         );
 
-                    var files = fileInput
-                        ? Array.from(
-                            fileInput.files || []
-                        )
-                        : [];
-
                     var failedFiles = [];
+                    var uploadedCount = 0;
 
                     var csrf = form.querySelector(
                         'input[name="_token"]'
@@ -2033,97 +2394,119 @@ document.addEventListener('DOMContentLoaded', function () {
                     var baseUrl =
                         window.location.origin +
                         '/payment-requests';
+                    var uploadTemplate =
+                        form.dataset.uploadTemplate ||
+                        (baseUrl + '/__ID__/attachments');
+                    var uploadUrl = uploadTemplate.replace(
+                        '__ID__',
+                        String(paymentRequestId)
+                    );
 
                     /*
-                     * Tải từng file riêng biệt.
-                     * Một file lỗi không làm mất phiếu.
+                     * Người dùng chọn nhiều file một lần.
+                     * Hệ thống gom file nhỏ thành từng lô an toàn để tránh vượt
+                     * post_max_size của hosting; nếu một lô lỗi, phiếu vẫn còn.
                      */
+                    var batches = [];
+                    var currentBatch = [];
+                    var currentBytes = 0;
+                    var maximumBatchFiles = 5;
+                    var maximumBatchBytes = 24 * 1024 * 1024;
+
+                    files.forEach(function (file) {
+                        var fileBytes = Number(file.size || 0);
+                        var mustFlush = currentBatch.length > 0 && (
+                            currentBatch.length >= maximumBatchFiles ||
+                            currentBytes + fileBytes > maximumBatchBytes
+                        );
+
+                        if (mustFlush) {
+                            batches.push(currentBatch);
+                            currentBatch = [];
+                            currentBytes = 0;
+                        }
+
+                        currentBatch.push(file);
+                        currentBytes += fileBytes;
+                    });
+
+                    if (currentBatch.length) {
+                        batches.push(currentBatch);
+                    }
+
                     for (
-                        var index = 0;
-                        index < files.length;
-                        index++
+                        var batchIndex = 0;
+                        batchIndex < batches.length;
+                        batchIndex++
                     ) {
-                        var file = files[index];
+                        var batch = batches[batchIndex];
 
                         if (button) {
                             button.innerHTML =
-                                '<span class="' +
-                                'spinner-border ' +
-                                'spinner-border-sm me-1' +
-                                '"></span> Tải file ' +
-                                (index + 1) +
+                                '<span class="spinner-border spinner-border-sm me-1"></span>' +
+                                ' Đang tải ' +
+                                Math.min(uploadedCount + batch.length, files.length) +
                                 '/' +
                                 files.length +
-                                '...';
+                                ' file...';
                         }
 
-                        var uploadData =
-                            new FormData();
+                        var uploadData = new FormData();
 
                         if (csrf) {
-                            uploadData.append(
-                                '_token',
-                                csrf.value
-                            );
+                            uploadData.append('_token', csrf.value);
                         }
 
-                        uploadData.append(
-                            'attachments[]',
-                            file,
-                            file.name
-                        );
+                        batch.forEach(function (file) {
+                            uploadData.append(
+                                'attachments[]',
+                                file,
+                                file.name
+                            );
+                        });
 
                         try {
                             var uploadResponse =
                                 await fetchWithTimeout(
-                                    baseUrl +
-                                    '/' +
-                                    paymentRequestId +
-                                    '/attachments',
+                                    uploadUrl,
                                     {
                                         method: 'POST',
-                                        credentials:
-                                            'same-origin',
+                                        credentials: 'same-origin',
                                         headers: {
-                                            'Accept':
-                                                'application/json',
-                                            'X-Requested-With':
-                                                'XMLHttpRequest'
+                                            'Accept': 'application/json',
+                                            'X-Requested-With': 'XMLHttpRequest'
                                         },
                                         body: uploadData
                                     },
-                                    120000
+                                    180000
                                 );
 
-                            var uploadPayload =
-                                await readJson(
-                                    uploadResponse
-                                );
+                            var uploadPayload = await readJson(uploadResponse);
 
                             if (
                                 !uploadResponse.ok ||
                                 uploadPayload.ok === false
                             ) {
-                                failedFiles.push(
-                                    file.name +
-                                    (
-                                        uploadPayload &&
-                                        uploadPayload.message
+                                batch.forEach(function (file) {
+                                    failedFiles.push(
+                                        file.name +
+                                        (uploadPayload && uploadPayload.message
                                             ? ' — ' + uploadPayload.message
-                                            : ''
-                                    )
-                                );
+                                            : '')
+                                    );
+                                });
+                            } else {
+                                uploadedCount += batch.length;
                             }
                         } catch (uploadError) {
-                            failedFiles.push(
-                                file.name +
-                                (
-                                    uploadError &&
-                                    uploadError.message
+                            batch.forEach(function (file) {
+                                failedFiles.push(
+                                    file.name +
+                                    (uploadError && uploadError.message
                                         ? ' — ' + uploadError.message
-                                        : ''
-                                )
-                            );
+                                        : '')
+                                );
+                            });
                         }
                     }
 
@@ -2151,6 +2534,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             );
 
                     alert(message);
+                    form.dataset.submitting = '0';
 
                     if (button) {
                         button.disabled = false;
@@ -2169,6 +2553,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById(
                         'egoPaymentRequestCreateSubmit'
                     );
+
+                form.dataset.submitting = '0';
 
                 if (button) {
                     button.disabled = false;

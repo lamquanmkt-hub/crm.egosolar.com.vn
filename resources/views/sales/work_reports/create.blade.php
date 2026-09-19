@@ -2,7 +2,7 @@
 
 @section('content')
 @include('sales.work_reports._form', [
-    'title' => 'Tạo báo cáo công việc Sales',
+    'title' => 'Thêm dữ liệu chăm sóc khách hàng',
     'action' => route('sales.work-reports.store'),
     'method' => null,
 ])

@@ -38,6 +38,17 @@ class LeaveApprovalAccessService
         'lead',
     ];
 
+    /**
+     * Các role có thể được chọn trực tiếp làm người duyệt đơn nghỉ phép,
+     * không phụ thuộc phòng ban của nhân viên tạo đơn.
+     *
+     * Lưu ý: đây chỉ là quyền được chọn/gán và duyệt các đơn được giao,
+     * không biến role này thành quyền quản lý toàn bộ đơn nghỉ phép.
+     */
+    private const DIRECT_APPROVER_ROLES = [
+        'sales_manager',
+    ];
+
     public function canManageAll(?User $user): bool
     {
         if (! $user) {
@@ -210,6 +221,12 @@ class LeaveApprovalAccessService
                 return true;
             }
 
+            // Sales Manager có thể được chọn trực tiếp làm người duyệt
+            // cho nhân viên ở mọi phòng ban.
+            if ($this->hasAnyRole($candidate, self::DIRECT_APPROVER_ROLES)) {
+                return true;
+            }
+
             return $departmentId > 0
                 && (int) ($candidate->department_id ?? 0) === $departmentId
                 && $this->isDepartmentManager($candidate);
@@ -238,6 +255,8 @@ class LeaveApprovalAccessService
                 ) {
                     $priority = 1;
                 } elseif ($this->canManageAll($candidate)) {
+                    $priority = 2;
+                } elseif ($this->hasAnyRole($candidate, self::DIRECT_APPROVER_ROLES)) {
                     $priority = 2;
                 }
 

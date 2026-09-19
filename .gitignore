@@ -25,3 +25,28 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+.env.*
+!.env.example
+/vendor/
+/node_modules/
+/storage/ego_backups/
+/routes/*.bak*
+/routes/*.broken*
+/routes/web.phpbk*
+
+# Local backup files
+**/*backup*/
+**/*.bak*
+**/*.phpbk*
+**/*.broken*
+**/*.current_*
+/storage/ego_backups/
+
+**/*backup*
+
+# Temporary repair scripts
+/tools/
+/patch_*.php
+/repair_*.php
+/rollback_*.php
+/install_*.php

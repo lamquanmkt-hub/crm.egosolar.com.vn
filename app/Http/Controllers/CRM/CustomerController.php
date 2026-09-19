@@ -64,6 +64,70 @@ class CustomerController extends Controller
         ]);
     }
 
+    /**
+     * Tổng quan hợp nhất Khách hàng + Chăm sóc/Pipeline.
+     * Không đọc/ghi thay đổi vào crm_orders hoặc crm_leads.
+     */
+    public function overview(Request $request): View
+    {
+        $this->authorize('viewAny', Customer::class);
+
+        $pipelineStats = [
+            'total' => 0,
+            'caring' => 0,
+            'quote_sent' => 0,
+            'won' => 0,
+            'need_follow' => 0,
+            'unlinked' => 0,
+            'potential_value' => 0.0,
+        ];
+
+        $pipelineByStatus = collect();
+
+        if (Schema::hasTable('sales_work_reports')) {
+            $pipeline = DB::table('sales_work_reports');
+
+            if (! $this->canViewAllPipeline($request->user())) {
+                $pipeline->where('assigned_to', (int) $request->user()->id);
+            }
+
+            $pipelineStats = [
+                'total' => (clone $pipeline)->count(),
+                'caring' => (clone $pipeline)
+                    ->whereIn('status', ['consulting', 'follow_up', 'quoted'])
+                    ->count(),
+                'quote_sent' => (clone $pipeline)
+                    ->whereIn('quote_status', ['sent', 'viewed', 'waiting'])
+                    ->count(),
+                'won' => (clone $pipeline)
+                    ->where('status', 'won')
+                    ->count(),
+                'need_follow' => (clone $pipeline)
+                    ->whereIn('status', ['consulting', 'follow_up', 'quoted'])
+                    ->whereNotNull('next_followup_at')
+                    ->where('next_followup_at', '<=', now()->addDay())
+                    ->count(),
+                'unlinked' => Schema::hasColumn('sales_work_reports', 'customer_id')
+                    ? (clone $pipeline)->whereNull('customer_id')->count()
+                    : 0,
+                'potential_value' => (float) (clone $pipeline)
+                    ->sum('revenue_expectation'),
+            ];
+
+            $pipelineByStatus = (clone $pipeline)
+                ->select('status', DB::raw('COUNT(*) as total'))
+                ->groupBy('status')
+                ->orderByDesc('total')
+                ->get();
+        }
+
+        return view('customers.overview', [
+            'stats' => $this->customerStats($request),
+            'pipelineStats' => $pipelineStats,
+            'pipelineByStatus' => $pipelineByStatus,
+        ]);
+    }
+
     public function create(): RedirectResponse
     {
         return redirect()->route('customers.index');
@@ -1186,6 +1250,39 @@ class CustomerController extends Controller
                 'name',
                 'email',
             ]);
+    }
+
+    /**
+     * Quyền xem toàn bộ dữ liệu chăm sóc trong màn Khách hàng.
+     */
+    private function canViewAllPipeline(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->can('customer.view_all') || $user->can('customer.view_sales_all')) {
+            return true;
+        }
+
+        if (method_exists($user, 'hasAnyRole')) {
+            return $user->hasAnyRole([
+                'admin',
+                'management',
+                'sales_manager',
+                'accounting',
+            ]);
+        }
+
+        if (method_exists($user, 'hasRole')) {
+            foreach (['admin', 'management', 'sales_manager', 'accounting'] as $role) {
+                if ($user->hasRole($role)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

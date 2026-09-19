@@ -1,0 +1,11 @@
+EGO SOLAR COM.VN - Workspace DNHU all departments
+
+Thay doi:
+- Them app "De nghi tam ung & hoan ung" vao Workspace cua tat ca phong ban.
+- Link: /payment-requests/tam-ung-hoan-ung
+- Khong thay doi quyen duyet/nghiep vu; module van tu kiem soat quyen.
+
+Sau khi giai nen:
+php artisan view:clear
+php artisan cache:clear
+php artisan optimize:clear

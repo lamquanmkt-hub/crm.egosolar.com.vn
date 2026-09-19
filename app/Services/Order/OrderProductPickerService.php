@@ -38,14 +38,19 @@ class OrderProductPickerService
             return collect();
         }
 
-        $warehouses = DB::table('crm_warehouses as w')
+        $warehouseQuery = DB::table('crm_warehouses as w')
             ->join('company_warehouse as cw', 'cw.warehouse_id', '=', 'w.id')
-            ->where('cw.company_id', $companyId)
-            ->orderBy('w.name')
-            ->select('w.id', 'w.name')
-            ->get();
+            ->where('cw.company_id', $companyId);
 
-        return $warehouses;
+        if (Schema::hasColumn('crm_warehouses', 'is_sales_selectable')) {
+            $warehouseQuery->where(function ($builder) {
+                $builder->where('w.is_sales_selectable', 1)->orWhereNull('w.is_sales_selectable');
+            });
+        } else {
+            $warehouseQuery->where('w.name', 'not like', '[KÝ GỬI]%');
+        }
+
+        return $warehouseQuery->orderBy('w.name')->select('w.id', 'w.name')->get();
     }
 
     /**
@@ -186,11 +191,24 @@ class OrderProductPickerService
 
         $stockTotals = [];
         if ($productIds !== [] && Schema::hasTable('crm_product_stock')) {
-            $stockTotals = DB::table('crm_product_stock')
-                ->whereIn('product_id', $productIds)
-                ->selectRaw('product_id, COALESCE(SUM(qty), 0) as available_qty')
-                ->groupBy('product_id')
-                ->pluck('available_qty', 'product_id')
+            $stockQuery = DB::table('crm_product_stock as stock')
+                ->whereIn('stock.product_id', $productIds);
+
+            if (Schema::hasTable('crm_warehouses')) {
+                $stockQuery->join('crm_warehouses as warehouse', 'warehouse.id', '=', 'stock.warehouse_id');
+                if (Schema::hasColumn('crm_warehouses', 'is_sales_selectable')) {
+                    $stockQuery->where(function ($builder) {
+                        $builder->where('warehouse.is_sales_selectable', 1)->orWhereNull('warehouse.is_sales_selectable');
+                    });
+                } else {
+                    $stockQuery->where('warehouse.name', 'not like', '[KÝ GỬI]%');
+                }
+            }
+
+            $stockTotals = $stockQuery
+                ->selectRaw('stock.product_id, COALESCE(SUM(stock.qty), 0) as available_qty')
+                ->groupBy('stock.product_id')
+                ->pluck('available_qty', 'stock.product_id')
                 ->map(fn ($qty) => max(0, (int) $qty))
                 ->all();
         }
@@ -324,6 +342,13 @@ class OrderProductPickerService
                     : DB::raw('NULL as company_id'),
             ]);
 
+        if ($hasWarehouseColumn('is_sales_selectable')) {
+            $warehouseQuery->where(function ($builder) {
+                $builder->where('warehouse.is_sales_selectable', 1)->orWhereNull('warehouse.is_sales_selectable');
+            });
+        } else {
+            $warehouseQuery->where('warehouse.name', 'not like', '[KÝ GỬI]%');
+        }
         if ($hasWarehouseColumn('is_active')) {
             $warehouseQuery->where(function ($builder) {
                 $builder->where('warehouse.is_active', 1)->orWhereNull('warehouse.is_active');

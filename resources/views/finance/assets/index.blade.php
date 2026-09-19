@@ -83,7 +83,7 @@
             <input class="ap-input" name="keyword" value="{{ $filters['keyword'] ?? '' }}" placeholder="Tìm mã, tên, serial, nhà cung cấp, vị trí...">
             <select class="ap-select" name="status"><option value="">Tất cả trạng thái</option>@foreach($statuses as $k=>$v)<option value="{{ $k }}" @selected(($filters['status'] ?? '')===$k)>{{ $v }}</option>@endforeach</select>
             <select class="ap-select" name="category_id"><option value="0">Tất cả nhóm</option>@foreach($categories as $c)<option value="{{ $c->id }}" @selected(($filters['category_id'] ?? 0)==$c->id)>{{ $c->name }}</option>@endforeach</select>
-            <select class="ap-select" name="company_id"><option value="0">Tất cả công ty</option>@foreach($companies as $c)<option value="{{ $c->id }}" @selected(($filters['company_id'] ?? 0)==$c->id)>{{ $c->name }}</option>@endforeach</select>
+            <select class="ap-select" name="company_id"><option value="0">Công ty Quốc Tế EGO</option>@foreach($companies as $c)<option value="{{ $c->id }}" @selected(($filters['company_id'] ?? 0)==$c->id)>{{ $c->name }}</option>@endforeach</select>
             <select class="ap-select" name="condition"><option value="">Tất cả tình trạng</option>@foreach($conditions as $k=>$v)<option value="{{ $k }}" @selected(($filters['condition'] ?? '')===$k)>{{ $v }}</option>@endforeach</select>
             <button class="ap-btn ap-btn-primary" type="submit">Lọc</button>
             <a class="ap-btn ap-btn-light" href="{{ route('finance.assets.index') }}">Reset</a>

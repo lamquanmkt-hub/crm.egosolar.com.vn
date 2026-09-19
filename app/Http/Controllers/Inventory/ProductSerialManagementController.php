@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
+use App\Support\EgoCompanyLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -58,6 +59,7 @@ class ProductSerialManagementController extends Controller
         $warehouses = Schema::hasTable('crm_warehouses')
             ? DB::table('crm_warehouses')
                 ->select('id', 'name', 'company_id')
+                ->where('company_id', EgoCompanyLock::id())
                 ->orderBy('name')
                 ->get()
             : collect();
@@ -65,6 +67,7 @@ class ProductSerialManagementController extends Controller
         $companies = Schema::hasTable('companies')
             ? DB::table('companies')
                 ->select('id', 'name', 'code')
+                ->where('id', EgoCompanyLock::id())
                 ->orderBy('id')
                 ->get()
             : collect();

@@ -43,13 +43,13 @@
 
     $policy = $policyData['policy'] ?? (object)[
         'period_month' => $month,
-        'project_rate_percent' => 4,
+        'project_rate_percent' => 3,
         'trade_rate_percent' => 1,
-        'panel_fixed_amount' => 15000,
+        'panel_fixed_amount' => 0,
         'only_paid' => 0,
         'only_shipped' => 0,
         'only_completed' => 0,
-        'hold_if_debt' => 1,
+        'hold_if_debt' => 0,
     ];
 
     $rules = collect($policyData['rules'] ?? []);
@@ -1147,6 +1147,39 @@
         ]);
     }
 
+    /* EGO_COMMISSION_POLICY_20260806_START
+     * Đồng bộ số hoa hồng trên dashboard với Controller:
+     * - tính theo tiền thực thu trong kỳ;
+     * - Lead = 0,5%; khách còn lại = 1%;
+     * - không yêu cầu đơn phải thanh toán đủ 100% mới ghi nhận.
+     */
+    $controllerCommissionRows = collect($rows ?? []);
+
+    if ($controllerCommissionRows->isNotEmpty()) {
+        $commissionBySales = $controllerCommissionRows->groupBy(fn($r) => (int)($r->sales_user_id ?? 0));
+
+        $salesRows = $salesRows->map(function ($salesRow) use ($commissionBySales) {
+            $group = collect($commissionBySales->get((int)($salesRow->id ?? 0), []));
+
+            $salesRow->paid = (float)$group->sum(fn($r) => (float)($r->paid_total ?? 0));
+            $salesRow->eligible_revenue_before_vat = (float)$group->sum(fn($r) => (float)($r->total_amount ?? 0));
+            $salesRow->commission = (float)$group->sum(fn($r) => (float)($r->commission_calc ?? 0));
+            $salesRow->debt = max(0, (float)($salesRow->revenue ?? 0) - $salesRow->paid);
+            $salesRow->target_rate = (float)($salesRow->target_revenue ?? 0) > 0
+                ? min(999, ($salesRow->paid / (float)$salesRow->target_revenue) * 100)
+                : 0;
+            $salesRow->commission_rate = $salesRow->eligible_revenue_before_vat > 0
+                ? ($salesRow->commission / $salesRow->eligible_revenue_before_vat) * 100
+                : 0;
+            $salesRow->total_income = (float)($salesRow->base_salary ?? 0)
+                + (float)($salesRow->commission ?? 0)
+                + (float)($salesRow->kpi_bonus ?? 0);
+
+            return $salesRow;
+        });
+    }
+    /* EGO_COMMISSION_POLICY_20260806_END */
+
     $salesRows = $salesRows->sortByDesc('total_income')->values();
 
 /* EGO_FILTER_SALES_ROWS_START */
@@ -2045,7 +2078,7 @@ if ($filterSalesId > 0) {
                 <div class="p-3 d-grid gap-2">
                     <div class="sdp-stat m-0"><span>Công trình</span><b>{{ $fmtPercent($policy->project_rate_percent ?? 4) }}</b></div>
                     <div class="sdp-stat m-0"><span>Thương mại</span><b>{{ $fmtPercent($policy->trade_rate_percent ?? 1) }}</b></div>
-                    <div class="sdp-stat m-0"><span>Tấm pin</span><b>{{ $fmtMoney($policy->panel_fixed_amount ?? 15000) }}</b></div>
+                    <div class="sdp-stat m-0"><span>Tấm pin</span><b>{{ $fmtMoney($policy->panel_fixed_amount ?? 0) }}</b></div>
                     <div class="sdp-stat m-0 dark"><span>Rule bật</span><b>{{ $activeRules }}</b></div>
 
                     <a class="sdp-btn sdp-btn-main mt-2" href="{{ route('sales.commissions.settings', ['month' => $month]) }}">

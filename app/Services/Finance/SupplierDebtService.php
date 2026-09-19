@@ -28,7 +28,6 @@ class SupplierDebtService implements SupplierDebtServiceInterface
     public function companyOptions(): array
     {
         return [
-            'Công ty TNHH Ego Việt Nam',
             'Công ty TNHH TMKT Quốc Tế EGO',
         ];
     }

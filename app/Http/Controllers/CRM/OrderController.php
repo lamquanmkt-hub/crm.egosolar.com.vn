@@ -14,6 +14,7 @@ use App\Enums\ShippingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OrderRequest;
 use App\Models\Core\Company;
+use App\Models\Core\Warehouse;
 use App\Models\CRM\Orders\Order;
 use App\Models\CRM\Orders\OrderEditHistory;
 use App\Models\CRM\Orders\OrderNotification;
@@ -68,7 +69,8 @@ class OrderController extends Controller
      */
     public function index(Request $request): View
     {
-        $filters = $request->all();
+        // Không nhận company_id từ URL; trang Đơn hàng chỉ dùng Công ty Quốc Tế EGO.
+        $filters = $request->except('company_id');
 
         $orders = $this->orderService->getOrdersByUserRole(Auth::user(), $filters);
 
@@ -89,15 +91,18 @@ class OrderController extends Controller
         */
         $orderSummary = $this->orderService->getOrderIndexSummary(Auth::user(), $filters);
 
-        $companies = Company::query()
-            ->where(function ($q) {
-                $q->where('is_active', 1)
-                    ->orWhereNull('is_active');
-            })
-            ->orderBy('name')
-            ->get();
+        $warehouseQuery = Warehouse::query()->where('company_id', 2);
+        if (Schema::hasColumn('crm_warehouses', 'is_sales_selectable')) {
+            $warehouseQuery->where(function ($builder) {
+                $builder->where('is_sales_selectable', 1)->orWhereNull('is_sales_selectable');
+            });
+        } else {
+            $warehouseQuery->where('name', 'not like', '[KÝ GỬI]%');
+        }
+        $warehouses = $warehouseQuery->orderBy('name')->get();
 
         $creatorIds = DB::table('crm_orders')
+            ->where('company_id', 2)
             ->whereNotNull('created_by')
             ->distinct()
             ->pluck('created_by');
@@ -111,7 +116,7 @@ class OrderController extends Controller
         return view('orders.index', compact(
             'orders',
             'orderSummary',
-            'companies',
+            'warehouses',
             'creators'
         ));
     }
@@ -188,7 +193,7 @@ class OrderController extends Controller
             'debt',
             'returns.items.product',
             'returns.items.orderItem',
-            'returns.items.serials.serialUnit.identifiers.serialIdentifier',
+            'returns.items.serials.serialUnit.identifiers',
             'returns.attachments',
             'returns.approvals.approver',
             'returns.histories.user',
@@ -358,6 +363,157 @@ class OrderController extends Controller
             'other' => 'Khác',
         ];
 
+
+        /* EGO_ORDER_STOCK_SHORTAGE_DETAIL_START */
+        $orderStockLines = collect();
+
+        $shortageSummary = [
+            'has_shortage' => false,
+            'total_lines' => 0,
+            'shortage_lines' => 0,
+            'out_of_stock_lines' => 0,
+            'missing_qty' => 0,
+        ];
+
+        if (
+            Schema::hasTable('crm_order_items')
+            && Schema::hasTable('crm_product_catalog')
+            && Schema::hasTable('crm_warehouses')
+        ) {
+            $orderStockLines = DB::table('crm_order_items as item')
+                ->leftJoin(
+                    'crm_product_catalog as product',
+                    'product.id',
+                    '=',
+                    'item.product_id'
+                )
+                ->leftJoin(
+                    'crm_warehouses as warehouse',
+                    'warehouse.id',
+                    '=',
+                    'item.warehouse_id'
+                )
+                ->where('item.order_id', $order->id)
+                ->select(
+                    'item.id',
+                    'item.product_id',
+                    'item.warehouse_id',
+                    'item.quantity',
+                    DB::raw("
+                        COALESCE(
+                            product.name,
+                            item.product_name,
+                            CONCAT('Sản phẩm #', item.product_id)
+                        ) as product_name
+                    "),
+                    DB::raw("COALESCE(product.sku, '') as sku"),
+                    DB::raw("
+                        COALESCE(
+                            warehouse.name,
+                            CONCAT('Kho #', item.warehouse_id)
+                        ) as warehouse_name
+                    ")
+                )
+                ->orderBy('item.id')
+                ->get()
+                ->map(function ($item) {
+                    $productId = (int) ($item->product_id ?? 0);
+                    $warehouseId = (int) ($item->warehouse_id ?? 0);
+                    $requiredQty = max(
+                        0,
+                        (int) ($item->quantity ?? 0)
+                    );
+
+                    $availableQty = 0;
+
+                    if ($productId > 0 && $warehouseId > 0) {
+                        $availableQty =
+                            $this->stockGuard->currentWarehouseStock(
+                                $productId,
+                                $warehouseId,
+                                false
+                            );
+                    }
+
+                    $missingQty = max(
+                        0,
+                        $requiredQty - $availableQty
+                    );
+
+                    $status = 'ok';
+                    $statusLabel = 'Đủ hàng';
+
+                    if ($warehouseId <= 0) {
+                        $status = 'no_warehouse';
+                        $statusLabel = 'Chưa chọn kho';
+                    } elseif ($availableQty <= 0 && $requiredQty > 0) {
+                        $status = 'out_of_stock';
+                        $statusLabel = 'Hết hàng';
+                    } elseif ($missingQty > 0) {
+                        $status = 'insufficient';
+                        $statusLabel = 'Thiếu hàng';
+                    }
+
+                    return (object) [
+                        'id' => (int) ($item->id ?? 0),
+                        'product_id' => $productId,
+                        'warehouse_id' => $warehouseId,
+
+                        'product_name' =>
+                            (string) ($item->product_name ?? ''),
+
+                        'sku' =>
+                            (string) ($item->sku ?? ''),
+
+                        'warehouse_name' =>
+                            (string) ($item->warehouse_name ?? ''),
+
+                        'required_qty' => $requiredQty,
+                        'available_qty' => $availableQty,
+                        'missing_qty' => $missingQty,
+
+                        'status' => $status,
+                        'status_label' => $statusLabel,
+                    ];
+                });
+
+            $shortageItems = $orderStockLines
+                ->filter(function ($row) {
+                    return in_array(
+                        $row->status,
+                        [
+                            'no_warehouse',
+                            'out_of_stock',
+                            'insufficient',
+                        ],
+                        true
+                    );
+                })
+                ->values();
+
+            $shortageSummary = [
+                'has_shortage' =>
+                    $shortageItems->isNotEmpty(),
+
+                'total_lines' =>
+                    $orderStockLines->count(),
+
+                'shortage_lines' =>
+                    $shortageItems->count(),
+
+                'out_of_stock_lines' =>
+                    $shortageItems
+                        ->where('status', 'out_of_stock')
+                        ->count(),
+
+                'missing_qty' =>
+                    (int) $shortageItems->sum('missing_qty'),
+            ];
+        } else {
+            $shortageItems = collect();
+        }
+        /* EGO_ORDER_STOCK_SHORTAGE_DETAIL_END */
+
         return view('orders.show', [
             'order' => $order,
             'timeline' => $this->orderService->getOrderTimeline($id),
@@ -373,6 +529,9 @@ class OrderController extends Controller
             'stockMovements' => $stockMovements,
             'orderDocuments' => $orderDocuments,
             'documentTypes' => $documentTypes,
+            'orderStockLines' => $orderStockLines,
+            'shortageItems' => $shortageItems,
+            'shortageSummary' => $shortageSummary,
         ]);
     }
 
@@ -1499,7 +1658,12 @@ class OrderController extends Controller
             }
 
             $lineSubtotal = $unitPrice * $quantity;
-            $lineDiscount = ($lineSubtotal * $discountPercent / 100) + $discountAmount;
+            // discount_amount trên form là số tiền giảm trên MỖI sản phẩm.
+            // Đồng bộ backend với order-form.js:
+            // có giảm tiền/SP thì ưu tiên; nếu không mới dùng giảm %.
+            $lineDiscount = $discountAmount > 0
+                ? min($lineSubtotal, $discountAmount * $quantity)
+                : min($lineSubtotal, $lineSubtotal * $discountPercent / 100);
             if ($lineDiscount > $lineSubtotal) {
                 $lineDiscount = $lineSubtotal;
             }

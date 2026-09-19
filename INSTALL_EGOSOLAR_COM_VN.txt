@@ -1,0 +1,30 @@
+EGO SOLAR .COM.VN - NANG CAP DE NGHI TAM UNG / HOAN UNG
+
+Root du an: /home/egosola1/crm.egosolar.com.vn
+
+Sau khi giai nen:
+1) php artisan migrate --force
+2) php artisan view:clear
+3) php artisan cache:clear
+4) php artisan optimize:clear
+5) php artisan route:list | grep -E 'payment_advances|tam-ung-hoan-ung'
+
+Chuc nang:
+- Tao de nghi tam ung
+- QL tai chinh duyet / tu choi
+- Ke toan xac nhan da chi
+- Tu dong chuyen sang Can hoan ung
+- Nhan vien hoan ung ngay trong ho so tam ung
+- Tu dong tinh Nhan vien hoan lai / Cong ty thanh toan them / Da can bang
+- QL tai chinh duyet hoan ung
+- Ke toan doi soat va hoan tat
+- Hien ro tien do ngoai danh sach
+- Canh bao qua han hoan ung
+- Menu va Workspace co De nghi tam ung
+
+
+V2 - Dong bo tam ung & hoan ung:
+- Doi ten menu/trang thanh De nghi tam ung & hoan ung.
+- Them nut Tao hoan ung, cho phep chon truc tiep DNTT da Ke toan chi.
+- Khong sua/xoa DNTT nguon; chi gan marker advance_settlements de quan ly quyet toan.
+- Chi hien DNTT cung cong ty, dung pham vi quyen nguoi dung va chua co ho so hoan ung.

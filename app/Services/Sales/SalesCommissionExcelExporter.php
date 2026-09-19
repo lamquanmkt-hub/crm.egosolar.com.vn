@@ -447,7 +447,7 @@ class SalesCommissionExcelExporter
             'period_month' => $month,
             'project_rate_percent' => 4,
             'trade_rate_percent' => 1,
-            'panel_fixed_amount' => 15000,
+            'panel_fixed_amount' => 0,
             'only_paid' => 1,
             'only_shipped' => 0,
             'only_completed' => 0,

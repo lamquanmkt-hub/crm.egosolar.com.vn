@@ -59,7 +59,7 @@ class OrderReturnService implements OrderReturnServiceInterface
                 'refund_method' => $data['refund_method'] ?? null,
                 'restocking_fee' => (float) ($data['restocking_fee'] ?? 0),
                 'shipping_fee' => (float) ($data['shipping_fee'] ?? 0),
-                'financial_status' => $type === 'cancel' ? 'not_required' : 'pending',
+                'financial_status' => in_array($type, ['cancel', 'exchange'], true) ? 'not_required' : 'pending',
                 'inventory_status' => $type === 'cancel' ? 'not_required' : 'not_received',
                 'invoice_adjustment_status' => ($order->invoice_status ?? 'no_invoice') === 'issued' ? 'required' : 'not_required',
                 'note' => $data['note'] ?? null,
@@ -70,6 +70,7 @@ class OrderReturnService implements OrderReturnServiceInterface
             ]);
 
             $total = 0.0;
+            $selectedItemCount = 0;
             $itemsData = $data['items'] ?? [];
 
             if ($type !== 'cancel') {
@@ -88,19 +89,21 @@ class OrderReturnService implements OrderReturnServiceInterface
                         throw ValidationException::withMessages(['items' => 'Có sản phẩm không thuộc đơn hàng.']);
                     }
 
-                    $alreadyAccepted = (int) DB::table('order_return_items as ri')
+                    $completedAccepted = (int) DB::table('order_return_items as ri')
                         ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
                         ->where('ri.order_item_id', $orderItem->id)
-                        ->whereNotIn('r.status', self::CLOSED)
+                        ->whereNull('r.deleted_at')
+                        ->where('r.status', 'completed')
                         ->sum('ri.accepted_quantity');
 
-                    $alreadyRequested = (int) DB::table('order_return_items as ri')
+                    $openRequested = (int) DB::table('order_return_items as ri')
                         ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
                         ->where('ri.order_item_id', $orderItem->id)
+                        ->whereNull('r.deleted_at')
                         ->whereNotIn('r.status', array_merge(self::CLOSED, ['completed']))
                         ->sum('ri.requested_quantity');
 
-                    $available = max(0, (int) $orderItem->quantity - $alreadyAccepted - $alreadyRequested);
+                    $available = max(0, (int) $orderItem->quantity - $completedAccepted - $openRequested);
                     if ($requested > $available) {
                         throw ValidationException::withMessages([
                             "items.{$orderItemId}.quantity" => "Chỉ còn có thể hoàn {$available} sản phẩm.",
@@ -113,6 +116,7 @@ class OrderReturnService implements OrderReturnServiceInterface
                         $effectiveUnit = max(0, (float) $orderItem->unit_price * (1 - ((float) $orderItem->discount_percent / 100)) - ((float) $orderItem->discount_amount / $qty));
                     }
                     $lineAmount = round($effectiveUnit * $requested, 2);
+                    $returnDiscountAmount = round(((float) ($orderItem->discount_amount ?? 0) / $qty) * $requested, 2);
 
                     $returnItem = OrderReturnItem::create([
                         'order_return_id' => $return->id,
@@ -123,12 +127,13 @@ class OrderReturnService implements OrderReturnServiceInterface
                         'requested_quantity' => $requested,
                         'unit_price' => $effectiveUnit,
                         'vat_rate' => (float) ($orderItem->vat_percent ?? 0),
-                        'discount_amount' => (float) ($orderItem->discount_amount ?? 0),
+                        'discount_amount' => $returnDiscountAmount,
                         'return_amount' => $lineAmount,
                         'condition' => $row['condition'] ?? null,
                         'resolution' => $row['resolution'] ?? null,
                         'note' => $row['note'] ?? null,
                     ]);
+                    $selectedItemCount++;
 
                     $serialIds = array_values(array_unique(array_map('intval', $row['serial_ids'] ?? [])));
                     $isSerialized = (bool) ($orderItem->product->is_serialized ?? false);
@@ -153,6 +158,21 @@ class OrderReturnService implements OrderReturnServiceInterface
                                 "items.{$orderItemId}.serial_ids" => "Serial #{$serialId} không thuộc dòng đơn này.",
                             ]);
                         }
+
+                        $alreadyReturned = DB::table('order_return_serials as ors')
+                            ->join('order_return_items as ri', 'ri.id', '=', 'ors.order_return_item_id')
+                            ->join('order_returns as r', 'r.id', '=', 'ri.order_return_id')
+                            ->where('ors.serial_unit_id', $serialId)
+                            ->whereNull('r.deleted_at')
+                            ->whereNotIn('r.status', self::CLOSED)
+                            ->exists();
+
+                        if ($alreadyReturned) {
+                            throw ValidationException::withMessages([
+                                "items.{$orderItemId}.serial_ids" => "Serial #{$serialId} đã nằm trong một phiếu hoàn/đổi còn hiệu lực.",
+                            ]);
+                        }
+
                         $oldState = DB::table('crm_serial_unit_states')->where('serial_unit_id', $serialId)->value('state');
                         OrderReturnSerial::create([
                             'order_return_item_id' => $returnItem->id,
@@ -163,11 +183,29 @@ class OrderReturnService implements OrderReturnServiceInterface
 
                     $total += $lineAmount;
                 }
+
+                if ($selectedItemCount === 0) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Hãy chọn ít nhất một sản phẩm cần hoàn và nhập số lượng lớn hơn 0.',
+                    ]);
+                }
             }
+
+            $provisionalRefund = in_array($type, ['cancel', 'exchange'], true)
+                ? 0.0
+                : max(0, round($total - (float) $return->restocking_fee - (float) $return->shipping_fee, 2));
+
+            $metadata = is_array($return->metadata) ? $return->metadata : [];
+            $metadata = array_merge($metadata, [
+                'financial_policy_version' => 'v4',
+                'payment_at_request' => round((float) $order->payments()->sum('amount'), 2),
+                'financial_note' => 'Số tiền hoàn thực tế chỉ được chốt sau khi kho nhận và kiểm tra hàng.',
+            ]);
 
             $return->update([
                 'total_return_amount' => round($total, 2),
-                'refund_amount' => max(0, round($total - (float) $return->restocking_fee - (float) $return->shipping_fee, 2)),
+                'refund_amount' => $provisionalRefund,
+                'metadata' => $metadata,
             ]);
 
             $this->history($return, null, 'draft', 'create', 'Tạo yêu cầu đổi/trả', $user);

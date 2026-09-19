@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Support\EgoCompanyLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -29,7 +30,7 @@ class EgoPaymentRequestAttachmentController extends Controller
     {
         $this->abortIfMissing();
 
-        $pr = DB::table('payment_requests')->where('id', (int) $id)->first();
+        $pr = DB::table('payment_requests')->where('company_id', EgoCompanyLock::id())->where('id', (int) $id)->first();
 
         abort_unless($pr, 404, 'Khong tim thay phieu de nghi thanh toan.');
 

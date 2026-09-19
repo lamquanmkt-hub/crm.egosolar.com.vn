@@ -16,7 +16,7 @@
     $month = $month ?? now()->format('Y-m');
     $keyword = $keyword ?? '';
     $status = $status ?? '';
-    $companyOptions = $companyOptions ?? ['Công ty TNHH Ego Việt Nam', 'Công ty TNHH TMKT Quốc Tế EGO'];
+    $companyOptions = $companyOptions ?? ['Công ty TNHH TMKT Quốc Tế EGO'];
 
     $roundStatusText = [
         'planned' => 'Dự kiến',

@@ -25,6 +25,7 @@ class SolarMaintenanceQueryService
             ->with([
                 'site:id,name,contact_name,contact_phone,address,system_kwp,system_kw_ac,battery_kwh,system_type,phase,installed_at,warranty_to,monitoring_link,monitoring_account,company_id',
                 'assignees.user:id,name,email,phone_number,department_id,position_id',
+                'maintenanceProfile',
             ])
             ->withCount('attachments');
 
@@ -39,7 +40,7 @@ class SolarMaintenanceQueryService
             END")
             ->orderBy('scheduled_date')
             ->orderByDesc('id')
-            ->paginate(30)
+            ->paginate(100)
             ->withQueryString();
     }
 
@@ -60,6 +61,7 @@ class SolarMaintenanceQueryService
             ->selectRaw("SUM(CASE WHEN status = 'unassigned' THEN 1 ELSE 0 END) AS unassigned")
             ->selectRaw("SUM(CASE WHEN status = 'pending_approval' OR approval_status = 'pending' THEN 1 ELSE 0 END) AS pending_approval")
             ->selectRaw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed")
+            ->selectRaw("SUM(CASE WHEN status = 'unassigned' OR status IN ('pending_approval','revision_requested') OR approval_status = 'pending' OR (status NOT IN ('completed','cancelled') AND scheduled_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)) THEN 1 ELSE 0 END) AS needs_action")
             ->first();
 
         return [
@@ -72,7 +74,93 @@ class SolarMaintenanceQueryService
             'unassigned' => (int) ($row->unassigned ?? 0),
             'pending_approval' => (int) ($row->pending_approval ?? 0),
             'completed' => (int) ($row->completed ?? 0),
+            'needs_action' => (int) ($row->needs_action ?? 0),
         ];
+    }
+
+    /**
+     * Danh sách hồ sơ theo từng đợt dành cho hàng đợi phê duyệt.
+     */
+    public function approvalQueue(Request $request, User $user)
+    {
+        $query = SolarMaintenanceSchedule::query()
+            ->with([
+                'site:id,name,contact_name,address,company_id',
+                'assignees.user:id,name',
+                'submitter:id,name',
+                'approver:id,name',
+            ])
+            ->withCount([
+                'checklistItems as checklist_total',
+                'checklistItems as checklist_done' => fn (Builder $checklist) => $checklist->where('is_done', 1),
+                'attachments as evidence_count' => fn (Builder $attachments) => $attachments
+                    ->whereIn('category', ['before', 'during', 'after', 'report', 'fault', 'serial', 'checklist']),
+            ])
+            ->whereNotNull('submitted_at');
+
+        $this->scopeVisibleTo($query, $user);
+        $this->applyApprovalFilters($query, $request);
+
+        $view = (string) $request->input('approval_view', 'pending');
+        if ($view === 'approved') {
+            $query->orderByDesc('approved_at')->orderByDesc('id');
+        } else {
+            $query->orderByRaw('CASE WHEN submitted_at < ? THEN 0 ELSE 1 END', [now()->subHours(24)])
+                ->orderBy('submitted_at')
+                ->orderBy('id');
+        }
+
+        return $query->paginate(50)->withQueryString();
+    }
+
+    /**
+     * Số liệu tóm tắt của hàng đợi phê duyệt theo phạm vi người dùng.
+     */
+    public function approvalSummary(User $user): array
+    {
+        $query = SolarMaintenanceSchedule::query();
+        $this->scopeVisibleTo($query, $user);
+
+        $pending = (clone $query)
+            ->where('status', 'pending_approval')
+            ->where('approval_status', 'pending');
+
+        return [
+            'pending' => (clone $pending)->count(),
+            'overdue' => (clone $pending)->where('submitted_at', '<', now()->subHours(24))->count(),
+            'revision' => (clone $query)->where(function (Builder $revision) {
+                $revision->where('status', 'revision_requested')
+                    ->orWhereIn('approval_status', ['revision_requested', 'rejected']);
+            })->count(),
+            'approved_month' => (clone $query)
+                ->where('approval_status', 'approved')
+                ->where('approved_at', '>=', now()->startOfMonth())
+                ->count(),
+        ];
+    }
+
+    /**
+     * Hồ sơ chi tiết đang được chọn trong hàng đợi duyệt.
+     */
+    public function approvalItem(int $id, User $user): ?SolarMaintenanceSchedule
+    {
+        $query = SolarMaintenanceSchedule::query()
+            ->with([
+                'site',
+                'assignees.user:id,name,email,phone_number',
+                'submitter:id,name',
+                'approver:id,name',
+                'attachments.uploader:id,name',
+                'checklistItems.completer:id,name',
+                'checklistItems.attachments.uploader:id,name',
+                'approvals.approver:id,name',
+                'approvals.submitter:id,name',
+            ])
+            ->whereNotNull('submitted_at');
+
+        $this->scopeVisibleTo($query, $user);
+
+        return $query->find($id);
     }
 
     /**
@@ -186,6 +274,17 @@ class SolarMaintenanceQueryService
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
+        // Kỹ thuật xem toàn bộ lịch O&M; quyền sửa/duyệt vẫn do Policy kiểm soát.
+        if (SolarMaintenanceAccess::isTechnician($user)) {
+            return $query;
+        }
+
+        // EGO_TECHNICAL_SEE_ALL_MAINTENANCE_V2
+        // Quyền XEM không phụ thuộc phân công hay company.
+        if (\App\Support\SolarMaintenanceAccess::isTechnician($user)) {
+            return $query;
+        }
+
         $companyId = EgoCompanyScope::currentId();
 
         if ($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
@@ -238,9 +337,35 @@ class SolarMaintenanceQueryService
     private function applyFilters(Builder $query, Request $request): void
     {
         $search = trim((string) $request->input('q', ''));
-        $month = trim((string) $request->input('month', now()->format('Y-m')));
+        $month = $request->has('month')
+            ? trim((string) $request->input('month', ''))
+            : '';
+        $view = (string) $request->input('view', 'needs_action');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+
+
+
+        if ($view === 'needs_action') {
+            $query->where(function (Builder $needsAction) {
+                $needsAction->where('status', 'unassigned')
+                    ->orWhereIn('status', ['pending_approval', 'revision_requested'])
+                    ->orWhere('approval_status', 'pending')
+                    ->orWhere(function (Builder $dueSoon) {
+                        $dueSoon->whereNotIn('status', ['completed', 'cancelled'])
+                            ->whereDate('scheduled_date', '<=', today()->addDays(7));
+                    });
+            });
+        } elseif ($view === 'upcoming') {
+            $query->whereNotIn('status', ['completed', 'cancelled'])
+                ->whereBetween('scheduled_date', [today(), today()->addDays(7)]);
+        } elseif ($view === 'overdue') {
+            $query->whereNotIn('status', ['completed', 'cancelled'])
+                ->whereDate('scheduled_date', '<', today());
+        } elseif ($view === 'completed') {
+            // V3: hoàn thành được xác định bằng status=completed; không còn bắt buộc duyệt cuối.
+            $query->where('status', 'completed');
+        }
 
         if ($search !== '') {
             $query->where(function (Builder $q) use ($search) {
@@ -286,6 +411,48 @@ class SolarMaintenanceQueryService
         } elseif ($month !== '') {
             $query->whereYear('scheduled_date', substr($month, 0, 4))
                 ->whereMonth('scheduled_date', substr($month, 5, 2));
+        }
+    }
+
+    /**
+     * Bộ lọc riêng cho hàng đợi duyệt; luôn lọc theo hồ sơ đợt thay vì nhóm công trình.
+     */
+    private function applyApprovalFilters(Builder $query, Request $request): void
+    {
+        $view = (string) $request->input('approval_view', 'pending');
+
+        if ($view === 'revision') {
+            $query->where(function (Builder $revision) {
+                $revision->where('status', 'revision_requested')
+                    ->orWhereIn('approval_status', ['revision_requested', 'rejected']);
+            });
+        } elseif ($view === 'approved') {
+            $query->where('approval_status', 'approved');
+        } else {
+            $query->where('status', 'pending_approval')
+                ->where('approval_status', 'pending');
+        }
+
+        $search = trim((string) $request->input('q', ''));
+        if ($search !== '') {
+            $query->where(function (Builder $keyword) use ($search) {
+                $like = '%'.$search.'%';
+                $keyword->where('schedule_code', 'like', $like)
+                    ->orWhere('site_name', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)
+                    ->orWhereHas('site', function (Builder $site) use ($like) {
+                        $site->where('name', 'like', $like)
+                            ->orWhere('contact_name', 'like', $like);
+                    });
+            });
+        }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->input('priority'));
+        }
+
+        if ($request->input('sla') === 'overdue') {
+            $query->where('submitted_at', '<', now()->subHours(24));
         }
     }
 }

@@ -28,7 +28,7 @@ class MaterialRequestPolicy
     {
         return $user->id === $mr->created_by
             || $user->hasRole('manager')
-            || $user->hasRole(['admin', 'accounting', 'warehouse', 'kho', 'ky_thuat']);
+            || $user->hasRole(['admin', 'accounting', 'warehouse', 'kho', 'technical', 'ky_thuat']);
     }
 
     /**
@@ -36,7 +36,7 @@ class MaterialRequestPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole(['ky_thuat', 'admin', 'warehouse', 'kho']);
+        return $user->hasRole(['technical', 'ky_thuat', 'admin', 'warehouse', 'kho']);
     }
 
     /**
@@ -47,7 +47,7 @@ class MaterialRequestPolicy
         return $mr->status === MaterialRequestStatus::DRAFT
             && (
                 $user->id === $mr->created_by
-                || $user->hasRole(['admin', 'ky_thuat', 'warehouse', 'kho'])
+                || $user->hasRole(['admin', 'technical', 'ky_thuat', 'warehouse', 'kho'])
             );
     }
 

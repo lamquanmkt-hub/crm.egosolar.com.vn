@@ -34,7 +34,7 @@ final class LeaveDashboardAlertService
 
         return Cache::remember(
             $key,
-            now()->addSeconds(12),
+            now()->addSeconds(60),
             fn (): array => $this->build($user)
         );
     }

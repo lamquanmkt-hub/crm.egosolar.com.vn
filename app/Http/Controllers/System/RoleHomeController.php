@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\DepartmentDashboardService;
 use App\Services\ExecutiveDashboardService;
+use App\Services\Workspace\WorkspaceContextService;
 use Illuminate\Http\Request;
 
 /**
@@ -22,6 +23,7 @@ final class RoleHomeController extends Controller
     public function __construct(
         private readonly ExecutiveDashboardService $executiveDashboard,
         private readonly DepartmentDashboardService $departmentDashboard,
+        private readonly WorkspaceContextService $workspaceContext,
     ) {
         $this->middleware('auth');
     }
@@ -32,7 +34,7 @@ final class RoleHomeController extends Controller
         $user = $request->user();
         $user->loadMissing(['department', 'position']);
 
-        $workspace = $this->departmentDashboard->resolveWorkspace($user);
+        $workspace = $this->workspaceContext->dashboardWorkspace($user);
 
         if ($workspace === 'executive') {
             $filters = $request->only([

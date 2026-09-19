@@ -7,7 +7,7 @@ namespace App\Actions\MaterialRequest;
 use App\Models\Projects\MaterialRequest;
 use Illuminate\Support\Facades\DB;
 
-class SyncItemsAction
+final class SyncItemsAction
 {
     public function execute(MaterialRequest $materialRequest, array $items): void
     {

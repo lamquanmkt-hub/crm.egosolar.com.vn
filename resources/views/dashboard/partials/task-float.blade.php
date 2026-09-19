@@ -1,9 +1,9 @@
 {{-- EGO_TASK_FLOAT_GLOBAL_COMPONENT_V150 --}}
 @php
-    $egoTaskDashboard = app(
-        \App\Services\TaskDashboardAlertService::class
-    )->snapshot(
-        auth()->id()
+    $egoTaskDashboard = \Illuminate\Support\Facades\Cache::remember(
+        'ego:task-dashboard-float:v3:user:'.(int) auth()->id(),
+        now()->addSeconds(60),
+        fn () => app(\App\Services\TaskDashboardAlertService::class)->snapshot(auth()->id())
     );
 
     $egoTaskCount = (int) (

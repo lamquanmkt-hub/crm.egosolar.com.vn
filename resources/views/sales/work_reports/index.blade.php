@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Báo cáo dữ liệu khách hàng')
+@section('title', 'Khách hàng - Chăm sóc & Pipeline')
 
 @section('content')
 @php
@@ -1628,8 +1628,8 @@ body.ego-modal-open {
 <div class="ego-sales-page">
     <div class="ego-header">
         <div>
-            <h1 class="ego-title">Báo cáo dữ liệu khách hàng</h1>
-            <div class="ego-subtitle">Theo dõi, quản lý và báo cáo dữ liệu khách hàng của bạn</div>
+            <h1 class="ego-title">Khách hàng</h1>
+            <div class="ego-subtitle">Chăm sóc, follow-up và theo dõi pipeline khách hàng</div>
         </div>
 
         <div class="ego-actions">
@@ -1637,32 +1637,34 @@ body.ego-modal-open {
                 <i class="bi bi-download"></i> Xuất CSV
             </a>
             <a class="ego-btn ego-btn-primary" href="{{ route('sales.work-reports.create') }}">
-                <i class="bi bi-plus-lg"></i> Thêm khách hàng
+                <i class="bi bi-plus-lg"></i> Thêm data chăm sóc
             </a>
         </div>
     </div>
 
+    @include('customers._module_nav')
+
     <div class="ego-toolbar">
         <div class="ego-tabs">
-            <a class="ego-tab {{ !request('quick') && !request('period') ? 'active' : '' }}" href="{{ route('sales.work-reports.index') }}">
+            <a class="ego-tab {{ !request('customer_type') && !request('status') && !request('quick') && !request('period') ? 'active' : '' }}" href="{{ route('customers.pipeline') }}">
                 Tất cả <span class="ego-count">{{ $reports->total() }}</span>
             </a>
-            <a class="ego-tab {{ request('quick') === 'turnkey' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['customer_type' => 'turnkey']) }}">
+            <a class="ego-tab {{ request('customer_type') === 'turnkey' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['customer_type' => 'turnkey']) }}">
                 Khách lắp đặt trọn gói
             </a>
-            <a class="ego-tab {{ request('quick') === 'dealer' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['customer_type' => 'dealer']) }}">
+            <a class="ego-tab {{ request('customer_type') === 'dealer' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['customer_type' => 'dealer']) }}">
                 Đại lý sản phẩm
             </a>
-            <a class="ego-tab {{ request('quick') === 'consulting' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['status' => 'consulting']) }}">
+            <a class="ego-tab {{ request('status') === 'consulting' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['status' => 'consulting']) }}">
                 Đang chăm sóc
             </a>
-            <a class="ego-tab {{ request('quick') === 'quote_sent' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['quick' => 'quote_sent']) }}">
+            <a class="ego-tab {{ request('quick') === 'quote_sent' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['quick' => 'quote_sent']) }}">
                 Đã gửi báo giá <span class="ego-count">{{ $stats['quote_sent'] ?? 0 }}</span>
             </a>
-            <a class="ego-tab {{ request('quick') === 'won' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['status' => 'won']) }}">
+            <a class="ego-tab {{ request('status') === 'won' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['status' => 'won']) }}">
                 Đã chốt
             </a>
-            <a class="ego-tab {{ request('quick') === 'new' ? 'active' : '' }}" href="{{ route('sales.work-reports.index', ['status' => 'new']) }}">
+            <a class="ego-tab {{ request('status') === 'new' ? 'active' : '' }}" href="{{ route('customers.pipeline', ['status' => 'new']) }}">
                 Khách hàng cũ
             </a>
         </div>

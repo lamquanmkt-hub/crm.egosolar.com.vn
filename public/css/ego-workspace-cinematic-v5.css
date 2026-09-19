@@ -1,0 +1,1173 @@
+/* =========================================================
+   EGO WORKSPACE CINEMATIC V5
+   App launcher inspired by modern enterprise workspaces.
+   No blocking drag overlay; all department buttons are native.
+========================================================= */
+
+:root {
+    --ws5-accent: #2dd4bf;
+    --ws5-accent-strong: #0f9f8d;
+    --ws5-text: #f7fbff;
+    --ws5-muted: rgba(235, 244, 255, .72);
+    --ws5-line: rgba(255, 255, 255, .16);
+    --ws5-glass: rgba(12, 37, 61, .30);
+    --ws5-glass-strong: rgba(10, 30, 49, .60);
+    --ws5-shadow: 0 22px 60px rgba(2, 17, 32, .30);
+    --ws5-topbar-height: 78px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-height: 100%;
+    margin: 0;
+}
+
+html {
+    background: #0a2440;
+}
+
+body {
+    min-width: 320px;
+    color: var(--ws5-text);
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0a2440;
+    overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+    outline: 3px solid rgba(94, 234, 212, .45);
+    outline-offset: 3px;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+.ws5 {
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
+    overflow: hidden;
+}
+
+.ws5-backdrop,
+.ws5-vignette {
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    pointer-events: none;
+}
+
+.ws5-backdrop {
+    background-image:
+        linear-gradient(180deg, rgba(12, 58, 98, .34), rgba(4, 21, 38, .32)),
+        url('/assets/img/ego-login-cinematic-bg.webp');
+    background-position: center;
+    background-size: cover;
+    filter: saturate(1.02) contrast(1.03);
+    transform: scale(1.01);
+}
+
+.ws5-vignette {
+    z-index: -2;
+    background:
+        radial-gradient(circle at 50% 30%, rgba(90, 186, 227, .20), transparent 36%),
+        linear-gradient(180deg, rgba(4, 28, 49, .20), rgba(3, 20, 36, .54)),
+        linear-gradient(90deg, rgba(2, 21, 37, .18), transparent 28%, transparent 72%, rgba(2, 21, 37, .18));
+}
+
+html[data-theme="bright"] .ws5-backdrop {
+    filter: saturate(1.05) brightness(1.16) contrast(.96);
+}
+
+html[data-theme="bright"] .ws5-vignette {
+    background:
+        radial-gradient(circle at 50% 30%, rgba(118, 216, 246, .18), transparent 40%),
+        linear-gradient(180deg, rgba(13, 55, 88, .08), rgba(4, 27, 47, .36));
+}
+
+.ws5-topbar {
+    position: relative;
+    z-index: 50;
+    display: grid;
+    grid-template-columns: minmax(210px, 1fr) minmax(280px, 520px) minmax(320px, 1fr);
+    align-items: center;
+    gap: 24px;
+    min-height: var(--ws5-topbar-height);
+    padding: 13px clamp(24px, 4vw, 66px);
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+    background: linear-gradient(180deg, rgba(7, 27, 47, .48), rgba(7, 27, 47, .16));
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.ws5-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    width: max-content;
+    color: #fff;
+    text-decoration: none;
+}
+
+.ws5-brand__logo {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .90);
+    box-shadow: 0 10px 28px rgba(2, 20, 35, .20);
+}
+
+.ws5-brand__logo img {
+    display: block;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.ws5-brand__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.ws5-brand__copy strong {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+
+.ws5-brand__copy small {
+    color: rgba(239, 248, 255, .62);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .18em;
+}
+
+.ws5-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 43px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, .17);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .13);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.ws5-search:focus-within {
+    border-color: rgba(94, 234, 212, .52);
+    background: rgba(255, 255, 255, .18);
+    box-shadow: 0 0 0 4px rgba(45, 212, 191, .10);
+}
+
+.ws5-search > i {
+    color: rgba(255, 255, 255, .72);
+    font-size: 15px;
+}
+
+.ws5-search input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    color: #fff;
+    background: transparent;
+    font-size: 13px;
+}
+
+.ws5-search input::placeholder {
+    color: rgba(241, 248, 255, .62);
+}
+
+.ws5-search kbd {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    border-radius: 7px;
+    color: rgba(255, 255, 255, .72);
+    background: rgba(0, 0, 0, .12);
+    font-family: inherit;
+    font-size: 9px;
+}
+
+.ws5-top-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.ws5-dashboard-button,
+.ws5-icon-button,
+.ws5-account__button {
+    border: 1px solid rgba(255, 255, 255, .16);
+    color: #fff;
+    background: rgba(255, 255, 255, .11);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.ws5-dashboard-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 15px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.ws5-dashboard-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(94, 234, 212, .42);
+    background: rgba(18, 166, 147, .42);
+}
+
+.ws5-icon-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform .18s ease, background .18s ease;
+}
+
+.ws5-icon-button:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, .18);
+}
+
+.ws5-notification__badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    display: grid;
+    place-items: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border: 2px solid #164365;
+    border-radius: 999px;
+    color: #fff;
+    background: #ef4444;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.ws5-account {
+    position: relative;
+}
+
+.ws5-account__button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 44px;
+    padding: 4px 9px 4px 5px;
+    border-radius: 14px;
+    cursor: pointer;
+}
+
+.ws5-avatar {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+    border-radius: 11px;
+    color: #fff;
+    background: linear-gradient(145deg, #0ea5e9, #0f766e);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.ws5-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ws5-avatar--large {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+}
+
+.ws5-account__copy {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-align: left;
+}
+
+.ws5-account__copy strong {
+    max-width: 135px;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws5-account__copy small {
+    max-width: 135px;
+    overflow: hidden;
+    color: rgba(239, 248, 255, .60);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws5-account__button > i {
+    color: rgba(255, 255, 255, .62);
+    font-size: 10px;
+}
+
+.ws5-account__menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 90;
+    width: 274px;
+    padding: 9px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 17px;
+    background: rgba(10, 31, 52, .92);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+
+.ws5-account__summary {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+}
+
+.ws5-account__summary div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ws5-account__summary strong,
+.ws5-account__summary small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws5-account__summary strong {
+    font-size: 12px;
+}
+
+.ws5-account__summary small {
+    color: var(--ws5-muted);
+    font-size: 10px;
+}
+
+.ws5-account__menu > a,
+.ws5-account__menu form button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 38px;
+    padding: 0 11px;
+    border: 0;
+    border-radius: 10px;
+    color: rgba(248, 252, 255, .88);
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 11px;
+    text-align: left;
+}
+
+.ws5-account__menu > a:hover,
+.ws5-account__menu form button:hover {
+    background: rgba(255, 255, 255, .10);
+}
+
+.ws5-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - var(--ws5-topbar-height));
+    padding: 26px clamp(18px, 4vw, 68px) 24px;
+}
+
+.ws5-flash {
+    position: fixed;
+    top: 90px;
+    left: 50%;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transform: translateX(-50%);
+    padding: 10px 15px;
+    border: 1px solid rgba(94, 234, 212, .34);
+    border-radius: 12px;
+    background: rgba(6, 95, 81, .84);
+    box-shadow: var(--ws5-shadow);
+    font-size: 11px;
+}
+
+.ws5-workspace-nav {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    align-items: center;
+    gap: 9px;
+    width: min(1020px, 100%);
+    margin: 0 auto 20px;
+    animation: ws5-stage-in .45s ease both;
+}
+
+.ws5-workspace-rail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+}
+
+.ws5-workspace-rail::-webkit-scrollbar {
+    display: none;
+}
+
+.ws5-workspace-form {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.ws5-rail-arrow,
+.ws5-page-arrow,
+.ws5-filter-icon,
+.ws5-filter-pill,
+.ws5-workspace-pill {
+    border: 1px solid rgba(255, 255, 255, .15);
+    color: rgba(248, 252, 255, .82);
+    background: rgba(17, 48, 74, .30);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.ws5-rail-arrow {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.ws5-rail-arrow:disabled {
+    opacity: .28;
+    cursor: default;
+}
+
+.ws5-filter-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.ws5-filter-pill,
+.ws5-workspace-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    min-height: 35px;
+    padding: 0 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 10.5px;
+    font-weight: 650;
+    white-space: nowrap;
+    transition: transform .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.ws5-workspace-pill.is-static {
+    cursor: default;
+}
+
+.ws5-filter-pill:hover,
+.ws5-workspace-pill:hover,
+.ws5-filter-icon:hover,
+.ws5-rail-arrow:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(94, 234, 212, .34);
+    background: rgba(30, 86, 113, .48);
+    color: #fff;
+}
+
+.ws5-filter-pill.is-active,
+.ws5-workspace-pill.is-active,
+.ws5-filter-icon.is-active {
+    border-color: rgba(255, 255, 255, .36);
+    color: #fff;
+    background: rgba(255, 255, 255, .20);
+    box-shadow: 0 10px 30px rgba(2, 20, 34, .18), inset 0 1px 0 rgba(255, 255, 255, .13);
+}
+
+.ws5-workspace-pill.is-active {
+    border-color: rgba(94, 234, 212, .50);
+    background: linear-gradient(135deg, rgba(13, 148, 136, .62), rgba(14, 116, 144, .52));
+}
+
+.ws5-context {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    width: min(1040px, 100%);
+    margin: 0 auto 14px;
+    padding: 0 42px;
+    color: rgba(244, 250, 255, .72);
+    font-size: 10px;
+    animation: ws5-stage-in .45s .06s ease both;
+}
+
+.ws5-context__left,
+.ws5-context__right {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.ws5-context__icon {
+    display: grid;
+    place-items: center;
+    width: 33px;
+    height: 33px;
+    border: 1px solid rgba(94, 234, 212, .28);
+    border-radius: 12px;
+    color: #b7fff3;
+    background: rgba(13, 148, 136, .23);
+}
+
+.ws5-context__left > div {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.ws5-context__left small {
+    color: rgba(234, 245, 253, .52);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+}
+
+.ws5-context__left strong {
+    color: #fff;
+    font-size: 12px;
+}
+
+.ws5-context__dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .42);
+}
+
+.ws5-app-shell {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 980px) 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-height: 430px;
+    animation: ws5-stage-in .52s .10s ease both;
+}
+
+.ws5-app-viewport {
+    position: relative;
+    min-height: 430px;
+}
+
+.ws5-app-page {
+    display: none;
+    min-height: 430px;
+}
+
+.ws5-app-page.is-active {
+    display: block;
+}
+
+.ws5-app-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(116px, 1fr));
+    grid-auto-rows: minmax(126px, auto);
+    gap: 14px 20px;
+}
+
+.ws5-app-card {
+    position: relative;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 20px;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.ws5-app-card:hover,
+.ws5-app-card:focus-within {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, .17);
+    background: rgba(255, 255, 255, .10);
+    box-shadow: 0 18px 36px rgba(2, 19, 34, .18);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.ws5-app-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 124px;
+    padding: 13px 8px 10px;
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+}
+
+.ws5-app-link strong {
+    display: -webkit-box;
+    min-height: 34px;
+    overflow: hidden;
+    color: rgba(252, 254, 255, .95);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.45;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .24);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.ws5-app-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 70px;
+    height: 70px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 23px;
+    color: #fff;
+    box-shadow: 0 17px 30px rgba(4, 21, 38, .24), inset 0 1px 0 rgba(255, 255, 255, .25);
+    transition: transform .20s ease, box-shadow .20s ease;
+}
+
+.ws5-app-card:hover .ws5-app-icon,
+.ws5-app-card:focus-within .ws5-app-icon {
+    transform: scale(1.055) rotate(-1deg);
+    box-shadow: 0 21px 36px rgba(4, 21, 38, .30), inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+
+.ws5-app-icon > i {
+    font-size: 29px;
+}
+
+.ws5-app-icon.tone-blue { background: linear-gradient(145deg, #3b82f6, #1d4ed8); }
+.ws5-app-icon.tone-cyan { background: linear-gradient(145deg, #22d3ee, #0284c7); }
+.ws5-app-icon.tone-green { background: linear-gradient(145deg, #4ade80, #16a34a); }
+.ws5-app-icon.tone-teal { background: linear-gradient(145deg, #2dd4bf, #0f766e); }
+.ws5-app-icon.tone-orange { background: linear-gradient(145deg, #fb923c, #ea580c); }
+.ws5-app-icon.tone-yellow { background: linear-gradient(145deg, #facc15, #d97706); }
+.ws5-app-icon.tone-purple { background: linear-gradient(145deg, #a78bfa, #7c3aed); }
+.ws5-app-icon.tone-pink { background: linear-gradient(145deg, #fb7185, #db2777); }
+.ws5-app-icon.tone-red { background: linear-gradient(145deg, #fb7185, #dc2626); }
+.ws5-app-icon.tone-indigo { background: linear-gradient(145deg, #818cf8, #4f46e5); }
+.ws5-app-icon.tone-steel { background: linear-gradient(145deg, #64748b, #334155); }
+.ws5-app-icon.tone-navy { background: linear-gradient(145deg, #2563eb, #0f2f55); }
+.ws5-app-icon.tone-lime { background: linear-gradient(145deg, #84cc16, #3f8f11); }
+.ws5-app-icon.tone-amber { background: linear-gradient(145deg, #f59e0b, #b45309); }
+.ws5-app-icon.tone-slate { background: linear-gradient(145deg, #64748b, #1e293b); }
+.ws5-app-icon.tone-aqua { background: linear-gradient(145deg, #22d3ee, #0891b2); }
+.ws5-app-icon.tone-azure { background: linear-gradient(145deg, #38bdf8, #2563eb); }
+.ws5-app-icon.tone-coral { background: linear-gradient(145deg, #fb7185, #f97316); }
+.ws5-app-icon.tone-magenta { background: linear-gradient(145deg, #f472b6, #a21caf); }
+.ws5-app-icon.tone-royal { background: linear-gradient(145deg, #6366f1, #3730a3); }
+.ws5-app-icon.tone-sky { background: linear-gradient(145deg, #7dd3fc, #0284c7); }
+.ws5-app-icon.tone-turquoise { background: linear-gradient(145deg, #2dd4bf, #0891b2); }
+.ws5-app-icon.tone-violet { background: linear-gradient(145deg, #c084fc, #7c3aed); }
+
+.ws5-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    display: grid;
+    place-items: center;
+    min-width: 25px;
+    height: 25px;
+    padding: 0 6px;
+    border: 3px solid rgba(14, 52, 81, .86);
+    border-radius: 999px;
+    color: #fff;
+    background: #ef4444;
+    box-shadow: 0 7px 18px rgba(239, 68, 68, .32);
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.ws5-favorite-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 27px;
+    height: 27px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    color: rgba(255, 255, 255, .50);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .16s ease, color .16s ease, background .16s ease;
+}
+
+.ws5-app-card:hover .ws5-favorite-button,
+.ws5-app-card:focus-within .ws5-favorite-button,
+.ws5-favorite-button.is-favorite {
+    opacity: 1;
+}
+
+.ws5-favorite-button:hover,
+.ws5-favorite-button.is-favorite {
+    color: #fde68a;
+    background: rgba(255, 255, 255, .12);
+}
+
+.ws5-page-arrow {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 15px;
+    transition: transform .18s ease, background .18s ease, opacity .18s ease;
+}
+
+.ws5-page-arrow:hover:not(:disabled) {
+    transform: scale(1.06);
+    background: rgba(255, 255, 255, .20);
+}
+
+.ws5-page-arrow:disabled {
+    opacity: .14;
+    cursor: default;
+}
+
+.ws5-empty {
+    display: none;
+    place-items: center;
+    min-height: 390px;
+    padding: 40px;
+    text-align: center;
+}
+
+.ws5-empty.is-visible,
+.ws5-empty:not([hidden]) {
+    display: grid;
+}
+
+.ws5-empty span {
+    display: grid;
+    place-items: center;
+    width: 68px;
+    height: 68px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, .15);
+    border-radius: 22px;
+    color: rgba(255, 255, 255, .75);
+    background: rgba(255, 255, 255, .10);
+    font-size: 26px;
+}
+
+.ws5-empty strong {
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.ws5-empty p {
+    margin: 0 0 14px;
+    color: var(--ws5-muted);
+    font-size: 11px;
+}
+
+.ws5-empty button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid rgba(94, 234, 212, .35);
+    border-radius: 11px;
+    color: #fff;
+    background: rgba(13, 148, 136, .34);
+    cursor: pointer;
+}
+
+.ws5-bottom-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+    width: min(1040px, 100%);
+    margin: 12px auto 0;
+    padding: 0 42px;
+    color: rgba(242, 249, 255, .64);
+    font-size: 9.5px;
+    animation: ws5-stage-in .52s .16s ease both;
+}
+
+.ws5-app-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ws5-app-hint span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws5-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.ws5-page-dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .34);
+    cursor: pointer;
+    transition: width .18s ease, background .18s ease;
+}
+
+.ws5-page-dot.is-active {
+    width: 24px;
+    background: #fff;
+}
+
+.ws5-filter-state {
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ws5-switch-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-content: center;
+    gap: 12px;
+    color: #fff;
+    background: rgba(4, 21, 37, .64);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    text-align: center;
+    font-size: 12px;
+}
+
+.ws5-spinner {
+    width: 34px;
+    height: 34px;
+    margin: auto;
+    border: 3px solid rgba(255, 255, 255, .22);
+    border-top-color: #5eead4;
+    border-radius: 50%;
+    animation: ws5-spin .75s linear infinite;
+}
+
+@keyframes ws5-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ws5-stage-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1180px) {
+    .ws5-topbar {
+        grid-template-columns: 210px minmax(240px, 1fr) auto;
+        gap: 16px;
+        padding-inline: 24px;
+    }
+
+    .ws5-account__copy,
+    .ws5-dashboard-button span {
+        display: none;
+    }
+
+    .ws5-dashboard-button {
+        width: 40px;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .ws5-app-grid {
+        grid-template-columns: repeat(5, minmax(100px, 1fr));
+        gap-inline: 10px;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --ws5-topbar-height: 68px;
+    }
+
+    .ws5-topbar {
+        grid-template-columns: auto 1fr auto;
+        padding: 10px 14px;
+    }
+
+    .ws5-brand__copy,
+    .ws5-search kbd,
+    .ws5-top-actions > .ws5-dashboard-button,
+    .ws5-top-actions > .ws5-icon-button:not(.ws5-notification),
+    .ws5-account__copy,
+    .ws5-account__button > i {
+        display: none;
+    }
+
+    .ws5-brand__logo {
+        width: 40px;
+        height: 40px;
+    }
+
+    .ws5-search {
+        min-height: 40px;
+    }
+
+    .ws5-account__button {
+        padding: 3px;
+        border: 0;
+        background: transparent;
+    }
+
+    .ws5-stage {
+        padding: 18px 12px 20px;
+    }
+
+    .ws5-workspace-nav {
+        grid-template-columns: 30px minmax(0, 1fr) 30px;
+        margin-bottom: 14px;
+    }
+
+    .ws5-rail-arrow {
+        width: 30px;
+        height: 30px;
+    }
+
+    .ws5-context {
+        padding-inline: 4px;
+    }
+
+    .ws5-context__right {
+        display: none;
+    }
+
+    .ws5-app-shell {
+        grid-template-columns: 30px minmax(0, 1fr) 30px;
+        gap: 4px;
+        min-height: 480px;
+    }
+
+    .ws5-app-viewport,
+    .ws5-app-page {
+        min-height: 480px;
+    }
+
+    .ws5-app-grid {
+        grid-template-columns: repeat(4, minmax(76px, 1fr));
+        grid-auto-rows: minmax(116px, auto);
+        gap: 8px 4px;
+    }
+
+    .ws5-app-icon {
+        width: 62px;
+        height: 62px;
+        border-radius: 20px;
+    }
+
+    .ws5-app-icon > i {
+        font-size: 25px;
+    }
+
+    .ws5-app-link {
+        min-height: 112px;
+        padding-inline: 3px;
+    }
+
+    .ws5-app-link strong {
+        font-size: 9.5px;
+    }
+
+    .ws5-favorite-button {
+        opacity: 1;
+    }
+
+    .ws5-bottom-bar {
+        grid-template-columns: 1fr auto;
+        padding-inline: 4px;
+    }
+
+    .ws5-filter-state {
+        display: none;
+    }
+}
+
+@media (max-width: 580px) {
+    .ws5-topbar {
+        gap: 8px;
+    }
+
+    .ws5-search {
+        padding-inline: 10px;
+    }
+
+    .ws5-search input {
+        font-size: 12px;
+    }
+
+    .ws5-notification {
+        display: none;
+    }
+
+    .ws5-workspace-nav {
+        width: 100%;
+    }
+
+    .ws5-context {
+        margin-bottom: 8px;
+    }
+
+    .ws5-app-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .ws5-page-arrow {
+        position: fixed;
+        bottom: 18px;
+        z-index: 40;
+        width: 40px;
+        height: 40px;
+        background: rgba(9, 40, 64, .80);
+    }
+
+    .ws5-page-arrow--prev { left: 16px; }
+    .ws5-page-arrow--next { right: 16px; }
+
+    .ws5-app-grid {
+        grid-template-columns: repeat(3, minmax(80px, 1fr));
+        gap: 7px 2px;
+    }
+
+    .ws5-app-card {
+        border-radius: 16px;
+    }
+
+    .ws5-app-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 18px;
+    }
+
+    .ws5-app-link strong {
+        font-size: 9px;
+    }
+
+    .ws5-bottom-bar {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        margin-top: 4px;
+    }
+
+    .ws5-app-hint {
+        display: none;
+    }
+
+    .ws5-account__menu {
+        position: fixed;
+        top: 70px;
+        right: 10px;
+        width: min(300px, calc(100vw - 20px));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
