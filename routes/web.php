@@ -788,8 +788,18 @@ Route::middleware(['auth'])
 
 /* EGO_THAO_FULL_PAYMENT_REQUESTS_START */
 Route::middleware(['auth'])->group(function () {
+    /*
+     * Toàn quyền thao tác ĐNTT ở mọi trạng thái.
+     * Trước đây khối này hardcode email `buibichthao@egosolar.vn`; nay dùng
+     * đúng cơ chế phân quyền sẵn có: role `admin` (Giám đốc) hoặc permission
+     * chuyên biệt `payment_requests.override_locked`.
+     */
     $egoThaoCanFullPaymentRequest = function () {
-        return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+        $user = auth()->user();
+
+        return $user !== null
+            && method_exists($user, 'canOverrideLockedFinanceRecords')
+            && $user->canOverrideLockedFinanceRecords();
     };
 
     $egoMoneyToNumber = function ($value) {
@@ -817,10 +827,24 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless($old, 404);
 
+        $statusBefore = (string) ($old->status ?? '');
+        $auditReason = trim((string) $request->input('audit_reason', ''));
+
+        // Sửa phiếu đã duyệt/đã chi: bắt buộc có lý do và phải ghi nhật ký.
+        if (\App\Services\Payments\PaymentRequestAuditLogger::isLockedStatus($statusBefore)) {
+            $request->validate(
+                ['audit_reason' => \App\Services\Payments\PaymentRequestAuditLogger::reasonRules()],
+                \App\Services\Payments\PaymentRequestAuditLogger::reasonMessages(),
+            );
+
+            $auditReason = trim((string) $request->input('audit_reason'));
+        }
+
         $columns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_requests');
         $blocked = [
             '_token',
             '_method',
+            'audit_reason',
             'id',
             'created_at',
             'created_by',
@@ -898,17 +922,35 @@ Route::middleware(['auth'])->group(function () {
             return back()->with('success', 'Không có dữ liệu cần cập nhật.');
         }
 
-        \Illuminate\Support\Facades\DB::table('payment_requests')
-            ->where('company_id', \App\Support\EgoCompanyLock::id())
-            ->where('id', $id)
-            ->update($data);
+        /*
+         * NGUYÊN TỬ: sửa dữ liệu và ghi nhật ký cùng một transaction. Nếu ghi
+         * nhật ký lỗi thì thay đổi trên payment_requests cũng bị rollback —
+         * không để tồn tại thay đổi tài chính mà không có dấu vết.
+         */
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id, $data, $old, $auditReason, $statusBefore): void {
+            \Illuminate\Support\Facades\DB::table('payment_requests')
+                ->where('company_id', \App\Support\EgoCompanyLock::id())
+                ->where('id', $id)
+                ->update($data);
 
-        return redirect('/payment-requests/'.$id)->with('success', 'Bùi Bích Thảo đã cập nhật ĐNTT #'.$id.' ở mọi trạng thái.');
+            // Nhật ký: mỗi trường thay đổi một dòng (ai / khi nào / cũ -> mới / lý do).
+            \App\Services\Payments\PaymentRequestAuditLogger::logFieldChanges(
+                $id,
+                (string) ($old->code ?? ''),
+                (array) $old,
+                \Illuminate\Support\Arr::except($data, ['updated_at']),
+                $auditReason !== '' ? $auditReason : null,
+                $statusBefore,
+                (string) ($data['status'] ?? $statusBefore),
+            );
+        });
+
+        return redirect('/payment-requests/'.$id)->with('success', 'Đã cập nhật ĐNTT #'.$id.' ở mọi trạng thái (quyền Admin).');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_full_update');
 
-    Route::match(['post', 'delete'], '/payment-requests/{id}/xoa-full-thao', function ($id) use ($egoThaoCanFullPaymentRequest) {
+    Route::match(['post', 'delete'], '/payment-requests/{id}/xoa-full-thao', function (\Illuminate\Http\Request $request, $id) use ($egoThaoCanFullPaymentRequest) {
         abort_unless($egoThaoCanFullPaymentRequest(), 403);
 
         $id = (int) $id;
@@ -919,9 +961,33 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless($row, 404);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($id) {
+        // Xóa phiếu luôn phải có lý do và được ghi nhật ký trước khi xóa.
+        $request->validate(
+            ['audit_reason' => \App\Services\Payments\PaymentRequestAuditLogger::reasonRules()],
+            \App\Services\Payments\PaymentRequestAuditLogger::reasonMessages(),
+        );
+
+        $auditReason = trim((string) $request->input('audit_reason'));
+
+        /*
+         * NGUYÊN TỬ: ghi nhật ký nằm TRONG cùng transaction với thao tác xóa.
+         * Nếu ghi nhật ký thất bại thì toàn bộ việc xóa bị rollback — không
+         * bao giờ xóa phiếu tài chính mà thiếu dấu vết kiểm toán.
+         */
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id, $row, $auditReason) {
             $db = \Illuminate\Support\Facades\DB::class;
             $schema = \Illuminate\Support\Facades\Schema::class;
+
+            \App\Services\Payments\PaymentRequestAuditLogger::logAction(
+                $id,
+                (string) ($row->code ?? ''),
+                $schema::hasColumn('payment_requests', 'deleted_at')
+                    ? \App\Models\Payments\PaymentRequestEditLog::ACTION_DELETE
+                    : \App\Models\Payments\PaymentRequestEditLog::ACTION_FORCE_DELETE,
+                (string) ($row->status ?? ''),
+                null,
+                $auditReason,
+            );
 
             if (
                 $schema::hasTable('finance_supplier_debt_payments') &&
@@ -936,16 +1002,25 @@ Route::middleware(['auth'])->group(function () {
                     ]);
             }
 
-            foreach ([
-                'payment_request_attachments',
-                'payment_attachments',
-                'payment_request_files',
-                'payment_request_approvals',
-                'payment_request_histories',
-                'payment_request_logs',
-            ] as $table) {
-                if ($schema::hasTable($table) && $schema::hasColumn($table, 'payment_request_id')) {
-                    $db::table($table)->where('payment_request_id', $id)->delete();
+            /*
+             * BẢO TOÀN LỊCH SỬ: khi phiếu được XÓA MỀM (bảng có cột
+             * `deleted_at`), tuyệt đối KHÔNG xóa chứng từ và lịch sử duyệt —
+             * trước đây khối này xóa sạch kèm theo, làm mất dấu vết kiểm toán.
+             * Chỉ khi buộc phải xóa cứng (bảng không có `deleted_at`) mới dọn
+             * các bảng con để không để lại bản ghi mồ côi.
+             */
+            if (! $schema::hasColumn('payment_requests', 'deleted_at')) {
+                foreach ([
+                    'payment_request_attachments',
+                    'payment_attachments',
+                    'payment_request_files',
+                    'payment_request_approvals',
+                    'payment_request_histories',
+                    'payment_request_logs',
+                ] as $table) {
+                    if ($schema::hasTable($table) && $schema::hasColumn($table, 'payment_request_id')) {
+                        $db::table($table)->where('payment_request_id', $id)->delete();
+                    }
                 }
             }
 
@@ -962,14 +1037,14 @@ Route::middleware(['auth'])->group(function () {
             }
         });
 
-        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #'.$id.' ở mọi trạng thái.');
+        return redirect('/payment-requests')->with('success', 'Đã xóa ĐNTT #'.$id.' ở mọi trạng thái (quyền Admin).');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_full_delete');
 
-    Route::match(['post', 'delete'], '/payment-requests/{id}', function ($id) use ($egoThaoCanFullPaymentRequest) {
+    Route::match(['post', 'delete'], '/payment-requests/{id}', function (\Illuminate\Http\Request $request, $id) use ($egoThaoCanFullPaymentRequest) {
         if (! $egoThaoCanFullPaymentRequest()) {
-            return app(\App\Http\Controllers\Finance\PaymentRequestController::class)->destroy($id);
+            return app(\App\Http\Controllers\Finance\PaymentRequestController::class)->destroy($request, $id);
         }
 
         $id = (int) $id;
@@ -980,9 +1055,33 @@ Route::middleware(['auth'])->group(function () {
 
         abort_unless($row, 404);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($id) {
+        // Xóa phiếu luôn phải có lý do và được ghi nhật ký trước khi xóa.
+        $request->validate(
+            ['audit_reason' => \App\Services\Payments\PaymentRequestAuditLogger::reasonRules()],
+            \App\Services\Payments\PaymentRequestAuditLogger::reasonMessages(),
+        );
+
+        $auditReason = trim((string) $request->input('audit_reason'));
+
+        /*
+         * NGUYÊN TỬ: ghi nhật ký nằm TRONG cùng transaction với thao tác xóa.
+         * Nếu ghi nhật ký thất bại thì toàn bộ việc xóa bị rollback — không
+         * bao giờ xóa phiếu tài chính mà thiếu dấu vết kiểm toán.
+         */
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id, $row, $auditReason) {
             $db = \Illuminate\Support\Facades\DB::class;
             $schema = \Illuminate\Support\Facades\Schema::class;
+
+            \App\Services\Payments\PaymentRequestAuditLogger::logAction(
+                $id,
+                (string) ($row->code ?? ''),
+                $schema::hasColumn('payment_requests', 'deleted_at')
+                    ? \App\Models\Payments\PaymentRequestEditLog::ACTION_DELETE
+                    : \App\Models\Payments\PaymentRequestEditLog::ACTION_FORCE_DELETE,
+                (string) ($row->status ?? ''),
+                null,
+                $auditReason,
+            );
 
             if (
                 $schema::hasTable('finance_supplier_debt_payments') &&
@@ -997,16 +1096,25 @@ Route::middleware(['auth'])->group(function () {
                     ]);
             }
 
-            foreach ([
-                'payment_request_attachments',
-                'payment_attachments',
-                'payment_request_files',
-                'payment_request_approvals',
-                'payment_request_histories',
-                'payment_request_logs',
-            ] as $table) {
-                if ($schema::hasTable($table) && $schema::hasColumn($table, 'payment_request_id')) {
-                    $db::table($table)->where('payment_request_id', $id)->delete();
+            /*
+             * BẢO TOÀN LỊCH SỬ: khi phiếu được XÓA MỀM (bảng có cột
+             * `deleted_at`), tuyệt đối KHÔNG xóa chứng từ và lịch sử duyệt —
+             * trước đây khối này xóa sạch kèm theo, làm mất dấu vết kiểm toán.
+             * Chỉ khi buộc phải xóa cứng (bảng không có `deleted_at`) mới dọn
+             * các bảng con để không để lại bản ghi mồ côi.
+             */
+            if (! $schema::hasColumn('payment_requests', 'deleted_at')) {
+                foreach ([
+                    'payment_request_attachments',
+                    'payment_attachments',
+                    'payment_request_files',
+                    'payment_request_approvals',
+                    'payment_request_histories',
+                    'payment_request_logs',
+                ] as $table) {
+                    if ($schema::hasTable($table) && $schema::hasColumn($table, 'payment_request_id')) {
+                        $db::table($table)->where('payment_request_id', $id)->delete();
+                    }
                 }
             }
 
@@ -1023,7 +1131,7 @@ Route::middleware(['auth'])->group(function () {
             }
         });
 
-        return redirect('/payment-requests')->with('success', 'Bùi Bích Thảo đã xóa ĐNTT #'.$id.' ở mọi trạng thái.');
+        return redirect('/payment-requests')->with('success', 'Đã xóa ĐNTT #'.$id.' ở mọi trạng thái (quyền Admin).');
     })
         ->whereNumber('id')
         ->name('payment_requests.thao_destroy_any_status');
@@ -1066,6 +1174,28 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
 
     $old = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
     abort_unless($old, 404);
+
+    /*
+     * PHÂN QUYỀN SAO CHÉP (trước đây route này chỉ có `auth` — bất kỳ ai đăng
+     * nhập cũng copy được phiếu của người khác).
+     * Theo đúng cách các action ĐNTT khác đang kiểm tra (ở tầng controller):
+     *  - Admin/Giám đốc, Kế toán, Nhân sự (HR): copy được mọi phiếu — đúng
+     *    bằng phạm vi `canViewAllPaymentRequests()` của PaymentRequestController,
+     *    để không ai copy được phiếu mà họ vốn không được xem.
+     *  - Nhân sự khác: chỉ copy được phiếu do chính mình tạo.
+     */
+    $actor = auth()->user();
+    abort_unless($actor !== null, 403);
+
+    $actorCanViewAll = (method_exists($actor, 'isAdmin') && $actor->isAdmin())
+        || (method_exists($actor, 'hasAnyRole')
+            && $actor->hasAnyRole(['accounting', 'ketoan', 'ke_toan', 'hr']));
+
+    abort_unless(
+        $actorCanViewAll || (int) ($old->created_by ?? 0) === (int) $actor->id,
+        403,
+        'Bạn chỉ được sao chép phiếu đề nghị thanh toán do chính mình tạo.'
+    );
 
     $columns = \Illuminate\Support\Facades\Schema::getColumnListing('payment_requests');
     $data = (array) $old;
@@ -1144,6 +1274,12 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
         $data['company'] = \App\Support\EgoCompanyLock::name();
     }
 
+    /*
+     * NGUYÊN TỬ: tạo phiếu mới + nhân bản chứng từ + ghi nhật ký cùng một
+     * transaction, để không bao giờ sinh ra phiếu nửa vời (có phiếu nhưng
+     * thiếu chứng từ, hoặc có phiếu nhưng không có dấu vết ai đã sao chép).
+     */
+    $newId = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $id, $old) {
     $newId = \Illuminate\Support\Facades\DB::table('payment_requests')->insertGetId($data);
 
     // Copy file đính kèm nếu bảng có
@@ -1178,6 +1314,18 @@ Route::post('/payment-requests/{id}/copy', function ($id) {
             }
         }
     }
+
+    \App\Services\Payments\PaymentRequestAuditLogger::logAction(
+        (int) $newId,
+        (string) ($data['code'] ?? ''),
+        \App\Models\Payments\PaymentRequestEditLog::ACTION_COPY,
+        null,
+        (string) ($data['status'] ?? ''),
+        'Sao chép từ phiếu #'.$id.' ('.(string) ($old->code ?? '').').'
+    );
+
+        return $newId;
+    });
 
     return redirect('/payment-requests/'.$newId.'/edit')
         ->with('success', 'Đã sao chép phiếu mới thành công.');
@@ -2375,8 +2523,17 @@ Route::middleware(['auth'])
 
 /* EGO_THAO_FORCE_DELETE_PAYMENT_REQUEST_ONLY_START */
 Route::middleware(['auth'])
-    ->post('/payment-requests/{paymentRequest}/force-delete-by-thao', function ($paymentRequest) {
-        abort_unless(strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn', 403);
+    ->post('/payment-requests/{paymentRequest}/force-delete-by-thao', function (\Illuminate\Http\Request $request, $paymentRequest) {
+        // Trước đây: hardcode email. Nay: role admin (Giám đốc) hoặc
+        // permission `payment_requests.override_locked`.
+        $actor = auth()->user();
+
+        abort_unless(
+            $actor !== null
+                && method_exists($actor, 'canOverrideLockedFinanceRecords')
+                && $actor->canOverrideLockedFinanceRecords(),
+            403
+        );
 
         $id = (int) $paymentRequest;
 
@@ -2385,6 +2542,31 @@ Route::middleware(['auth'])
         $pr = \Illuminate\Support\Facades\DB::table('payment_requests')->where('company_id', \App\Support\EgoCompanyLock::id())->where('id', $id)->first();
 
         abort_unless($pr, 404);
+
+        // Bắt buộc lý do + ghi nhật ký trước khi xóa.
+        $request->validate(
+            ['audit_reason' => \App\Services\Payments\PaymentRequestAuditLogger::reasonRules()],
+            \App\Services\Payments\PaymentRequestAuditLogger::reasonMessages(),
+        );
+
+        $auditReason = trim((string) $request->input('audit_reason'));
+
+        /*
+         * NGUYÊN TỬ: ghi nhật ký + gỡ liên kết công nợ + xóa phiếu + tính lại
+         * công nợ nằm trong CÙNG một transaction. Ghi nhật ký lỗi -> rollback
+         * toàn bộ, không xóa gì cả.
+         */
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id, $pr, $auditReason): void {
+        \App\Services\Payments\PaymentRequestAuditLogger::logAction(
+            $id,
+            (string) ($pr->code ?? ''),
+            \Illuminate\Support\Facades\Schema::hasColumn('payment_requests', 'deleted_at')
+                ? \App\Models\Payments\PaymentRequestEditLog::ACTION_DELETE
+                : \App\Models\Payments\PaymentRequestEditLog::ACTION_FORCE_DELETE,
+            (string) ($pr->status ?? ''),
+            null,
+            $auditReason,
+        );
 
         $affectedDebtIds = [];
 
@@ -2471,6 +2653,7 @@ Route::middleware(['auth'])
                     ]);
             }
         }
+        });
 
         return redirect('/payment-requests')->with('success', 'Đã xóa phiếu ĐNTT #'.$id.'.');
     })

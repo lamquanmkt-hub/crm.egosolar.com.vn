@@ -15,7 +15,28 @@ final class TechnicalScheduleEvent extends Model
 {
     protected $table = 'technical_schedule_events';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Nguồn: migration `2026_08_04_231500_create_technical_schedule_workspace`
+     * + điểm updateOrCreate() duy nhất trong TechnicalScheduleSyncService.
+     */
+    protected $fillable = [
+        'company_id',
+        'event_type',
+        'source_type',
+        'source_id',
+        'project_id',
+        'title',
+        'address',
+        'starts_at',
+        'ends_at',
+        'all_day',
+        'status',
+        'priority',
+        'note',
+        'metadata',
+        'created_by',
+    ];
 
     protected $casts = [
         'starts_at' => 'datetime',

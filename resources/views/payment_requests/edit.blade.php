@@ -864,6 +864,31 @@
         </script>
         {{-- EGO_AJAX_ATTACHMENTS_END --}}
 
+{{-- EGO_PR_AUDIT_REASON_START
+     Phiếu đã duyệt/đã chi: bắt buộc nhập lý do thay đổi, lý do sẽ được ghi
+     vào nhật ký `payment_request_edit_logs` kèm người thực hiện và IP. --}}
+@if(\App\Services\Payments\PaymentRequestAuditLogger::isLockedStatus($item->status ?? null))
+        <div class="pay-edit-footer pay-edit-animate" style="animation-delay:.1s;">
+            <div class="pay-edit-footer-note" style="width:100%">
+                <label for="egoPrAuditReason" style="display:block;font-weight:700;margin-bottom:6px">
+                    Lý do sửa phiếu đã duyệt/đã chi <span style="color:#be123c">*</span>
+                </label>
+                <textarea id="egoPrAuditReason"
+                          name="audit_reason"
+                          required
+                          minlength="5"
+                          maxlength="2000"
+                          rows="2"
+                          style="width:100%"
+                          placeholder="Ví dụ: Sửa số tài khoản người nhận theo công văn NCC ngày ...">{{ old('audit_reason') }}</textarea>
+                @error('audit_reason')
+                    <div style="color:#be123c;font-size:13px;margin-top:4px">{{ $message }}</div>
+                @enderror
+            </div>
+        </div>
+@endif
+{{-- EGO_PR_AUDIT_REASON_END --}}
+
 <div class="pay-edit-footer pay-edit-animate" style="animation-delay:.12s;">
             <div class="pay-edit-footer-note">
                 Kiểm tra kỹ công ty, số tiền và ngày phải thanh toán trước khi lưu.

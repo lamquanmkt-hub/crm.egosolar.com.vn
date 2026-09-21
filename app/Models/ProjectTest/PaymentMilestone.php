@@ -9,7 +9,25 @@ class PaymentMilestone extends Model
 {
     protected $table = 'project_test_payment_milestones';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Danh sách lấy từ migration `2026_07_30_112500_create_project_payment_tracking_tables`
+     * và đối chiếu với toàn bộ điểm gọi create()/fill() trong
+     * ProjectPaymentController. `id` và timestamps cố tình không nằm trong danh sách.
+     */
+    protected $fillable = [
+        'project_id',
+        'sequence',
+        'title',
+        'percentage',
+        'amount',
+        'due_date',
+        'condition_text',
+        'note',
+        'status',
+        'created_by',
+        'updated_by',
+    ];
 
     protected $casts = [
         'amount' => 'decimal:2',

@@ -12,7 +12,22 @@ final class TechnicalScheduleEventUser extends Model
 {
     protected $table = 'technical_schedule_event_users';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Nguồn: migration `2026_08_04_231500_create_technical_schedule_workspace`.
+     * Hiện tại bảng này chỉ được ghi bằng raw query (DB::table), nên allow-list
+     * này là lớp phòng vệ cho các đoạn code Eloquent về sau.
+     */
+    protected $fillable = [
+        'event_id',
+        'user_id',
+        'assignment_role',
+        'status',
+        'confirmed_at',
+        'check_in_at',
+        'check_out_at',
+        'note',
+    ];
 
     protected $casts = [
         'confirmed_at' => 'datetime',

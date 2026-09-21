@@ -425,7 +425,7 @@ class SupplierDebtController extends Controller
             ! $this->canEditCompletedFinanceRecord()
         ) {
             return back()->withErrors([
-                'error' => 'Công nợ này đã có ĐNTT liên kết, chỉ buibichthao@egosolar.vn được xóa/sửa.',
+                'error' => 'Công nợ này đã có ĐNTT liên kết, chỉ Admin/Giám đốc hoặc người được cấp quyền đặc biệt mới được xóa/sửa.',
             ]);
         }
 
@@ -816,7 +816,7 @@ class SupplierDebtController extends Controller
 
         if (! empty($round->payment_request_id) && $this->supplierDebtService->paymentRequestExistsForSupplierDebt((int) $round->payment_request_id) && ! $this->canEditCompletedFinanceRecord()) {
             return back()->withErrors([
-                'error' => 'Đợt này đã liên kết ĐNTT, chỉ buibichthao@egosolar.vn được xóa/sửa.',
+                'error' => 'Đợt này đã liên kết ĐNTT, chỉ Admin/Giám đốc hoặc người được cấp quyền đặc biệt mới được xóa/sửa.',
             ]);
         }
 
@@ -1325,10 +1325,15 @@ class SupplierDebtController extends Controller
     }
 
     /**
-     * Chỉ tài khoản buibichthao@egosolar.vn được sửa / xóa bản ghi đã hoàn tất.
+     * Được sửa/xóa bản ghi tài chính đã hoàn tất: Admin (Giám đốc), hoặc
+     * người được gán riêng permission `payment_requests.override_locked`.
      */
     private function canEditCompletedFinanceRecord(): bool
     {
-        return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+        $user = auth()->user();
+
+        return $user !== null
+            && method_exists($user, 'canOverrideLockedFinanceRecords')
+            && $user->canOverrideLockedFinanceRecords();
     }
 }

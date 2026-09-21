@@ -17,6 +17,13 @@ class User extends Authenticatable
 {
     use HasFactory, HasRoles, Notifiable;
 
+    /**
+     * Quyền chuyên biệt cho phép sửa/xóa bản ghi tài chính đã hoàn tất
+     * (ĐNTT đã duyệt/đã chi, công nợ/đợt thanh toán đã hoàn thành).
+     * Admin (Giám đốc) luôn có quyền này qua role, không cần gán riêng.
+     */
+    public const PERMISSION_OVERRIDE_LOCKED_FINANCE = 'payment_requests.override_locked';
+
     protected $fillable = [
         'name',
         'email',
@@ -39,6 +46,46 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Xác định Admin / Giám đốc (cùng một vai trò trong hệ thống này).
+     *
+     * Gom về một chỗ đúng logic đang dùng rải rác ở các controller
+     * (Spatie role theo config `role_permissions.admin_roles`, cột `role`
+     * legacy, cột `is_admin` legacy) để không tạo ra cơ chế phân quyền mới.
+     */
+    public function isAdmin(): bool
+    {
+        try {
+            if ($this->hasAnyRole(config('role_permissions.admin_roles', ['admin']))) {
+                return true;
+            }
+        } catch (\Throwable) {
+            // Bảng role/permission chưa sẵn sàng: rơi xuống các cách kiểm tra legacy.
+        }
+
+        return (($this->role ?? null) === 'admin')
+            || ((int) ($this->is_admin ?? 0) === 1);
+    }
+
+    /**
+     * Được phép sửa/xóa bản ghi tài chính đã hoàn tất.
+     *
+     * Admin luôn được (yêu cầu nghiệp vụ); nhân sự khác chỉ được khi
+     * được gán riêng permission `payment_requests.override_locked`.
+     */
+    public function canOverrideLockedFinanceRecords(): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        try {
+            return (bool) $this->can(self::PERMISSION_OVERRIDE_LOCKED_FINANCE);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function leadsAssigned(): HasMany

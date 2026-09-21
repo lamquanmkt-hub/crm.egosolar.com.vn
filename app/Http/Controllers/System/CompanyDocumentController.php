@@ -98,7 +98,10 @@ class CompanyDocumentController extends Controller
             'department' => ['required', 'string'],
             'folder_id' => ['nullable', 'integer'],
             'files' => ['required'],
-            'files.*' => ['file', 'max:51200'],
+            // Allow-list phần mở rộng + dung lượng, theo đúng quy ước đang
+            // dùng ở Finance\PaymentAdvanceController / SupplierDebtController
+            // (bổ sung thêm các định dạng tài liệu công ty thường dùng).
+            'files.*' => ['file', 'max:51200', 'mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,ppt,pptx,csv,txt,zip,rar'],
         ]);
 
         abort_unless(in_array($data['department'], $this->allowedDepartments(), true), 403);

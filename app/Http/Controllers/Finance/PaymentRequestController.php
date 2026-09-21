@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payments\PaymentRequest;
+use App\Models\Payments\PaymentRequestEditLog;
 use App\Models\User;
+use App\Services\Payments\PaymentRequestAuditLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -968,6 +970,19 @@ class PaymentRequestController extends Controller
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không sửa được.');
         }
 
+        $statusBefore = (string) $item->status;
+        $auditReason = null;
+
+        // Sửa phiếu đã duyệt/đã chi: bắt buộc nhập lý do (ghi vào nhật ký).
+        if (PaymentRequestAuditLogger::isLockedStatus($statusBefore)) {
+            $request->validate(
+                ['audit_reason' => PaymentRequestAuditLogger::reasonRules()],
+                PaymentRequestAuditLogger::reasonMessages(),
+            );
+
+            $auditReason = trim((string) $request->input('audit_reason'));
+        }
+
         $rawAmount = $request->input('amount');
 
         if (is_string($rawAmount)) {
@@ -1005,7 +1020,26 @@ class PaymentRequestController extends Controller
             'amount.min' => 'Số tiền không được nhỏ hơn 0.',
         ]);
 
-        $item->update($data);
+        $before = $item->only(array_keys($data));
+
+        /*
+         * NGUYÊN TỬ: sửa dữ liệu và ghi nhật ký phải cùng sống hoặc cùng chết.
+         * Nếu ghi nhật ký lỗi, thay đổi trên payment_requests cũng bị rollback
+         * — không bao giờ để tồn tại thay đổi tài chính không có dấu vết.
+         */
+        DB::transaction(function () use ($item, $data, $before, $auditReason, $statusBefore): void {
+            $item->update($data);
+
+            PaymentRequestAuditLogger::logFieldChanges(
+                (int) $item->id,
+                (string) $item->code,
+                $before,
+                $data,
+                $auditReason,
+                $statusBefore,
+                (string) $item->status,
+            );
+        });
 
         return redirect()->route('payment_requests.show', $item->id)
             ->with('success', 'Đã cập nhật phiếu.');
@@ -1014,7 +1048,7 @@ class PaymentRequestController extends Controller
     /**
      * Xóa phiếu và chứng từ; mở lại đợt công nợ liên kết nếu có.
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $item = PaymentRequest::with('attachments')->findOrFail($id);
         $user = auth()->user();
@@ -1029,24 +1063,56 @@ class PaymentRequestController extends Controller
                 ->with('error', 'Phiếu đã gửi duyệt/hoàn thành nên không xoá được.');
         }
 
-        if (
-            Schema::hasTable('finance_supplier_debt_payments') &&
-            Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')
-        ) {
-            DB::table('finance_supplier_debt_payments')
-                ->where('payment_request_id', (int) $item->id)
-                ->update([
-                    'payment_request_id' => null,
-                    'status' => 'planned',
-                    'updated_at' => now(),
-                ]);
+        $statusBefore = (string) $item->status;
+        $auditReason = null;
+
+        // Xóa phiếu đã duyệt/đã chi: bắt buộc nhập lý do.
+        if (PaymentRequestAuditLogger::isLockedStatus($statusBefore)) {
+            $request->validate(
+                ['audit_reason' => PaymentRequestAuditLogger::reasonRules()],
+                PaymentRequestAuditLogger::reasonMessages(),
+            );
+
+            $auditReason = trim((string) $request->input('audit_reason'));
         }
 
-        foreach ($item->attachments as $att) {
-            Storage::disk('public')->delete($att->path);
-        }
+        /*
+         * NGUYÊN TỬ: ghi nhật ký + gỡ liên kết công nợ + xóa phiếu nằm trong
+         * cùng một transaction. Nếu ghi nhật ký lỗi thì KHÔNG xóa gì cả.
+         */
+        DB::transaction(function () use ($item, $statusBefore, $auditReason): void {
+            // Ghi nhật ký TRƯỚC khi xóa để lịch sử luôn còn lại.
+            PaymentRequestAuditLogger::logAction(
+                (int) $item->id,
+                (string) $item->code,
+                PaymentRequestEditLog::ACTION_DELETE,
+                $statusBefore,
+                null,
+                $auditReason,
+            );
 
-        $item->delete();
+            if (
+                Schema::hasTable('finance_supplier_debt_payments') &&
+                Schema::hasColumn('finance_supplier_debt_payments', 'payment_request_id')
+            ) {
+                DB::table('finance_supplier_debt_payments')
+                    ->where('payment_request_id', (int) $item->id)
+                    ->update([
+                        'payment_request_id' => null,
+                        'status' => 'planned',
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            /*
+             * KHÔNG xóa file chứng từ khỏi ổ đĩa: bản ghi DB bị xóa cứng
+             * (bảng `payment_requests` chưa có cột `deleted_at`), nên xóa
+             * luôn file sẽ làm mất vĩnh viễn chứng từ tài chính. Giữ file để
+             * còn đối chiếu theo nhật ký `payment_request_edit_logs`.
+             * Chuyển hẳn sang soft-delete là hạng mục giai đoạn sau.
+             */
+            $item->delete();
+        });
 
         return redirect()->route('payment_requests.index')
             ->with('success', 'Đã xoá phiếu. Nếu phiếu có liên kết công nợ, đợt liên quan đã mở lại để tạo ĐNTT mới.');
@@ -1326,20 +1392,23 @@ class PaymentRequestController extends Controller
     }
 
     /**
-     * Kiểm tra tài khoản đặc biệt được sửa/xóa phiếu đã hoàn thành.
+     * Được sửa/xóa phiếu đã hoàn thành: Admin (Giám đốc), hoặc người được
+     * gán riêng permission `payment_requests.override_locked`.
      */
     private function canEditCompletedFinanceRecord(): bool
     {
-        return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+        $user = auth()->user();
+
+        return $user !== null
+            && method_exists($user, 'canOverrideLockedFinanceRecords')
+            && $user->canOverrideLockedFinanceRecords();
     }
 
-    /* EGO_THAO_PAYMENT_REQUEST_HELPER_START */
     /**
-     * Kiểm tra tài khoản chỉ định có toàn quyền thao tác phiếu.
+     * Toàn quyền thao tác phiếu ở mọi trạng thái (tương đương quyền trên).
      */
     private function egoThaoCanFullPaymentRequest(): bool
     {
-        return strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+        return $this->canEditCompletedFinanceRecord();
     }
-    /* EGO_THAO_PAYMENT_REQUEST_HELPER_END */
 }

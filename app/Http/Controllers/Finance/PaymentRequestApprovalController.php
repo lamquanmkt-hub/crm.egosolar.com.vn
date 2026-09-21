@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Models\Payments\PaymentRequest;
 use App\Models\Payments\PaymentRequestApproval;
+use App\Models\Payments\PaymentRequestEditLog;
 use App\Services\Finance\PaymentAdvanceService;
+use App\Services\Payments\PaymentRequestAuditLogger;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,9 +22,24 @@ class PaymentRequestApprovalController extends Controller
      */
     private function isAdmin($user): bool
     {
-        return (method_exists($user, 'hasRole') && $user->hasRole('admin'))
-            || (($user->role ?? null) === 'admin')
-            || ((int) ($user->is_admin ?? 0) === 1);
+        return $user !== null
+            && method_exists($user, 'isAdmin')
+            && $user->isAdmin();
+    }
+
+    /**
+     * Chặn tự duyệt phiếu do chính mình tạo.
+     *
+     * Admin/Giám đốc được phép tự duyệt (yêu cầu nghiệp vụ); nhân sự khác
+     * thì không, kể cả khi có role duyệt.
+     */
+    private function abortIfSelfApproval(PaymentRequest $item): void
+    {
+        $user = auth()->user();
+
+        if ($user && ! $this->isAdmin($user) && (int) $item->created_by === (int) $user->id) {
+            abort(403, 'Bạn không được tự duyệt phiếu do chính mình tạo.');
+        }
     }
 
     /**
@@ -143,26 +160,41 @@ class PaymentRequestApprovalController extends Controller
 
         $item = PaymentRequest::findOrFail($id);
 
+        $this->abortIfSelfApproval($item);
+
         if ($item->status !== 'submitted') {
             return response()->json(['message' => 'Chỉ duyệt khi đang chờ Quản lý tài chính'], 422);
         }
 
         $note = $request->input('note');
+        $statusBefore = (string) $item->status;
 
-        $item->update([
-            'status' => 'admin_approved',
-            'admin_approved_by' => auth()->id(),
-            'admin_approved_at' => now(),
-            'admin_note' => $note,
-        ]);
+        // NGUYÊN TỬ: đổi trạng thái + lịch sử duyệt + nhật ký cùng transaction.
+        DB::transaction(function () use ($item, $note, $statusBefore): void {
+            $item->update([
+                'status' => 'admin_approved',
+                'admin_approved_by' => auth()->id(),
+                'admin_approved_at' => now(),
+                'admin_note' => $note,
+            ]);
 
-        PaymentRequestApproval::create([
-            'payment_request_id' => $item->id,
-            'actor_id' => auth()->id(),
-            'step' => 'admin',
-            'action' => 'approved',
-            'note' => $note,
-        ]);
+            PaymentRequestApproval::create([
+                'payment_request_id' => $item->id,
+                'actor_id' => auth()->id(),
+                'step' => 'admin',
+                'action' => 'approved',
+                'note' => $note,
+            ]);
+
+            PaymentRequestAuditLogger::logAction(
+                (int) $item->id,
+                (string) $item->code,
+                PaymentRequestEditLog::ACTION_APPROVE,
+                $statusBefore,
+                (string) $item->status,
+                $note,
+            );
+        });
 
         return $this->redirectToItem($item);
 
@@ -194,20 +226,34 @@ class PaymentRequestApprovalController extends Controller
 
         $note = trim($validated['note']);
 
-        $item->update([
-            'status' => 'admin_rejected',
-            'admin_approved_by' => auth()->id(),
-            'admin_approved_at' => now(),
-            'admin_note' => $note,
-        ]);
+        $statusBefore = (string) $item->status;
 
-        PaymentRequestApproval::create([
-            'payment_request_id' => $item->id,
-            'actor_id' => auth()->id(),
-            'step' => 'admin',
-            'action' => 'rejected',
-            'note' => $note,
-        ]);
+        // NGUYÊN TỬ: đổi trạng thái + lịch sử duyệt + nhật ký cùng transaction.
+        DB::transaction(function () use ($item, $note, $statusBefore): void {
+            $item->update([
+                'status' => 'admin_rejected',
+                'admin_approved_by' => auth()->id(),
+                'admin_approved_at' => now(),
+                'admin_note' => $note,
+            ]);
+
+            PaymentRequestApproval::create([
+                'payment_request_id' => $item->id,
+                'actor_id' => auth()->id(),
+                'step' => 'admin',
+                'action' => 'rejected',
+                'note' => $note,
+            ]);
+
+            PaymentRequestAuditLogger::logAction(
+                (int) $item->id,
+                (string) $item->code,
+                PaymentRequestEditLog::ACTION_REJECT,
+                $statusBefore,
+                (string) $item->status,
+                $note,
+            );
+        });
 
         return $this->redirectToItem($item);
 
@@ -225,29 +271,44 @@ class PaymentRequestApprovalController extends Controller
 
         $item = PaymentRequest::findOrFail($id);
 
+        $this->abortIfSelfApproval($item);
+
         if ($item->status !== 'admin_approved') {
             return response()->json(['message' => 'Chỉ kế toán duyệt khi admin_approved'], 422);
         }
 
         $note = $request->input('note');
+        $statusBefore = (string) $item->status;
 
-        $item->update([
-            'status' => 'accounting_approved',
-            'accounting_approved_by' => auth()->id(),
-            'accounting_approved_at' => now(),
-            'accounting_note' => $note,
-        ]);
+        // NGUYÊN TỬ: đổi trạng thái + lịch sử duyệt + nhật ký cùng transaction.
+        DB::transaction(function () use ($item, $note, $statusBefore): void {
+            $item->update([
+                'status' => 'accounting_approved',
+                'accounting_approved_by' => auth()->id(),
+                'accounting_approved_at' => now(),
+                'accounting_note' => $note,
+            ]);
 
-        PaymentRequestApproval::create([
-            'payment_request_id' => $item->id,
-            'actor_id' => auth()->id(),
-            'step' => 'accounting',
-            'action' => 'approved',
-            'note' => $note,
-        ]);
+            PaymentRequestApproval::create([
+                'payment_request_id' => $item->id,
+                'actor_id' => auth()->id(),
+                'step' => 'accounting',
+                'action' => 'approved',
+                'note' => $note,
+            ]);
 
-        /* EGO_PAYMENT_ADVANCE_AFTER_ACCOUNTING_V1 */
-        PaymentAdvanceService::afterAccountingApproved($item);
+            PaymentRequestAuditLogger::logAction(
+                (int) $item->id,
+                (string) $item->code,
+                PaymentRequestEditLog::ACTION_APPROVE,
+                $statusBefore,
+                (string) $item->status,
+                $note,
+            );
+
+            /* EGO_PAYMENT_ADVANCE_AFTER_ACCOUNTING_V1 */
+            PaymentAdvanceService::afterAccountingApproved($item);
+        });
 
         return $this->redirectToItem($item);
     }
@@ -278,20 +339,34 @@ class PaymentRequestApprovalController extends Controller
 
         $note = trim($validated['note']);
 
-        $item->update([
-            'status' => 'accounting_rejected',
-            'accounting_approved_by' => auth()->id(),
-            'accounting_approved_at' => now(),
-            'accounting_note' => $note,
-        ]);
+        $statusBefore = (string) $item->status;
 
-        PaymentRequestApproval::create([
-            'payment_request_id' => $item->id,
-            'actor_id' => auth()->id(),
-            'step' => 'accounting',
-            'action' => 'rejected',
-            'note' => $note,
-        ]);
+        // NGUYÊN TỬ: đổi trạng thái + lịch sử duyệt + nhật ký cùng transaction.
+        DB::transaction(function () use ($item, $note, $statusBefore): void {
+            $item->update([
+                'status' => 'accounting_rejected',
+                'accounting_approved_by' => auth()->id(),
+                'accounting_approved_at' => now(),
+                'accounting_note' => $note,
+            ]);
+
+            PaymentRequestAuditLogger::logAction(
+                (int) $item->id,
+                (string) $item->code,
+                PaymentRequestEditLog::ACTION_REJECT,
+                $statusBefore,
+                (string) $item->status,
+                $note,
+            );
+
+            PaymentRequestApproval::create([
+                'payment_request_id' => $item->id,
+                'actor_id' => auth()->id(),
+                'step' => 'accounting',
+                'action' => 'rejected',
+                'note' => $note,
+            ]);
+        });
 
         return $this->redirectToItem($item);
     }
@@ -353,6 +428,13 @@ class PaymentRequestApprovalController extends Controller
             $approvedAt = now();
 
             foreach ($items as $item) {
+                // Không được tự duyệt phiếu do chính mình tạo (trừ Admin/Giám đốc).
+                if (! $this->isAdmin($user) && (int) $item->created_by === (int) $user->id) {
+                    continue;
+                }
+
+                $bulkStatusBefore = (string) $item->status;
+
                 // Không cho một phiếu nhảy qua hai bước trong cùng một lần bấm.
                 if ($item->status === 'submitted' && $canAdminApprove) {
                     $item->update([
@@ -369,6 +451,15 @@ class PaymentRequestApprovalController extends Controller
                         'action' => 'approved',
                         'note' => $note,
                     ]);
+
+                    PaymentRequestAuditLogger::logAction(
+                        (int) $item->id,
+                        (string) $item->code,
+                        PaymentRequestEditLog::ACTION_APPROVE,
+                        $bulkStatusBefore,
+                        (string) $item->status,
+                        $note,
+                    );
 
                     $adminApproved++;
                     $processedIds[] = (int) $item->id;
@@ -394,6 +485,15 @@ class PaymentRequestApprovalController extends Controller
 
                     /* EGO_PAYMENT_ADVANCE_BULK_AFTER_ACCOUNTING_V1 */
                     PaymentAdvanceService::afterAccountingApproved($item);
+
+                    PaymentRequestAuditLogger::logAction(
+                        (int) $item->id,
+                        (string) $item->code,
+                        PaymentRequestEditLog::ACTION_APPROVE,
+                        $bulkStatusBefore,
+                        (string) $item->status,
+                        $note,
+                    );
 
                     $accountingApproved++;
                     $processedIds[] = (int) $item->id;

@@ -9,7 +9,25 @@ class PaymentAdjustment extends Model
 {
     protected $table = 'project_test_payment_adjustments';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Nguồn: migration `2026_07_30_163500_create_project_payment_adjustments_table`
+     * + điểm create() duy nhất trong ProjectPaymentController.
+     */
+    protected $fillable = [
+        'project_id',
+        'transaction_id',
+        'adjustment_code',
+        'original_amount',
+        'correct_amount',
+        'delta_amount',
+        'reason',
+        'status',
+        'requested_by',
+        'reviewed_by',
+        'reviewed_at',
+        'review_note',
+    ];
 
     protected $casts = [
         'original_amount' => 'decimal:2',

@@ -1,5 +1,6 @@
 @php
-    $financeCompletedEditor = strtolower((string) optional(auth()->user())->email) === 'buibichthao@egosolar.vn';
+    // Admin/Giám đốc hoặc người được cấp permission `payment_requests.override_locked`.
+    $financeCompletedEditor = auth()->check() && auth()->user()->canOverrideLockedFinanceRecords();
 @endphp
 
 @extends('layouts.app')
@@ -1397,7 +1398,7 @@
                 title.includes('không')
             ) {
                 btn.disabled = false;
-                btn.title = 'Được phép sửa/xóa bởi buibichthao@egosolar.vn';
+                btn.title = 'Được phép sửa/xóa (quyền Admin/Giám đốc)';
             }
         });
     });

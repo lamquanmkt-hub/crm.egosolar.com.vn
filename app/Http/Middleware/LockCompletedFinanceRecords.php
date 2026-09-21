@@ -10,8 +10,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class LockCompletedFinanceRecords
 {
-    private string $allowedEmail = 'buibichthao@egosolar.vn';
-
     private array $completedStatuses = [
         'accounting_approved',
         'paid',
@@ -31,19 +29,21 @@ class LockCompletedFinanceRecords
             return $next($request);
         }
 
-        $userEmail = strtolower((string) optional($request->user())->email);
+        $user = $request->user();
 
-        if ($userEmail === strtolower($this->allowedEmail)) {
+        // Admin (Giám đốc) hoặc người được gán riêng quyền
+        // `payment_requests.override_locked` mới được sửa bản ghi đã hoàn tất.
+        if ($user && method_exists($user, 'canOverrideLockedFinanceRecords') && $user->canOverrideLockedFinanceRecords()) {
             return $next($request);
         }
 
         try {
             if ($this->touchesCompletedPaymentRequest($request)) {
-                return $this->deny($request, 'Phiếu đề nghị thanh toán đã hoàn thành. Chỉ user buibichthao@egosolar.vn được sửa.');
+                return $this->deny($request, 'Phiếu đề nghị thanh toán đã hoàn thành. Chỉ Admin/Giám đốc hoặc người được cấp quyền đặc biệt mới được sửa.');
             }
 
             if ($this->touchesCompletedSupplierDebt($request)) {
-                return $this->deny($request, 'Công nợ/đợt thanh toán đã hoàn thành. Chỉ user buibichthao@egosolar.vn được sửa.');
+                return $this->deny($request, 'Công nợ/đợt thanh toán đã hoàn thành. Chỉ Admin/Giám đốc hoặc người được cấp quyền đặc biệt mới được sửa.');
             }
         } catch (\Throwable $e) {
             report($e);

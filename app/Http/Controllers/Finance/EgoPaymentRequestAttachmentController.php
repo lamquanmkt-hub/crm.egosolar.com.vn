@@ -93,9 +93,8 @@ class EgoPaymentRequestAttachmentController extends Controller
             return false;
         }
 
-        $email = strtolower((string) ($user->email ?? ''));
-
-        if ($email === 'buibichthao@egosolar.vn') {
+        // Admin/Giám đốc hoặc người được cấp quyền đặc biệt: toàn quyền chứng từ.
+        if (method_exists($user, 'canOverrideLockedFinanceRecords') && $user->canOverrideLockedFinanceRecords()) {
             return true;
         }
 
@@ -138,7 +137,7 @@ class EgoPaymentRequestAttachmentController extends Controller
 
         $request->validate([
             'attachments' => ['required'],
-            'attachments.*' => ['file', 'max:20480'],
+            'attachments.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
         ]);
 
         $files = $request->file('attachments', []);
@@ -184,7 +183,7 @@ class EgoPaymentRequestAttachmentController extends Controller
         $att = $this->getAttachment($paymentRequest, $attachment);
 
         $request->validate([
-            'attachment' => ['required', 'file', 'max:20480'],
+            'attachment' => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx'],
         ]);
 
         $file = $request->file('attachment');

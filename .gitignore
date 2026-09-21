@@ -44,6 +44,22 @@ yarn-error.log
 
 **/*backup*
 
+# Backup files sinh ra khi vá nóng (đuôi dán ngày/mục đích vào tên file).
+# Bổ sung sau đợt dọn P0 — trước đây các file này bị commit nhầm vào repo.
+*.save
+*.save.*
+*_bk
+*_bk[0-9]
+*.php_bk
+*.jsbk
+*.jsbk[0-9]
+*.cssbk
+*.before-*
+*.before_*
+*_before_*
+*.disabled_*
+.ea-php-cli.cache
+
 # Temporary repair scripts
 /tools/
 /patch_*.php

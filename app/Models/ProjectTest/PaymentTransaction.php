@@ -9,7 +9,32 @@ class PaymentTransaction extends Model
 {
     protected $table = 'project_test_payment_transactions';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Nguồn: migration `2026_07_30_112500_create_project_payment_tracking_tables`
+     * + các điểm create() trong ProjectPaymentController.
+     */
+    protected $fillable = [
+        'project_id',
+        'milestone_id',
+        'transaction_code',
+        'paid_at',
+        'amount',
+        'payment_method',
+        'receiving_account',
+        'reference_no',
+        'payer_name',
+        'proof_path',
+        'note',
+        'status',
+        'recorded_by',
+        'confirmed_by',
+        'confirmed_at',
+        'rejection_reason',
+        'cancelled_by',
+        'cancelled_at',
+        'cancellation_reason',
+    ];
 
     protected $casts = [
         'amount' => 'decimal:2',

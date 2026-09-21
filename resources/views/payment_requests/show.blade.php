@@ -262,6 +262,86 @@
                 </section>
             @endif
 
+            {{-- EGO_PR_AUDIT_TIMELINE_START
+                 Nhật ký thao tác (chỉ đọc). Hiển thị cho Admin/Giám đốc (hoặc
+                 người có quyền `payment_requests.override_locked`) và cho
+                 chính người tạo phiếu — không mở rộng phạm vi xem sẵn có. --}}
+            @php
+                $egoCanSeeAuditTimeline = $isOwner
+                    || (method_exists($user, 'canOverrideLockedFinanceRecords') && $user->canOverrideLockedFinanceRecords());
+
+                $egoAuditLogs = collect();
+
+                if ($egoCanSeeAuditTimeline && \App\Services\Payments\PaymentRequestAuditLogger::available()) {
+                    try {
+                        $egoAuditLogs = $item->editLogs()->with('user')->limit(200)->get();
+                    } catch (\Throwable $e) {
+                        $egoAuditLogs = collect();
+                    }
+                }
+            @endphp
+
+            @if($egoCanSeeAuditTimeline)
+                <section class="payx-card payx-animate" style="animation-delay:.09s">
+                    <div class="payx-card-head">
+                        <div>
+                            <h2 class="payx-card-title">Nhật ký thay đổi</h2>
+                            <div class="payx-card-desc">Ai / lúc nào / thao tác gì / giá trị cũ → mới / lý do. Chỉ đọc, không sửa được.</div>
+                        </div>
+                    </div>
+                    <div class="payx-card-body">
+                        @if($egoAuditLogs->isEmpty())
+                            <div class="payx-empty">Chưa có thay đổi nào được ghi nhận.</div>
+                        @else
+                            <div style="overflow-x:auto">
+                                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                                    <thead>
+                                        <tr style="text-align:left;border-bottom:1px solid #e5e7eb">
+                                            <th style="padding:6px 8px;white-space:nowrap">Thời điểm</th>
+                                            <th style="padding:6px 8px">Người thực hiện</th>
+                                            <th style="padding:6px 8px">Thao tác</th>
+                                            <th style="padding:6px 8px">Trường</th>
+                                            <th style="padding:6px 8px">Giá trị cũ → mới</th>
+                                            <th style="padding:6px 8px">Lý do</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($egoAuditLogs as $log)
+                                            <tr style="border-bottom:1px solid #f1f5f9;vertical-align:top">
+                                                <td style="padding:6px 8px;white-space:nowrap">{{ optional($log->created_at)->format('d/m/Y H:i') }}</td>
+                                                <td style="padding:6px 8px">{{ $log->user->name ?? $log->user_name ?? '—' }}</td>
+                                                <td style="padding:6px 8px">
+                                                    {{ $log->action_label }}
+                                                    @if($log->status_before || $log->status_after)
+                                                        <div style="color:#64748b;font-size:12px">
+                                                            {{ $statusMap[$log->status_before] ?? ($log->status_before ?: '—') }}
+                                                            →
+                                                            {{ $statusMap[$log->status_after] ?? ($log->status_after ?: '—') }}
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                                <td style="padding:6px 8px">{{ $log->field_name ?: '—' }}</td>
+                                                <td style="padding:6px 8px">
+                                                    @if($log->field_name)
+                                                        <span style="color:#be123c">{{ \Illuminate\Support\Str::limit((string) $log->old_value, 120) ?: '(trống)' }}</span>
+                                                        <span style="color:#94a3b8"> → </span>
+                                                        <span style="color:#047857">{{ \Illuminate\Support\Str::limit((string) $log->new_value, 120) ?: '(trống)' }}</span>
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                                <td style="padding:6px 8px">{{ $log->reason ?: '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                </section>
+            @endif
+            {{-- EGO_PR_AUDIT_TIMELINE_END --}}
+
         </main>
 
         <aside class="payx-side">

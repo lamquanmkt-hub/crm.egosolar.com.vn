@@ -82,6 +82,16 @@ class PaymentRequest extends Model
         return $this->hasMany(\App\Models\Payments\PaymentAttachment::class);
     }
 
+    /**
+     * Nhật ký thao tác (sửa/duyệt/hủy/xóa) — chỉ đọc, không xóa theo phiếu.
+     */
+    public function editLogs()
+    {
+        return $this->hasMany(\App\Models\Payments\PaymentRequestEditLog::class, 'payment_request_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
     public function maintenanceSchedule()
     {
         return $this->belongsTo(\App\Models\SolarMaintenanceSchedule::class, 'maintenance_schedule_id');

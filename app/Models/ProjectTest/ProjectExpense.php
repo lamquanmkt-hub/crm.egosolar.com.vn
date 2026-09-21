@@ -9,7 +9,32 @@ class ProjectExpense extends Model
 {
     protected $table = 'project_test_expenses';
 
-    protected $guarded = [];
+    /*
+     * Chuyển từ `$guarded = []` sang allow-list tường minh (đợt vá P0).
+     * Nguồn: migration `2026_08_13_134500_create_project_expenses_and_repair_finance`
+     * + điểm create() duy nhất trong ProjectExpenseController.
+     */
+    protected $fillable = [
+        'project_id',
+        'expense_code',
+        'expense_date',
+        'category',
+        'description',
+        'amount',
+        'payee_name',
+        'note',
+        'proof_path',
+        'status',
+        'created_by',
+        'confirmed_by',
+        'confirmed_at',
+        'rejected_by',
+        'rejected_at',
+        'rejection_reason',
+        'cancelled_by',
+        'cancelled_at',
+        'cancellation_reason',
+    ];
 
     protected $casts = [
         'expense_date' => 'date',
