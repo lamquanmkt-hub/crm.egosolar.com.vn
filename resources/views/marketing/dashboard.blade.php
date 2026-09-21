@@ -242,9 +242,9 @@
                     </div>
                 @endif
 
-                <a class="btn btn-outline-secondary ego-btn" href="{{ route('marketing.budget') }}">
+                @if(\Illuminate\Support\Facades\Route::has('marketing.budget'))<a class="btn btn-outline-secondary ego-btn" href="{{ route('marketing.budget') }}">
                     <i class="bi bi-wallet2 me-1"></i> Ngân sách + chỉ số
-                </a>
+                </a>@endif
                 <a class="btn btn-outline-secondary ego-btn" href="{{ route('marketing.reports.content-calendar') }}">
                     <i class="bi bi-calendar2-week me-1"></i> Lịch biên tập
                 </a>

@@ -743,7 +743,7 @@ Route::middleware(['auth'])
         Route::delete('/payments/{paymentId}', 'destroyPayment')->name('payments.destroy');
 
         // Dashboard
-        Route::get('/my/dashboard', 'myOrders')->name('my-orders');
+        Route::get('/my/dashboard', fn () => redirect()->route('orders.index'))->name('my-orders'); // legacy: method myOrders chưa từng tồn tại
     });
 
 /* EGO_ORDER_AFTER_SALES_ROUTES_START */
@@ -1471,16 +1471,14 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin'])
             ->group(function () {
 
                 Route::get('/ads', 'ads')->name('ads');
-                Route::get('/seo', 'seo')->name('seo');
-                Route::get('/overview', 'overview')->name('overview');
+                Route::get('/seo', fn () => redirect()->route('marketing.dashboard', ['platform' => 'seo']))->name('seo'); // legacy: thiếu view
+                Route::get('/overview', fn () => redirect()->route('marketing.dashboard'))->name('overview'); // legacy: thiếu view
                 // ✅ ADS INPUT
                 Route::get('/ads/input', 'adsInput')->name('ads.input');
                 Route::post('/ads/input', 'adsStore')->name('ads.store');
                 Route::post('/ads/import', 'adsImport')->name('ads.import');
                 Route::post('/ads/delete', 'adsDelete')->name('ads.delete');
 
-                Route::get('/seo', 'seo')->name('seo');
-                Route::get('/overview', 'overview')->name('overview');
             });
 
         /*
