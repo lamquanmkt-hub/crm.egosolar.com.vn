@@ -38,6 +38,12 @@ class SolarWarrantyClaimController extends Controller
             'issue_description.required' => 'Vui lòng mô tả hiện tượng/sự cố.',
         ]);
 
+        if (in_array($data['claim_type'], ['replacement', 'paid_repair'], true)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'claim_type' => 'Đổi hàng bảo hành và Sửa chữa tính phí phải tạo tại Kỹ thuật → Bảo hành & Sửa chữa (quy trình riêng).',
+            ])->errorBag('warrantyClaim');
+        }
+
         try {
             $site = Site::withoutGlobalScopes()->findOrFail((int) $data['site_id']);
             $companyId = (int) ($site->company_id ?: EgoCompanyScope::currentId());
@@ -118,6 +124,12 @@ class SolarWarrantyClaimController extends Controller
     public function updateStatus(Request $request, SolarWarrantyClaim $claim): RedirectResponse
     {
         $this->assertCanUpdate($request, $claim);
+
+        if (\App\Support\Warranty\WarrantyFlow::isFlowType((string) $claim->claim_type)) {
+            throw ValidationException::withMessages([
+                'status' => 'Phiếu này thuộc quy trình có nút hành động riêng (duyệt, giữ hàng, xuất kho...). Không thể đổi trạng thái trực tiếp.',
+            ]);
+        }
 
         $data = $request->validate([
             'status' => ['required', Rule::in(array_keys(SolarWarrantyClaim::STATUSES))],

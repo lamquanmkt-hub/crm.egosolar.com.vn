@@ -177,11 +177,45 @@ class SolarMaintenanceAccess
             || self::hasPermission($user, 'maintenance.claim.create');
     }
 
+    /**
+     * Chọn/giữ/xuất/thu hồi serial & linh kiện: CHỈ Kho (hoặc Admin / quyền maintenance.stock).
+     * Trưởng phòng Kỹ thuật KHÔNG còn mặc định được làm việc của Kho.
+     */
     public static function canHandleWarrantyStock(?User $user): bool
     {
-        return self::isManager($user)
-            || self::isWarehouse($user)
-            || self::hasPermission($user, 'maintenance.stock');
+        return self::isWarehouse($user);
+    }
+
+    /**
+     * Trưởng phòng Kỹ thuật / Giám đốc / Admin — người được duyệt nghiệp vụ Bảo hành & Sửa chữa.
+     * Role 'manager' chung của phòng ban khác KHÔNG được tính.
+     */
+    public static function isTechnicalLead(?User $user): bool
+    {
+        return self::isAdmin($user)
+            || self::hasPermission($user, 'maintenance.approve')
+            || self::hasAny($user, [
+                'technical_manager', 'truong_phong_ky_thuat', 'maintenance_manager',
+                'ky_thuat_manager', 'quan_ly_ky_thuat',
+                'director', 'general_director', 'ceo', 'giam_doc', 'tong_giam_doc', 'ban_giam_doc',
+            ]);
+    }
+
+    public static function canApproveWarranty(?User $user): bool
+    {
+        return self::isTechnicalLead($user);
+    }
+
+    /** Emergency override: tự duyệt / bỏ qua ràng buộc — cần quyền riêng + lý do bắt buộc + audit. */
+    public static function canOverrideWarranty(?User $user): bool
+    {
+        return self::isAdmin($user) || self::hasPermission($user, 'warranty.override');
+    }
+
+    /** Ghi chú nội bộ kỹ thuật: chỉ Kỹ thuật/Trưởng phòng/Giám đốc/Admin. */
+    public static function canViewTechnicalInternal(?User $user): bool
+    {
+        return self::isTechnician($user) || self::isExecutive($user);
     }
 
     public static function canApprove(?User $user): bool

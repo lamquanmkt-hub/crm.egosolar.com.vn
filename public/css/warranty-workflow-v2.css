@@ -1,0 +1,60 @@
+/* Bảo hành & Sửa chữa v2 — bổ sung cho technical-warranty-exchange-v1.css (giữ đồng nhất CRM) */
+.wx2-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;border-bottom:1px solid #e2e8f0}
+.wx2-tabs a{padding:9px 14px;font-size:13px;font-weight:600;color:#475569;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;gap:6px;align-items:center}
+.wx2-tabs a.active{color:#0369a1;border-bottom-color:#0284c7}
+.wx2-tabs a:hover{color:#0369a1}
+.wx2-badge{background:#ef4444;color:#fff;border-radius:999px;font-size:11px;padding:0 6px;line-height:18px}
+
+.wx2-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end}
+.wx2-filter label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#64748b;font-weight:600}
+.wx2-filter input,.wx2-filter select{height:34px;border:1px solid #cbd5e1;border-radius:8px;padding:0 8px;font-size:13px;background:#fff;min-width:0}
+.wx2-filter .wx2-actions{display:flex;gap:6px}
+
+.wx2-table{width:100%;border-collapse:collapse;font-size:13px}
+.wx2-table th{background:#f8fafc;color:#475569;font-weight:700;text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;font-size:12px}
+.wx2-table td{padding:9px 10px;border-bottom:1px solid #eef2f7;vertical-align:top}
+.wx2-table tr:hover td{background:#f8fbff}
+.wx2-table small{display:block;color:#64748b;font-size:11.5px}
+.wx2-table code{font-size:12px}
+.wx2-type{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:#e0f2fe;color:#075985;font-weight:600}
+.wx2-type.repair{background:#fef3c7;color:#92400e}
+
+/* timeline */
+.wx2-timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.wx2-timeline li{border:1px solid #e2e8f0;border-radius:10px;padding:8px 9px;background:#fff;font-size:12px;position:relative;min-height:66px}
+.wx2-timeline .no{display:inline-flex;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:#e2e8f0;color:#475569;margin-bottom:4px}
+.wx2-timeline b{display:block;font-size:12px;line-height:1.25;color:#0f172a}
+.wx2-timeline em{display:block;font-style:normal;color:#64748b;font-size:11px;margin-top:2px;word-break:break-word}
+.wx2-timeline li.done{border-color:#86efac;background:#f0fdf4}
+.wx2-timeline li.done .no{background:#16a34a;color:#fff}
+.wx2-timeline li.current{border-color:#0284c7;background:#f0f9ff;box-shadow:0 0 0 2px rgba(2,132,199,.18)}
+.wx2-timeline li.current .no{background:#0284c7;color:#fff}
+.wx2-timeline li.pending{opacity:.65}
+
+.wx2-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.wx2-card h2{font-size:14px;margin:0 0 10px;color:#0f172a;font-weight:700}
+.wx2-card h3{font-size:13px;margin:12px 0 6px;color:#334155}
+.wx2-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px}
+.wx2-grid dt{font-size:11px;color:#64748b;font-weight:600;margin:0}
+.wx2-grid dd{margin:1px 0 0;font-size:13px;color:#0f172a;word-break:break-word}
+.wx2-check{list-style:none;margin:0;padding:0;font-size:13px}
+.wx2-check li{display:flex;gap:8px;align-items:flex-start;padding:3px 0}
+.wx2-check .ok{color:#16a34a}.wx2-check .no{color:#dc2626}.wx2-check .opt{color:#94a3b8}
+
+.wx2-actions-box{border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#fafcff}
+.wx2-actions-box h4{font-size:12.5px;margin:0 0 6px;color:#0369a1}
+.wx2-form{display:grid;gap:8px}
+.wx2-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#475569;font-weight:600}
+.wx2-form input,.wx2-form select,.wx2-form textarea{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font-size:13px;width:100%;background:#fff}
+.wx2-row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wx2-hist{list-style:none;margin:0;padding:0;font-size:12.5px}
+.wx2-hist li{padding:7px 0;border-bottom:1px solid #eef2f7}
+.wx2-hist .meta{color:#64748b;font-size:11.5px}
+.wx2-hist .rs{color:#b45309}
+.wx2-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:7px 10px;font-size:12.5px;margin-bottom:8px}
+.wx2-info{background:#f0f9ff;border:1px solid #bae6fd;color:#075985;border-radius:8px;padding:7px 10px;font-size:12.5px;margin-bottom:8px}
+.wx2-money{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wx2-items td input{padding:5px 7px;font-size:12.5px}
+.wx2-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:1100px){.wx2-layout{grid-template-columns:1fr}}
+@media (max-width:640px){.wx2-row2{grid-template-columns:1fr}.wx2-table{display:block;overflow-x:auto}.wx2-timeline{grid-template-columns:repeat(2,1fr)}}

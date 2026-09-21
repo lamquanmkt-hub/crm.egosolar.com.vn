@@ -36,6 +36,12 @@ class SolarWarrantyStockController extends Controller
             $claim = SolarWarrantyClaim::with('site')->findOrFail((int) $data['warranty_claim_id']);
             $this->assertCompany((int) ($claim->company_id ?: $claim->site?->company_id), $request);
 
+            if (\App\Support\Warranty\WarrantyFlow::isFlowType((string) $claim->claim_type)) {
+                throw ValidationException::withMessages([
+                    'warranty_claim_id' => 'Phiếu đổi hàng/sửa chữa dùng thao tác Kho riêng trong trang chi tiết phiếu (giữ hàng → xuất → thu hồi).',
+                ]);
+            }
+
             if (! in_array($claim->status, ['approved', 'waiting_stock', 'replacing', 'waiting_customer'], true)) {
                 throw ValidationException::withMessages([
                     'warranty_claim_id' => 'Phiếu bảo hành phải được Trưởng phòng duyệt trước khi Kho xuất đổi hoặc thu hồi thiết bị.',
@@ -126,6 +132,15 @@ class SolarWarrantyStockController extends Controller
             'status' => ['required', Rule::in(array_keys(SolarWarrantyStockMovement::STATUSES))],
             'note' => ['nullable', 'string', 'max:5000'],
         ]);
+
+        $linked = SolarWarrantyClaim::find($movement->warranty_claim_id);
+        if ($linked && \App\Support\Warranty\WarrantyFlow::isFlowType((string) $linked->claim_type)) {
+            throw ValidationException::withMessages(['status' => 'Phiếu kho của đổi hàng/sửa chữa chỉ xử lý trong trang chi tiết phiếu.']);
+        }
+        if ($linked && in_array((string) $linked->status, ['cancelled', 'rejected', 'completed'], true)
+            && (string) $data['status'] === 'completed') {
+            throw ValidationException::withMessages(['status' => 'Phiếu bảo hành đã hủy/từ chối/hoàn tất — không được hoàn tất phiếu kho.']);
+        }
 
         $old = (string) $movement->status;
         $new = (string) $data['status'];

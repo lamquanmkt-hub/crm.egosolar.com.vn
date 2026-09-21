@@ -664,7 +664,7 @@
 {{-- BẢO TRÌ / BẢO HÀNH --}}
 @if($egoCanConstructionMenu || $egoCanTechnicalMenu)
 @php
-    $egoMaintenanceMenuOpen = request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*', 'ky-thuat.warranty-exchange.*');
+    $egoMaintenanceMenuOpen = request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*', 'ky-thuat.warranty-exchange.*', 'ky-thuat.repair.*');
 @endphp
 <li class="ego-item ego-item--has-sub" data-title="Bảo trì / Bảo hành" data-ego-sub="true" data-ego-menu-permission="menu.sites">
     <a href="#menuBaoTriBaoHanh" class="ego-link {{ $egoMaintenanceMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoMaintenanceMenuOpen ? 'true' : 'false' }}" aria-controls="menuBaoTriBaoHanh">
@@ -676,7 +676,11 @@
         <li><a href="{{ route('projects-unified.maintenance.index') }}" class="ego-sublink {{ request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*') ? 'active' : '' }}" data-ego-type="nav">Bảo trì / Bảo hành</a></li>
         @if($egoCanTechnicalMenu && \Illuminate\Support\Facades\Route::has('ky-thuat.warranty-exchange.index'))
             {{-- Bước của quy trình bảo hành: chuyển về đây để không nằm lẫn trong nhóm Kỹ thuật. --}}
-            <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đề xuất đổi hàng BH</a></li>
+            <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đổi hàng bảo hành</a></li>
+            @if(\Illuminate\Support\Facades\Route::has('ky-thuat.repair.index'))<li><a href="{{ route('ky-thuat.repair.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.repair.*') ? 'active' : '' }}" data-ego-type="nav">Sửa chữa tính phí</a></li>@endif
+        @endif
+        @if(\App\Support\SolarMaintenanceAccess::isWarehouse(auth()->user()) && \Illuminate\Support\Facades\Route::has('ky-thuat.warranty-exchange.warehouse-queue'))
+            <li><a href="{{ route('ky-thuat.warranty-exchange.warehouse-queue') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.warehouse-queue') ? 'active' : '' }}" data-ego-type="nav">Việc của Kho (BH/SC)</a></li>
         @endif
     </ul>
 </li>

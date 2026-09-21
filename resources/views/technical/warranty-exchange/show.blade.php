@@ -1,342 +1,236 @@
 @extends('layouts.app')
 
-@section('title', ($claim->claim_code ?: 'Đề xuất đổi hàng').' · Bảo hành')
+@section('title', 'Phiếu đổi hàng bảo hành '.($claim->claim_code ?: '#'.$claim->id))
 
 @section('styles')
 <link rel="stylesheet" href="{{ asset('css/technical-warranty-exchange-v1.css') }}?v={{ file_exists(public_path('css/technical-warranty-exchange-v1.css')) ? filemtime(public_path('css/technical-warranty-exchange-v1.css')) : time() }}">
+<link rel="stylesheet" href="{{ asset('css/warranty-workflow-v2.css') }}?v={{ file_exists(public_path('css/warranty-workflow-v2.css')) ? filemtime(public_path('css/warranty-workflow-v2.css')) : time() }}">
 @endsection
 
 @section('content')
-<?php
-$statusTone = [
-    'received' => 'blue',
-    'eligibility_check' => 'blue',
-    'diagnosing' => 'amber',
-    'solution_proposed' => 'cyan',
-    'pending_approval' => 'violet',
-    'approved' => 'green',
-    'waiting_stock' => 'orange',
-    'replacing' => 'amber',
-    'waiting_customer' => 'cyan',
-    'completed' => 'green',
-    'rejected' => 'red',
-    'cancelled' => 'gray',
-];
-$stockTone = [
-    'pending' => 'violet',
-    'approved' => 'blue',
-    'completed' => 'green',
-    'cancelled' => 'gray',
-];
-$steps = [
-    'pending_approval' => ['Duyệt đề xuất', 'bi-clipboard-check'],
-    'approved' => ['Đã duyệt', 'bi-check2-circle'],
-    'waiting_stock' => ['Kho chuẩn bị', 'bi-box-seam'],
-    'replacing' => ['Đang thay thế', 'bi-arrow-repeat'],
-    'waiting_customer' => ['Xác nhận khách', 'bi-person-check'],
-    'completed' => ['Hoàn thành', 'bi-shield-check'],
-];
-$stepKeys = array_keys($steps);
-$currentStepIndex = array_search($claim->status, $stepKeys, true);
-if ($currentStepIndex === false) {
-    $currentStepIndex = -1;
-}
-$allErrors = collect();
-foreach ($errors->getBags() as $bag) {
-    foreach ($bag->all() as $message) {
-        $allErrors->push($message);
-    }
-}
-$allErrors = $allErrors->unique()->values();
-$site = $claim->site;
-$order = $claim->order;
-?>
-
+@php
+    $tone = ['pending_approval'=>'violet','needs_more_information'=>'amber','rejected'=>'red','approved'=>'green','waiting_stock'=>'orange','reserved'=>'cyan','issued'=>'blue',
+             'technician_received'=>'blue','replacing'=>'amber','waiting_faulty_return'=>'orange','faulty_returned'=>'cyan','completed'=>'green','cancelled'=>'gray'];
+    $site = $claim->site; $order = $claim->order;
+    $fmtDt = fn ($v) => $v ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y H:i') : '—';
+    $uname = fn ($id) => $id ? ($userNames[$id] ?? '#'.$id) : '—';
+    $faultyLabel = ['pending' => 'Chờ thu hồi', 'returned' => 'Đã thu hồi', 'deferred' => 'Hoãn thu hồi (đang theo dõi)'][$claim->faulty_return_status] ?? '—';
+@endphp
 <div class="wx-page">
-    <div class="wx-shell">
-        <?php if (session('success')): ?>
-            <div class="wx-alert success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>
-        <?php endif; ?>
+<div class="wx-shell">
+    @if(session('success'))<div class="wx-alert success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>@endif
+    @if(session('error'))<div class="wx-alert danger"><i class="bi bi-exclamation-octagon-fill"></i><span>{{ session('error') }}</span></div>@endif
+    @if($errors->any())
+        <div class="wx-alert danger"><i class="bi bi-exclamation-triangle-fill"></i>
+            <div><strong>Không thực hiện được</strong><ul>@foreach($errors->getBags() as $bag)@foreach($bag->all() as $e)<li>{{ $e }}</li>@endforeach @endforeach</ul></div></div>
+    @endif
 
-        <?php if (session('error')): ?>
-            <div class="wx-alert danger"><i class="bi bi-exclamation-octagon-fill"></i><span>{{ session('error') }}</span></div>
-        <?php endif; ?>
+    @include('technical.warranty._tabs')
 
-        <?php if ($allErrors->isNotEmpty()): ?>
-            <div class="wx-alert danger">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <div>
-                    <strong>Chưa thể cập nhật</strong>
-                    <ul>
-                        <?php foreach ($allErrors as $error): ?>
-                            <li>{{ $error }}</li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            </div>
-        <?php endif; ?>
+    <header class="wx-detail-head" style="margin-bottom:12px">
+        <div class="wx-detail-title">
+            <a href="{{ route('ky-thuat.warranty-exchange.index') }}"><i class="bi bi-arrow-left"></i> Danh sách đề xuất đổi hàng</a>
+            <div class="wx-kicker">ĐỔI HÀNG BẢO HÀNH · 11 BƯỚC</div>
+            <h1 style="font-size:22px">{{ $claim->claim_code ?: '#'.$claim->id }}</h1>
+            <p>{{ $site ? (($site->project_code ? $site->project_code.' · ' : '').$site->name) : ($order && $order->order_code ? 'Đơn hàng '.$order->order_code : 'Chưa có công trình/đơn hàng') }}</p>
+        </div>
+        <div class="wx-detail-badges">
+            <span class="wx-pill {{ $tone[$claim->status] ?? 'gray' }}">{{ $statuses[$claim->status] ?? $claim->status }}</span>
+            <span class="wx-pill mini">{{ $priorities[$claim->priority] ?? $claim->priority }}</span>
+            @if($claim->warranty_exception)<span class="wx-pill mini amber">Ngoại lệ BH</span>@endif
+        </div>
+    </header>
 
-        <header class="wx-detail-head">
-            <div class="wx-detail-title">
-                <a href="{{ route('ky-thuat.warranty-exchange.index') }}"><i class="bi bi-arrow-left"></i> Danh sách đề xuất</a>
-                <div class="wx-kicker">HỒ SƠ ĐỔI HÀNG BẢO HÀNH</div>
-                <h1>{{ $claim->claim_code ?: '#'.$claim->id }}</h1>
-                <p>
-                    <?php if ($site): ?>
-                        {{ $site->project_code ? $site->project_code.' · ' : '' }}{{ $site->name }}
-                    <?php elseif ($order && $order->order_code): ?>
-                        Nguồn đơn hàng · {{ $order->order_code }}
-                    <?php else: ?>
-                        Chưa có công trình / đơn hàng
-                    <?php endif; ?>
-                </p>
-            </div>
-            <div class="wx-detail-badges">
-                <span class="wx-pill {{ $statusTone[$claim->status] ?? 'gray' }}">{{ $statuses[$claim->status] ?? $claim->status }}</span>
-                <span class="wx-pill mini">{{ $priorities[$claim->priority] ?? $claim->priority }}</span>
-            </div>
-        </header>
+    @include('technical.warranty._timeline')
 
-        <section class="wx-flow">
-            <?php foreach ($steps as $key => $step): ?>
-                <?php
-                $idx = array_search($key, $stepKeys, true);
-                $flowClass = '';
-                if ($claim->status === $key) {
-                    $flowClass = 'active';
-                } elseif (($currentStepIndex >= 0 && $idx < $currentStepIndex) || $claim->status === 'completed') {
-                    $flowClass = 'done';
-                }
-                ?>
-                <div class="{{ $flowClass }}">
-                    <span><i class="bi {{ $step[1] }}"></i></span>
-                    <small>{{ $step[0] }}</small>
-                </div>
-            <?php endforeach; ?>
+    <div class="wx2-layout">
+    <main>
+        <section class="wx2-card">
+            <h2>Thông tin phiếu</h2>
+            <dl class="wx2-grid">
+                <div><dt>Khách hàng</dt><dd>{{ $device && $device->customer_name ? $device->customer_name : ($site->contact_name ?? '—') }}<br><small>{{ $device->customer_phone ?? ($site->contact_phone ?? '') }}</small></dd></div>
+                <div><dt>Công trình</dt><dd>{{ $site ? ($site->project_code ? $site->project_code.' · ' : '').$site->name : '—' }}</dd></div>
+                <div><dt>Đơn hàng</dt><dd>{{ $order->order_code ?? ($device->order_code ?? '—') }}</dd></div>
+                <div><dt>Sản phẩm</dt><dd>{{ $device->product_name ?? '—' }}<br><small>{{ $device->sku ?? '' }}</small></dd></div>
+                <div><dt>Serial lỗi</dt><dd><code>{{ $claim->serial_code }}</code></dd></div>
+                <div><dt>Bảo hành</dt><dd>{{ ['active'=>'Đang hiệu lực','replaced'=>'Đã được thay thế','expired'=>'Hết hạn'][$device->warranty_status ?? ''] ?? ($device->warranty_status ?? 'Chưa rõ') }}<br><small>{{ $device->warranty_start_at ?? '—' }} → {{ $device->warranty_end_at ?? '—' }}</small></dd></div>
+                <div><dt>Ngày tiếp nhận</dt><dd>{{ optional($claim->received_at)->format('d/m/Y') ?: '—' }}</dd></div>
+                <div><dt>Người phụ trách</dt><dd>{{ $claim->assignee->name ?? $claim->assigned_name ?? 'Chưa phân công' }}</dd></div>
+                <div><dt>Người tạo</dt><dd>{{ $claim->creator->name ?? '—' }}</dd></div>
+                <div><dt>Người duyệt</dt><dd>{{ $claim->approver->name ?? '—' }}<br><small>{{ $fmtDt($claim->approved_at) }}</small></dd></div>
+                @if($canViewCosts)<div><dt>Chi phí dự kiến / thực tế</dt><dd>{{ number_format((float) $claim->estimated_cost, 0, ',', '.') }} / {{ number_format((float) $claim->actual_cost, 0, ',', '.') }} đ</dd></div>@endif
+            </dl>
         </section>
 
-        <div class="wx-detail-grid">
-            <main class="wx-detail-main">
-                <section class="wx-panel wx-detail-card">
-                    <div class="wx-panel-head">
-                        <div><span>THIẾT BỊ LỖI</span><h2>Thông tin bảo hành</h2></div>
-                        <?php if (\Illuminate\Support\Facades\Route::has('serial-warranty.index')): ?>
-                            <a class="wx-btn ghost small" href="{{ route('serial-warranty.index', ['q' => $claim->serial_code]) }}"><i class="bi bi-upc-scan"></i>Tra cứu serial</a>
-                        <?php endif; ?>
-                    </div>
-                    <div class="wx-info-grid">
-                        <div><small>Serial lỗi</small><strong class="mono">{{ $claim->serial_code ?: '—' }}</strong></div>
-                        <div><small>Sản phẩm</small><strong>{{ $device ? ($device->product_name ?: 'Chưa xác định') : 'Chưa xác định' }}</strong><span>{{ $device ? ($device->sku ?: '') : '' }}</span></div>
-                        <div><small>Khách hàng</small><strong>{{ $device && $device->customer_name ? $device->customer_name : ($site && $site->contact_name ? $site->contact_name : '—') }}</strong><span>{{ $device && $device->customer_phone ? $device->customer_phone : ($site && $site->contact_phone ? $site->contact_phone : '') }}</span></div>
-                        <div><small>Đơn hàng</small><strong>{{ $order && $order->order_code ? $order->order_code : ($device && $device->order_code ? $device->order_code : '—') }}</strong></div>
-                        <div><small>Bảo hành</small><strong>{{ $device && $device->warranty_status === 'active' ? 'Đang hiệu lực' : ($device && $device->warranty_status ? $device->warranty_status : 'Chưa rõ') }}</strong><span>{{ $device && $device->warranty_start_at ? $device->warranty_start_at : '—' }} → {{ $device && $device->warranty_end_at ? $device->warranty_end_at : '—' }}</span></div>
-                        <div><small>Serial thay thế</small><strong class="mono">{{ $claim->replacement_serial_code ?: 'Chưa xuất' }}</strong></div>
-                        <div><small>Serial lỗi thu hồi</small><strong class="mono">{{ $claim->returned_serial_code ?: 'Chưa thu hồi' }}</strong></div>
-                        <div><small>Người phụ trách</small><strong>{{ $claim->assignee ? ($claim->assignee->name ?: $claim->assigned_name ?: 'Chưa phân công') : ($claim->assigned_name ?: 'Chưa phân công') }}</strong></div>
-                    </div>
-                </section>
+        @if($claim->warranty_exception)
+        <section class="wx2-card" style="border-color:#fde68a">
+            <h2>Ngoại lệ bảo hành</h2>
+            <dl class="wx2-grid">
+                <div><dt>Lý do</dt><dd>{{ $claim->exception_reason }}</dd></div>
+                <div><dt>Người đề nghị</dt><dd>{{ $uname($claim->exception_requested_by) }}<br><small>{{ $fmtDt($claim->exception_requested_at) }}</small></dd></div>
+                <div><dt>Người duyệt ngoại lệ</dt><dd>{{ $uname($claim->exception_approved_by) }}<br><small>{{ $fmtDt($claim->exception_approved_at) }}</small></dd></div>
+                @if($claim->exception_override)<div><dt>Emergency override</dt><dd>Có — {{ $claim->override_reason }}</dd></div>@endif
+            </dl>
+        </section>
+        @endif
 
-                <section class="wx-panel wx-detail-card">
-                    <div class="wx-panel-head"><div><span>ĐÁNH GIÁ KỸ THUẬT</span><h2>Chẩn đoán &amp; phương án đổi</h2></div></div>
-                    <div class="wx-text-block"><small>Hiện tượng / lỗi</small><p>{{ $claim->issue_description ?: '—' }}</p></div>
-                    <div class="wx-text-block"><small>Chẩn đoán</small><p>{{ $claim->diagnosis ?: 'Chưa cập nhật' }}</p></div>
-                    <div class="wx-text-block emphasis"><small>Phương án đề xuất</small><p>{{ $claim->proposed_solution ?: 'Chưa cập nhật' }}</p></div>
-                    <?php if ($claim->resolution): ?>
-                        <div class="wx-text-block success"><small>Kết quả xử lý</small><p>{{ $claim->resolution }}</p></div>
-                    <?php endif; ?>
-                    <?php if ($claim->approval_note): ?>
-                        <div class="wx-text-block"><small>Ghi chú phê duyệt</small><p>{{ $claim->approval_note }}</p></div>
-                    <?php endif; ?>
-                </section>
+        <section class="wx2-card">
+            <h2>Hiện tượng, chẩn đoán & đề xuất</h2>
+            <h3>Hiện tượng / lỗi</h3><p>{{ $claim->issue_description }}</p>
+            <h3>Chẩn đoán kỹ thuật</h3><p>{{ $claim->diagnosis }}</p>
+            <h3>Lý do & phương án đề xuất đổi</h3><p>{{ $claim->proposed_solution }}</p>
+            @if($claim->decision_reason)<div class="wx2-warn"><b>Ý kiến người duyệt:</b> {{ $claim->decision_reason }} <small>({{ $uname($claim->decision_by) }} · {{ $fmtDt($claim->decision_at) }})</small></div>@endif
+            @if($canViewInternal && $claim->internal_note)<h3>Ghi chú nội bộ</h3><p style="white-space:pre-line">{{ $claim->internal_note }}</p>@endif
+        </section>
 
-                <section class="wx-panel wx-detail-card">
-                    <div class="wx-panel-head"><div><span>MINH CHỨNG</span><h2>Hình ảnh / biên bản</h2><p>Ảnh lỗi, màn hình báo lỗi, biên bản kiểm tra hoặc PDF liên quan.</p></div></div>
-                    <div class="wx-files">
-                        <?php if ($attachments->isNotEmpty()): ?>
-                            <?php foreach ($attachments as $file): ?>
-                                <div class="wx-file">
-                                    <span><i class="bi {{ str_contains((string) $file->mime_type, 'pdf') ? 'bi-file-earmark-pdf' : 'bi-file-earmark-image' }}"></i></span>
-                                    <div>
-                                        <a target="_blank" href="{{ route('ky-thuat.warranty-exchange.evidence.download', ['claim' => $claim->id, 'attachment' => $file->id]) }}">{{ $file->original_name }}</a>
-                                        <small>{{ number_format(((int) $file->file_size) / 1024, 0) }} KB · {{ $file->uploader_name ?: 'Không rõ người tải' }}</small>
-                                    </div>
-                                    <?php if ($canUpdate): ?>
-                                        <form method="POST" action="{{ route('ky-thuat.warranty-exchange.evidence.destroy', ['claim' => $claim->id, 'attachment' => $file->id]) }}" onsubmit="return confirm('Gỡ minh chứng này khỏi phiếu?')">
-                                            {!! csrf_field() !!}
-                                            {!! method_field('DELETE') !!}
-                                            <button title="Gỡ tệp"><i class="bi bi-trash"></i></button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="wx-empty compact"><i class="bi bi-images"></i><strong>Chưa có minh chứng</strong><span>Có thể bổ sung ảnh/PDF bên dưới.</span></div>
-                        <?php endif; ?>
-                    </div>
+        <section class="wx2-card">
+            <h2>Kho · Serial thay thế · Thu hồi</h2>
+            @if($reservation)<div class="wx2-info"><i class="bi bi-lock-fill"></i> Đang GIỮ HÀNG serial <b>{{ $reservation->serial_code }}</b> từ {{ $fmtDt($reservation->reserved_at) }}.</div>@endif
+            <dl class="wx2-grid">
+                <div><dt>Serial thay thế</dt><dd>@if($claim->replacement_serial_code)<code>{{ $claim->replacement_serial_code }}</code>@elseif($claim->reserved_serial_code)<code>{{ $claim->reserved_serial_code }}</code> (đã giữ)@else Chưa chọn @endif</dd></div>
+                <div><dt>Xuất kho</dt><dd>{{ $fmtDt($claim->issued_at) }}<br><small>{{ $uname($claim->issued_by) }}</small></dd></div>
+                <div><dt>Kỹ thuật nhận hàng</dt><dd>{{ $fmtDt($claim->tech_received_at) }}<br><small>{{ $uname($claim->tech_received_by) }}@if($claim->tech_delivered_by) · người giao: {{ $claim->tech_delivered_by }}@endif</small></dd></div>
+                <div><dt>Thay thiết bị cho khách</dt><dd>{{ $fmtDt($claim->replaced_at) }}<br><small>{{ $uname($claim->replaced_by) }}@if($claim->replace_note) · {{ $claim->replace_note }}@endif</small></dd></div>
+                <div><dt>Thu hồi thiết bị lỗi</dt><dd>{{ $faultyLabel }}<br><small>@if($claim->returned_at){{ $fmtDt($claim->returned_at) }} · kho nhận: {{ $uname($claim->faulty_received_by) }} · người trả: {{ $claim->faulty_returned_by }} · tình trạng: {{ $faultyConditions[$claim->faulty_condition] ?? $claim->faulty_condition }}@endif
+                    @if($claim->faulty_deferred_reason) · hoãn: {{ $claim->faulty_deferred_reason }}@endif</small></dd></div>
+                <div><dt>Cặp serial cũ ↔ mới</dt><dd>@if($link)<code>{{ $link->old_serial_code }}</code> → <code>{{ $link->new_serial_code }}</code><br><small>{{ $fmtDt($link->replaced_at) }}</small>@else Chưa ghi nhận @endif</dd></div>
+            </dl>
+            @if($movements->isNotEmpty())
+                <h3>Phiếu kho</h3>
+                <table class="wx2-table"><thead><tr><th>Mã</th><th>Loại</th><th>Serial</th><th>Kho</th><th>Trạng thái</th><th>Người xử lý</th></tr></thead><tbody>
+                @foreach($movements as $m)
+                    <tr><td>{{ $m->movement_code }}</td><td>{{ ['warranty_out'=>'Xuất đổi','faulty_return'=>'Thu hồi lỗi','supplier_send'=>'Gửi NCC','replacement_receive'=>'Nhận thay thế'][$m->movement_type] ?? $m->movement_type }}</td>
+                        <td><code>{{ $m->serial_code }}</code></td><td>{{ $m->warehouse_name }}</td><td>{{ ['pending'=>'Chờ','approved'=>'Đã giữ/duyệt','completed'=>'Hoàn thành','cancelled'=>'Đã hủy'][$m->status] ?? $m->status }}</td>
+                        <td>{{ $m->completed_by_name ?: '—' }}<small>{{ $fmtDt($m->completed_at) }}</small></td></tr>
+                @endforeach</tbody></table>
+            @endif
+        </section>
 
-                    <?php if ($canUpdate): ?>
-                        <form class="wx-upload" method="POST" enctype="multipart/form-data" action="{{ route('ky-thuat.warranty-exchange.evidence.upload', ['claim' => $claim->id]) }}">
-                            {!! csrf_field() !!}
-                            <input type="file" name="evidence[]" multiple required accept="image/jpeg,image/png,image/webp,application/pdf">
-                            <button class="wx-btn secondary" type="submit"><i class="bi bi-cloud-arrow-up"></i>Tải minh chứng</button>
-                        </form>
-                    <?php endif; ?>
-                </section>
+        <section class="wx2-card">
+            <h2>Điều kiện hoàn tất</h2>
+            <ul class="wx2-check">
+                @foreach($checklist as $item)
+                    <li><i class="bi {{ $item['ok'] ? 'bi-check-circle-fill ok' : ($item['required'] ? 'bi-x-circle-fill no' : 'bi-dash-circle opt') }}"></i>
+                        <span>{{ $item['label'] }}@if(!$item['required']) <small style="color:#94a3b8">(không bắt buộc)</small>@endif @if($item['detail'])<small style="color:#64748b"> · {{ $item['detail'] }}</small>@endif</span></li>
+                @endforeach
+            </ul>
+        </section>
 
-                <section class="wx-panel wx-detail-card">
-                    <div class="wx-panel-head"><div><span>KHO &amp; SERIAL</span><h2>Lịch sử xuất đổi / thu hồi</h2></div></div>
-                    <div class="wx-movement-list">
-                        <?php if ($claim->stockMovements->isNotEmpty()): ?>
-                            <?php foreach ($claim->stockMovements as $movement): ?>
-                                <article class="wx-movement">
-                                    <div class="wx-move-icon"><i class="bi {{ $movement->movement_type === 'warranty_out' ? 'bi-box-arrow-up-right' : ($movement->movement_type === 'faulty_return' ? 'bi-box-arrow-in-down' : 'bi-arrow-left-right') }}"></i></div>
-                                    <div class="wx-move-main">
-                                        <strong>{{ $stockTypes[$movement->movement_type] ?? $movement->movement_type }}</strong>
-                                        <span>{{ $movement->movement_code }} · {{ $movement->warehouse ? ($movement->warehouse->name ?: 'Chưa rõ kho') : 'Chưa rõ kho' }}</span>
-                                        <code>{{ $movement->serial_code }}</code>
-                                        <?php if ($movement->note): ?><small>{{ $movement->note }}</small><?php endif; ?>
-                                    </div>
-                                    <span class="wx-pill {{ $stockTone[$movement->status] ?? 'gray' }}">{{ $stockStatuses[$movement->status] ?? $movement->status }}</span>
-                                    <?php if ($canStock && in_array($movement->status, ['pending', 'approved', 'cancelled'], true)): ?>
-                                        <div class="wx-move-actions">
-                                            <?php if ($movement->status === 'pending'): ?>
-                                                <form method="POST" action="{{ route('projects-unified.maintenance.stock.status', ['movement' => $movement->id]) }}">
-                                                    {!! csrf_field() !!}
-                                                    <input type="hidden" name="status" value="approved">
-                                                    <button class="wx-btn tiny secondary">Duyệt kho</button>
-                                                </form>
-                                            <?php endif; ?>
-                                            <?php if (in_array($movement->status, ['pending', 'approved'], true)): ?>
-                                                <form method="POST" action="{{ route('projects-unified.maintenance.stock.status', ['movement' => $movement->id]) }}" onsubmit="return confirm('Hoàn tất nghiệp vụ kho này? Hệ thống sẽ cập nhật trạng thái serial/tồn kho.')">
-                                                    {!! csrf_field() !!}
-                                                    <input type="hidden" name="status" value="completed">
-                                                    <button class="wx-btn tiny primary">Hoàn tất</button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </article>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="wx-empty compact"><i class="bi bi-box-seam"></i><strong>Chưa phát sinh phiếu kho</strong><span>Phiếu phải được duyệt trước khi Kho xuất đổi.</span></div>
-                        <?php endif; ?>
-                    </div>
-                </section>
-            </main>
+        @if($priorClaims->isNotEmpty())
+        <section class="wx2-card"><h2>Lịch sử sửa chữa/đổi của serial này</h2>
+            <ul class="wx2-hist">@foreach($priorClaims as $pc)<li>{{ $pc->claim_code }} · {{ $pc->claim_type === 'paid_repair' ? 'Sửa chữa tính phí' : ($pc->claim_type === 'replacement' ? 'Đổi hàng' : $pc->claim_type) }} · {{ $pc->status }} · {{ \Illuminate\Support\Carbon::parse($pc->created_at)->format('d/m/Y') }}</li>@endforeach</ul></section>
+        @endif
 
-            <aside class="wx-detail-side">
-                <section class="wx-panel wx-side-card">
-                    <div class="wx-panel-head"><div><span>HÀNH ĐỘNG TIẾP THEO</span><h2>Cập nhật xử lý</h2></div></div>
-                    <?php if ($canUpdate): ?>
-                        <form class="wx-stack-form" method="POST" action="{{ route('projects-unified.maintenance.claims.status', ['claim' => $claim->id]) }}">
-                            {!! csrf_field() !!}
-                            <label class="wx-field">
-                                <span>Trạng thái</span>
-                                <select name="status" required>
-                                    <?php foreach ($allowedStatuses as $key): ?>
-                                        <option value="{{ $key }}" <?php echo $claim->status === $key ? 'selected' : ''; ?>>{{ $statuses[$key] ?? $key }}</option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </label>
-                            <label class="wx-field"><span>Chẩn đoán</span><textarea name="diagnosis" rows="3">{{ $claim->diagnosis }}</textarea></label>
-                            <label class="wx-field"><span>Phương án xử lý</span><textarea name="proposed_solution" rows="3">{{ $claim->proposed_solution }}</textarea></label>
-                            <label class="wx-field"><span>Kết quả thực hiện</span><textarea name="resolution" rows="3" placeholder="Nhập kết quả khi đã đổi / kiểm tra lại thiết bị...">{{ $claim->resolution }}</textarea></label>
-                            <?php if ($isManager): ?>
-                                <label class="wx-field"><span>Ghi chú phê duyệt / trả lại</span><textarea name="approval_note" rows="2">{{ $claim->approval_note }}</textarea></label>
-                            <?php endif; ?>
-                            <?php if ($canViewCosts): ?>
-                                <label class="wx-field"><span>Chi phí thực tế</span><input type="number" min="0" step="1000" name="actual_cost" value="{{ $claim->actual_cost }}"></label>
-                            <?php endif; ?>
-                            <button class="wx-btn primary full" type="submit"><i class="bi bi-check2-square"></i>Lưu &amp; chuyển trạng thái</button>
-                        </form>
-                    <?php else: ?>
-                        <div class="wx-empty compact"><i class="bi bi-eye"></i><strong>Chế độ theo dõi</strong><span>Bạn có thể xem tiến độ nhưng không phải người xử lý phiếu.</span></div>
-                    <?php endif; ?>
-                </section>
+        @include('technical.warranty._evidence')
 
-                <?php if ($canStock && in_array($claim->status, ['approved', 'waiting_stock', 'replacing', 'waiting_customer'], true)): ?>
-                    <section class="wx-panel wx-side-card">
-                        <div class="wx-panel-head"><div><span>PHỐI HỢP KHO</span><h2>Xuất / thu hồi serial</h2><p>Kho là bộ phận chọn serial thay thế.</p></div></div>
+        <section class="wx2-card"><h2>Lịch sử thao tác (không thể sửa/xóa)</h2>@include('technical.warranty._history')</section>
+    </main>
 
-                        <?php if (! $claim->replacement_serial_code): ?>
-                            <form class="wx-stack-form wx-stock-form" method="POST" action="{{ route('projects-unified.maintenance.stock.store') }}">
-                                {!! csrf_field() !!}
-                                <input type="hidden" name="warranty_claim_id" value="{{ $claim->id }}">
-                                <input type="hidden" name="movement_type" value="warranty_out">
-                                <input type="hidden" name="return_to" value="warranty_exchange">
-                                <label class="wx-field">
-                                    <span>Kho xuất <b>*</b></span>
-                                    <select name="warehouse_id" class="wx-warehouse-select" required>
-                                        <option value="">Chọn kho...</option>
-                                        <?php foreach ($warehouses as $warehouse): ?>
-                                            <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </label>
-                                <label class="wx-field">
-                                    <span>Serial thay thế <b>*</b></span>
-                                    <input name="serial_code" list="wxReplacementSerials" required placeholder="Kho chọn serial đang tồn...">
-                                    <datalist id="wxReplacementSerials">
-                                        <?php foreach ($replacementCandidates as $candidate): ?>
-                                            <option value="{{ $candidate->serial_code }}" data-warehouse="{{ $candidate->warehouse_id }}">{{ $candidate->warehouse_name }} · {{ $candidate->serial_code }}</option>
-                                        <?php endforeach; ?>
-                                    </datalist>
-                                    <small class="wx-hint">Gợi ý hiển thị serial cùng sản phẩm đang ở trạng thái in_stock. Kho vẫn có thể nhập serial khác nếu được phép nghiệp vụ.</small>
-                                </label>
-                                <label class="wx-field"><span>Ghi chú kho</span><textarea name="note" rows="2" placeholder="Tình trạng hàng xuất, phụ kiện kèm theo..."></textarea></label>
-                                <button class="wx-btn secondary full"><i class="bi bi-box-arrow-up-right"></i>Tạo phiếu xuất đổi</button>
-                            </form>
-                        <?php else: ?>
-                            <div class="wx-done-box"><i class="bi bi-check-circle-fill"></i><div><small>Serial thay thế đã ghi nhận</small><strong>{{ $claim->replacement_serial_code }}</strong></div></div>
-                        <?php endif; ?>
+    <aside>
+        <div class="wx2-card">
+            <h2>Hành động</h2>
 
-                        <?php if (! $claim->returned_serial_code): ?>
-                            <form class="wx-stack-form wx-stock-form separated" method="POST" action="{{ route('projects-unified.maintenance.stock.store') }}">
-                                {!! csrf_field() !!}
-                                <input type="hidden" name="warranty_claim_id" value="{{ $claim->id }}">
-                                <input type="hidden" name="movement_type" value="faulty_return">
-                                <input type="hidden" name="return_to" value="warranty_exchange">
-                                <label class="wx-field">
-                                    <span>Kho nhận hàng lỗi <b>*</b></span>
-                                    <select name="warehouse_id" required>
-                                        <option value="">Chọn kho...</option>
-                                        <?php foreach ($warehouses as $warehouse): ?>
-                                            <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </label>
-                                <label class="wx-field"><span>Serial lỗi thu hồi</span><input name="serial_code" value="{{ $claim->serial_code }}" readonly></label>
-                                <label class="wx-field"><span>Ghi chú tình trạng</span><textarea name="note" rows="2" placeholder="Móp, cháy, lỗi nguồn, phụ kiện thu hồi..."></textarea></label>
-                                <button class="wx-btn ghost full"><i class="bi bi-box-arrow-in-down"></i>Tạo phiếu thu hồi lỗi</button>
-                            </form>
-                        <?php else: ?>
-                            <div class="wx-done-box muted"><i class="bi bi-box-seam-fill"></i><div><small>Hàng lỗi đã thu hồi</small><strong>{{ $claim->returned_serial_code }}</strong></div></div>
-                        <?php endif; ?>
-                    </section>
-                <?php endif; ?>
+            @if($can['approve'])
+                <div class="wx2-actions-box"><h4>Trưởng phòng duyệt</h4>
+                    @if($can['approve_blocked_self'])<div class="wx2-warn">Bạn là người tạo/phụ trách/đề nghị ngoại lệ của phiếu này nên KHÔNG được tự duyệt. Cần Trưởng phòng/Giám đốc khác.</div>@endif
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.approve', $claim) }}">@csrf
+                        <label>Ý kiến duyệt<textarea name="approval_note" rows="2"></textarea></label>
+                        @if($can['override'] && $can['approve_blocked_self'])<label>Emergency override — lý do bắt buộc<textarea name="override_reason" rows="2" required></textarea></label>@endif
+                        @if(! $can['approve_blocked_self'] || $can['override'])<button class="wx-btn primary small" type="submit"><i class="bi bi-check2-circle"></i>Duyệt & chuyển Kho</button>@endif
+                    </form>
+                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.request-info', $claim) }}">@csrf
+                        <label>Yêu cầu bổ sung — lý do bắt buộc<textarea name="reason" rows="2" required></textarea></label>
+                        <button class="wx-btn secondary small" type="submit">Yêu cầu bổ sung</button></form>
+                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.reject', $claim) }}" onsubmit="return confirm('Từ chối đề xuất này?')">@csrf
+                        <label>Từ chối — lý do bắt buộc<textarea name="reason" rows="2" required></textarea></label>
+                        <button class="wx-btn ghost small" type="submit">Từ chối</button></form>
+                </div>
+            @endif
 
-                <section class="wx-panel wx-side-card">
-                    <div class="wx-panel-head"><div><span>THÔNG TIN PHIẾU</span><h2>Kiểm soát hồ sơ</h2></div></div>
-                    <div class="wx-side-facts">
-                        <div><span>Người tạo</span><strong>{{ $claim->creator ? ($claim->creator->name ?: '—') : '—' }}</strong></div>
-                        <div><span>Ngày gửi duyệt</span><strong>{{ $claim->submitted_at ? $claim->submitted_at->format('d/m/Y H:i') : '—' }}</strong></div>
-                        <div><span>Người duyệt</span><strong>{{ $claim->approver ? ($claim->approver->name ?: 'Chưa duyệt') : 'Chưa duyệt' }}</strong></div>
-                        <div><span>Ngày duyệt</span><strong>{{ $claim->approved_at ? $claim->approved_at->format('d/m/Y H:i') : '—' }}</strong></div>
-                        <?php if ($canViewCosts): ?>
-                            <div><span>Dự kiến</span><strong>{{ number_format((float) $claim->estimated_cost, 0, ',', '.') }} đ</strong></div>
-                            <div><span>Thực tế</span><strong>{{ number_format((float) $claim->actual_cost, 0, ',', '.') }} đ</strong></div>
-                        <?php endif; ?>
-                    </div>
-                    <?php if ($claim->internal_note): ?>
-                        <div class="wx-note"><i class="bi bi-journal-text"></i><p>{{ $claim->internal_note }}</p></div>
-                    <?php endif; ?>
-                </section>
-            </aside>
+            @if($can['resubmit'])
+                <div class="wx2-actions-box"><h4>Bổ sung & gửi duyệt lại</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.resubmit', $claim) }}">@csrf
+                        <label>Hiện tượng<textarea name="issue_description" rows="2">{{ $claim->issue_description }}</textarea></label>
+                        <label>Chẩn đoán<textarea name="diagnosis" rows="2">{{ $claim->diagnosis }}</textarea></label>
+                        <label>Phương án đề xuất<textarea name="proposed_solution" rows="2">{{ $claim->proposed_solution }}</textarea></label>
+                        <button class="wx-btn primary small" type="submit">Gửi duyệt lại</button></form></div>
+            @endif
+
+            @if($can['reopen'])
+                <div class="wx2-actions-box"><h4>Mở lại phiếu bị từ chối</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.reopen', $claim) }}">@csrf
+                        <label>Lý do mở lại<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn secondary small" type="submit">Mở lại</button></form></div>
+            @endif
+
+            @if($can['reserve'])
+                <div class="wx2-actions-box"><h4>Kho chọn serial thay thế & GIỮ HÀNG</h4>
+                    <div class="wx2-info">Serial phải: đang tồn kho, đúng kho, CÙNG sản phẩm/model, chưa giữ cho phiếu khác.</div>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.reserve', $claim) }}">@csrf
+                        <label>Kho xuất<select name="warehouse_id" required><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
+                        <label>Serial thay thế<input name="serial_code" list="wxRepl" required placeholder="Chọn serial tồn kho…"></label>
+                        <datalist id="wxRepl">@foreach($replacementCandidates as $cand)<option value="{{ $cand->serial_code }}">{{ $cand->warehouse_name }} · {{ $cand->serial_code }}</option>@endforeach</datalist>
+                        <label>Ghi chú kho<textarea name="note" rows="2"></textarea></label>
+                        <button class="wx-btn primary small" type="submit"><i class="bi bi-lock"></i>{{ $claim->status === 'reserved' ? 'Đổi serial & giữ hàng' : 'Giữ hàng' }}</button></form>
+                </div>
+            @endif
+            @if($can['issue'])
+                <div class="wx2-actions-box"><h4>Kho xuất thiết bị thay thế</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.issue', $claim) }}" onsubmit="return confirm('Xác nhận XUẤT KHO? Tồn kho sẽ giảm.')">@csrf
+                        <label>Ghi chú xuất kho / người nhận<textarea name="note" rows="2"></textarea></label>
+                        <button class="wx-btn primary small" type="submit"><i class="bi bi-box-arrow-up-right"></i>Xác nhận xuất kho</button></form>
+                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.release', $claim) }}">@csrf
+                        <label>Nhả hàng — lý do<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Nhả hàng</button></form>
+                </div>
+            @endif
+            @if($can['tech_receive'])
+                <div class="wx2-actions-box"><h4>Kỹ thuật xác nhận đã NHẬN hàng</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.tech-receive', $claim) }}">@csrf
+                        <div class="wx2-row2"><label>Ngày nhận<input type="datetime-local" name="received_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label>
+                            <label>Người giao<input name="delivered_by" placeholder="Nhân viên Kho…"></label></div>
+                        <label>Ghi chú tình trạng hàng<textarea name="note" rows="2"></textarea></label>
+                        <button class="wx-btn primary small" type="submit">Đã nhận hàng</button></form></div>
+            @endif
+            @if($can['replace'])
+                <div class="wx2-actions-box"><h4>Xác nhận ĐÃ THAY thiết bị cho khách</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.confirm-replaced', $claim) }}">@csrf
+                        <div class="wx2-row2"><label>Ngày thay<input type="datetime-local" name="replaced_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label>
+                            <label>Kết quả<select name="result"><option value="success">Thay thành công</option><option value="issue">Có vấn đề</option></select></label></div>
+                        <label>Ghi chú<textarea name="note" rows="2"></textarea></label>
+                        <button class="wx-btn primary small" type="submit">Xác nhận đã thay</button></form></div>
+            @endif
+            @if($can['faulty_return'])
+                <div class="wx2-actions-box"><h4>Kho nhận thiết bị lỗi thu hồi</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.faulty-return', $claim) }}">@csrf
+                        <label>Kho nhận<select name="warehouse_id" required><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
+                        <label>Người mang thiết bị về<input name="returned_by" required></label>
+                        <label>Tình trạng<select name="condition">@foreach($faultyConditions as $k => $lbl)<option value="{{ $k }}">{{ $lbl }}</option>@endforeach</select></label>
+                        <label>Ghi chú / biên bản<textarea name="note" rows="2"></textarea></label>
+                        <button class="wx-btn primary small" type="submit">Xác nhận đã nhận thiết bị lỗi</button></form></div>
+            @endif
+            @if($can['defer_return'])
+                <div class="wx2-actions-box"><h4>Hoãn thu hồi (đổi trước – thu sau)</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.defer-return', $claim) }}">@csrf
+                        <label>Lý do hoãn<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Ghi nhận hoãn (vẫn theo dõi)</button></form></div>
+            @endif
+            @if($can['complete'])
+                <div class="wx2-actions-box"><h4>Hoàn tất phiếu</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.complete', $claim) }}" onsubmit="return confirm('Hoàn tất phiếu? Không thể hoàn tất lần 2.')">@csrf
+                        <label>Kết quả xử lý<textarea name="resolution" rows="2" required></textarea></label>
+                        @if($canViewCosts)<label>Chi phí thực tế<input type="number" min="0" step="1000" name="actual_cost"></label>@endif
+                        <button class="wx-btn primary small" type="submit"><i class="bi bi-flag"></i>Hoàn tất</button></form></div>
+            @endif
+            @if($can['cancel'])
+                <div class="wx2-actions-box"><h4>Hủy phiếu</h4>
+                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.cancel', $claim) }}" onsubmit="return confirm('Hủy phiếu? Hàng đang giữ sẽ được nhả.')">@csrf
+                        <label>Lý do hủy<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Hủy phiếu</button></form></div>
+            @endif
+
+            @if(! collect($can)->except(['override', 'approve_blocked_self'])->contains(true))
+                <p style="font-size:12.5px;color:#64748b;margin:0">Hiện chưa có hành động nào dành cho bạn ở bước “{{ $statuses[$claim->status] ?? $claim->status }}”.</p>
+            @endif
         </div>
+    </aside>
     </div>
 </div>
-@endsection
-
-@section('scripts')
-<script src="{{ asset('js/technical-warranty-exchange-v1.js') }}?v={{ file_exists(public_path('js/technical-warranty-exchange-v1.js')) ? filemtime(public_path('js/technical-warranty-exchange-v1.js')) : time() }}"></script>
+</div>
 @endsection

@@ -64,7 +64,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
 
         $status = trim((string) $request->query('status', ''));
-        if ($status !== '' && array_key_exists($status, SolarWarrantyClaim::STATUSES)) {
+        if ($status !== '' && array_key_exists($status, \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES)) {
             $query->where('status', $status);
         }
 
@@ -73,13 +73,35 @@ class TechnicalWarrantyExchangeController extends Controller
             $query->where('priority', $priority);
         }
 
+        if ($assigned = (int) $request->query('assigned_to', 0)) {
+            $query->where('assigned_to', $assigned);
+        }
+        if ($from = trim((string) $request->query('from', ''))) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+        if ($to = trim((string) $request->query('to', ''))) {
+            $query->whereDate('created_at', '<=', $to);
+        }
+        if ($siteId = (int) $request->query('site_id', 0)) {
+            $query->where('site_id', $siteId);
+        }
+        if ($customer = trim((string) $request->query('customer', ''))) {
+            $query->whereIn('customer_id', DB::table('crm_customers')->where('name', 'like', '%'.$customer.'%')->select('id'));
+        }
+        if ($productId = (int) $request->query('product_id', 0)) {
+            $query->whereIn('serial_unit_id', DB::table('crm_serial_units')->where('product_id', $productId)->select('id'));
+        }
+        if ($warehouseId = (int) $request->query('warehouse_id', 0)) {
+            $query->whereIn('id', DB::table('solar_warranty_stock_movements')->where('warehouse_id', $warehouseId)->select('warranty_claim_id'));
+        }
+
         $bucket = trim((string) $request->query('bucket', ''));
         if ($bucket === 'pending_approval') {
             $query->where('status', 'pending_approval');
         } elseif ($bucket === 'warehouse') {
-            $query->whereIn('status', ['approved', 'waiting_stock']);
+            $query->whereIn('status', ['approved', 'waiting_stock', 'reserved', 'waiting_faulty_return']);
         } elseif ($bucket === 'processing') {
-            $query->whereIn('status', ['replacing', 'waiting_customer']);
+            $query->whereIn('status', ['issued', 'technician_received', 'replacing', 'waiting_customer']);
         } elseif ($bucket === 'completed') {
             $query->where('status', 'completed');
         } elseif ($bucket === 'open') {
@@ -109,14 +131,54 @@ class TechnicalWarrantyExchangeController extends Controller
             'sites' => $sites,
             'orders' => $orders,
             'technicians' => $technicians,
-            'statuses' => SolarWarrantyClaim::STATUSES,
+            'statuses' => \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES,
             'priorities' => SolarWarrantyClaim::PRIORITIES,
             'canCreate' => SolarMaintenanceAccess::canCreateWarrantyClaim($user),
             'isManager' => SolarMaintenanceAccess::isManager($user),
+            'canRequestException' => SolarMaintenanceAccess::canCreateWarrantyClaim($user),
             'isTechnicianOnly' => SolarMaintenanceAccess::isTechnicianOnly($user),
+            'products' => DB::table('crm_product_catalog')->orderBy('name')->limit(400)->get(['id', 'name']),
+            'warehousesList' => DB::table('crm_warehouses')->orderBy('name')->get(['id', 'name']),
+            'flowStatuses' => \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES,
         ]);
     }
 
+    /** Danh sách việc dành riêng cho Kho (đổi hàng + linh kiện sửa chữa) + thông báo chưa đọc. */
+    public function warehouseQueue(Request $request): View
+    {
+        $user = $request->user();
+        abort_unless(SolarMaintenanceAccess::isWarehouse($user) || SolarMaintenanceAccess::isTechnicalLead($user), 403);
+        $this->ensureReady();
+
+        $company = EgoCompanyScope::currentId();
+        $scope = function ($q) use ($company): void {
+            if ($company > 0) {
+                $q->where(fn ($w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+            }
+        };
+
+        $exchange = SolarWarrantyClaim::query()->where('claim_type', 'replacement')->tap($scope)
+            ->where(function ($q): void {
+                $q->whereIn('status', ['waiting_stock', 'reserved', 'waiting_faulty_return'])
+                    ->orWhere(fn ($x) => $x->where('status', 'completed')->where('faulty_return_status', 'deferred'));
+            })->orderByRaw("CASE status WHEN 'waiting_stock' THEN 0 WHEN 'reserved' THEN 1 ELSE 2 END")->orderBy('status_changed_at')->limit(200)->get();
+
+        $repair = SolarWarrantyClaim::query()->where('claim_type', 'paid_repair')->tap($scope)
+            ->whereIn('status', ['approved_for_repair', 'waiting_parts', 'repairing', 'qa_testing', 'qa_failed', 'ready_handover', 'handed_over'])
+            ->whereIn('id', DB::table('warranty_repair_parts')->whereIn('status', ['planned', 'reserved', 'issued'])->select('claim_id'))
+            ->orderBy('status_changed_at')->limit(200)->get();
+
+        $notes = DB::table('warranty_claim_notifications')->where('audience', 'warehouse')->where('is_read', false)->orderByDesc('id')->limit(30)->get();
+        if ($request->boolean('read')) {
+            DB::table('warranty_claim_notifications')->where('audience', 'warehouse')->where('is_read', false)->update(['is_read' => true, 'updated_at' => now()]);
+        }
+
+        return view('technical.warranty-exchange.warehouse', [
+            'exchange' => $exchange, 'repair' => $repair, 'notes' => $notes,
+            'exchangeStatuses' => \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES,
+            'repairStatuses' => \App\Support\Warranty\WarrantyFlow::REPAIR_STATUSES,
+        ]);
+    }
     public function store(Request $request): RedirectResponse
     {
         abort_unless(SolarMaintenanceAccess::canCreateWarrantyClaim($request->user()), 403);
@@ -134,7 +196,8 @@ class TechnicalWarrantyExchangeController extends Controller
             'proposed_solution' => ['required', 'string', 'max:10000'],
             'internal_note' => ['nullable', 'string', 'max:5000'],
             'estimated_cost' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
-            'warranty_override' => ['nullable', 'boolean'],
+            'warranty_exception' => ['nullable', 'boolean'],
+            'exception_reason' => ['nullable', 'string', 'max:5000'],
             'evidence' => ['nullable', 'array', 'max:8'],
             'evidence.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf'],
         ], [
@@ -198,79 +261,32 @@ class TechnicalWarrantyExchangeController extends Controller
             $resolvedCustomerId = (int) ($order->customer_id ?? 0);
         }
 
-        $warrantyActive = $this->isWarrantyActive($serial);
-        if (! $warrantyActive) {
-            $canOverride = SolarMaintenanceAccess::isManager($request->user()) && (bool) ($data['warranty_override'] ?? false);
-            if (! $canOverride) {
-                throw ValidationException::withMessages([
-                    'serial_code' => 'Serial không có bảo hành còn hiệu lực. Nếu cần xử lý ngoại lệ, Trưởng phòng/Admin phải tạo phiếu và xác nhận ngoại lệ.',
-                ]);
-            }
+        // Serial chưa gắn hồ sơ bảo hành với công trình được chọn = thiếu dữ liệu liên kết → phải qua ngoại lệ.
+        $linkMissing = $sourceType === 'site' && (int) ($serial->warranty_site_id ?? 0) === 0;
+        $warrantyActive = $this->isWarrantyActive($serial) && ! $linkMissing;
+        if (! $warrantyActive && ! (bool) ($data['warranty_exception'] ?? false)) {
+            throw ValidationException::withMessages([
+                'serial_code' => 'Serial không có bảo hành còn hiệu lực. Nếu cần xử lý ngoại lệ, hãy tích “Đề nghị ngoại lệ bảo hành” và nhập lý do — phiếu sẽ cần người có thẩm quyền KHÁC duyệt.',
+            ]);
         }
 
         $assignee = $this->resolveAssignee($request, $data['assigned_to'] ?? null, $companyId);
 
-        $duplicate = SolarWarrantyClaim::query()
-            ->where('claim_type', 'replacement')
-            ->where('serial_unit_id', (int) $serial->serial_unit_id)
-            ->whereNotIn('status', ['completed', 'rejected', 'cancelled'])
-            ->exists();
-        if ($duplicate) {
-            throw ValidationException::withMessages([
-                'serial_code' => 'Serial này đã có một đề xuất đổi hàng đang mở. Hãy xử lý phiếu hiện tại trước khi tạo phiếu mới.',
-            ]);
-        }
-
-        $claim = DB::transaction(function () use ($request, $data, $companyId, $resolvedSiteId, $resolvedOrderId, $resolvedCustomerId, $serial, $assignee, $warrantyActive, $sourceType): SolarWarrantyClaim {
-            $internalNote = trim((string) ($data['internal_note'] ?? ''));
-            $sourceNote = $sourceType === 'order'
-                ? 'Nguồn tạo phiếu: Đơn hàng #'.$resolvedOrderId.'.'
-                : 'Nguồn tạo phiếu: Công trình #'.$resolvedSiteId.'.';
-            $internalNote = trim($sourceNote."\n".$internalNote);
-
-            if (! $warrantyActive) {
-                $internalNote = trim($internalNote."\nNgoại lệ: Trưởng phòng/Admin xác nhận tạo đề xuất khi bảo hành không còn hiệu lực/không đủ dữ liệu.");
-            }
-
-            $claim = SolarWarrantyClaim::create([
-                'company_id' => $companyId ?: null,
+        try {
+            $claim = app(\App\Services\Warranty\WarrantyExchangeService::class)->create($request->user(), $data, [
+                'serial' => $serial,
+                'source_type' => $sourceType,
                 'site_id' => $resolvedSiteId,
-                'maintenance_schedule_id' => null,
-                'serial_unit_id' => (int) $serial->serial_unit_id,
-                'serial_code' => (string) $serial->serial_code,
-                'customer_id' => $resolvedCustomerId > 0 ? $resolvedCustomerId : null,
                 'order_id' => $resolvedOrderId,
-                'claim_type' => 'replacement',
-                'priority' => $data['priority'],
-                'status' => 'pending_approval',
-                'approval_status' => 'pending',
-                'assigned_to' => $assignee?->id,
-                'assigned_name' => $assignee?->name,
-                'received_at' => now()->toDateString(),
-                'issue_description' => trim((string) $data['issue_description']),
-                'diagnosis' => trim((string) $data['diagnosis']),
-                'proposed_solution' => trim((string) $data['proposed_solution']),
-                'submitted_at' => now(),
-                'submitted_by' => $request->user()->id,
-                'estimated_cost' => (float) ($data['estimated_cost'] ?? 0),
-                'is_chargeable' => false,
-                'internal_note' => $internalNote !== '' ? $internalNote : null,
-                'created_by' => $request->user()->id,
+                'customer_id' => $resolvedCustomerId,
+                'company_id' => $companyId,
+                'warranty_active' => $warrantyActive,
+                'assignee_id' => $assignee?->id,
+                'assignee_name' => $assignee?->name,
             ]);
-
-            $claim->update([
-                'claim_code' => sprintf('DXBH-%s-%06d', now()->format('Y'), $claim->id),
-            ]);
-
-            $this->logSerialEvent(
-                $claim,
-                'maintenance_replacement_proposed',
-                'Tạo đề xuất đổi hàng bảo hành '.$claim->claim_code.'. Chờ Trưởng phòng/Admin phê duyệt.'
-            );
-
-            return $claim;
-        });
-
+        } catch (\App\Support\Warranty\WarrantyException $e) {
+            throw ValidationException::withMessages(['serial_code' => $e->getMessage()]);
+        }
         $this->storeEvidence($request, $claim);
 
         return redirect()->route('ky-thuat.warranty-exchange.show', ['claim' => $claim->id])
@@ -282,48 +298,75 @@ class TechnicalWarrantyExchangeController extends Controller
         $this->authorizeClaim($request, $claim);
         $this->ensureReady();
 
+        $user = $request->user();
         $claim->load([
             'site:id,name,project_code,contact_name,contact_phone,address,company_id',
             'order:id,order_code,order_date,company_id,lead_id',
             'assignee:id,name',
             'creator:id,name',
             'approver:id,name',
-            'stockMovements' => function ($query): void {
-                $query->with(['warehouse:id,name', 'requester:id,name'])
-                    ->orderByDesc('id');
-            },
         ]);
 
         $device = $this->findSerialByUnitId((int) $claim->serial_unit_id);
-        $warehouses = app(SolarWarrantyQueryService::class)->warehouses($request->user());
-        $replacementCandidates = $this->replacementCandidates($device, $warehouses);
-        $attachments = $this->attachments($claim);
+        $warehouses = app(SolarWarrantyQueryService::class)->warehouses($user);
+        $link = SchemaCache::hasTable('warranty_serial_replacements')
+            ? DB::table('warranty_serial_replacements')->where('claim_id', $claim->id)->first() : null;
+        $reservation = SchemaCache::hasTable('warranty_serial_reservations')
+            ? DB::table('warranty_serial_reservations')->where('claim_id', $claim->id)->where('status', 'active')->first() : null;
+        $service = app(\App\Services\Warranty\WarrantyExchangeService::class);
+        $status = (string) $claim->status;
+        $isLead = SolarMaintenanceAccess::isTechnicalLead($user);
+        $isWarehouse = SolarMaintenanceAccess::canHandleWarrantyStock($user);
+        $isAssigned = $isLead || ((int) $claim->assigned_to === (int) $user->id && SolarMaintenanceAccess::isTechnician($user));
+        $self = in_array((int) $user->id, array_filter([(int) $claim->created_by, (int) $claim->assigned_to, (int) $claim->exception_requested_by]), true);
 
-        $canUpdate = SolarMaintenanceAccess::isManager($request->user())
-            || (SolarMaintenanceAccess::isTechnician($request->user()) && (int) $claim->assigned_to === (int) $request->user()->id);
-        $canStock = SolarMaintenanceAccess::canHandleWarrantyStock($request->user());
-        $canViewCosts = SolarMaintenanceAccess::canViewMaintenanceCosts($request->user());
-        $allowedStatuses = $this->allowedStatusesForUser($request, $claim);
+        $can = [
+            'approve' => $isLead && $status === 'pending_approval',
+            'approve_blocked_self' => $isLead && $status === 'pending_approval' && $self && ! SolarMaintenanceAccess::canOverrideWarranty($user),
+            'override' => SolarMaintenanceAccess::canOverrideWarranty($user),
+            'resubmit' => $status === 'needs_more_information' && ($isLead || $self),
+            'reopen' => $isLead && $status === 'rejected',
+            'cancel' => in_array($status, ['pending_approval', 'needs_more_information', 'waiting_stock', 'reserved'], true)
+                && ($isLead || ((int) $claim->created_by === (int) $user->id && in_array($status, ['pending_approval', 'needs_more_information'], true))),
+            'reserve' => $isWarehouse && in_array($status, ['waiting_stock', 'reserved'], true),
+            'release' => $isWarehouse && $status === 'reserved',
+            'issue' => $isWarehouse && $status === 'reserved',
+            'faulty_return' => $isWarehouse && ($status === 'waiting_faulty_return' || ($status === 'completed' && $claim->faulty_return_status === 'deferred')),
+            'tech_receive' => $isAssigned && $status === 'issued',
+            'replace' => $isAssigned && in_array($status, ['technician_received', 'replacing'], true),
+            'defer_return' => $isLead && $status === 'waiting_faulty_return' && $claim->faulty_return_status !== 'deferred' && $claim->faulty_return_status !== 'returned',
+            'complete' => $isLead && in_array($status, ['faulty_returned', 'waiting_faulty_return'], true),
+            'evidence' => (SolarMaintenanceAccess::isManager($user) || $isAssigned) && \App\Support\Warranty\WarrantyFlow::isOpen($status),
+        ];
 
         return view('technical.warranty-exchange.show', [
             'claim' => $claim,
             'device' => $device,
-            'attachments' => $attachments,
+            'attachments' => $this->canViewEvidence($user) ? $this->attachments($claim) : collect(),
             'warehouses' => $warehouses,
-            'replacementCandidates' => $replacementCandidates,
-            'statuses' => SolarWarrantyClaim::STATUSES,
+            'replacementCandidates' => $can['reserve'] ? $this->replacementCandidates($device, $warehouses) : collect(),
+            'statuses' => \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES,
             'priorities' => SolarWarrantyClaim::PRIORITIES,
-            'transitions' => SolarWarrantyClaim::TRANSITIONS,
-            'stockTypes' => SolarWarrantyStockMovement::TYPES,
-            'stockStatuses' => SolarWarrantyStockMovement::STATUSES,
-            'canUpdate' => $canUpdate,
-            'canStock' => $canStock,
-            'canViewCosts' => $canViewCosts,
-            'isManager' => SolarMaintenanceAccess::isManager($request->user()),
-            'allowedStatuses' => $allowedStatuses,
+            'timeline' => \App\Support\Warranty\WarrantyFlow::exchangeTimeline($claim, (bool) $link),
+            'checklist' => $service->checklist($claim),
+            'history' => \App\Services\Warranty\WarrantyAudit::history((int) $claim->id),
+            'link' => $link,
+            'reservation' => $reservation,
+            'movements' => DB::table('solar_warranty_stock_movements as m')->leftJoin('crm_warehouses as w', 'w.id', '=', 'm.warehouse_id')
+                ->leftJoin('users as u', 'u.id', '=', 'm.completed_by')->where('m.warranty_claim_id', $claim->id)->whereNull('m.deleted_at')
+                ->orderByDesc('m.id')->get(['m.*', 'w.name as warehouse_name', 'u.name as completed_by_name']),
+            'priorClaims' => DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $claim->serial_unit_id)->where('id', '<>', $claim->id)->whereNull('deleted_at')
+                ->orderByDesc('id')->limit(10)->get(['id', 'claim_code', 'claim_type', 'status', 'created_at']),
+            'can' => $can,
+            'canViewCosts' => SolarMaintenanceAccess::canViewMaintenanceCosts($user),
+            'canViewInternal' => SolarMaintenanceAccess::canViewTechnicalInternal($user),
+            'faultyConditions' => \App\Support\Warranty\WarrantyFlow::FAULTY_CONDITIONS,
+            'userNames' => DB::table('users')->whereIn('id', array_filter([
+                $claim->issued_by, $claim->tech_received_by, $claim->replaced_by, $claim->faulty_received_by,
+                $claim->exception_requested_by, $claim->exception_approved_by, $claim->decision_by, $claim->closed_by,
+            ]))->pluck('name', 'id'),
         ]);
     }
-
     public function serialInfo(Request $request): JsonResponse
     {
         $this->authorizeView($request);
@@ -423,70 +466,72 @@ class TechnicalWarrantyExchangeController extends Controller
 
     public function uploadEvidence(Request $request, SolarWarrantyClaim $claim): RedirectResponse
     {
-        $this->authorizeClaimUpdate($request, $claim);
+        $this->authorizeClaimUpdate($request, $claim, true);
 
         $request->validate([
-            'evidence' => ['required', 'array', 'min:1', 'max:8'],
-            'evidence.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf'],
+            'evidence' => ['required', 'array', 'min:1', 'max:'.(int) config('warranty.evidence_max_files', 8)],
+            'evidence.*' => ['file', 'max:'.(int) config('warranty.evidence_max_kb', 20480)],
         ], [
             'evidence.required' => 'Vui lòng chọn ít nhất một tệp minh chứng.',
-            'evidence.*.mimes' => 'Minh chứng chỉ nhận JPG, PNG, WEBP hoặc PDF.',
+            'evidence.max' => 'Tối đa '.(int) config('warranty.evidence_max_files', 8).' tệp mỗi lần tải lên.',
             'evidence.*.max' => 'Mỗi tệp minh chứng tối đa 20MB.',
         ]);
 
-        $this->storeEvidence($request, $claim);
+        try {
+            app(\App\Services\Warranty\EvidenceStore::class)->store((array) $request->file('evidence', []), $claim, $request->user(), $request->input('step'));
+        } catch (\App\Support\Warranty\WarrantyException $e) {
+            return back()->withErrors(['evidence' => $e->getMessage()]);
+        }
 
         return back()->with('success', 'Đã bổ sung minh chứng cho '.$claim->claim_code.'.');
     }
 
     public function downloadEvidence(Request $request, SolarWarrantyClaim $claim, int $attachment): BinaryFileResponse
     {
-        $this->authorizeClaim($request, $claim);
+        $this->authorizeClaim($request, $claim, true);
+        abort_unless($this->canViewEvidence($request->user()), 403);
         abort_unless(SchemaCache::hasTable('solar_warranty_claim_attachments'), 404);
 
-        $row = DB::table('solar_warranty_claim_attachments')
-            ->where('id', $attachment)
-            ->where('warranty_claim_id', $claim->id)
-            ->whereNull('deleted_at')
-            ->first();
-        abort_unless($row, 404);
-        abort_unless(Storage::disk('public')->exists((string) $row->file_path), 404);
+        $store = app(\App\Services\Warranty\EvidenceStore::class);
+        $row = $store->find($claim, $attachment);
 
-        return response()->file(
-            Storage::disk('public')->path((string) $row->file_path),
-            ['Content-Type' => (string) ($row->mime_type ?: 'application/octet-stream')]
-        );
+        return response()->file($store->absolutePath($row), [
+            'Content-Type' => (string) ($row->mime_type ?: 'application/octet-stream'),
+            'Content-Disposition' => 'inline; filename="evidence-'.$row->id.'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function destroyEvidence(Request $request, SolarWarrantyClaim $claim, int $attachment): RedirectResponse
     {
-        $this->authorizeClaimUpdate($request, $claim);
+        $this->authorizeClaimUpdate($request, $claim, true);
         abort_unless(SchemaCache::hasTable('solar_warranty_claim_attachments'), 404);
 
-        $row = DB::table('solar_warranty_claim_attachments')
-            ->where('id', $attachment)
-            ->where('warranty_claim_id', $claim->id)
-            ->whereNull('deleted_at')
-            ->first();
-        abort_unless($row, 404);
-
-        DB::table('solar_warranty_claim_attachments')->where('id', $row->id)->update([
-            'deleted_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            app(\App\Services\Warranty\EvidenceStore::class)->delete($claim, $attachment, $request->user(), $request->input('reason'));
+        } catch (\App\Support\Warranty\WarrantyException $e) {
+            return back()->withErrors(['evidence' => $e->getMessage()]);
+        }
 
         return back()->with('success', 'Đã gỡ minh chứng khỏi phiếu.');
     }
 
-    private function authorizeView(Request $request): void
+    protected function canViewEvidence($user): bool
+    {
+        return SolarMaintenanceAccess::canViewTechnicalInternal($user) || SolarMaintenanceAccess::isWarehouse($user);
+    }
+    protected function authorizeView(Request $request): void
     {
         abort_unless($request->user() && SolarMaintenanceAccess::canViewAny($request->user()), 403);
     }
 
-    private function authorizeClaim(Request $request, SolarWarrantyClaim $claim): void
+    protected function authorizeClaim(Request $request, SolarWarrantyClaim $claim, bool $anyFlow = false): void
     {
         $this->authorizeView($request);
-        abort_unless((string) $claim->claim_type === 'replacement', 404);
+        abort_unless($anyFlow
+            ? \App\Support\Warranty\WarrantyFlow::isFlowType((string) $claim->claim_type)
+            : (string) $claim->claim_type === 'replacement', 404);
         $this->assertCompany((int) ($claim->company_id ?: $claim->site?->company_id), $request);
 
         if (SolarMaintenanceAccess::isTechnicianOnly($request->user())) {
@@ -494,15 +539,15 @@ class TechnicalWarrantyExchangeController extends Controller
         }
     }
 
-    private function authorizeClaimUpdate(Request $request, SolarWarrantyClaim $claim): void
+    protected function authorizeClaimUpdate(Request $request, SolarWarrantyClaim $claim, bool $anyFlow = false): void
     {
-        $this->authorizeClaim($request, $claim);
+        $this->authorizeClaim($request, $claim, $anyFlow);
         $allowed = SolarMaintenanceAccess::isManager($request->user())
             || (SolarMaintenanceAccess::isTechnician($request->user()) && (int) $claim->assigned_to === (int) $request->user()->id);
         abort_unless($allowed, 403);
     }
 
-    private function ensureReady(): void
+    protected function ensureReady(): void
     {
         abort_unless(
             SchemaCache::hasTable('crm_serial_warranty_claims')
@@ -514,14 +559,14 @@ class TechnicalWarrantyExchangeController extends Controller
         $this->ensureSerialReady();
     }
 
-    private function ensureSerialReady(): void
+    protected function ensureSerialReady(): void
     {
         foreach (['crm_serial_units', 'crm_serial_unit_identifiers', 'crm_serial_identifiers'] as $table) {
             abort_unless(SchemaCache::hasTable($table), 503, 'Kho serial chưa sẵn sàng để tra cứu.');
         }
     }
 
-    private function baseClaimQuery($user): Builder
+    protected function baseClaimQuery($user): Builder
     {
         $query = SolarWarrantyClaim::query()->where('claim_type', 'replacement');
         $companyId = EgoCompanyScope::currentId();
@@ -543,13 +588,13 @@ class TechnicalWarrantyExchangeController extends Controller
         return $query;
     }
 
-    private function summary($user): array
+    protected function summary($user): array
     {
         $row = $this->baseClaimQuery($user)
             ->selectRaw('COUNT(*) AS total')
             ->selectRaw("SUM(CASE WHEN status='pending_approval' THEN 1 ELSE 0 END) AS pending_approval")
-            ->selectRaw("SUM(CASE WHEN status IN ('approved','waiting_stock') THEN 1 ELSE 0 END) AS warehouse")
-            ->selectRaw("SUM(CASE WHEN status IN ('replacing','waiting_customer') THEN 1 ELSE 0 END) AS processing")
+            ->selectRaw("SUM(CASE WHEN status IN ('approved','waiting_stock','reserved','waiting_faulty_return') THEN 1 ELSE 0 END) AS warehouse")
+            ->selectRaw("SUM(CASE WHEN status IN ('issued','technician_received','replacing','waiting_customer') THEN 1 ELSE 0 END) AS processing")
             ->selectRaw("SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed")
             ->selectRaw("SUM(CASE WHEN priority='urgent' AND status NOT IN ('completed','rejected','cancelled') THEN 1 ELSE 0 END) AS urgent")
             ->first();
@@ -564,7 +609,7 @@ class TechnicalWarrantyExchangeController extends Controller
         ];
     }
 
-    private function sitesForCompany(): Collection
+    protected function sitesForCompany(): Collection
     {
         $query = DB::table('sites')
             ->select('id', 'name', 'project_code', 'contact_name', 'contact_phone', 'address', 'company_id');
@@ -576,7 +621,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $query->orderByDesc('id')->limit(800)->get();
     }
 
-    private function ordersWithSerialsForCompany(): Collection
+    protected function ordersWithSerialsForCompany(): Collection
     {
         if (! SchemaCache::hasTable('crm_orders')
             || ! SchemaCache::hasTable('crm_order_items')
@@ -632,7 +677,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $query->orderByDesc('o.order_date')->orderByDesc('o.id')->limit(700)->get();
     }
 
-    private function findOrderForExchange(int $orderId): object
+    protected function findOrderForExchange(int $orderId): object
     {
         $order = DB::table('crm_orders as o')
             ->leftJoin('crm_leads as l', 'l.id', '=', 'o.lead_id')
@@ -661,7 +706,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $order;
     }
 
-    private function serialsForOrder(int $orderId): Collection
+    protected function serialsForOrder(int $orderId): Collection
     {
         $ids = collect();
 
@@ -693,7 +738,7 @@ class TechnicalWarrantyExchangeController extends Controller
             ->get();
     }
 
-    private function assertSerialBelongsToOrder(object $serial, int $orderId): void
+    protected function assertSerialBelongsToOrder(object $serial, int $orderId): void
     {
         if ($orderId <= 0) {
             throw ValidationException::withMessages([
@@ -721,7 +766,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
     }
 
-    private function resolveAssignee(Request $request, mixed $assigneeId, int $companyId): ?object
+    protected function resolveAssignee(Request $request, mixed $assigneeId, int $companyId): ?object
     {
         $user = $request->user();
         if (SolarMaintenanceAccess::isTechnicianOnly($user)) {
@@ -751,7 +796,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $assignee;
     }
 
-    private function findSerial(string $code): object
+    protected function findSerial(string $code): object
     {
         if ($code === '') {
             throw ValidationException::withMessages(['serial_code' => 'Vui lòng nhập serial thiết bị.']);
@@ -767,7 +812,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $query;
     }
 
-    private function findSerialByUnitId(int $serialUnitId): ?object
+    protected function findSerialByUnitId(int $serialUnitId): ?object
     {
         if ($serialUnitId <= 0) {
             return null;
@@ -776,7 +821,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $this->serialBaseQuery()->where('su.id', $serialUnitId)->first();
     }
 
-    private function serialBaseQuery()
+    protected function serialBaseQuery()
     {
         $query = DB::table('crm_serial_units as su')
             ->join('crm_serial_unit_identifiers as sui', function ($join): void {
@@ -862,9 +907,9 @@ class TechnicalWarrantyExchangeController extends Controller
         return $query;
     }
 
-    private function assertSerialCompany(object $serial, int $companyId, Request $request): void
+    protected function assertSerialCompany(object $serial, int $companyId, Request $request): void
     {
-        if ($companyId <= 0 || SolarMaintenanceAccess::isAdmin($request->user())) {
+        if ($companyId <= 0) {
             return;
         }
 
@@ -881,7 +926,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
     }
 
-    private function assertCompany(int $companyId, Request $request): void
+    protected function assertCompany(int $companyId, Request $request): void
     {
         $current = EgoCompanyScope::currentId();
         if ($current > 0 && $companyId > 0 && $current !== $companyId && ! SolarMaintenanceAccess::isAdmin($request->user())) {
@@ -889,7 +934,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
     }
 
-    private function isWarrantyActive(object $serial): bool
+    protected function isWarrantyActive(object $serial): bool
     {
         if (strtolower((string) ($serial->warranty_status ?? '')) !== 'active') {
             return false;
@@ -903,7 +948,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return $end >= now()->toDateString();
     }
 
-    private function serialDetailsForClaims(Collection $claims): Collection
+    protected function serialDetailsForClaims(Collection $claims): Collection
     {
         $ids = $claims->pluck('serial_unit_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
         if ($ids->isEmpty()) {
@@ -916,7 +961,7 @@ class TechnicalWarrantyExchangeController extends Controller
             ->keyBy(fn ($row) => (int) $row->serial_unit_id);
     }
 
-    private function replacementCandidates(?object $device, Collection $warehouses): Collection
+    protected function replacementCandidates(?object $device, Collection $warehouses): Collection
     {
         if (! $device || ! SchemaCache::hasTable('crm_serial_unit_states')) {
             return collect();
@@ -949,7 +994,7 @@ class TechnicalWarrantyExchangeController extends Controller
             ]);
     }
 
-    private function attachments(SolarWarrantyClaim $claim): Collection
+    protected function attachments(SolarWarrantyClaim $claim): Collection
     {
         if (! SchemaCache::hasTable('solar_warranty_claim_attachments')) {
             return collect();
@@ -966,33 +1011,16 @@ class TechnicalWarrantyExchangeController extends Controller
             ]);
     }
 
-    private function storeEvidence(Request $request, SolarWarrantyClaim $claim): void
+    protected function storeEvidence(Request $request, SolarWarrantyClaim $claim): void
     {
-        if (! SchemaCache::hasTable('solar_warranty_claim_attachments')) {
-            return;
-        }
-
-        foreach ((array) $request->file('evidence', []) as $file) {
-            if (! $file) {
-                continue;
-            }
-
-            $path = $file->store('warranty-exchange/'.$claim->id, 'public');
-            DB::table('solar_warranty_claim_attachments')->insert([
-                'warranty_claim_id' => $claim->id,
-                'category' => 'evidence',
-                'file_path' => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'mime_type' => $file->getMimeType(),
-                'file_size' => (int) $file->getSize(),
-                'uploaded_by' => $request->user()->id,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        try {
+            app(\App\Services\Warranty\EvidenceStore::class)->store((array) $request->file('evidence', []), $claim, $request->user(), 'create');
+        } catch (\App\Support\Warranty\WarrantyException $e) {
+            // Phiếu đã tạo nhưng file không lưu được: báo rõ, KHÔNG im lặng.
+            session()->flash('error', 'Phiếu đã được tạo nhưng minh chứng chưa lưu: '.$e->getMessage());
         }
     }
-
-    private function allowedStatusesForUser(Request $request, SolarWarrantyClaim $claim): array
+    protected function allowedStatusesForUser(Request $request, SolarWarrantyClaim $claim): array
     {
         $current = (string) $claim->status;
         $statuses = array_values(array_unique(array_merge([$current], SolarWarrantyClaim::TRANSITIONS[$current] ?? [])));
@@ -1018,7 +1046,7 @@ class TechnicalWarrantyExchangeController extends Controller
         return array_values(array_unique($statuses));
     }
 
-    private function logSerialEvent(SolarWarrantyClaim $claim, string $type, string $note): void
+    protected function logSerialEvent(SolarWarrantyClaim $claim, string $type, string $note): void
     {
         if (! $claim->serial_unit_id || ! SchemaCache::hasTable('crm_serial_warranty_events')) {
             return;

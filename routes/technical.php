@@ -57,9 +57,56 @@ Route::middleware(['auth'])
                 Route::post('/{claim}/minh-chung', 'uploadEvidence')->whereNumber('claim')->name('evidence.upload');
                 Route::get('/{claim}/minh-chung/{attachment}', 'downloadEvidence')->whereNumber('claim')->whereNumber('attachment')->name('evidence.download');
                 Route::delete('/{claim}/minh-chung/{attachment}', 'destroyEvidence')->whereNumber('claim')->whereNumber('attachment')->name('evidence.destroy');
+                Route::get('/viec-kho', 'warehouseQueue')->name('warehouse-queue');
                 Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
+
+                // Hành động quy trình Đổi hàng bảo hành (whitelist theo từng action, KHÔNG nhận status tuỳ ý)
+                Route::controller(\App\Http\Controllers\Technical\WarrantyExchangeWorkflowController::class)
+                    ->prefix('/{claim}')->whereNumber('claim')->group(function (): void {
+                        Route::post('/duyet', 'approve')->name('approve');
+                        Route::post('/yeu-cau-bo-sung', 'requestInfo')->name('request-info');
+                        Route::post('/tu-choi', 'reject')->name('reject');
+                        Route::post('/gui-lai', 'resubmit')->name('resubmit');
+                        Route::post('/mo-lai', 'reopen')->name('reopen');
+                        Route::post('/huy', 'cancel')->name('cancel');
+                        Route::post('/kho/giu-hang', 'reserve')->name('reserve');
+                        Route::post('/kho/nha-hang', 'release')->name('release');
+                        Route::post('/kho/xuat', 'issue')->name('issue');
+                        Route::post('/kho/thu-hoi', 'faultyReturn')->name('faulty-return');
+                        Route::post('/ky-thuat/nhan-hang', 'techReceive')->name('tech-receive');
+                        Route::post('/ky-thuat/xac-nhan-thay', 'confirmReplaced')->name('confirm-replaced');
+                        Route::post('/hoan-thu-hoi', 'deferReturn')->name('defer-return');
+                        Route::post('/hoan-tat', 'complete')->name('complete');
+                    });
             });
         /* EGO_WARRANTY_EXCHANGE_PROPOSAL_END */
+
+        /* EGO_WARRANTY_REPAIR_START — Sửa chữa sản phẩm tính phí */
+        Route::prefix('sua-chua-tinh-phi')
+            ->name('repair.')
+            ->controller(\App\Http\Controllers\Technical\WarrantyRepairController::class)
+            ->group(function (): void {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
+                Route::prefix('/{claim}')->whereNumber('claim')->group(function (): void {
+                    Route::post('/chan-doan', 'diagnosis')->name('diagnosis');
+                    Route::post('/bao-gia', 'quotation')->name('quotation');
+                    Route::post('/bao-gia/gui', 'sendQuotation')->name('quotation.send');
+                    Route::post('/khach-xac-nhan', 'decision')->name('decision');
+                    Route::post('/linh-kien/giu', 'reserveParts')->name('parts.reserve');
+                    Route::post('/linh-kien/xuat', 'issueParts')->name('parts.issue');
+                    Route::post('/linh-kien/hoan', 'returnParts')->name('parts.return');
+                    Route::post('/bat-dau-sua', 'start')->name('start');
+                    Route::post('/cap-nhat-sua', 'progress')->name('progress');
+                    Route::post('/chuyen-kiem-tra', 'qaSubmit')->name('qa.submit');
+                    Route::post('/kiem-tra', 'qa')->name('qa');
+                    Route::post('/ban-giao', 'handover')->name('handover');
+                    Route::post('/hoan-tat', 'complete')->name('complete');
+                    Route::post('/huy', 'cancel')->name('cancel');
+                });
+            });
+        /* EGO_WARRANTY_REPAIR_END */
 
         Route::get('/bao-cao', [\App\Http\Controllers\Technical\TechnicalWorkController::class, 'reports'])
             ->name('bao-cao');
