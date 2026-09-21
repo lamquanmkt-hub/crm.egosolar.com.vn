@@ -82,9 +82,6 @@ class TechnicalWarrantyExchangeController extends Controller
         if ($to = trim((string) $request->query('to', ''))) {
             $query->whereDate('created_at', '<=', $to);
         }
-        if ($siteId = (int) $request->query('site_id', 0)) {
-            $query->where('site_id', $siteId);
-        }
         if ($customer = trim((string) $request->query('customer', ''))) {
             $query->whereIn('customer_id', DB::table('crm_customers')->where('name', 'like', '%'.$customer.'%')->select('id'));
         }
@@ -121,15 +118,11 @@ class TechnicalWarrantyExchangeController extends Controller
         }
 
         $summary = $this->summary($user);
-        $sites = $this->sitesForCompany();
-        $orders = $this->ordersWithSerialsForCompany();
         $technicians = app(SolarMaintenanceQueryService::class)->technicalUsers();
 
         return view('technical.warranty-exchange.index', [
             'claims' => $claims,
             'summary' => $summary,
-            'sites' => $sites,
-            'orders' => $orders,
             'technicians' => $technicians,
             'statuses' => \App\Support\Warranty\WarrantyFlow::EXCHANGE_STATUSES,
             'priorities' => SolarWarrantyClaim::PRIORITIES,
@@ -179,15 +172,12 @@ class TechnicalWarrantyExchangeController extends Controller
             'repairStatuses' => \App\Support\Warranty\WarrantyFlow::REPAIR_STATUSES,
         ]);
     }
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         abort_unless(SolarMaintenanceAccess::canCreateWarrantyClaim($request->user()), 403);
         $this->ensureReady();
 
         $data = $request->validate([
-            'source_type' => ['required', Rule::in(['site', 'order'])],
-            'site_id' => ['nullable', 'integer', 'exists:sites,id'],
-            'order_id' => ['nullable', 'integer', 'exists:crm_orders,id'],
             'serial_code' => ['required', 'string', 'max:190'],
             'priority' => ['required', Rule::in(array_keys(SolarWarrantyClaim::PRIORITIES))],
             'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
@@ -198,87 +188,44 @@ class TechnicalWarrantyExchangeController extends Controller
             'estimated_cost' => ['nullable', 'numeric', 'min:0', 'max:999999999999'],
             'warranty_exception' => ['nullable', 'boolean'],
             'exception_reason' => ['nullable', 'string', 'max:5000'],
-            'evidence' => ['nullable', 'array', 'max:8'],
-            'evidence.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,webp,pdf'],
+            'evidence' => ['nullable', 'array', 'max:'.(int) config('warranty.evidence_max_files', 8)],
+            'evidence.*' => ['file', 'max:'.(int) config('warranty.evidence_max_kb', 20480)],
         ], [
-            'source_type.required' => 'Vui lòng chọn nguồn thiết bị: Công trình hoặc Đơn hàng.',
-            'serial_code.required' => 'Vui lòng chọn/nhập serial thiết bị lỗi.',
+            'serial_code.required' => 'Vui lòng nhập serial thiết bị lỗi.',
             'issue_description.required' => 'Vui lòng mô tả lỗi/hiện tượng thực tế.',
-            'diagnosis.required' => 'Vui lòng nhập kết quả chẩn đoán của kỹ thuật.',
+            'diagnosis.required' => 'Vui lòng nhập chẩn đoán ban đầu của kỹ thuật.',
             'proposed_solution.required' => 'Vui lòng nhập lý do và phương án đề xuất đổi.',
-            'evidence.*.mimes' => 'Minh chứng chỉ nhận JPG, PNG, WEBP hoặc PDF.',
-            'evidence.*.max' => 'Mỗi tệp minh chứng tối đa 20MB.',
         ]);
 
-        $sourceType = (string) $data['source_type'];
-        $site = null;
-        $order = null;
-        $companyId = EgoCompanyScope::currentId();
-
-        if ($sourceType === 'site') {
-            if (empty($data['site_id'])) {
-                throw ValidationException::withMessages([
-                    'site_id' => 'Vui lòng chọn công trình cần đổi hàng bảo hành.',
-                ]);
-            }
-
-            $site = Site::withoutGlobalScopes()->findOrFail((int) $data['site_id']);
-            $companyId = (int) ($site->company_id ?: $companyId);
-            $this->assertCompany($companyId, $request);
-        } else {
-            if (empty($data['order_id'])) {
-                throw ValidationException::withMessages([
-                    'order_id' => 'Vui lòng chọn đơn hàng có serial cần bảo hành.',
-                ]);
-            }
-
-            $order = $this->findOrderForExchange((int) $data['order_id']);
-            $companyId = (int) ($order->company_id ?: $companyId);
-            $this->assertCompany($companyId, $request);
+        // Serial → tự truy ngược sản phẩm/khách/đơn/công trình/bảo hành (server-side, không tin frontend)
+        $info = app(\App\Services\Warranty\SerialLookup::class)->describe(trim((string) $data['serial_code']));
+        if (! $info) {
+            throw ValidationException::withMessages(['serial_code' => 'Không tìm thấy serial “'.trim((string) $data['serial_code']).'” trong hệ thống.']);
+        }
+        $current = EgoCompanyScope::currentId();
+        if (\App\Services\Warranty\SerialLookup::belongsToOtherCompany($info, $current)) {
+            throw ValidationException::withMessages(['serial_code' => 'Serial này thuộc công ty khác, không thể tạo phiếu ở công ty đang làm việc.']);
+        }
+        if ($info['open_claim']) {
+            throw ValidationException::withMessages(['serial_code' => 'Serial này đang có phiếu xử lý '.$info['open_claim']['code'].'. Hãy xử lý phiếu hiện tại trước.']);
         }
 
-        $serial = $this->findSerial(trim((string) $data['serial_code']));
-        $this->assertSerialCompany($serial, $companyId, $request);
-
-        if ($sourceType === 'order') {
-            $this->assertSerialBelongsToOrder($serial, (int) $order->id);
-        }
-
-        if ($sourceType === 'site'
-            && (int) ($serial->warranty_site_id ?? 0) > 0
-            && (int) $serial->warranty_site_id !== (int) $site->id) {
-            throw ValidationException::withMessages([
-                'site_id' => 'Serial này đang được gắn với công trình khác trong hồ sơ bảo hành. Vui lòng kiểm tra lại công trình/serial.',
-            ]);
-        }
-
-        $resolvedSiteId = $site?->id ?: ((int) ($serial->warranty_site_id ?? 0) ?: null);
-        $resolvedOrderId = $sourceType === 'order'
-            ? (int) $order->id
-            : ((int) ($serial->order_id ?? 0) ?: null);
-        $resolvedCustomerId = (int) ($serial->customer_id ?? 0);
-        if ($resolvedCustomerId <= 0 && $order) {
-            $resolvedCustomerId = (int) ($order->customer_id ?? 0);
-        }
-
-        // Serial chưa gắn hồ sơ bảo hành với công trình được chọn = thiếu dữ liệu liên kết → phải qua ngoại lệ.
-        $linkMissing = $sourceType === 'site' && (int) ($serial->warranty_site_id ?? 0) === 0;
-        $warrantyActive = $this->isWarrantyActive($serial) && ! $linkMissing;
+        $warrantyActive = (bool) $info['warranty_active'];
         if (! $warrantyActive && ! (bool) ($data['warranty_exception'] ?? false)) {
             throw ValidationException::withMessages([
-                'serial_code' => 'Serial không có bảo hành còn hiệu lực. Nếu cần xử lý ngoại lệ, hãy tích “Đề nghị ngoại lệ bảo hành” và nhập lý do — phiếu sẽ cần người có thẩm quyền KHÁC duyệt.',
+                'serial_code' => 'Thiết bị không đủ điều kiện đổi bảo hành ('.$info['warranty_label'].'). Có thể chuyển sang Sửa chữa tính phí hoặc đề nghị ngoại lệ bảo hành (bắt buộc lý do, người khác duyệt).',
             ]);
         }
 
+        $companyId = $current ?: (int) ($info['company_ids'][0] ?? 0);
         $assignee = $this->resolveAssignee($request, $data['assigned_to'] ?? null, $companyId);
 
         try {
             $claim = app(\App\Services\Warranty\WarrantyExchangeService::class)->create($request->user(), $data, [
-                'serial' => $serial,
-                'source_type' => $sourceType,
-                'site_id' => $resolvedSiteId,
-                'order_id' => $resolvedOrderId,
-                'customer_id' => $resolvedCustomerId,
+                'serial' => (object) ['serial_unit_id' => $info['serial_unit_id'], 'serial_code' => $info['serial_code']],
+                'site_id' => $info['site_id'],
+                'order_id' => $info['order_id'],
+                'customer_id' => $info['customer_id'],
                 'company_id' => $companyId,
                 'warranty_active' => $warrantyActive,
                 'assignee_id' => $assignee?->id,
@@ -289,10 +236,16 @@ class TechnicalWarrantyExchangeController extends Controller
         }
         $this->storeEvidence($request, $claim);
 
-        return redirect()->route('ky-thuat.warranty-exchange.show', ['claim' => $claim->id])
-            ->with('success', 'Đã tạo '.$claim->claim_code.' và gửi duyệt đề xuất đổi hàng bảo hành.');
-    }
+        $msg = 'Đã tạo '.$claim->claim_code.' và gửi duyệt đề xuất đổi hàng bảo hành.';
+        $url = route('ky-thuat.warranty-exchange.show', ['claim' => $claim->id]);
+        if ($request->expectsJson()) {
+            session()->flash('success', $msg);
 
+            return response()->json(['ok' => true, 'message' => $msg, 'redirect' => $url]);
+        }
+
+        return redirect($url)->with('success', $msg);
+    }
     public function show(Request $request, SolarWarrantyClaim $claim): View
     {
         $this->authorizeClaim($request, $claim);
@@ -372,44 +325,17 @@ class TechnicalWarrantyExchangeController extends Controller
         $this->authorizeView($request);
         $this->ensureSerialReady();
 
-        $data = $request->validate([
-            'code' => ['required', 'string', 'max:190'],
-        ]);
-
-        try {
-            $serial = $this->findSerial(trim((string) $data['code']));
-            $companyId = EgoCompanyScope::currentId();
-            $this->assertSerialCompany($serial, $companyId, $request);
-
-            return response()->json([
-                'ok' => true,
-                'serial' => [
-                    'serial_unit_id' => (int) $serial->serial_unit_id,
-                    'serial_code' => (string) $serial->serial_code,
-                    'product_id' => (int) $serial->product_id,
-                    'product_name' => (string) ($serial->product_name ?: 'Chưa xác định sản phẩm'),
-                    'sku' => (string) ($serial->sku ?: ''),
-                    'state' => (string) ($serial->current_state ?: 'unknown'),
-                    'customer_id' => $serial->customer_id ? (int) $serial->customer_id : null,
-                    'customer_name' => (string) ($serial->customer_name ?: ''),
-                    'order_id' => $serial->order_id ? (int) $serial->order_id : null,
-                    'order_code' => (string) ($serial->order_code ?: ''),
-                    'warranty_status' => (string) ($serial->warranty_status ?: ''),
-                    'warranty_start_at' => $serial->warranty_start_at,
-                    'warranty_end_at' => $serial->warranty_end_at,
-                    'warranty_active' => $this->isWarrantyActive($serial),
-                    'warranty_site_id' => $serial->warranty_site_id ? (int) $serial->warranty_site_id : null,
-                    'warranty_site_name' => (string) ($serial->warranty_site_name ?: ''),
-                ],
-            ]);
-        } catch (ValidationException $exception) {
-            return response()->json([
-                'ok' => false,
-                'message' => collect($exception->errors())->flatten()->first() ?: 'Không thể tra cứu serial.',
-            ], 422);
+        $data = $request->validate(['code' => ['required', 'string', 'max:190']]);
+        $info = app(\App\Services\Warranty\SerialLookup::class)->describe(trim((string) $data['code']));
+        if (! $info) {
+            return response()->json(['ok' => false, 'message' => 'Không tìm thấy serial “'.trim((string) $data['code']).'” trong hệ thống.'], 422);
         }
-    }
+        if (\App\Services\Warranty\SerialLookup::belongsToOtherCompany($info, EgoCompanyScope::currentId())) {
+            return response()->json(['ok' => false, 'message' => 'Serial này thuộc công ty khác, không thể dùng ở công ty đang làm việc.'], 422);
+        }
 
+        return response()->json(['ok' => true, 'info' => $info]);
+    }
     public function orderSerials(Request $request): JsonResponse
     {
         $this->authorizeView($request);
@@ -464,7 +390,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
     }
 
-    public function uploadEvidence(Request $request, SolarWarrantyClaim $claim): RedirectResponse
+    public function uploadEvidence(Request $request, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $this->authorizeClaimUpdate($request, $claim, true);
 
@@ -480,10 +406,10 @@ class TechnicalWarrantyExchangeController extends Controller
         try {
             app(\App\Services\Warranty\EvidenceStore::class)->store((array) $request->file('evidence', []), $claim, $request->user(), $request->input('step'));
         } catch (\App\Support\Warranty\WarrantyException $e) {
-            return back()->withErrors(['evidence' => $e->getMessage()]);
+            return $this->evidenceFail($request, $e->getMessage());
         }
 
-        return back()->with('success', 'Đã bổ sung minh chứng cho '.$claim->claim_code.'.');
+        return $this->evidenceOk($request, 'Đã bổ sung minh chứng cho '.$claim->claim_code.'.');
     }
 
     public function downloadEvidence(Request $request, SolarWarrantyClaim $claim, int $attachment): BinaryFileResponse
@@ -503,7 +429,7 @@ class TechnicalWarrantyExchangeController extends Controller
         ]);
     }
 
-    public function destroyEvidence(Request $request, SolarWarrantyClaim $claim, int $attachment): RedirectResponse
+    public function destroyEvidence(Request $request, SolarWarrantyClaim $claim, int $attachment): RedirectResponse|JsonResponse
     {
         $this->authorizeClaimUpdate($request, $claim, true);
         abort_unless(SchemaCache::hasTable('solar_warranty_claim_attachments'), 404);
@@ -511,12 +437,31 @@ class TechnicalWarrantyExchangeController extends Controller
         try {
             app(\App\Services\Warranty\EvidenceStore::class)->delete($claim, $attachment, $request->user(), $request->input('reason'));
         } catch (\App\Support\Warranty\WarrantyException $e) {
-            return back()->withErrors(['evidence' => $e->getMessage()]);
+            return $this->evidenceFail($request, $e->getMessage());
         }
 
-        return back()->with('success', 'Đã gỡ minh chứng khỏi phiếu.');
+        return $this->evidenceOk($request, 'Đã gỡ minh chứng khỏi phiếu.');
     }
 
+    private function evidenceFail(Request $request, string $msg): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => false, 'message' => $msg, 'errors' => ['evidence' => [$msg]]], 422);
+        }
+
+        return back()->withErrors(['evidence' => $msg]);
+    }
+
+    private function evidenceOk(Request $request, string $msg): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            session()->flash('success', $msg);
+
+            return response()->json(['ok' => true, 'message' => $msg]);
+        }
+
+        return back()->with('success', $msg);
+    }
     protected function canViewEvidence($user): bool
     {
         return SolarMaintenanceAccess::canViewTechnicalInternal($user) || SolarMaintenanceAccess::isWarehouse($user);

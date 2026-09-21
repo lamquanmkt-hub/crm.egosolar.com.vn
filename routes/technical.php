@@ -88,6 +88,8 @@ Route::middleware(['auth'])
             ->group(function (): void {
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
+                Route::get('/tra-serial', 'lookupSerial')->name('lookup-serial');
+                Route::get('/khach-hang', 'searchCustomers')->name('customers');
                 Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
                 Route::prefix('/{claim}')->whereNumber('claim')->group(function (): void {
                     Route::post('/chan-doan', 'diagnosis')->name('diagnosis');

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Technical;
 
-use App\Models\Site;
 use App\Models\SolarWarrantyClaim;
 use App\Services\Warranty\RepairService;
+use App\Services\Warranty\SerialLookup;
+use Illuminate\Http\JsonResponse;
 use App\Services\Warranty\WarrantyAudit;
 use App\Support\SchemaCache;
 use App\Support\SolarMaintenanceAccess;
@@ -37,8 +38,7 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         $this->ensureReady();
         $user = $request->user();
 
-        $query = SolarWarrantyClaim::query()->where('claim_type', WarrantyFlow::TYPE_REPAIR)
-            ->with(['site:id,name,project_code', 'assignee:id,name']);
+        $query = SolarWarrantyClaim::query()->where('claim_type', WarrantyFlow::TYPE_REPAIR)->with(['assignee:id,name']);
         $company = EgoCompanyScope::currentId();
         if ($company > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
             $query->where(fn (Builder $w) => $w->where('company_id', $company)->orWhereNull('company_id'));
@@ -47,7 +47,9 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
             $query->where('assigned_to', $user->id);
         }
         if ($q = trim((string) $request->query('q', ''))) {
-            $query->where(fn (Builder $w) => $w->where('claim_code', 'like', "%$q%")->orWhere('serial_code', 'like', "%$q%")->orWhere('issue_description', 'like', "%$q%"));
+            $query->where(fn (Builder $w) => $w->where('claim_code', 'like', "%$q%")->orWhere('serial_code', 'like', "%$q%")
+                ->orWhere('customer_name', 'like', "%$q%")->orWhere('customer_phone', 'like', "%$q%")->orWhere('device_model', 'like', "%$q%")
+                ->orWhere('issue_description', 'like', "%$q%"));
         }
         if (($st = (string) $request->query('status', '')) !== '' && array_key_exists($st, WarrantyFlow::REPAIR_STATUSES)) {
             $query->where('status', $st);
@@ -56,109 +58,174 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
             $query->where('assigned_to', $a);
         }
         if ($f = trim((string) $request->query('from', ''))) {
-            $query->whereDate('created_at', '>=', $f);
+            $query->whereDate('received_at', '>=', $f);
         }
         if ($t = trim((string) $request->query('to', ''))) {
-            $query->whereDate('created_at', '<=', $t);
-        }
-        if ($s = (int) $request->query('site_id', 0)) {
-            $query->where('site_id', $s);
+            $query->whereDate('received_at', '<=', $t);
         }
         if ($c = trim((string) $request->query('customer', ''))) {
-            $query->whereIn('customer_id', DB::table('crm_customers')->where('name', 'like', "%$c%")->select('id'));
+            $query->where(fn (Builder $w) => $w->where('customer_name', 'like', "%$c%")->orWhere('customer_phone', 'like', "%$c%"));
         }
-        if ($pid = (int) $request->query('product_id', 0)) {
-            $query->whereIn('serial_unit_id', DB::table('crm_serial_units')->where('product_id', $pid)->select('id'));
+        if ($d = trim((string) $request->query('device', ''))) {
+            $query->where(fn (Builder $w) => $w->where('device_type', 'like', "%$d%")->orWhere('device_brand', 'like', "%$d%")->orWhere('device_model', 'like', "%$d%"));
         }
 
         $claims = $query->orderByDesc('id')->paginate(25)->withQueryString();
-        $serialMap = $this->serialDetailsForClaims(collect($claims->items()));
-        foreach ($claims as $claim) {
-            $claim->device = $serialMap->get((int) $claim->serial_unit_id);
-        }
+        $totals = DB::table('warranty_repair_quotations')->whereIn('id', collect($claims->items())->pluck('current_quotation_id')->filter())->get(['id', 'total_amount', 'status', 'version'])->keyBy('id');
 
         return view('technical.warranty-repair.index', [
             'claims' => $claims,
+            'quotes' => $totals,
             'statuses' => WarrantyFlow::REPAIR_STATUSES,
             'priorities' => SolarWarrantyClaim::PRIORITIES,
             'technicians' => app(\App\Services\Synced\Technical\SolarMaintenanceQueryService::class)->technicalUsers(),
-            'sites' => $this->sitesForCompany(),
-            'products' => DB::table('crm_product_catalog')->orderBy('name')->limit(400)->get(['id', 'name']),
             'canCreate' => SolarMaintenanceAccess::canCreateWarrantyClaim($user),
             'isTechnicianOnly' => SolarMaintenanceAccess::isTechnicianOnly($user),
-            'orders' => $this->ordersWithSerialsForCompany(),
+            'intakeSerial' => trim((string) $request->query('intake_serial', '')),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    /** Tra serial (tùy chọn) — KHÔNG lỗi khi serial không có trong CRM: thiết bị ngoài hệ thống vẫn tiếp nhận được. */
+    public function lookupSerial(Request $request): JsonResponse
+    {
+        $this->authorizeView($request);
+        $code = trim((string) $request->query('code', ''));
+        if ($code === '') {
+            return response()->json(['found' => false]);
+        }
+        $info = app(SerialLookup::class)->describe($code);
+        if (! $info || SerialLookup::belongsToOtherCompany($info, EgoCompanyScope::currentId())) {
+            return response()->json(['found' => false, 'code' => $code]);
+        }
+
+        return response()->json(['found' => true, 'info' => $info]);
+    }
+
+    /** Gợi ý khách hàng CRM theo tên / SĐT. */
+    public function searchCustomers(Request $request): JsonResponse
+    {
+        $this->authorizeView($request);
+        $q = trim((string) $request->query('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['items' => []]);
+        }
+        $rows = DB::table('crm_customers')->where(function ($w) use ($q): void {
+            $w->where('name', 'like', "%$q%")->orWhere('phone', 'like', "%$q%")->orWhere('email', 'like', "%$q%");
+        });
+        $company = EgoCompanyScope::currentId();
+        if ($company > 0) {
+            $rows->where(fn ($w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+        }
+
+        return response()->json(['items' => $rows->orderBy('name')->limit(8)->get(['id', 'name', 'phone', 'email', 'address', 'billing_company_name as company'])]);
+    }
+
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         abort_unless(SolarMaintenanceAccess::canCreateWarrantyClaim($request->user()), 403);
         $this->ensureReady();
 
         $data = $request->validate([
-            'source_type' => ['nullable', Rule::in(['site', 'order'])],
-            'site_id' => ['nullable', 'integer', 'exists:sites,id'],
-            'order_id' => ['nullable', 'integer', 'exists:crm_orders,id'],
-            'serial_code' => ['required', 'string', 'max:190'],
-            'priority' => ['required', Rule::in(array_keys(SolarWarrantyClaim::PRIORITIES))],
-            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'customer_id' => ['nullable', 'integer', 'exists:crm_customers,id'],
+            'customer_name' => ['required', 'string', 'max:190'],
+            'customer_phone' => ['required', 'string', 'max:40'],
+            'customer_email' => ['nullable', 'email', 'max:190'],
+            'customer_address' => ['nullable', 'string', 'max:2000'],
+            'customer_company' => ['nullable', 'string', 'max:190'],
+            'device_type' => ['required', 'string', 'max:120'],
+            'device_brand' => ['nullable', 'string', 'max:120'],
+            'device_model' => ['required', 'string', 'max:190'],
+            'serial_code' => ['nullable', 'string', 'max:190'],
+            'received_condition' => ['nullable', 'string', 'max:5000'],
+            'device_accessories' => ['nullable', 'string', 'max:5000'],
             'issue_description' => ['required', 'string', 'max:10000'],
+            'received_at' => ['nullable', 'date'],
+            'delivered_by' => ['nullable', 'string', 'max:190'],
+            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'priority' => ['required', Rule::in(array_keys(SolarWarrantyClaim::PRIORITIES))],
             'out_of_scope_reason' => ['nullable', 'string', 'max:5000'],
             'internal_note' => ['nullable', 'string', 'max:5000'],
             'evidence' => ['nullable', 'array', 'max:'.(int) config('warranty.evidence_max_files', 8)],
             'evidence.*' => ['file', 'max:'.(int) config('warranty.evidence_max_kb', 20480)],
         ], [
-            'serial_code.required' => 'Vui lòng nhập serial thiết bị cần sửa.',
-            'issue_description.required' => 'Vui lòng mô tả lỗi/hiện tượng thực tế.',
+            'customer_name.required' => 'Vui lòng nhập tên khách hàng.',
+            'customer_phone.required' => 'Vui lòng nhập số điện thoại khách hàng.',
+            'device_type.required' => 'Vui lòng nhập loại sản phẩm.',
+            'device_model.required' => 'Vui lòng nhập model thiết bị.',
+            'issue_description.required' => 'Vui lòng mô tả lỗi khách báo.',
         ]);
 
-        $companyId = EgoCompanyScope::currentId();
-        $site = null;
-        $order = null;
-        if (! empty($data['site_id'])) {
-            $site = Site::withoutGlobalScopes()->findOrFail((int) $data['site_id']);
-            $companyId = (int) ($site->company_id ?: $companyId);
-            $this->assertCompany($companyId, $request);
-        }
-        if (! empty($data['order_id'])) {
-            $order = $this->findOrderForExchange((int) $data['order_id']);
-            $companyId = (int) ($order->company_id ?: $companyId);
-            $this->assertCompany($companyId, $request);
+        $info = null;
+        $serial = trim((string) ($data['serial_code'] ?? ''));
+        if ($serial !== '') {
+            $found = app(SerialLookup::class)->describe($serial);
+            // serial không có trong CRM (hoặc của công ty khác) → vẫn tiếp nhận như thiết bị ngoài hệ thống
+            $info = ($found && ! SerialLookup::belongsToOtherCompany($found, EgoCompanyScope::currentId())) ? $found : null;
         }
 
-        $serial = $this->findSerial(trim((string) $data['serial_code']));
-        $this->assertSerialCompany($serial, $companyId, $request);
-        if ($order) {
-            $this->assertSerialBelongsToOrder($serial, (int) $order->id);
-        }
-        if ($site && (int) ($serial->warranty_site_id ?? 0) > 0 && (int) $serial->warranty_site_id !== (int) $site->id) {
-            throw ValidationException::withMessages(['site_id' => 'Serial đang gắn với công trình khác trong hồ sơ bảo hành.']);
-        }
-
-        $assignee = $this->resolveAssignee($request, $data['assigned_to'] ?? null, $companyId);
-        $customerId = (int) ($serial->customer_id ?? 0) ?: (int) ($order->customer_id ?? 0);
+        $company = EgoCompanyScope::currentId() ?: (int) ($info['company_ids'][0] ?? 0) ?: \App\Support\EgoCompanyLock::id();
+        $customer = $this->resolveCustomer($data, $company);
+        $assignee = $this->resolveAssignee($request, $data['assigned_to'] ?? null, $company);
 
         try {
-            $claim = $this->repair->create($request->user(), $data, [
-                'serial' => $serial,
-                'site_id' => $site?->id ?: ((int) ($serial->warranty_site_id ?? 0) ?: null),
-                'order_id' => $order?->id ?: ((int) ($serial->order_id ?? 0) ?: null),
-                'customer_id' => $customerId,
-                'company_id' => $companyId,
-                'warranty_active' => $this->isWarrantyActive($serial),
-                'warranty_status' => (string) ($serial->warranty_status ?? ''),
-                'assignee_id' => $assignee?->id,
-                'assignee_name' => $assignee?->name,
+            $claim = $this->repair->create($request->user(), $data + ['received_by' => $request->user()->id], [
+                'customer' => $customer, 'serial_info' => $info, 'company_id' => $company,
+                'assignee_id' => $assignee?->id, 'assignee_name' => $assignee?->name,
             ]);
         } catch (WarrantyException $e) {
             throw ValidationException::withMessages(['serial_code' => $e->getMessage()]);
         }
         $this->storeEvidence($request, $claim);
 
-        return redirect()->route('ky-thuat.repair.show', ['claim' => $claim->id])
-            ->with('success', 'Đã tiếp nhận '.$claim->claim_code.'. Bước tiếp theo: chẩn đoán kỹ thuật.');
+        $msg = 'Đã tiếp nhận '.$claim->claim_code.'. Bước tiếp theo: chẩn đoán kỹ thuật.';
+        $url = route('ky-thuat.repair.show', ['claim' => $claim->id]);
+        if ($request->expectsJson()) {
+            session()->flash('success', $msg);
+
+            return response()->json(['ok' => true, 'message' => $msg, 'redirect' => $url]);
+        }
+
+        return redirect($url)->with('success', $msg);
     }
 
+    /**
+     * Khách hàng: chọn từ CRM hoặc nhập mới ngay trong popup (tạo bản ghi CRM nhanh).
+     * SĐT trùng khách đã có → yêu cầu chọn khách hiện tại (không tạo trùng).
+     *
+     * @return array{id:?int,name:string,phone:string,email:?string,address:?string,company:?string}
+     */
+    private function resolveCustomer(array $data, int $company): array
+    {
+        $phone = trim((string) $data['customer_phone']);
+        if (! empty($data['customer_id'])) {
+            $c = DB::table('crm_customers')->where('id', (int) $data['customer_id'])->first();
+            if (! $c) {
+                throw ValidationException::withMessages(['customer_id' => 'Khách hàng không tồn tại.']);
+            }
+            if ($company > 0 && (int) ($c->company_id ?? 0) > 0 && (int) $c->company_id !== $company) {
+                throw ValidationException::withMessages(['customer_id' => 'Khách hàng thuộc công ty khác.']);
+            }
+
+            return ['id' => (int) $c->id, 'name' => (string) $c->name, 'phone' => (string) ($c->phone ?: $phone), 'email' => $c->email ?: ($data['customer_email'] ?? null),
+                'address' => $c->address ?: ($data['customer_address'] ?? null), 'company' => $c->billing_company_name ?: ($data['customer_company'] ?? null)];
+        }
+
+        $exists = DB::table('crm_customers')->where('phone', $phone)->first(['id', 'name']);
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'customer_phone' => 'Số điện thoại này đã thuộc khách hàng “'.$exists->name.'”. Vui lòng chọn khách hàng hiện có thay vì tạo mới.',
+            ]);
+        }
+
+        $id = (int) DB::table('crm_customers')->insertGetId([
+            'name' => trim((string) $data['customer_name']), 'phone' => $phone, 'email' => $data['customer_email'] ?? null,
+            'address' => $data['customer_address'] ?? null, 'billing_company_name' => $data['customer_company'] ?? null,
+            'company_id' => $company ?: null, 'customer_status' => 'retail', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return ['id' => $id, 'name' => trim((string) $data['customer_name']), 'phone' => $phone, 'email' => $data['customer_email'] ?? null,
+            'address' => $data['customer_address'] ?? null, 'company' => $data['customer_company'] ?? null];
+    }
     public function show(Request $request, SolarWarrantyClaim $claim): View
     {
         $this->authorizeView($request);
@@ -207,6 +274,7 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
 
         return view('technical.warranty-repair.show', [
             'claim' => $claim, 'device' => $device, 'statuses' => WarrantyFlow::REPAIR_STATUSES,
+            'reference' => $claim->serial_code ? app(SerialLookup::class)->describe((string) $claim->serial_code) : null,
             'timeline' => WarrantyFlow::repairTimeline($claim, $flags),
             'checklist' => $this->repair->checklist($claim),
             'quotations' => $quotations, 'quotationItems' => $items, 'current' => $current,
@@ -222,18 +290,18 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
     }
 
     // ----------------------------------------------------------------- actions
-    public function diagnosis(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function diagnosis(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate([
             'diagnosis' => ['required', 'string', 'max:10000'], 'diagnosis_cause' => ['required', 'string', 'max:10000'],
             'proposed_solution' => ['required', 'string', 'max:10000'], 'parts_needed' => ['nullable', 'string', 'max:5000'],
-            'est_repair_hours' => ['nullable', 'numeric', 'min:0', 'max:9999'], 'tech_note' => ['nullable', 'string', 'max:5000'],
+            'est_repair_hours' => ['nullable', 'numeric', 'min:0', 'max:9999'], 'tech_note' => ['nullable', 'string', 'max:5000'], 'diagnosis_conclusion' => ['nullable', 'string', 'max:5000'],
         ]);
 
         return $this->act($claim, 'Đã lưu chẩn đoán. Tiếp theo: lập báo giá.', fn () => $this->repair->saveDiagnosis($claim->id, $r->user(), $d));
     }
 
-    public function quotation(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function quotation(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate([
             'items' => ['nullable', 'array', 'max:60'],
@@ -250,12 +318,12 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         return $this->act($claim, 'Đã lưu báo giá (tổng tiền do hệ thống tính).', fn () => $this->repair->saveQuotation($claim->id, $r->user(), $d));
     }
 
-    public function sendQuotation(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function sendQuotation(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã gửi báo giá — chờ khách xác nhận.', fn () => $this->repair->sendQuotation($claim->id, $r->user()));
     }
 
-    public function decision(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function decision(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate([
             'decision' => ['required', 'in:approved,rejected'], 'method' => ['required', 'string', 'max:20'],
@@ -265,29 +333,29 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         return $this->act($claim, 'Đã ghi nhận quyết định của khách.', fn () => $this->repair->customerDecision($claim->id, $r->user(), $d['decision'], $d['method'], $d['decided_at'] ?? null, $d['note'] ?? null));
     }
 
-    public function reserveParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function reserveParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate(['warehouse_id' => ['required', 'integer', 'exists:crm_warehouses,id']]);
 
         return $this->act($claim, 'Đã giữ linh kiện.', fn () => $this->repair->reserveParts($claim->id, $r->user(), (int) $d['warehouse_id']));
     }
 
-    public function issueParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function issueParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã xuất linh kiện cho Kỹ thuật.', fn () => $this->repair->issueParts($claim->id, $r->user()));
     }
 
-    public function returnParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function returnParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã hoàn kho linh kiện dư.', fn () => $this->repair->returnLeftoverParts($claim->id, $r->user()));
     }
 
-    public function start(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function start(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã bắt đầu sửa chữa.', fn () => $this->repair->startRepair($claim->id, $r->user()));
     }
 
-    public function progress(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function progress(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate([
             'repair_work_done' => ['required', 'string', 'max:10000'], 'repair_hours_actual' => ['nullable', 'numeric', 'min:0', 'max:9999'],
@@ -298,19 +366,19 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         return $this->act($claim, 'Đã cập nhật tiến độ sửa chữa.', fn () => $this->repair->updateRepair($claim->id, $r->user(), $d, $used));
     }
 
-    public function qaSubmit(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function qaSubmit(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã chuyển sang kiểm tra sau sửa.', fn () => $this->repair->submitToQa($claim->id, $r->user()));
     }
 
-    public function qa(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function qa(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate(['result' => ['required', 'in:pass,fail'], 'measurements' => ['nullable', 'string', 'max:5000'], 'note' => ['nullable', 'string', 'max:5000']]);
 
         return $this->act($claim, $d['result'] === 'pass' ? 'Kiểm tra ĐẠT — sẵn sàng bàn giao.' : 'Kiểm tra KHÔNG đạt — quay lại sửa chữa.', fn () => $this->repair->recordQa($claim->id, $r->user(), $d['result'], $d['measurements'] ?? null, $d['note'] ?? null));
     }
 
-    public function handover(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function handover(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate([
             'handed_over_at' => ['nullable', 'date'], 'handover_receiver_name' => ['required', 'string', 'max:190'],
@@ -321,19 +389,19 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         return $this->act($claim, 'Đã bàn giao cho khách hàng.', fn () => $this->repair->handover($claim->id, $r->user(), $d));
     }
 
-    public function complete(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function complete(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         return $this->act($claim, 'Đã hoàn tất phiếu sửa chữa (báo giá cuối đã khóa).', fn () => $this->repair->complete($claim->id, $r->user()));
     }
 
-    public function cancel(Request $r, SolarWarrantyClaim $claim): RedirectResponse
+    public function cancel(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
         $d = $r->validate(['reason' => ['required', 'string', 'max:5000']], ['reason.required' => 'Bắt buộc nhập lý do hủy phiếu.']);
 
         return $this->act($claim, 'Đã hủy phiếu.', fn () => $this->repair->cancel($claim->id, $r->user(), $d['reason']));
     }
 
-    private function act(SolarWarrantyClaim $claim, string $ok, callable $fn): RedirectResponse
+    private function act(SolarWarrantyClaim $claim, string $ok, callable $fn): RedirectResponse|JsonResponse
     {
         abort_unless($claim->claim_type === WarrantyFlow::TYPE_REPAIR, 404);
         $user = request()->user();
@@ -346,7 +414,16 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         try {
             $fn();
         } catch (WarrantyException $e) {
+            if (request()->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $e->getMessage(), 'errors' => ['workflow' => [$e->getMessage()]]], 422);
+            }
+
             return back()->withInput()->withErrors(['workflow' => $e->getMessage()]);
+        }
+        if (request()->expectsJson()) {
+            session()->flash('success', $ok);
+
+            return response()->json(['ok' => true, 'message' => $ok]);
         }
 
         return back()->with('success', $ok);

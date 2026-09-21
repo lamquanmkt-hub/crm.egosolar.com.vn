@@ -41,6 +41,17 @@
         </div>
     </header>
 
+    @php
+        $stepActions = [];
+        if ($can['approve']) { $stepActions['approval'] = ['modal' => 'mApprove', 'label' => 'Duyệt / xử lý']; }
+        if ($can['resubmit']) { $stepActions['approval'] = ['modal' => 'mResubmit', 'label' => 'Bổ sung & gửi lại']; }
+        if ($can['reserve']) { $stepActions['reserve'] = ['modal' => 'mReserve', 'label' => 'Chọn serial & giữ hàng']; }
+        if ($can['issue']) { $stepActions['issue'] = ['modal' => 'mIssue', 'label' => 'Xuất kho']; }
+        if ($can['tech_receive']) { $stepActions['replace'] = ['modal' => 'mReceive', 'label' => 'Xác nhận đã nhận hàng']; }
+        if ($can['replace']) { $stepActions['replace'] = ['modal' => 'mReplace', 'label' => 'Xác nhận đã thay']; }
+        if ($can['faulty_return']) { $stepActions['faulty_return'] = ['modal' => 'mFaulty', 'label' => 'Thu hồi hàng lỗi']; }
+        if ($can['complete']) { $stepActions['complete'] = ['modal' => 'mComplete', 'label' => 'Hoàn tất']; }
+    @endphp
     @include('technical.warranty._timeline')
 
     <div class="wx2-layout">
@@ -128,109 +139,143 @@
 
     <aside>
         <div class="wx2-card">
-            <h2>Hành động</h2>
-
-            @if($can['approve'])
-                <div class="wx2-actions-box"><h4>Trưởng phòng duyệt</h4>
-                    @if($can['approve_blocked_self'])<div class="wx2-warn">Bạn là người tạo/phụ trách/đề nghị ngoại lệ của phiếu này nên KHÔNG được tự duyệt. Cần Trưởng phòng/Giám đốc khác.</div>@endif
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.approve', $claim) }}">@csrf
-                        <label>Ý kiến duyệt<textarea name="approval_note" rows="2"></textarea></label>
-                        @if($can['override'] && $can['approve_blocked_self'])<label>Emergency override — lý do bắt buộc<textarea name="override_reason" rows="2" required></textarea></label>@endif
-                        @if(! $can['approve_blocked_self'] || $can['override'])<button class="wx-btn primary small" type="submit"><i class="bi bi-check2-circle"></i>Duyệt & chuyển Kho</button>@endif
-                    </form>
-                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.request-info', $claim) }}">@csrf
-                        <label>Yêu cầu bổ sung — lý do bắt buộc<textarea name="reason" rows="2" required></textarea></label>
-                        <button class="wx-btn secondary small" type="submit">Yêu cầu bổ sung</button></form>
-                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.reject', $claim) }}" onsubmit="return confirm('Từ chối đề xuất này?')">@csrf
-                        <label>Từ chối — lý do bắt buộc<textarea name="reason" rows="2" required></textarea></label>
-                        <button class="wx-btn ghost small" type="submit">Từ chối</button></form>
-                </div>
-            @endif
-
-            @if($can['resubmit'])
-                <div class="wx2-actions-box"><h4>Bổ sung & gửi duyệt lại</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.resubmit', $claim) }}">@csrf
-                        <label>Hiện tượng<textarea name="issue_description" rows="2">{{ $claim->issue_description }}</textarea></label>
-                        <label>Chẩn đoán<textarea name="diagnosis" rows="2">{{ $claim->diagnosis }}</textarea></label>
-                        <label>Phương án đề xuất<textarea name="proposed_solution" rows="2">{{ $claim->proposed_solution }}</textarea></label>
-                        <button class="wx-btn primary small" type="submit">Gửi duyệt lại</button></form></div>
-            @endif
-
-            @if($can['reopen'])
-                <div class="wx2-actions-box"><h4>Mở lại phiếu bị từ chối</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.reopen', $claim) }}">@csrf
-                        <label>Lý do mở lại<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn secondary small" type="submit">Mở lại</button></form></div>
-            @endif
-
-            @if($can['reserve'])
-                <div class="wx2-actions-box"><h4>Kho chọn serial thay thế & GIỮ HÀNG</h4>
-                    <div class="wx2-info">Serial phải: đang tồn kho, đúng kho, CÙNG sản phẩm/model, chưa giữ cho phiếu khác.</div>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.reserve', $claim) }}">@csrf
-                        <label>Kho xuất<select name="warehouse_id" required><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
-                        <label>Serial thay thế<input name="serial_code" list="wxRepl" required placeholder="Chọn serial tồn kho…"></label>
-                        <datalist id="wxRepl">@foreach($replacementCandidates as $cand)<option value="{{ $cand->serial_code }}">{{ $cand->warehouse_name }} · {{ $cand->serial_code }}</option>@endforeach</datalist>
-                        <label>Ghi chú kho<textarea name="note" rows="2"></textarea></label>
-                        <button class="wx-btn primary small" type="submit"><i class="bi bi-lock"></i>{{ $claim->status === 'reserved' ? 'Đổi serial & giữ hàng' : 'Giữ hàng' }}</button></form>
-                </div>
-            @endif
-            @if($can['issue'])
-                <div class="wx2-actions-box"><h4>Kho xuất thiết bị thay thế</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.issue', $claim) }}" onsubmit="return confirm('Xác nhận XUẤT KHO? Tồn kho sẽ giảm.')">@csrf
-                        <label>Ghi chú xuất kho / người nhận<textarea name="note" rows="2"></textarea></label>
-                        <button class="wx-btn primary small" type="submit"><i class="bi bi-box-arrow-up-right"></i>Xác nhận xuất kho</button></form>
-                    <form class="wx2-form" style="margin-top:8px" method="POST" action="{{ route('ky-thuat.warranty-exchange.release', $claim) }}">@csrf
-                        <label>Nhả hàng — lý do<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Nhả hàng</button></form>
-                </div>
-            @endif
-            @if($can['tech_receive'])
-                <div class="wx2-actions-box"><h4>Kỹ thuật xác nhận đã NHẬN hàng</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.tech-receive', $claim) }}">@csrf
-                        <div class="wx2-row2"><label>Ngày nhận<input type="datetime-local" name="received_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label>
-                            <label>Người giao<input name="delivered_by" placeholder="Nhân viên Kho…"></label></div>
-                        <label>Ghi chú tình trạng hàng<textarea name="note" rows="2"></textarea></label>
-                        <button class="wx-btn primary small" type="submit">Đã nhận hàng</button></form></div>
-            @endif
-            @if($can['replace'])
-                <div class="wx2-actions-box"><h4>Xác nhận ĐÃ THAY thiết bị cho khách</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.confirm-replaced', $claim) }}">@csrf
-                        <div class="wx2-row2"><label>Ngày thay<input type="datetime-local" name="replaced_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label>
-                            <label>Kết quả<select name="result"><option value="success">Thay thành công</option><option value="issue">Có vấn đề</option></select></label></div>
-                        <label>Ghi chú<textarea name="note" rows="2"></textarea></label>
-                        <button class="wx-btn primary small" type="submit">Xác nhận đã thay</button></form></div>
-            @endif
-            @if($can['faulty_return'])
-                <div class="wx2-actions-box"><h4>Kho nhận thiết bị lỗi thu hồi</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.faulty-return', $claim) }}">@csrf
-                        <label>Kho nhận<select name="warehouse_id" required><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
-                        <label>Người mang thiết bị về<input name="returned_by" required></label>
-                        <label>Tình trạng<select name="condition">@foreach($faultyConditions as $k => $lbl)<option value="{{ $k }}">{{ $lbl }}</option>@endforeach</select></label>
-                        <label>Ghi chú / biên bản<textarea name="note" rows="2"></textarea></label>
-                        <button class="wx-btn primary small" type="submit">Xác nhận đã nhận thiết bị lỗi</button></form></div>
-            @endif
-            @if($can['defer_return'])
-                <div class="wx2-actions-box"><h4>Hoãn thu hồi (đổi trước – thu sau)</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.defer-return', $claim) }}">@csrf
-                        <label>Lý do hoãn<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Ghi nhận hoãn (vẫn theo dõi)</button></form></div>
-            @endif
-            @if($can['complete'])
-                <div class="wx2-actions-box"><h4>Hoàn tất phiếu</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.complete', $claim) }}" onsubmit="return confirm('Hoàn tất phiếu? Không thể hoàn tất lần 2.')">@csrf
-                        <label>Kết quả xử lý<textarea name="resolution" rows="2" required></textarea></label>
-                        @if($canViewCosts)<label>Chi phí thực tế<input type="number" min="0" step="1000" name="actual_cost"></label>@endif
-                        <button class="wx-btn primary small" type="submit"><i class="bi bi-flag"></i>Hoàn tất</button></form></div>
-            @endif
-            @if($can['cancel'])
-                <div class="wx2-actions-box"><h4>Hủy phiếu</h4>
-                    <form class="wx2-form" method="POST" action="{{ route('ky-thuat.warranty-exchange.cancel', $claim) }}" onsubmit="return confirm('Hủy phiếu? Hàng đang giữ sẽ được nhả.')">@csrf
-                        <label>Lý do hủy<textarea name="reason" rows="2" required></textarea></label><button class="wx-btn ghost small" type="submit">Hủy phiếu</button></form></div>
-            @endif
-
-            @if(! collect($can)->except(['override', 'approve_blocked_self'])->contains(true))
-                <p style="font-size:12.5px;color:#64748b;margin:0">Hiện chưa có hành động nào dành cho bạn ở bước “{{ $statuses[$claim->status] ?? $claim->status }}”.</p>
-            @endif
+            <h2>Thao tác</h2>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                @if($can['approve'])<button type="button" class="wx-btn primary" data-wx-open="mApprove"><i class="bi bi-check2-circle"></i> Duyệt</button>
+                    <button type="button" class="wx-btn secondary" data-wx-open="mInfo">Yêu cầu bổ sung</button>
+                    <button type="button" class="wx-btn ghost" data-wx-open="mReject">Từ chối</button>@endif
+                @if($can['resubmit'])<button type="button" class="wx-btn primary" data-wx-open="mResubmit">Bổ sung & gửi duyệt lại</button>@endif
+                @if($can['reopen'])<button type="button" class="wx-btn secondary" data-wx-open="mReopen">Mở lại phiếu bị từ chối</button>@endif
+                @if($can['reserve'])<button type="button" class="wx-btn primary" data-wx-open="mReserve"><i class="bi bi-lock"></i> {{ $claim->status === 'reserved' ? 'Đổi serial giữ hàng' : 'Chọn serial & giữ hàng' }}</button>@endif
+                @if($can['issue'])<button type="button" class="wx-btn primary" data-wx-open="mIssue"><i class="bi bi-box-arrow-up-right"></i> Xuất kho</button>
+                    <button type="button" class="wx-btn ghost" data-wx-open="mRelease">Nhả hàng</button>@endif
+                @if($can['tech_receive'])<button type="button" class="wx-btn primary" data-wx-open="mReceive">Xác nhận đã nhận hàng</button>@endif
+                @if($can['replace'])<button type="button" class="wx-btn primary" data-wx-open="mReplace">Xác nhận đã thay thiết bị</button>@endif
+                @if($can['faulty_return'])<button type="button" class="wx-btn primary" data-wx-open="mFaulty">Thu hồi thiết bị lỗi</button>@endif
+                @if($can['defer_return'])<button type="button" class="wx-btn ghost" data-wx-open="mDefer">Hoãn thu hồi (đổi trước – thu sau)</button>@endif
+                @if($can['complete'])<button type="button" class="wx-btn primary" data-wx-open="mComplete"><i class="bi bi-flag"></i> Hoàn tất</button>@endif
+                @if($can['cancel'])<button type="button" class="wx-btn ghost" data-wx-open="mCancel">Hủy phiếu</button>@endif
+                @if($can['evidence'])<button type="button" class="wx-btn secondary" data-wx-open="mEvidence"><i class="bi bi-cloud-arrow-up"></i> Tải minh chứng</button>@endif
+                @if(! collect($can)->except(['override', 'approve_blocked_self'])->contains(true))
+                    <p style="font-size:12.5px;color:#64748b;margin:0">Hiện chưa có thao tác nào dành cho bạn ở bước “{{ $statuses[$claim->status] ?? $claim->status }}”.</p>
+                @endif
+            </div>
         </div>
     </aside>
     </div>
 </div>
 </div>
+{{-- ===================== POPUP THAO TÁC ===================== --}}
+@if($can['approve'])
+<x-wx-modal id="mApprove" title="Duyệt đề xuất đổi hàng" :action="route('ky-thuat.warranty-exchange.approve', $claim)" submit="DUYỆT & CHUYỂN KHO">
+    <div class="wx2-info">Sau khi duyệt, phiếu chuyển sang “Chờ Kho xử lý” và Kho nhận việc chọn serial thay thế.</div>
+    @if($can['approve_blocked_self'])<div class="wx2-warn">Bạn là người tạo/phụ trách/đề nghị ngoại lệ của phiếu này nên KHÔNG được tự duyệt.@if($can['override']) Chỉ được duyệt bằng emergency override kèm lý do.@endif</div>@endif
+    <div class="wx2-form">
+        <label>Ý kiến duyệt<textarea name="approval_note" rows="3"></textarea></label>
+        @if($can['approve_blocked_self'] && $can['override'])<label>Emergency override — lý do bắt buộc<textarea name="override_reason" rows="2"></textarea></label>@endif
+    </div>
+</x-wx-modal>
+<x-wx-modal id="mInfo" title="Yêu cầu bổ sung" :action="route('ky-thuat.warranty-exchange.request-info', $claim)" submit="GỬI YÊU CẦU BỔ SUNG" size="md">
+    <div class="wx2-form"><label>Cần bổ sung gì? (bắt buộc)<textarea name="reason" rows="4"></textarea></label></div>
+</x-wx-modal>
+<x-wx-modal id="mReject" title="Từ chối đề xuất" :action="route('ky-thuat.warranty-exchange.reject', $claim)" submit="XÁC NHẬN TỪ CHỐI" :danger="true" size="md">
+    <div class="wx2-warn">Từ chối sẽ đóng phiếu (có thể mở lại có lý do).</div>
+    <div class="wx2-form"><label>Lý do từ chối (bắt buộc)<textarea name="reason" rows="4"></textarea></label></div>
+</x-wx-modal>
+@endif
+@if($can['resubmit'])
+<x-wx-modal id="mResubmit" title="Bổ sung & gửi duyệt lại" :action="route('ky-thuat.warranty-exchange.resubmit', $claim)" submit="GỬI DUYỆT LẠI">
+    @if($claim->decision_reason)<div class="wx2-warn"><b>Yêu cầu của người duyệt:</b> {{ $claim->decision_reason }}</div>@endif
+    <div class="wx2-form">
+        <label>Hiện tượng<textarea name="issue_description" rows="2">{{ $claim->issue_description }}</textarea></label>
+        <label>Chẩn đoán<textarea name="diagnosis" rows="2">{{ $claim->diagnosis }}</textarea></label>
+        <label>Phương án đề xuất<textarea name="proposed_solution" rows="2">{{ $claim->proposed_solution }}</textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['reopen'])
+<x-wx-modal id="mReopen" title="Mở lại phiếu bị từ chối" :action="route('ky-thuat.warranty-exchange.reopen', $claim)" submit="MỞ LẠI" size="md">
+    <div class="wx2-form"><label>Lý do mở lại (bắt buộc)<textarea name="reason" rows="3"></textarea></label></div>
+</x-wx-modal>
+@endif
+@if($can['reserve'])
+<x-wx-modal id="mReserve" title="Kho chọn serial thay thế & giữ hàng" :action="route('ky-thuat.warranty-exchange.reserve', $claim)" submit="GIỮ HÀNG">
+    <div class="wx2-info">Serial phải: đang tồn kho sẵn sàng, đúng kho, <b>cùng sản phẩm/model</b> ({{ $device->product_name ?? '' }}), khác serial lỗi, chưa giữ cho phiếu khác.</div>
+    <div class="wx2-form">
+        <label>Kho xuất<select name="warehouse_id"><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
+        <label>Serial thay thế<input name="serial_code" list="wxRepl" placeholder="Chọn / nhập serial tồn kho…"></label>
+        <datalist id="wxRepl">@foreach($replacementCandidates as $cand)<option value="{{ $cand->serial_code }}">{{ $cand->warehouse_name }} · {{ $cand->serial_code }}</option>@endforeach</datalist>
+        <label>Ghi chú kho<textarea name="note" rows="2"></textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['issue'])
+<x-wx-modal id="mIssue" title="Xác nhận XUẤT KHO thiết bị thay thế" :action="route('ky-thuat.warranty-exchange.issue', $claim)" submit="XÁC NHẬN XUẤT KHO" size="md">
+    <div class="wx2-warn">Xuất kho sẽ chuyển serial <b>{{ $claim->reserved_serial_code }}</b> sang “đã bán/đã giao” và giảm tồn kho. Không thể xuất lần 2.</div>
+    <div class="wx2-form"><label>Ghi chú xuất kho / người nhận<textarea name="note" rows="2"></textarea></label></div>
+</x-wx-modal>
+<x-wx-modal id="mRelease" title="Nhả hàng đã giữ" :action="route('ky-thuat.warranty-exchange.release', $claim)" submit="NHẢ HÀNG" size="md">
+    <div class="wx2-form"><label>Lý do nhả hàng (bắt buộc)<textarea name="reason" rows="3"></textarea></label></div>
+</x-wx-modal>
+@endif
+@if($can['tech_receive'])
+<x-wx-modal id="mReceive" title="Kỹ thuật xác nhận đã NHẬN hàng" :action="route('ky-thuat.warranty-exchange.tech-receive', $claim)" submit="ĐÃ NHẬN HÀNG" size="md">
+    <div class="wx2-form">
+        <div class="wx2-row2"><label>Ngày nhận<input type="datetime-local" name="received_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label><label>Người giao<input name="delivered_by" placeholder="Nhân viên Kho…"></label></div>
+        <label>Tình trạng hàng nhận / ghi chú<textarea name="note" rows="2"></textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['replace'])
+<x-wx-modal id="mReplace" title="Xác nhận ĐÃ THAY thiết bị cho khách" :action="route('ky-thuat.warranty-exchange.confirm-replaced', $claim)" submit="XÁC NHẬN ĐÃ THAY" size="md">
+    <div class="wx2-info">Hệ thống sẽ lưu cặp serial <b>{{ $claim->serial_code }}</b> → <b>{{ $claim->replacement_serial_code }}</b>.</div>
+    <div class="wx2-form">
+        <div class="wx2-row2"><label>Ngày thay<input type="datetime-local" name="replaced_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label>
+            <label>Kết quả<select name="result"><option value="success">Thay thành công</option><option value="issue">Có vấn đề</option></select></label></div>
+        <label>Ghi chú<textarea name="note" rows="2"></textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['faulty_return'])
+<x-wx-modal id="mFaulty" title="Kho nhận thiết bị lỗi thu hồi" :action="route('ky-thuat.warranty-exchange.faulty-return', $claim)" submit="XÁC NHẬN ĐÃ THU HỒI">
+    <div class="wx2-form">
+        <div class="wx2-row2"><label>Kho nhận<select name="warehouse_id"><option value="">Chọn kho…</option>@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></label>
+            <label>Tình trạng thiết bị<select name="condition">@foreach($faultyConditions as $k => $lbl)<option value="{{ $k }}">{{ $lbl }}</option>@endforeach</select></label></div>
+        <label>Người mang thiết bị về<input name="returned_by"></label>
+        <label>Ghi chú / biên bản<textarea name="note" rows="2"></textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['defer_return'])
+<x-wx-modal id="mDefer" title="Hoãn thu hồi thiết bị lỗi" :action="route('ky-thuat.warranty-exchange.defer-return', $claim)" submit="GHI NHẬN HOÃN" size="md">
+    <div class="wx2-info">Phiếu vẫn được theo dõi “chờ thu hồi”; Kho có thể nhận thiết bị lỗi muộn sau khi hoàn tất.</div>
+    <div class="wx2-form"><label>Lý do hoãn (bắt buộc)<textarea name="reason" rows="3"></textarea></label></div>
+</x-wx-modal>
+@endif
+@if($can['complete'])
+<x-wx-modal id="mComplete" title="Hoàn tất phiếu đổi hàng" :action="route('ky-thuat.warranty-exchange.complete', $claim)" submit="HOÀN TẤT PHIẾU">
+    <h3 style="font-size:13px">Checklist trước khi đóng phiếu</h3>
+    <ul class="wx2-check" style="margin-bottom:10px">@foreach($checklist as $item)<li><i class="bi {{ $item['ok'] ? 'bi-check-circle-fill ok' : ($item['required'] ? 'bi-x-circle-fill no' : 'bi-dash-circle opt') }}"></i><span>{{ $item['label'] }}</span></li>@endforeach</ul>
+    <div class="wx2-form">
+        <label>Kết quả xử lý (bắt buộc)<textarea name="resolution" rows="3"></textarea></label>
+        @if($canViewCosts)<label>Chi phí thực tế<input type="number" min="0" step="1000" name="actual_cost"></label>@endif
+    </div>
+</x-wx-modal>
+@endif
+@if($can['cancel'])
+<x-wx-modal id="mCancel" title="Hủy phiếu" :action="route('ky-thuat.warranty-exchange.cancel', $claim)" submit="XÁC NHẬN HỦY" :danger="true" size="md">
+    <div class="wx2-warn">Hàng đang giữ (nếu có) sẽ được nhả và phiếu kho đang mở bị hủy.</div>
+    <div class="wx2-form"><label>Lý do hủy (bắt buộc)<textarea name="reason" rows="3"></textarea></label></div>
+</x-wx-modal>
+@endif
+@if($can['evidence'])
+<x-wx-modal id="mEvidence" title="Tải file minh chứng" :action="route('ky-thuat.warranty-exchange.evidence.upload', $claim->id)" submit="TẢI LÊN" size="md" :files="true">
+    <div class="wx2-form"><label>Chọn tệp (JPG/PNG/WEBP/PDF, tối đa {{ config('warranty.evidence_max_files') }} tệp, 20MB/tệp) — lưu riêng tư<input type="file" name="evidence[]" multiple accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
+</x-wx-modal>
+@endif
+@endsection
+
+@section('scripts')
+<script>window.WX = {};</script>
+<script src="{{ asset('js/warranty-modals-v2.js') }}?v={{ file_exists(public_path('js/warranty-modals-v2.js')) ? filemtime(public_path('js/warranty-modals-v2.js')) : time() }}"></script>
 @endsection

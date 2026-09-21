@@ -49,9 +49,7 @@ final class WarrantyExchangeService
             $this->guardNoOpenClaim((int) $serial->serial_unit_id);
 
             $internal = trim((string) ($data['internal_note'] ?? ''));
-            $source = ($ctx['source_type'] ?? 'site') === 'order'
-                ? 'Nguồn tạo phiếu: Đơn hàng #'.($ctx['order_id'] ?? '')
-                : 'Nguồn tạo phiếu: Công trình #'.($ctx['site_id'] ?? '');
+            $source = 'Tạo từ serial '.$serial->serial_code;
 
             try {
                 $claim = SolarWarrantyClaim::create([

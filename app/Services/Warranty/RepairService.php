@@ -103,61 +103,92 @@ final class RepairService
 
     // ------------------------------------------------------------------ 1-2. tiếp nhận + kiểm tra
 
-    /** @param array<string,mixed> $ctx serial(object), site_id, order_id, customer_id, company_id, warranty_active, warranty_status, assignee_id/name */
+    /**
+     * TIẾP NHẬN SỬA CHỮA — khách hàng + thiết bị + lỗi là dữ liệu chính.
+     * KHÔNG yêu cầu Đơn hàng / Công trình / serial tồn tại trong CRM.
+     *
+     * @param array<string,mixed> $data device_type, device_brand, device_model, serial_code?, device_accessories, received_condition, received_at,
+     *                                   delivered_by, issue_description, priority, internal_note, out_of_scope_reason
+     * @param array<string,mixed> $ctx  customer{id,name,phone,email,address,company}, serial_info?(SerialLookup), company_id, assignee_id, assignee_name
+     */
     public function create(User $actor, array $data, array $ctx): SolarWarrantyClaim
     {
         if (! SolarMaintenanceAccess::canCreateWarrantyClaim($actor)) {
             throw new WarrantyException('Bạn không có quyền tiếp nhận phiếu sửa chữa.');
         }
-        $serial = $ctx['serial'];
-        $inWarranty = (bool) $ctx['warranty_active'];
+        $info = $ctx['serial_info'] ?? null;
+        $cust = $ctx['customer'];
+        $serialText = trim((string) ($data['serial_code'] ?? ''));
         $scope = trim((string) ($data['out_of_scope_reason'] ?? ''));
-        if ($inWarranty && mb_strlen($scope) < (int) config('warranty.min_reason_length', 5)) {
+
+        if ($info && $info['warranty_active'] && mb_strlen($scope) < (int) config('warranty.min_reason_length', 5)) {
             throw new WarrantyException('Thiết bị còn bảo hành: bắt buộc nhập lý do lỗi KHÔNG thuộc phạm vi bảo hành mới được tính phí.');
         }
-        $eligibility = $inWarranty ? 'in_warranty_out_of_scope' : (($ctx['warranty_status'] ?? '') === '' ? 'no_record' : 'out_of_warranty');
+        $eligibility = match (true) {
+            ! $info => 'external_device',
+            (bool) $info['warranty_active'] => 'in_warranty_out_of_scope',
+            $info['warranty_status'] === '' => 'no_record',
+            default => 'out_of_warranty',
+        };
 
-        return DB::transaction(function () use ($actor, $data, $ctx, $serial, $eligibility, $scope): SolarWarrantyClaim {
-            $this->exchange->guardNoOpenClaim((int) $serial->serial_unit_id);
+        return DB::transaction(function () use ($actor, $data, $ctx, $info, $cust, $serialText, $scope, $eligibility): SolarWarrantyClaim {
+            if ($info) {
+                $this->exchange->guardNoOpenClaim((int) $info['serial_unit_id']);
+            } elseif ($serialText !== '') {
+                $dup = SolarWarrantyClaim::query()->where('serial_code', $serialText)
+                    ->whereIn('claim_type', [WarrantyFlow::TYPE_EXCHANGE, WarrantyFlow::TYPE_REPAIR])
+                    ->whereNotIn('status', WarrantyFlow::TERMINAL)->lockForUpdate()->first();
+                if ($dup) {
+                    throw new WarrantyException('Serial này đang có phiếu xử lý '.$dup->claim_code.'. Hãy xử lý phiếu hiện tại trước.');
+                }
+            }
+
             try {
                 $claim = SolarWarrantyClaim::create([
                     'company_id' => $ctx['company_id'] ?: null,
-                    'site_id' => $ctx['site_id'],
-                    'serial_unit_id' => (int) $serial->serial_unit_id,
-                    'serial_code' => (string) $serial->serial_code,
-                    'customer_id' => $ctx['customer_id'] ?: null,
-                    'order_id' => $ctx['order_id'],
+                    'site_id' => $info['site_id'] ?? null,          // chỉ THAM CHIẾU nếu CRM biết
+                    'order_id' => $info['order_id'] ?? null,        // chỉ THAM CHIẾU nếu CRM biết
+                    'serial_unit_id' => $info['serial_unit_id'] ?? null,
+                    'serial_code' => $info['serial_code'] ?? ($serialText !== '' ? $serialText : null),
+                    'customer_id' => $cust['id'] ?? null,
                     'claim_type' => self::T,
                     'priority' => $data['priority'],
                     'status' => 'diagnosing',
                     'approval_status' => 'not_submitted',
                     'assigned_to' => $ctx['assignee_id'] ?? null,
                     'assigned_name' => $ctx['assignee_name'] ?? null,
-                    'received_at' => now()->toDateString(),
+                    'received_at' => $data['received_at'] ?? now()->toDateString(),
                     'issue_description' => trim((string) $data['issue_description']),
                     'is_chargeable' => true,
                     'internal_note' => $data['internal_note'] ?? null,
                     'created_by' => $actor->id,
                 ]);
             } catch (QueryException) {
-                throw new WarrantyException('Serial này vừa có phiếu khác được tạo. Vui lòng tải lại trang.');
+                throw new WarrantyException('Serial này vừa có phiếu khác được tạo. Vui lòng tải lại.');
             }
+
             DB::table('crm_serial_warranty_claims')->where('id', $claim->id)->update([
                 'claim_code' => sprintf('SCTP-%s-%06d', now()->format('Y'), $claim->id),
-                'open_serial_key' => (int) $serial->serial_unit_id,
+                'open_serial_key' => $info['serial_unit_id'] ?? null,
                 'status_changed_at' => now(),
                 'warranty_eligibility' => $eligibility,
                 'out_of_scope_reason' => $scope !== '' ? $scope : null,
+                'customer_name' => $cust['name'], 'customer_phone' => $cust['phone'], 'customer_email' => $cust['email'] ?? null,
+                'customer_address' => $cust['address'] ?? null, 'customer_company' => $cust['company'] ?? null,
+                'device_type' => $data['device_type'], 'device_brand' => $data['device_brand'] ?? null, 'device_model' => $data['device_model'],
+                'device_accessories' => $data['device_accessories'] ?? null, 'received_condition' => $data['received_condition'] ?? null,
+                'delivered_by' => $data['delivered_by'] ?? null, 'received_by' => $data['received_by'] ?? $actor->id,
             ]);
             $claim->refresh();
 
-            WarrantyAudit::log($claim->id, 'received', null, 'received', null, ['serial' => $claim->serial_code, 'site_id' => $claim->site_id, 'order_id' => $claim->order_id], null, $actor->id);
-            WarrantyAudit::log($claim->id, 'eligibility_check', 'received', 'diagnosing', null, ['eligibility' => $eligibility], $scope ?: null, $actor->id);
+            WarrantyAudit::log($claim->id, 'received', null, 'diagnosing', null, [
+                'customer' => $cust['name'], 'phone' => $cust['phone'], 'device' => trim($data['device_type'].' '.($data['device_brand'] ?? '').' '.$data['device_model']),
+                'serial' => $claim->serial_code, 'eligibility' => $eligibility,
+            ], $scope ?: null, $actor->id);
 
             return $claim;
         });
     }
-
     // ------------------------------------------------------------------ 3. chẩn đoán
 
     public function saveDiagnosis(int $claimId, User $actor, array $d): SolarWarrantyClaim
@@ -184,6 +215,7 @@ final class RepairService
                 'parts_needed' => $d['parts_needed'] ?? null,
                 'est_repair_hours' => ($hours === null || $hours === '') ? null : (float) $hours,
                 'tech_note' => $d['tech_note'] ?? null,
+                'diagnosis_conclusion' => $d['diagnosis_conclusion'] ?? null,
             ];
             $this->transition($c, 'quotation_draft', $actor, 'diagnosis', null, $fields);
 

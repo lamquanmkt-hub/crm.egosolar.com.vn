@@ -176,8 +176,7 @@ final class WarrantyFlow
     {
         $status = (string) $c->status;
         $steps = [
-            ['received', 'Tiếp nhận lỗi', true, self::dt($c->received_at ?? null)],
-            ['eligibility', 'Kiểm tra serial & tình trạng', ! empty($c->warranty_eligibility), (string) ($c->warranty_eligibility ?? '')],
+            ['received', 'Tiếp nhận sản phẩm', true, self::dt($c->received_at ?? null)],
             ['diagnosis', 'Kỹ thuật chẩn đoán', ! empty($c->diagnosis) && ! empty($c->diagnosis_cause), ''],
             ['quotation', 'Lập báo giá sửa chữa', (bool) ($flags['quotation_sent'] ?? false), ''],
             ['customer', 'Khách xác nhận', (bool) ($flags['quotation_approved'] ?? false), ''],

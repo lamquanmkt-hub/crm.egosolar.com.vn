@@ -31,21 +31,25 @@ final class RepairWorkflowTest extends TestCase
         return app(RepairService::class);
     }
 
+    /** Tiếp nhận sửa chữa qua HTTP. Mặc định: thiết bị NGOÀI hệ thống (không serial/đơn/công trình). */
     private function createRepair(?\App\Models\User $by = null, ?int $serial = null, array $o = []): object
     {
         $by ??= $this->tech;
-        $serial ??= $this->soldSerial(null, ['warranty_end_at' => now()->subDays(10)->toDateString()]); // hết bảo hành
-        $r = $this->actingAs($by)->post(route('ky-thuat.repair.store'), array_merge([
-            'source_type' => 'site', 'site_id' => $this->siteId, 'serial_code' => $this->code($serial), 'priority' => 'normal',
-            'issue_description' => '[LOCAL TEST REPAIR] Inverter không lên nguồn',
-        ], $o));
+        $payload = array_merge([
+            'customer_name' => '[LOCAL TEST REPAIR] Khach '.random_int(1000, 9999), 'customer_phone' => '0966'.random_int(100000, 999999),
+            'device_type' => 'Inverter', 'device_brand' => 'BrandX', 'device_model' => 'INV-'.random_int(100, 999),
+            'priority' => 'normal', 'issue_description' => '[LOCAL TEST REPAIR] Không lên nguồn',
+        ], $o);
+        if ($serial) {
+            $payload['serial_code'] = $this->code($serial);
+        }
+        $r = $this->actingAs($by)->post(route('ky-thuat.repair.store'), $payload);
         $r->assertSessionHasNoErrors();
-        $c = DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $serial)->orderByDesc('id')->first();
+        $c = DB::table('crm_serial_warranty_claims')->where('claim_type', 'paid_repair')->orderByDesc('id')->first();
         $this->assertNotNull($c);
 
         return $c;
     }
-
     private function diagnose(object $c): void
     {
         $this->rs()->saveDiagnosis($c->id, $this->tech, [
@@ -97,23 +101,92 @@ final class RepairWorkflowTest extends TestCase
 
     // ------------------------------------------------------------------ 1-2. tiếp nhận + kiểm tra
 
-    public function test_create_repair_out_of_warranty_starts_at_diagnosing_with_audit_and_open_key(): void
+    public function test_external_device_without_serial_order_or_site_can_be_received(): void
+    {
+        $c = $this->createRepair();
+        $this->assertSame('paid_repair', $c->claim_type);
+        $this->assertSame('diagnosing', $c->status);
+        $this->assertSame('external_device', $c->warranty_eligibility);
+        $this->assertNull($c->serial_unit_id);
+        $this->assertNull($c->serial_code);
+        $this->assertNull($c->order_id);
+        $this->assertNull($c->site_id);
+        $this->assertNull($c->open_serial_key);
+        $this->assertStringStartsWith('SCTP-', $c->claim_code);
+        $this->assertSame('Inverter', $c->device_type);
+        $this->assertNotEmpty($c->customer_name);
+        $this->assertNotEmpty($c->customer_phone);
+        $this->assertSame((int) $this->tech->id, (int) $c->received_by);
+        $this->assertSame(['received'], DB::table('warranty_claim_events')->where('claim_id', $c->id)->pluck('action')->all());
+    }
+
+    public function test_serial_unknown_to_crm_is_still_accepted_and_duplicates_are_blocked_by_serial_text(): void
+    {
+        $c = $this->createRepair(null, null, ['serial_code' => 'NGOAI-HE-THONG-001']);
+        $this->assertSame('NGOAI-HE-THONG-001', $c->serial_code);
+        $this->assertNull($c->serial_unit_id);
+        $this->assertSame('external_device', $c->warranty_eligibility);
+
+        $r = $this->actingAs($this->tech2)->post(route('ky-thuat.repair.store'), [
+            'customer_name' => 'K khác', 'customer_phone' => '0966'.random_int(100000, 999999), 'device_type' => 'Inverter', 'device_model' => 'X',
+            'priority' => 'normal', 'issue_description' => 'x', 'serial_code' => 'NGOAI-HE-THONG-001',
+        ]);
+        $r->assertSessionHasErrors('serial_code');
+    }
+
+    public function test_new_customer_is_created_inline_and_duplicate_phone_suggests_existing_customer(): void
+    {
+        $phone = '0966'.random_int(100000, 999999);
+        $c = $this->createRepair(null, null, ['customer_name' => '[LOCAL TEST REPAIR] Khach moi', 'customer_phone' => $phone, 'customer_email' => 'k@example.test', 'customer_address' => '1 Test', 'customer_company' => 'Cty Test']);
+        $cust = DB::table('crm_customers')->where('phone', $phone)->first();
+        $this->assertNotNull($cust, 'Khách mới phải được tạo trong CRM');
+        $this->assertSame((int) $cust->id, (int) $c->customer_id);
+        $this->assertSame('Cty Test', $c->customer_company);
+        $this->assertSame('[LOCAL TEST REPAIR] Khach moi', $c->customer_name);
+
+        // SĐT trùng, không chọn khách hiện có → chặn + gợi ý
+        $r = $this->actingAs($this->tech)->postJson(route('ky-thuat.repair.store'), [
+            'customer_name' => 'Người khác', 'customer_phone' => $phone, 'device_type' => 'Pin', 'device_model' => 'B1', 'priority' => 'normal', 'issue_description' => 'x',
+        ]);
+        $r->assertStatus(422)->assertJsonValidationErrors('customer_phone');
+        $this->assertStringContainsString('Khach moi', $r->json('errors.customer_phone.0'));
+        $this->assertSame(1, DB::table('crm_customers')->where('phone', $phone)->count());
+
+        // chọn khách hiện có → dùng lại, không tạo mới
+        $again = $this->createRepair(null, null, ['customer_id' => $cust->id, 'customer_name' => 'x', 'customer_phone' => $phone, 'device_model' => 'B2']);
+        $this->assertSame((int) $cust->id, (int) $again->customer_id);
+        $this->assertSame(1, DB::table('crm_customers')->where('phone', $phone)->count());
+
+        $this->actingAs($this->tech)->getJson(route('ky-thuat.repair.customers', ['q' => substr($phone, 0, 8)]))->assertOk()->assertJsonPath('items.0.id', $cust->id);
+    }
+
+    public function test_required_intake_fields_and_lookup_never_errors_for_unknown_serial(): void
+    {
+        $this->actingAs($this->tech)->postJson(route('ky-thuat.repair.store'), ['priority' => 'normal'])
+            ->assertStatus(422)->assertJsonValidationErrors(['customer_name', 'customer_phone', 'device_type', 'device_model', 'issue_description']);
+        $this->actingAs($this->tech)->getJson(route('ky-thuat.repair.lookup-serial', ['code' => 'KHONG-CO-TRONG-CRM']))->assertOk()->assertJsonPath('found', false);
+        $known = $this->soldSerial();
+        $this->actingAs($this->tech)->getJson(route('ky-thuat.repair.lookup-serial', ['code' => $this->code($known)]))
+            ->assertOk()->assertJsonPath('found', true)->assertJsonPath('info.customer_id', $this->customerId);
+    }
+
+    public function test_crm_serial_out_of_warranty_links_reference_only(): void
     {
         $serial = $this->soldSerial(null, ['warranty_end_at' => now()->subDays(5)->toDateString()]);
         $c = $this->createRepair($this->tech, $serial);
-        $this->assertSame('paid_repair', $c->claim_type);
-        $this->assertSame('diagnosing', $c->status);
         $this->assertSame('out_of_warranty', $c->warranty_eligibility);
+        $this->assertSame($serial, (int) $c->serial_unit_id);
         $this->assertSame($serial, (int) $c->open_serial_key);
-        $this->assertStringStartsWith('SCTP-', $c->claim_code);
-        $this->assertSame(['received', 'eligibility_check'], DB::table('warranty_claim_events')->where('claim_id', $c->id)->pluck('action')->all());
+        // đơn hàng/công trình chỉ THAM CHIẾU, không do người dùng chọn
+        $this->assertSame($this->orderId, (int) $c->order_id);
+        $this->actingAs($this->tech)->get(route('ky-thuat.repair.show', $c->id))->assertOk()->assertSee('tham chiếu trong hệ thống');
     }
 
-    public function test_in_warranty_serial_requires_out_of_scope_reason(): void
+    public function test_in_warranty_crm_serial_requires_out_of_scope_reason(): void
     {
         $serial = $this->soldSerial(); // còn bảo hành
-        $this->actingAs($this->tech)->post(route('ky-thuat.repair.store'), ['source_type' => 'site', 'site_id' => $this->siteId, 'serial_code' => $this->code($serial), 'priority' => 'normal', 'issue_description' => 'x'])
-            ->assertSessionHasErrors('serial_code');
+        $base = ['customer_name' => 'K', 'customer_phone' => '0966'.random_int(100000, 999999), 'device_type' => 'Inverter', 'device_model' => 'M', 'priority' => 'normal', 'issue_description' => 'x', 'serial_code' => $this->code($serial)];
+        $this->actingAs($this->tech)->postJson(route('ky-thuat.repair.store'), $base)->assertStatus(422)->assertJsonValidationErrors('serial_code');
         $c = $this->createRepair($this->tech, $serial, ['out_of_scope_reason' => 'Hỏng do sét đánh, không thuộc phạm vi bảo hành']);
         $this->assertSame('in_warranty_out_of_scope', $c->warranty_eligibility);
     }
@@ -124,7 +197,7 @@ final class RepairWorkflowTest extends TestCase
         $this->createRepair($this->tech, $serial);
         $this->actingAs($this->tech2)->post(route('ky-thuat.warranty-exchange.store'), $this->exchangePayload($serial, ['warranty_exception' => '1', 'exception_reason' => 'Ngoại lệ thử nghiệm']))
             ->assertSessionHasErrors('serial_code');
-        $this->actingAs($this->tech2)->post(route('ky-thuat.repair.store'), ['serial_code' => $this->code($serial), 'priority' => 'normal', 'issue_description' => 'x'])
+        $this->actingAs($this->tech2)->post(route('ky-thuat.repair.store'), ['customer_name' => 'K2', 'customer_phone' => '0966'.random_int(100000, 999999), 'device_type' => 'I', 'device_model' => 'M', 'priority' => 'normal', 'issue_description' => 'x', 'serial_code' => $this->code($serial)])
             ->assertSessionHasErrors('serial_code');
         $this->assertSame(1, DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $serial)->count());
     }
@@ -139,6 +212,55 @@ final class RepairWorkflowTest extends TestCase
         $this->assertSame('diagnosing', $this->claim($c->id)->status);
     }
 
+    /** LUỒNG BẮT BUỘC: khách mang thiết bị chưa từng có trong CRM — không đơn hàng, không công trình — đến hoàn tất. */
+    public function test_full_repair_flow_for_device_outside_ego_system_via_http_json(): void
+    {
+        $phone = '0966'.random_int(100000, 999999);
+        $resp = $this->actingAs($this->tech)->postJson(route('ky-thuat.repair.store'), [
+            'customer_name' => '[LOCAL TEST REPAIR] Khach ngoai', 'customer_phone' => $phone, 'customer_address' => '99 Ngoai',
+            'device_type' => 'Bộ sạc pin', 'device_brand' => 'NoName', 'device_model' => 'CHG-500', 'serial_code' => 'EXT-'.random_int(100000, 999999),
+            'received_condition' => 'Vỏ móp', 'device_accessories' => 'Dây nguồn', 'issue_description' => 'Không sạc được', 'priority' => 'high', 'delivered_by' => 'Khách',
+        ]);
+        $resp->assertOk()->assertJsonPath('ok', true);
+        $c = DB::table('crm_serial_warranty_claims')->where('customer_phone', $phone)->first();
+        $this->assertNull($c->order_id);
+        $this->assertNull($c->site_id);
+        $this->assertNull($c->serial_unit_id);
+        $id = $c->id;
+        $api = fn ($u, string $route, array $data = []) => $this->actingAs($u)->postJson(route($route, $id), $data);
+
+        $api($this->tech, 'ky-thuat.repair.diagnosis', ['diagnosis' => 'Hỏng IC sạc', 'diagnosis_cause' => 'Quá dòng', 'diagnosis_conclusion' => 'Cần thay IC', 'proposed_solution' => 'Thay IC + vệ sinh', 'est_repair_hours' => 2])->assertOk();
+        $api($this->tech, 'ky-thuat.repair.quotation', ['items' => [['name' => 'IC sạc', 'quantity' => 1, 'unit_price' => 250000]], 'labor_amount' => 150000, 'onsite_amount' => 0, 'shipping_amount' => 30000, 'extra_amount' => 0, 'discount_amount' => 30000, 'total_amount' => 1])->assertOk();
+        $this->assertSame('400000.00', DB::table('warranty_repair_quotations')->where('claim_id', $id)->value('total_amount')); // 250k+150k+30k−30k
+        $api($this->tech, 'ky-thuat.repair.quotation.send')->assertOk();
+        $api($this->tech, 'ky-thuat.repair.decision', ['decision' => 'approved', 'method' => 'phone', 'note' => 'Khách đồng ý qua điện thoại'])->assertOk();
+        $this->assertSame('approved_for_repair', $this->claim($id)->status);
+        $this->assertSame(0, DB::table('warranty_repair_parts')->where('claim_id', $id)->count(), 'Linh kiện tự nhập không cần Kho');
+        $api($this->tech, 'ky-thuat.repair.start')->assertOk();
+        $api($this->tech, 'ky-thuat.repair.progress', ['repair_work_done' => 'Thay IC sạc, vệ sinh', 'repair_hours_actual' => 1.5])->assertOk();
+        $api($this->tech, 'ky-thuat.repair.qa.submit')->assertOk();
+        $api($this->tech, 'ky-thuat.repair.qa', ['result' => 'pass', 'measurements' => 'Sạc 5A ổn định'])->assertOk();
+        $api($this->tech, 'ky-thuat.repair.handover', ['handover_receiver_name' => 'Khách ngoài', 'handover_condition' => 'Hoạt động tốt', 'handover_result' => 'Đã sửa xong'])->assertOk();
+        $api($this->tech, 'ky-thuat.repair.complete')->assertStatus(422); // KT viên không hoàn tất
+        $api($this->lead, 'ky-thuat.repair.complete')->assertOk();
+        $done = $this->claim($id);
+        $this->assertSame('completed', $done->status);
+        $this->assertEqualsWithDelta(400000.0, (float) $done->final_cost, 0.01);
+        $api($this->admin, 'ky-thuat.repair.complete')->assertStatus(422); // không hoàn tất lần 2
+        $this->assertSame((int) $this->lead->id, (int) $this->claim($id)->closed_by);
+        $this->actingAs($this->lead)->get(route('ky-thuat.repair.show', $id))->assertOk();
+        $this->actingAs($this->lead)->get(route('ky-thuat.repair.index'))->assertOk()->assertSee($phone);
+    }
+
+    public function test_timeline_has_nine_steps_and_current_step_action_targets(): void
+    {
+        $c = $this->createRepair();
+        $tl = WarrantyFlow::repairTimeline($this->claim($c->id), []);
+        $this->assertCount(9, $tl);
+        $this->assertSame(['received', 'diagnosis', 'quotation', 'customer', 'parts', 'repair', 'qa', 'handover', 'complete'], array_column($tl, 'key'));
+        $this->assertSame('done', $tl[0]['state']);
+        $this->assertSame('current', $tl[1]['state']);
+    }
     // ------------------------------------------------------------------ 3. chẩn đoán
 
     public function test_diagnosis_required_fields_then_moves_to_quotation_draft(): void
@@ -456,7 +578,7 @@ final class RepairWorkflowTest extends TestCase
         $c = $this->toHandedOver();
         $this->rs()->complete($c->id, $this->lead);
         $actions = DB::table('warranty_claim_events')->where('claim_id', $c->id)->pluck('action')->all();
-        foreach (['received', 'eligibility_check', 'diagnosis', 'quotation_create', 'quotation_send', 'customer_approved', 'parts_reserve', 'parts_issue', 'repair_start',
+        foreach (['received', 'diagnosis', 'quotation_create', 'quotation_send', 'customer_approved', 'parts_reserve', 'parts_issue', 'repair_start',
             'repair_update', 'qa_submit', 'qa_pass', 'parts_return', 'handover', 'complete'] as $a) {
             $this->assertContains($a, $actions, "Thiếu audit: $a");
         }

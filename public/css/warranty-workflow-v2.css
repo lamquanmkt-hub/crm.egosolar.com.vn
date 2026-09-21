@@ -58,3 +58,24 @@
 .wx2-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
 @media (max-width:1100px){.wx2-layout{grid-template-columns:1fr}}
 @media (max-width:640px){.wx2-row2{grid-template-columns:1fr}.wx2-table{display:block;overflow-x:auto}.wx2-timeline{grid-template-columns:repeat(2,1fr)}}
+
+/* ---- Popup (modal) v2 ---- */
+.wx-modal-v2{z-index:2050}
+.modal-backdrop{z-index:2040}
+.wx-modal-v2 .modal-content{border:0;border-radius:14px}
+.wx-modal-v2 .modal-header{border-bottom:1px solid #e2e8f0;padding:12px 18px}
+.wx-modal-v2 .modal-title{font-size:16px;font-weight:700;color:#0f172a}
+.wx-modal-v2 .modal-body{padding:16px 18px;font-size:13.5px}
+.wx-modal-v2 .modal-footer{border-top:1px solid #e2e8f0;padding:10px 18px;gap:8px}
+.wx-form-errors{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+.wx-form-errors ul{margin:4px 0 0 18px;padding:0}
+.wx-modal-v2 .is-invalid{border-color:#dc2626!important}
+.wx-modal-v2 .wx-section{border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.wx-modal-v2 .wx-section h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:#0369a1;margin:0 0 8px}
+.wx-modal-v2 .wx-big{font-size:18px;height:48px}
+.wx-readonly{background:#f8fafc}
+.wx-btn.danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.wx2-steps{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.wx2-stepact{margin-top:6px}
+.wx2-stepact .wx-btn{font-size:11px;padding:3px 8px}
+@media (max-width:640px){.wx-modal-v2 .modal-dialog{margin:.5rem}.wx-modal-v2 .modal-footer{flex-wrap:wrap}.wx-modal-v2 .modal-footer .wx-btn{flex:1 1 45%}}

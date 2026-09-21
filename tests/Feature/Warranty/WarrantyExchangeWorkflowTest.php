@@ -41,19 +41,58 @@ final class WarrantyExchangeWorkflowTest extends TestCase
         $this->assertSame(['received', 'eligibility_check', 'create'], $actions);
     }
 
-    public function test_serial_not_in_selected_order_is_rejected(): void
+    public function test_serial_is_the_only_input_and_everything_else_is_derived_from_crm(): void
     {
-        $serial = $this->soldSerial(null, ['order_id' => $this->order2Id], false); // thuộc đơn 2, không link đơn 1
-        $r = $this->actingAs($this->tech)->post(route('ky-thuat.warranty-exchange.store'), $this->exchangePayload($serial, ['source_type' => 'order', 'site_id' => '', 'order_id' => $this->orderId]));
-        $r->assertSessionHasErrors('serial_code');
-        $this->assertSame(0, DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $serial)->count());
+        $serial = $this->soldSerial();
+        // client cố gửi site/order/khách sai → bị bỏ qua, dữ liệu lấy từ serial
+        $c = $this->createExchange($this->tech, $serial, ['site_id' => $this->site2Id, 'order_id' => $this->order2Id, 'customer_id' => 1]);
+        $this->assertSame($this->siteId, (int) $c->site_id);
+        $this->assertSame($this->orderId, (int) $c->order_id);
+        $this->assertSame($this->customerId, (int) $c->customer_id);
+        $this->assertSame((int) $this->tech->id, (int) $c->assigned_to);
     }
 
-    public function test_serial_of_another_site_is_rejected(): void
+    public function test_serial_info_returns_full_traceback_and_open_claim_warning(): void
     {
-        $serial = $this->soldSerial(null, ['site_id' => $this->site2Id]);
-        $r = $this->actingAs($this->tech)->post(route('ky-thuat.warranty-exchange.store'), $this->exchangePayload($serial)); // chọn site 1
-        $r->assertSessionHasErrors('site_id');
+        $serial = $this->soldSerial();
+        $r = $this->actingAs($this->tech)->getJson(route('ky-thuat.warranty-exchange.serial-info', ['code' => $this->code($serial)]));
+        $r->assertOk()->assertJsonPath('ok', true)
+            ->assertJsonPath('info.customer_id', $this->customerId)
+            ->assertJsonPath('info.order_id', $this->orderId)
+            ->assertJsonPath('info.site_id', $this->siteId)
+            ->assertJsonPath('info.warranty_active', true)
+            ->assertJsonPath('info.open_claim', null);
+        $info = $r->json('info');
+        foreach (['product_name', 'sku', 'customer_name', 'customer_phone', 'order_code', 'site_name', 'site_address', 'warranty_start_at', 'warranty_end_at', 'warranty_label', 'state', 'history', 'sold_at'] as $k) {
+            $this->assertArrayHasKey($k, $info);
+        }
+        $c = $this->createExchange($this->tech, $serial);
+        $again = $this->actingAs($this->tech)->getJson(route('ky-thuat.warranty-exchange.serial-info', ['code' => $this->code($serial)]))->json('info');
+        $this->assertSame($c->claim_code, $again['open_claim']['code']);
+        $this->assertNotEmpty($again['history']);
+
+        $this->actingAs($this->tech)->getJson(route('ky-thuat.warranty-exchange.serial-info', ['code' => 'KHONG-TON-TAI']))->assertStatus(422)->assertJsonPath('ok', false);
+    }
+
+    public function test_open_claim_message_mentions_existing_claim_code_and_json_store_works(): void
+    {
+        $serial = $this->soldSerial();
+        $first = $this->createExchange($this->tech, $serial);
+        $r = $this->actingAs($this->tech2)->postJson(route('ky-thuat.warranty-exchange.store'), $this->exchangePayload($serial));
+        $r->assertStatus(422)->assertJsonValidationErrors('serial_code');
+        $this->assertStringContainsString($first->claim_code, $r->json('errors.serial_code.0'));
+
+        $ok = $this->actingAs($this->tech2)->postJson(route('ky-thuat.warranty-exchange.store'), $this->exchangePayload($this->soldSerial()));
+        $ok->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('/de-xuat-doi-hang-bao-hanh/', $ok->json('redirect'));
+    }
+
+    public function test_action_endpoints_return_json_errors_for_popups(): void
+    {
+        $c = $this->createExchange($this->tech, $this->soldSerial());
+        $this->actingAs($this->lead)->postJson(route('ky-thuat.warranty-exchange.reject', $c->id), ['reason' => ''])->assertStatus(422)->assertJsonValidationErrors('reason');
+        $this->actingAs($this->tech)->postJson(route('ky-thuat.warranty-exchange.approve', $c->id))->assertStatus(422)->assertJsonPath('ok', false);
+        $this->actingAs($this->lead2)->postJson(route('ky-thuat.warranty-exchange.approve', $c->id))->assertOk()->assertJsonPath('ok', true);
     }
 
     public function test_expired_warranty_needs_exception_with_reason(): void
@@ -608,8 +647,8 @@ final class WarrantyExchangeWorkflowTest extends TestCase
         [$c] = $this->toReserved();
         DB::table('crm_serial_warranty_claims')->where('id', $c->id)->update(['internal_note' => 'GHI-CHU-NOI-BO-KY-THUAT']);
         $this->actingAs($this->sales)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertDontSee('GHI-CHU-NOI-BO-KY-THUAT');
-        $this->actingAs($this->tech)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('GHI-CHU-NOI-BO-KY-THUAT')->assertDontSee('Xác nhận xuất kho');
-        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('Xác nhận xuất kho');
+        $this->actingAs($this->tech)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('GHI-CHU-NOI-BO-KY-THUAT')->assertDontSee('XÁC NHẬN XUẤT KHO');
+        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('XÁC NHẬN XUẤT KHO');
     }
 
     // ------------------------------------------------------------------ tương thích phiếu cũ (trước v2)

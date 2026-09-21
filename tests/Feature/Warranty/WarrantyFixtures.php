@@ -125,7 +125,7 @@ trait WarrantyFixtures
     protected function exchangePayload(int $serialUnitId, array $o = []): array
     {
         return array_merge([
-            'source_type' => 'site', 'site_id' => $this->siteId, 'serial_code' => $this->code($serialUnitId), 'priority' => 'normal',
+            'serial_code' => $this->code($serialUnitId), 'priority' => 'normal',
             'issue_description' => '[LOCAL TEST WARRANTY] Inverter báo lỗi', 'diagnosis' => 'Đo kiểm hỏng nguồn', 'proposed_solution' => 'Đổi thiết bị cùng model',
             'estimated_cost' => '0',
         ], $o);
