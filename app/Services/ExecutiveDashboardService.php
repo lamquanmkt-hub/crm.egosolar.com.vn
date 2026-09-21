@@ -682,11 +682,12 @@ final class ExecutiveDashboardService
                 $this->routeUrl('orders.index', ['status' => 'duyet2'])
             );
 
-            $warehouse = (clone $base)
-                ->where('o.current_department', 'warehouse')
-                ->where(function (Builder $query): void {
+            $warehouse = (clone $base)->where('o.current_department', 'warehouse');
+            if ($this->hasColumn('crm_orders', 'inventory_issued')) {
+                $warehouse->where(function (Builder $query): void {
                     $query->whereNull('o.inventory_issued')->orWhere('o.inventory_issued', 0);
                 });
+            }
             $push(
                 'warehouse',
                 'Đơn chờ xuất kho',
@@ -698,7 +699,9 @@ final class ExecutiveDashboardService
                 $this->routeUrl('orders.index', ['status' => 'kho'])
             );
 
-            if ($this->hasColumn('crm_orders', 'estimated_delivery')) {
+            if ($this->hasColumn('crm_orders', 'estimated_delivery')
+                && $this->hasColumn('crm_orders', 'inventory_issued')
+                && $this->hasColumn('crm_orders', 'shipping_status')) {
                 $lateShipping = (clone $base)
                     ->where('o.inventory_issued', 1)
                     ->whereDate('o.estimated_delivery', '<', now()->toDateString())
