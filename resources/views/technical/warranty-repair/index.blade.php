@@ -10,7 +10,7 @@
 @section('content')
 @php
     $tone = ['diagnosing'=>'amber','quotation_draft'=>'cyan','waiting_customer_confirmation'=>'violet','quotation_rejected'=>'red','approved_for_repair'=>'green','waiting_parts'=>'orange',
-             'repairing'=>'amber','qa_testing'=>'blue','qa_failed'=>'red','ready_handover'=>'green','handed_over'=>'cyan','completed'=>'green','cancelled'=>'gray'];
+             'repairing'=>'amber','qa_testing'=>'blue','qa_failed'=>'red','ready_handover'=>'green','handed_over'=>'cyan','completed'=>'green','cancelled'=>'gray','waiting_change_confirmation'=>'violet','change_rejected'=>'red'];
     $money = fn ($v) => number_format((float) $v, 0, ',', '.').' đ';
 @endphp
 <div class="wx-page"><div class="wx-shell">
@@ -82,6 +82,7 @@
             <div class="wx2-row2"><label>Loại sản phẩm <b style="color:#dc2626">*</b><input name="device_type" placeholder="Inverter, pin lưu trữ, sạc…"></label><label>Thương hiệu<input name="device_brand"></label></div>
             <div class="wx2-row2"><label>Model <b style="color:#dc2626">*</b><input name="device_model"></label><label>Serial (nếu có)<input name="serial_code" id="rpSerial" autocomplete="off" placeholder="Có thể để trống hoặc serial chưa có trong CRM"></label></div>
             <div id="rpRefBox" hidden></div>
+            @if($canOverride ?? false)<div class="wx2-warn"><label style="display:flex;gap:8px;align-items:flex-start;flex-direction:row;font-weight:600"><input type="checkbox" name="duplicate_override" value="1" style="width:auto;margin-top:3px"><span>Override: cho phép tạo phiếu KHI serial này đang có phiếu mở (chỉ người có quyền)</span></label><textarea name="duplicate_override_reason" rows="2" placeholder="Lý do bắt buộc khi override…"></textarea></div>@endif
             <div id="rpScopeWrap" hidden><label>Lý do lỗi KHÔNG thuộc phạm vi bảo hành <b style="color:#dc2626">*</b><textarea name="out_of_scope_reason" rows="2"></textarea></label></div>
             <label>Tình trạng khi tiếp nhận<textarea name="received_condition" rows="2" placeholder="Trầy xước, móp, không lên nguồn…"></textarea></label>
             <label>Phụ kiện khách giao kèm<input name="device_accessories" placeholder="Dây nguồn, adapter…"></label>

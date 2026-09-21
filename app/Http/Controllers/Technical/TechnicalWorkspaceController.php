@@ -525,10 +525,7 @@ final class TechnicalWorkspaceController extends Controller
 
     public function warrantyIssues(Request $request): RedirectResponse
     {
-        return redirect()->route('ky-thuat.maintenance.issues', array_merge(
-            $request->query(),
-            ['mode' => 'open']
-        ));
+        return redirect()->route('projects-unified.maintenance.index', ['view' => 'claims']);
     }
 
     public function replacementDevices(Request $request): RedirectResponse
@@ -541,10 +538,7 @@ final class TechnicalWorkspaceController extends Controller
 
     public function warrantyHistory(Request $request): RedirectResponse
     {
-        return redirect()->route('ky-thuat.maintenance.issues', array_merge(
-            $request->query(),
-            ['mode' => 'all']
-        ));
+        return redirect()->route('projects-unified.maintenance.index', ['view' => 'claims']);
     }
 
     // 6. Báo cáo

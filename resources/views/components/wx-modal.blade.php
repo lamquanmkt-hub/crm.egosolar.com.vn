@@ -1,5 +1,5 @@
 @props(['id', 'title', 'action', 'size' => 'lg', 'submit' => 'Lưu', 'danger' => false, 'files' => false, 'chain' => null, 'chainLabel' => null, 'submitId' => null])
-<div class="modal fade wx-modal-v2" id="{{ $id }}" tabindex="-1" aria-labelledby="{{ $id }}Title" aria-hidden="true">
+<div class="modal fade wx-modal-v2" id="{{ $id }}" tabindex="-1" aria-labelledby="{{ $id }}Title" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-{{ $size }} modal-dialog-scrollable modal-dialog-centered">
         <form class="modal-content wx-ajax" method="POST" action="{{ $action }}" @if($files) enctype="multipart/form-data" @endif>
             @csrf

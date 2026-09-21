@@ -99,6 +99,8 @@ Route::middleware(['auth'])
                     Route::post('/linh-kien/giu', 'reserveParts')->name('parts.reserve');
                     Route::post('/linh-kien/xuat', 'issueParts')->name('parts.issue');
                     Route::post('/linh-kien/hoan', 'returnParts')->name('parts.return');
+                    Route::post('/bao-gia-phat-sinh', 'quotationChange')->name('quotation.change');
+                    Route::post('/tiep-tuc-bao-gia-goc', 'resumeOriginal')->name('resume-original');
                     Route::post('/bat-dau-sua', 'start')->name('start');
                     Route::post('/cap-nhat-sua', 'progress')->name('progress');
                     Route::post('/chuyen-kiem-tra', 'qaSubmit')->name('qa.submit');

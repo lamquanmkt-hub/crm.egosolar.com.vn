@@ -143,18 +143,23 @@ final class StockLedger
         return [$before, $after];
     }
 
-    /** Tồn khả dụng của sản phẩm tại kho = tồn tổng − số đang giữ cho linh kiện sửa chữa. */
-    public function availablePartQty(int $productId, int $warehouseId): float
+    /**
+     * Tồn khả dụng của sản phẩm tại kho = tồn tổng − số đang giữ cho linh kiện sửa chữa.
+     * $forUpdate=true: đọc KHÓA (SELECT … FOR UPDATE, đọc dữ liệu mới nhất đã commit — không dùng snapshot REPEATABLE READ cũ)
+     * để 2 phiếu tranh cùng tồn được xử lý tuần tự trong reserve.
+     */
+    public function availablePartQty(int $productId, int $warehouseId, bool $forUpdate = false): float
     {
-        $qty = (float) (DB::table('crm_product_stock')->where('product_id', $productId)->where('warehouse_id', $warehouseId)->value('qty') ?? 0);
-        $held = Schema::hasTable('warranty_repair_parts')
-            ? (float) DB::table('warranty_repair_parts')->where('product_id', $productId)->where('warehouse_id', $warehouseId)
-                ->where('status', 'reserved')->sum('qty_reserved')
-            : 0.0;
+        $stock = DB::table('crm_product_stock')->where('product_id', $productId)->where('warehouse_id', $warehouseId);
+        $qty = (float) (($forUpdate ? $stock->lockForUpdate() : $stock)->value('qty') ?? 0);
+        $held = 0.0;
+        if (Schema::hasTable('warranty_repair_parts')) {
+            $q = DB::table('warranty_repair_parts')->where('product_id', $productId)->where('warehouse_id', $warehouseId)->where('qty_reserved', '>', 0);
+            $held = $forUpdate ? (float) $q->lockForUpdate()->get()->sum('qty_reserved') : (float) $q->sum('qty_reserved');
+        }
 
         return $qty - $held;
     }
-
     private function event(string $type, string $note, int $userId): int
     {
         return (int) DB::table('crm_inventory_events')->insertGetId([

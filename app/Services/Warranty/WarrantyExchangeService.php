@@ -46,7 +46,7 @@ final class WarrantyExchangeService
         }
 
         return DB::transaction(function () use ($actor, $data, $ctx, $serial, $exception, $reason): SolarWarrantyClaim {
-            $this->guardNoOpenClaim((int) $serial->serial_unit_id);
+            $this->guardNoOpenClaim((int) $serial->serial_unit_id, null, (string) $serial->serial_code);
 
             $internal = trim((string) ($data['internal_note'] ?? ''));
             $source = 'Tạo từ serial '.$serial->serial_code;
@@ -83,6 +83,7 @@ final class WarrantyExchangeService
             $extra = [
                 'claim_code' => sprintf('DXBH-%s-%06d', now()->format('Y'), $claim->id),
                 'open_serial_key' => (int) $serial->serial_unit_id,
+                'open_serial_norm' => WarrantyFlow::normalizeSerial((string) $serial->serial_code),
                 'status_changed_at' => now(),
                 'warranty_eligibility' => $exception ? 'exception' : 'in_warranty',
             ];
@@ -97,7 +98,12 @@ final class WarrantyExchangeService
                     'exception_requested_at' => now(),
                 ];
             }
-            DB::table('crm_serial_warranty_claims')->where('id', $claim->id)->update($extra);
+            try {
+                DB::table('crm_serial_warranty_claims')->where('id', $claim->id)->update($extra);
+            } catch (QueryException) {
+                // 2 request đồng thời: khóa UNIQUE (open_serial_key / open_serial_norm) chặn bản ghi thứ hai → rollback toàn bộ transaction
+                throw new WarrantyException('Serial này vừa có phiếu khác được tạo cùng lúc. Vui lòng tải lại trang.');
+            }
             $claim->refresh();
 
             WarrantyAudit::log($claim->id, 'received', null, 'received', null, [
@@ -121,21 +127,33 @@ final class WarrantyExchangeService
         });
     }
 
-    public function guardNoOpenClaim(int $serialUnitId, ?int $exceptClaimId = null): void
+    /**
+     * Chặn phiếu MỞ trùng serial (theo serial_unit_id trong CRM và theo serial chuẩn hóa trim+UPPER cho cả serial ngoài CRM).
+     * Khóa dòng (lockForUpdate) + UNIQUE ở DB là hàng rào cuối chống race condition.
+     */
+    public function guardNoOpenClaim(int $serialUnitId, ?int $exceptClaimId = null, ?string $serialCode = null): void
     {
+        $norm = WarrantyFlow::normalizeSerial($serialCode);
         $q = SolarWarrantyClaim::query()
-            ->where('serial_unit_id', $serialUnitId)
             ->whereIn('claim_type', [WarrantyFlow::TYPE_EXCHANGE, WarrantyFlow::TYPE_REPAIR])
             ->whereNotIn('status', WarrantyFlow::TERMINAL)
+            ->where(function ($w) use ($serialUnitId, $norm): void {
+                if ($serialUnitId > 0) {
+                    $w->where('serial_unit_id', $serialUnitId);
+                }
+                if ($norm !== null) {
+                    $serialUnitId > 0 ? $w->orWhereRaw('UPPER(TRIM(serial_code)) = ?', [$norm]) : $w->whereRaw('UPPER(TRIM(serial_code)) = ?', [$norm]);
+                }
+            })
             ->lockForUpdate();
         if ($exceptClaimId) {
             $q->where('id', '<>', $exceptClaimId);
         }
-        if ($q->exists()) {
-            throw new WarrantyException('Serial này đã có một phiếu (đổi hàng/sửa chữa) đang mở. Hãy xử lý phiếu hiện tại trước.');
+        $dup = $q->first();
+        if ($dup) {
+            throw new WarrantyException('Serial này đang có phiếu xử lý '.($dup->claim_code ?: '#'.$dup->id).'. Hãy xử lý phiếu hiện tại trước.');
         }
     }
-
     // ------------------------------------------------------------------ duyệt
 
     public function approve(int $claimId, User $actor, ?string $note = null, ?string $overrideReason = null): SolarWarrantyClaim
@@ -259,7 +277,7 @@ final class WarrantyExchangeService
             $c = $this->lock($claimId);
             $this->requireLead($actor);
             $this->requireStatus($c, ['rejected']);
-            $this->guardNoOpenClaim((int) $c->serial_unit_id, (int) $c->id);
+            $this->guardNoOpenClaim((int) $c->serial_unit_id, (int) $c->id, (string) $c->serial_code);
             $this->transition($c, 'needs_more_information', $actor, 'reopen', $reason, ['approval_status' => 'needs_info']);
 
             return $c;
@@ -820,8 +838,10 @@ final class WarrantyExchangeService
         $update = $fields + ['status' => $to, 'status_changed_at' => now(), 'updated_at' => now()];
         if (! WarrantyFlow::isOpen($to)) {
             $update['open_serial_key'] = null;
+            $update['open_serial_norm'] = null;
         } elseif (! WarrantyFlow::isOpen($from)) {
             $update['open_serial_key'] = (int) $c->serial_unit_id;
+            $update['open_serial_norm'] = empty($c->duplicate_override_reason) ? WarrantyFlow::normalizeSerial((string) $c->serial_code) : null;
         }
 
         try {

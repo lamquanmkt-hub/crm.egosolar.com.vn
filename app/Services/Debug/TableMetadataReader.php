@@ -20,7 +20,7 @@ final class TableMetadataReader
         return array_map(
             fn ($r) => $r->table_name,
             DB::select(
-                'SELECT table_name FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name',
+                'SELECT table_name AS table_name FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name',
                 [$db]
             )
         );
@@ -48,7 +48,7 @@ final class TableMetadataReader
         return array_map(
             fn ($r) => $r->table_name,
             DB::select(
-                'SELECT table_name
+                'SELECT table_name AS table_name
                  FROM information_schema.tables
                  WHERE table_schema = ? AND LOWER(table_name) LIKE ?
                  ORDER BY table_name',

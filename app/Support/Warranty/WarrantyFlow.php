@@ -62,6 +62,8 @@ final class WarrantyFlow
         'approved_for_repair' => 'Khách đồng ý — chờ sửa',
         'waiting_parts' => 'Chờ Kho xuất linh kiện',
         'repairing' => 'Đang sửa chữa',
+        'waiting_change_confirmation' => 'Chờ khách xác nhận phát sinh',
+        'change_rejected' => 'Khách từ chối phát sinh',
         'qa_testing' => 'Kiểm tra sau sửa',
         'qa_failed' => 'Kiểm tra không đạt',
         'ready_handover' => 'Sẵn sàng bàn giao',
@@ -77,7 +79,9 @@ final class WarrantyFlow
         'quotation_rejected' => ['quotation_draft', 'cancelled'],
         'approved_for_repair' => ['waiting_parts', 'repairing', 'quotation_draft', 'cancelled'],
         'waiting_parts' => ['repairing', 'quotation_draft', 'cancelled'],
-        'repairing' => ['qa_testing'],
+        'repairing' => ['qa_testing', 'waiting_change_confirmation'],
+        'waiting_change_confirmation' => ['repairing', 'waiting_parts', 'change_rejected'],
+        'change_rejected' => ['repairing', 'cancelled'],
         'qa_testing' => ['ready_handover', 'qa_failed'],
         'qa_failed' => ['repairing'],
         'ready_handover' => ['handed_over'],
@@ -104,6 +108,17 @@ final class WarrantyFlow
 
     /** Trạng thái kết thúc — phiếu không còn "mở". */
     public const TERMINAL = ['completed', 'cancelled', 'rejected'];
+
+    /** Chuẩn hóa serial để so sánh chống trùng: trim + gộp khoảng trắng + IN HOA. Rỗng → null. Serial gốc vẫn được lưu nguyên để hiển thị. */
+    public static function normalizeSerial(?string $serial): ?string
+    {
+        $v = trim((string) $serial);
+        if ($v === '') {
+            return null;
+        }
+
+        return mb_strtoupper((string) preg_replace('/\s+/u', ' ', $v), 'UTF-8');
+    }
 
     public static function isFlowType(?string $type): bool
     {
@@ -181,7 +196,8 @@ final class WarrantyFlow
             ['quotation', 'Lập báo giá sửa chữa', (bool) ($flags['quotation_sent'] ?? false), ''],
             ['customer', 'Khách xác nhận', (bool) ($flags['quotation_approved'] ?? false), ''],
             ['parts', 'Xuất linh kiện / chuẩn bị', (bool) ($flags['parts_ready'] ?? false), ''],
-            ['repair', 'Tiến hành sửa chữa', ! empty($c->repair_started_at) && in_array($status, ['qa_testing', 'qa_failed', 'ready_handover', 'handed_over', 'completed'], true), self::dt($c->repair_started_at ?? null)],
+            ['repair', 'Tiến hành sửa chữa', ! empty($c->repair_started_at) && in_array($status, ['qa_testing', 'qa_failed', 'ready_handover', 'handed_over', 'completed'], true),
+                $status === 'waiting_change_confirmation' ? 'Chờ khách xác nhận phát sinh' : ($status === 'change_rejected' ? 'Khách từ chối phát sinh' : self::dt($c->repair_started_at ?? null))],
             ['qa', 'Kiểm tra sau sửa (QA)', (bool) ($flags['qa_passed'] ?? false), ''],
             ['handover', 'Bàn giao khách hàng', ! empty($c->handed_over_at), self::dt($c->handed_over_at ?? null)],
             ['complete', 'Hoàn tất', $status === 'completed', self::dt($c->closed_at ?? null)],

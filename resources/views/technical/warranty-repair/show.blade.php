@@ -10,7 +10,7 @@
 @section('content')
 @php
     $tone = ['diagnosing'=>'amber','quotation_draft'=>'cyan','waiting_customer_confirmation'=>'violet','quotation_rejected'=>'red','approved_for_repair'=>'green','waiting_parts'=>'orange',
-             'repairing'=>'amber','qa_testing'=>'blue','qa_failed'=>'red','ready_handover'=>'green','handed_over'=>'cyan','completed'=>'green','cancelled'=>'gray'];
+             'repairing'=>'amber','qa_testing'=>'blue','qa_failed'=>'red','ready_handover'=>'green','handed_over'=>'cyan','completed'=>'green','cancelled'=>'gray','waiting_change_confirmation'=>'violet','change_rejected'=>'red'];
     $money = fn ($v) => number_format((float) $v, 0, ',', '.').' đ';
     $fmtDt = fn ($v) => $v ? \Illuminate\Support\Carbon::parse($v)->format('d/m/Y H:i') : '—';
     $qStatus = ['draft'=>'Nháp','sent'=>'Đã gửi khách','approved'=>'Khách đồng ý','rejected'=>'Khách từ chối','superseded'=>'Đã thay bằng version mới'];
@@ -31,6 +31,8 @@
     if ($can['qa']) { $stepActions['qa'] = ['modal' => 'mQa', 'label' => 'Kiểm tra sau sửa']; }
     if ($can['handover']) { $stepActions['handover'] = ['modal' => 'mHandover', 'label' => 'Bàn giao']; }
     if ($can['complete']) { $stepActions['complete'] = ['modal' => 'mComplete', 'label' => 'Hoàn tất']; }
+    if ($claim->status === 'waiting_change_confirmation' && $can['decide']) { $stepActions['repair'] = ['modal' => 'mDecision', 'label' => 'Ghi nhận khách xác nhận phát sinh']; }
+    if ($can['resume']) { $stepActions['repair'] = ['modal' => 'mResume', 'label' => 'Quyết định sau khi khách từ chối phát sinh']; }
 @endphp
 <div class="wx-page"><div class="wx-shell">
     @if(session('success'))<div class="wx-alert success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>@endif
@@ -107,7 +109,23 @@
                 <tr><td colspan="3" class="wx2-money"><b>TỔNG CHI PHÍ SỬA CHỮA</b></td><td class="wx2-money"><b>{{ $money($cur->total_amount) }}</b></td></tr></tbody></table>
                 <small style="color:#64748b">Chi phí = Linh kiện + Công sửa + Onsite + Vận chuyển + Phát sinh − Giảm giá (hệ thống tự tính).</small>
             @else<p style="color:#64748b;font-size:13px">Chưa có báo giá.</p>@endif
-            @if($quotations->count() > 1)<h3>Lịch sử version</h3><ul class="wx2-hist">@foreach($quotations as $q)<li>v{{ $q->version }} · {{ $qStatus[$q->status] ?? $q->status }} · {{ $money($q->total_amount) }} · {{ $fmtDt($q->created_at) }}</li>@endforeach</ul>@endif
+            @if($quotations->count() > 1 || ($cur && $cur->is_change))
+                <h3>Lịch sử các version báo giá (bản đã duyệt không bị sửa)</h3>
+                <ul class="wx2-hist">
+                @foreach($quotations as $q)
+                    @php $base = $q->base_quotation_id ? $quotations->firstWhere('id', $q->base_quotation_id) : null; @endphp
+                    <li><b>v{{ $q->version }}</b>{{ $q->is_change ? ' · PHÁT SINH' : '' }} · {{ $qStatus[$q->status] ?? $q->status }} · <b>{{ $money($q->total_amount) }}</b>
+                        @if($base) <span style="color:{{ $q->total_amount >= $base->total_amount ? '#b45309' : '#16a34a' }}">({{ $q->total_amount >= $base->total_amount ? '+' : '−' }}{{ $money(abs($q->total_amount - $base->total_amount)) }} so với v{{ $base->version }})</span>@endif
+                        <div class="meta">{{ $fmtDt($q->created_at) }}@if($q->decision_at) · khách {{ $q->decision === 'approved' ? 'đồng ý' : 'từ chối' }} {{ $fmtDt($q->decision_at) }} ({{ $methods[$q->decision_method] ?? $q->decision_method }})@endif @if($q->locked_at) · đã khóa @endif</div>
+                        @if($q->change_reason)<div class="rs">Lý do phát sinh: {{ $q->change_reason }}</div>@endif
+                        @if($q->decision_note)<div class="meta">Ghi chú khách: {{ $q->decision_note }}</div>@endif
+                        <details><summary class="meta" style="cursor:pointer">Chi tiết hạng mục</summary>
+                            <ul style="margin:4px 0 0 16px;padding:0;font-size:12px">@foreach(($quotationItems[$q->id] ?? collect()) as $i)<li>{{ $i->name }} × {{ (float) $i->quantity }} · {{ $money($i->unit_price) }}</li>@endforeach
+                                <li>Công {{ $money($q->labor_amount) }} · Onsite {{ $money($q->onsite_amount) }} · Vận chuyển {{ $money($q->shipping_amount) }} · Phát sinh {{ $money($q->extra_amount) }} · Giảm {{ $money($q->discount_amount) }}</li></ul></details>
+                    </li>
+                @endforeach
+                </ul>
+            @endif
         </section>
 
         @if($parts->isNotEmpty())
@@ -152,7 +170,9 @@
             <div style="display:flex;flex-direction:column;gap:8px">
                 @if($can['diagnose'])<button type="button" class="wx-btn primary" data-wx-open="mDiag">Chẩn đoán kỹ thuật</button>@endif
                 @if($can['quote'])<button type="button" class="wx-btn primary" data-wx-open="mQuote">{{ $cur && $cur->status !== 'draft' ? 'Lập báo giá version mới' : 'Lập / sửa báo giá' }}</button>@endif
-                @if($can['decide'])<button type="button" class="wx-btn primary" data-wx-open="mDecision">Khách xác nhận báo giá</button>@endif
+                @if($can['decide'])<button type="button" class="wx-btn primary" data-wx-open="mDecision">{{ $claim->status === 'waiting_change_confirmation' ? 'Khách xác nhận báo giá phát sinh' : 'Khách xác nhận báo giá' }}</button>@endif
+                @if($can['change_quote'])<button type="button" class="wx-btn secondary" data-wx-open="mChange">Báo giá phát sinh</button>@endif
+                @if($can['resume'])<button type="button" class="wx-btn primary" data-wx-open="mResume">Tiếp tục theo báo giá gốc</button>@endif
                 @if($can['reserve_parts'])<button type="button" class="wx-btn primary" data-wx-open="mPartsReserve">Giữ linh kiện</button>@endif
                 @if($can['issue_parts'])<button type="button" class="wx-btn primary" data-wx-open="mPartsIssue">Xuất linh kiện</button>@endif
                 @if($can['return_parts'])<button type="button" class="wx-btn secondary" data-wx-open="mPartsReturn">Hoàn kho linh kiện dư</button>@endif
@@ -190,15 +210,15 @@
     @if($cur && $cur->status !== 'draft')<div class="wx2-warn">Báo giá v{{ $cur->version }} đã {{ $qStatus[$cur->status] ?? $cur->status }}. Lưu sẽ tạo <b>version mới</b> và khách phải xác nhận lại.</div>@endif
     <div class="wx-section"><h4>Linh kiện</h4>
         <table class="wx2-table wx2-items"><thead><tr><th>Nội dung</th><th style="width:80px">SL</th><th style="width:120px">Đơn giá</th><th class="wx2-money" style="width:120px">Thành tiền</th></tr></thead>
-        <tbody id="qItems">
+        <tbody id="qItems" data-q-items>
         @foreach($formItems as $idx => $it)
             <tr><td><select class="q-prod" name="items[{{ $idx }}][product_id]"><option value="">— tự nhập —</option>@foreach($products as $p)<option value="{{ $p->id }}" @selected((string)($it['product_id'] ?? '')===(string)$p->id)>{{ $p->name }}</option>@endforeach</select>
                 <input class="q-name" name="items[{{ $idx }}][name]" value="{{ $it['name'] ?? '' }}" placeholder="Tên linh kiện / hạng mục"></td>
                 <td><input class="q-qty" name="items[{{ $idx }}][quantity]" value="{{ $it['quantity'] ?? '' }}"></td><td><input class="q-price" name="items[{{ $idx }}][unit_price]" value="{{ $it['unit_price'] ?? '' }}"></td><td class="wx2-money q-line">0 đ</td></tr>
         @endforeach
         </tbody></table>
-        <button type="button" id="qAddRow" class="wx-btn tiny secondary" style="margin-top:6px">+ Thêm linh kiện</button>
-        <template id="qRowTpl"><tr><td><select class="q-prod" name="items[__IDX__][product_id]"><option value="">— tự nhập —</option>@foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select><input class="q-name" name="items[__IDX__][name]" placeholder="Tên linh kiện / hạng mục"></td><td><input class="q-qty" name="items[__IDX__][quantity]"></td><td><input class="q-price" name="items[__IDX__][unit_price]"></td><td class="wx2-money q-line">0 đ</td></tr></template>
+        <button type="button" id="qAddRow" data-q-add class="wx-btn tiny secondary" style="margin-top:6px">+ Thêm linh kiện</button>
+        <template id="qRowTpl" data-q-tpl><tr><td><select class="q-prod" name="items[__IDX__][product_id]"><option value="">— tự nhập —</option>@foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select><input class="q-name" name="items[__IDX__][name]" placeholder="Tên linh kiện / hạng mục"></td><td><input class="q-qty" name="items[__IDX__][quantity]"></td><td><input class="q-price" name="items[__IDX__][unit_price]"></td><td class="wx2-money q-line">0 đ</td></tr></template>
     </div>
     <div class="wx-section"><h4>Chi phí khác</h4>
         <div class="wx2-form"><div class="wx2-row2"><label>Công sửa<input name="labor_amount" value="{{ $cur->labor_amount ?? 0 }}"></label><label>Phí onsite<input name="onsite_amount" value="{{ $cur->onsite_amount ?? 0 }}"></label></div>
@@ -206,18 +226,54 @@
             <label>Giảm giá<input name="discount_amount" value="{{ $cur->discount_amount ?? 0 }}"></label>
             <label>Ghi chú báo giá<textarea name="note" rows="2">{{ $cur->note ?? '' }}</textarea></label></div>
     </div>
-    <div class="wx2-info" style="font-size:14px">Tạm tính: linh kiện <b id="qParts">0 đ</b> → <b>TỔNG <span id="qTotal">0 đ</span></b> <small>(hệ thống tính lại chính xác khi lưu)</small></div>
+    <div class="wx2-info" style="font-size:14px">Tạm tính: linh kiện <b id="qParts" data-q-parts>0 đ</b> → <b>TỔNG <span id="qTotal" data-q-total>0 đ</span></b> <small>(hệ thống tính lại chính xác khi lưu)</small></div>
 </x-wx-modal>
 @endif
 @if($can['decide'])
 <x-wx-modal id="mDecision" title="Khách xác nhận báo giá" :action="route('ky-thuat.repair.decision', $claim)" submit="XÁC NHẬN">
-    <div class="wx2-info">Khách hàng: <b>{{ $claim->customer_name }}</b> · Báo giá v{{ $cur->version ?? '' }} · Tổng tiền <b>{{ $cur ? $money($cur->total_amount) : '' }}</b></div>
+    <div class="wx2-info">Khách hàng: <b>{{ $claim->customer_name }}</b> · Báo giá v{{ $cur->version ?? '' }}@if($cur && $cur->is_change) (PHÁT SINH)@endif · Tổng tiền <b>{{ $cur ? $money($cur->total_amount) : '' }}</b></div>
+    @if($cur && $cur->is_change)@php $baseQ = $quotations->firstWhere('id', $cur->base_quotation_id); @endphp<div class="wx2-warn">Phần phát sinh: {{ $baseQ ? ($cur->total_amount >= $baseQ->total_amount ? '+' : '−').$money(abs($cur->total_amount - $baseQ->total_amount)) : '' }} so với báo giá đã duyệt v{{ $baseQ->version ?? '' }}. Lý do: {{ $cur->change_reason }}. Chưa được xem là đã duyệt cho tới khi khách xác nhận.</div>@endif
     <div class="wx2-form">
         <label>Quyết định của khách<select name="decision"><option value="approved">Đồng ý sửa</option><option value="rejected">Không đồng ý</option></select></label>
         <div class="wx2-row2"><label>Phương thức xác nhận<select name="method">@foreach($methods as $k=>$l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label>
             <label>Ngày xác nhận<input type="datetime-local" name="decided_at" value="{{ now()->format('Y-m-d\TH:i') }}"></label></div>
         <label>Ghi chú<textarea name="note" rows="2"></textarea></label>
     </div>
+</x-wx-modal>
+@endif
+@if($can['change_quote'])
+@php
+    $approvedQ = $quotations->firstWhere('status', 'approved');
+    $chItems = $approvedQ ? ($quotationItems[$approvedQ->id] ?? collect())->map(fn ($i) => ['product_id' => $i->product_id, 'name' => $i->name, 'quantity' => (float) $i->quantity, 'unit_price' => (float) $i->unit_price])->all() : [];
+    while (count($chItems) < 2) { $chItems[] = ['product_id' => '', 'name' => '', 'quantity' => '', 'unit_price' => '']; }
+@endphp
+<x-wx-modal id="mChange" size="xl" title="Báo giá PHÁT SINH khi đang sửa" :action="route('ky-thuat.repair.quotation.change', $claim)" submit="GỬI KHÁCH XÁC NHẬN PHÁT SINH">
+    <div class="wx2-warn">Báo giá đã duyệt (v{{ $approvedQ->version ?? '' }} — {{ $approvedQ ? $money($approvedQ->total_amount) : '' }}) được GIỮ NGUYÊN. Hệ thống tạo version mới, phần phát sinh <b>chờ khách xác nhận</b> mới có hiệu lực.</div>
+    <div class="wx-section"><h4>Lý do phát sinh</h4><div class="wx2-form"><label>Lý do (bắt buộc)<textarea name="reason" rows="2" placeholder="Tháo máy phát hiện cần thêm linh kiện…"></textarea></label></div></div>
+    <div class="wx-section"><h4>Linh kiện (toàn bộ báo giá mới)</h4>
+        <table class="wx2-table wx2-items"><thead><tr><th>Nội dung</th><th style="width:80px">SL</th><th style="width:120px">Đơn giá</th><th class="wx2-money" style="width:120px">Thành tiền</th></tr></thead>
+        <tbody data-q-items>
+        @foreach($chItems as $idx => $it)
+            <tr><td><select class="q-prod" name="items[{{ $idx }}][product_id]"><option value="">— tự nhập —</option>@foreach($products as $p)<option value="{{ $p->id }}" @selected((string)($it['product_id'] ?? '')===(string)$p->id)>{{ $p->name }}</option>@endforeach</select>
+                <input class="q-name" name="items[{{ $idx }}][name]" value="{{ $it['name'] ?? '' }}" placeholder="Tên linh kiện / hạng mục"></td>
+                <td><input class="q-qty" name="items[{{ $idx }}][quantity]" value="{{ $it['quantity'] ?? '' }}"></td><td><input class="q-price" name="items[{{ $idx }}][unit_price]" value="{{ $it['unit_price'] ?? '' }}"></td><td class="wx2-money q-line">0 đ</td></tr>
+        @endforeach
+        </tbody></table>
+        <button type="button" data-q-add class="wx-btn tiny secondary" style="margin-top:6px">+ Thêm linh kiện</button>
+        <template data-q-tpl><tr><td><select class="q-prod" name="items[__IDX__][product_id]"><option value="">— tự nhập —</option>@foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select><input class="q-name" name="items[__IDX__][name]" placeholder="Tên linh kiện / hạng mục"></td><td><input class="q-qty" name="items[__IDX__][quantity]"></td><td><input class="q-price" name="items[__IDX__][unit_price]"></td><td class="wx2-money q-line">0 đ</td></tr></template>
+    </div>
+    <div class="wx-section"><h4>Chi phí khác</h4>
+        <div class="wx2-form"><div class="wx2-row2"><label>Công sửa<input name="labor_amount" value="{{ $approvedQ->labor_amount ?? 0 }}"></label><label>Phí onsite<input name="onsite_amount" value="{{ $approvedQ->onsite_amount ?? 0 }}"></label></div>
+            <div class="wx2-row2"><label>Vận chuyển<input name="shipping_amount" value="{{ $approvedQ->shipping_amount ?? 0 }}"></label><label>Chi phí phát sinh<input name="extra_amount" value="{{ $approvedQ->extra_amount ?? 0 }}"></label></div>
+            <label>Giảm giá<input name="discount_amount" value="{{ $approvedQ->discount_amount ?? 0 }}"></label></div>
+    </div>
+    <div class="wx2-info" style="font-size:14px">Tạm tính: linh kiện <b data-q-parts>0 đ</b> → <b>TỔNG MỚI <span data-q-total>0 đ</span></b> <small>(hệ thống tính lại khi lưu)</small></div>
+</x-wx-modal>
+@endif
+@if($can['resume'])
+<x-wx-modal id="mResume" title="Khách từ chối phát sinh — quyết định tiếp theo" :action="route('ky-thuat.repair.resume-original', $claim)" submit="TIẾP TỤC THEO BÁO GIÁ GỐC" size="md">
+    <div class="wx2-warn">Khách đã từ chối báo giá phát sinh (lịch sử v1/v2 được giữ). Tiếp tục sửa theo báo giá gốc, hoặc dùng nút “Hủy phiếu” (Trưởng phòng) nếu không thể sửa; linh kiện đã xuất phải được Kho hoàn trước.</div>
+    <div class="wx2-form"><label>Ghi chú quyết định<textarea name="note" rows="2"></textarea></label></div>
 </x-wx-modal>
 @endif
 @if($can['reserve_parts'])

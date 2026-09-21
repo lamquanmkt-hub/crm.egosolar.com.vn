@@ -158,7 +158,7 @@
                             <td><strong>{{ $log->user_name ?? 'Không xác định' }}</strong><small>{{ $log->user_email ?? '' }}</small></td>
                             <td><span class="ego-ai-audit-module"><i class="bi {{ $moduleDefinitions[$log->module]['icon'] ?? 'bi-database' }}"></i>{{ $moduleDefinitions[$log->module]['label'] ?? $log->module }}</span></td>
                             <td><span class="ego-ai-audit-scope scope-{{ $log->scope ?: 'none' }}">{{ $scopeLabels[$log->scope] ?? ($log->scope ?: 'Không có') }}</span></td>
-                            <td>{{ number_format((int) $log->result_count, 0, ',', '.') }} bản ghi@if($log->period_label)<small>{{ $log->period_label }}</small>@endif</td>
+                            <td>{{ number_format((int) $log->result_count, 0, ',', '.') }} bản ghi @if($log->period_label)<small>{{ $log->period_label }}</small>@endif</td>
                             <td><span class="ego-ai-audit-status status-{{ $log->status }}"><i class="bi {{ $log->status === 'denied' ? 'bi-shield-x' : 'bi-check-circle' }}"></i>{{ $log->status === 'denied' ? 'Bị chặn' : 'Thành công' }}</span></td>
                         </tr>
                     @empty

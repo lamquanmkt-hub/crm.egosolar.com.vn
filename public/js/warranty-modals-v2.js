@@ -37,7 +37,9 @@
   }
 
   function submitForm(form) {
-    var btns = $$('[type=submit]', form);
+    if (form.dataset.busy === '1') { return Promise.resolve(); } // chống double click / double submit
+    form.dataset.busy = '1';
+    var btns = $$('[type=submit],[data-wx-chain-btn]', form);
     var box = $('.wx-form-errors', form);
     if (box) { box.hidden = true; box.innerHTML = ''; }
     $$('.is-invalid', form).forEach(function (e) { e.classList.remove('is-invalid'); });
@@ -61,7 +63,7 @@
         return null;
       })
       .catch(function () { showErrors(form, { message: 'Mất kết nối máy chủ. Vui lòng thử lại.' }, 0); })
-      .then(function () { btns.forEach(function (b) { b.disabled = false; if (b.dataset.label) b.innerHTML = b.dataset.label; }); });
+      .then(function () { form.dataset.busy = '0'; btns.forEach(function (b) { b.disabled = false; if (b.dataset.label) b.innerHTML = b.dataset.label; }); });
   }
 
   /* ------------------------------------------------------------ Đổi hàng: tra SERIAL */
@@ -177,29 +179,30 @@
 
   /* ------------------------------------------------------------ Báo giá: dòng linh kiện + tổng tạm tính */
   function initQuote() {
-    var tbody = $('#qItems'); if (!tbody) return;
-    var form = tbody.closest('form');
-    function recalc() {
-      var parts = 0;
-      $$('tr', tbody).forEach(function (tr) {
-        var q = parseFloat((tr.querySelector('.q-qty') || {}).value) || 0; var p = parseFloat((tr.querySelector('.q-price') || {}).value) || 0;
-        var line = q * p; parts += line; var c = tr.querySelector('.q-line'); if (c) c.textContent = money(line);
+    $$('tbody[data-q-items]').forEach(function (tbody) {
+      var form = tbody.closest('form');
+      function recalc() {
+        var parts = 0;
+        $$('tr', tbody).forEach(function (tr) {
+          var q = parseFloat((tr.querySelector('.q-qty') || {}).value) || 0; var p = parseFloat((tr.querySelector('.q-price') || {}).value) || 0;
+          var line = q * p; parts += line; var c = tr.querySelector('.q-line'); if (c) c.textContent = money(line);
+        });
+        function v(n) { var el = form.elements[n]; return parseFloat(el && el.value) || 0; }
+        var total = parts + v('labor_amount') + v('onsite_amount') + v('shipping_amount') + v('extra_amount') - v('discount_amount');
+        var pt = $('[data-q-parts]', form); if (pt) pt.textContent = money(parts);
+        var tt = $('[data-q-total]', form); if (tt) tt.textContent = money(total);
+      }
+      form.addEventListener('input', recalc);
+      var add = $('[data-q-add]', form);
+      if (add) add.addEventListener('click', function () {
+        var idx = $$('tr', tbody).length; var tpl = $('template[data-q-tpl]', form).innerHTML.replace(/__IDX__/g, idx);
+        tbody.insertAdjacentHTML('beforeend', tpl); recalc();
       });
-      function v(n) { var el = form.elements[n]; return parseFloat(el && el.value) || 0; }
-      var total = parts + v('labor_amount') + v('onsite_amount') + v('shipping_amount') + v('extra_amount') - v('discount_amount');
-      var pt = $('#qParts'); if (pt) pt.textContent = money(parts);
-      var tt = $('#qTotal'); if (tt) tt.textContent = money(total);
-    }
-    form.addEventListener('input', recalc);
-    var add = $('#qAddRow');
-    if (add) add.addEventListener('click', function () {
-      var idx = $$('tr', tbody).length; var tpl = $('#qRowTpl').innerHTML.replace(/__IDX__/g, idx);
-      tbody.insertAdjacentHTML('beforeend', tpl); recalc();
+      tbody.addEventListener('change', function (e) {
+        if (e.target.classList.contains('q-prod')) { var tr = e.target.closest('tr'); var o = e.target.options[e.target.selectedIndex]; if (e.target.value) tr.querySelector('.q-name').value = o.text; }
+      });
+      recalc();
     });
-    tbody.addEventListener('change', function (e) {
-      if (e.target.classList.contains('q-prod')) { var tr = e.target.closest('tr'); var o = e.target.options[e.target.selectedIndex]; if (e.target.value) tr.querySelector('.q-name').value = o.text; }
-    });
-    recalc();
   }
 
   document.addEventListener('DOMContentLoaded', function () {

@@ -159,7 +159,7 @@ class WarrantyExchangeWorkflowController extends Controller
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
         try {
-            $fn();
+            \App\Support\Warranty\Retry::onDeadlock($fn);
         } catch (WarrantyException $e) {
             if (request()->expectsJson()) {
                 return response()->json(['ok' => false, 'message' => $e->getMessage(), 'errors' => ['workflow' => [$e->getMessage()]]], 422);

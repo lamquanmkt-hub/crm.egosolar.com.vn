@@ -2867,6 +2867,7 @@ require __DIR__.'/project_test.php';
 /* EGO_PROJECT_TEST_NEW_ROUTES_END */
 /* EGO_TECHNICAL_WORKSPACE_V1_ROUTES_START */
 require __DIR__.'/technical_workspace.php';
+require __DIR__.'/technical_workspace_v155.php'; // lịch sử/xuất báo cáo kỹ thuật (views tham chiếu technical-workspace.reports.history)
 /* EGO_TECHNICAL_WORKSPACE_V1_ROUTES_END */
 
 /* EGO_SYNC_VN_PROJECT_TECHNICAL_ROUTES_START */

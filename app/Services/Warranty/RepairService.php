@@ -124,6 +124,16 @@ final class RepairService
         if ($info && $info['warranty_active'] && mb_strlen($scope) < (int) config('warranty.min_reason_length', 5)) {
             throw new WarrantyException('Thiết bị còn bảo hành: bắt buộc nhập lý do lỗi KHÔNG thuộc phạm vi bảo hành mới được tính phí.');
         }
+        $override = ! empty($data['duplicate_override']);
+        $overrideReason = trim((string) ($data['duplicate_override_reason'] ?? ''));
+        if ($override) {
+            if (! SolarMaintenanceAccess::canOverrideWarranty($actor)) {
+                throw new WarrantyException('Chỉ người có quyền override được tạo phiếu sửa chữa trùng serial đang mở.');
+            }
+            if (mb_strlen($overrideReason) < (int) config('warranty.min_reason_length', 5)) {
+                throw new WarrantyException('Tạo phiếu trùng serial (override): bắt buộc nhập lý do.');
+            }
+        }
         $eligibility = match (true) {
             ! $info => 'external_device',
             (bool) $info['warranty_active'] => 'in_warranty_out_of_scope',
@@ -131,18 +141,13 @@ final class RepairService
             default => 'out_of_warranty',
         };
 
-        return DB::transaction(function () use ($actor, $data, $ctx, $info, $cust, $serialText, $scope, $eligibility): SolarWarrantyClaim {
-            if ($info) {
-                $this->exchange->guardNoOpenClaim((int) $info['serial_unit_id']);
-            } elseif ($serialText !== '') {
-                $dup = SolarWarrantyClaim::query()->where('serial_code', $serialText)
-                    ->whereIn('claim_type', [WarrantyFlow::TYPE_EXCHANGE, WarrantyFlow::TYPE_REPAIR])
-                    ->whereNotIn('status', WarrantyFlow::TERMINAL)->lockForUpdate()->first();
-                if ($dup) {
-                    throw new WarrantyException('Serial này đang có phiếu xử lý '.$dup->claim_code.'. Hãy xử lý phiếu hiện tại trước.');
-                }
+        return DB::transaction(function () use ($actor, $data, $ctx, $info, $cust, $serialText, $scope, $eligibility, $override, $overrideReason): SolarWarrantyClaim {
+            $normSource = (string) ($info['serial_code'] ?? $serialText);
+            if ($override) {
+                // phiếu trùng có override: không giữ khóa mở, lưu lý do + người override (audit)
+            } elseif (WarrantyFlow::normalizeSerial($normSource) !== null) {
+                $this->exchange->guardNoOpenClaim((int) ($info['serial_unit_id'] ?? 0), null, $normSource);
             }
-
             try {
                 $claim = SolarWarrantyClaim::create([
                     'company_id' => $ctx['company_id'] ?: null,
@@ -167,9 +172,13 @@ final class RepairService
                 throw new WarrantyException('Serial này vừa có phiếu khác được tạo. Vui lòng tải lại.');
             }
 
+            try {
             DB::table('crm_serial_warranty_claims')->where('id', $claim->id)->update([
                 'claim_code' => sprintf('SCTP-%s-%06d', now()->format('Y'), $claim->id),
-                'open_serial_key' => $info['serial_unit_id'] ?? null,
+                'open_serial_key' => $override ? null : ($info['serial_unit_id'] ?? null),
+                'open_serial_norm' => $override ? null : WarrantyFlow::normalizeSerial($claim->serial_code),
+                'duplicate_override_reason' => $override ? $overrideReason : null,
+                'duplicate_override_by' => $override ? $actor->id : null,
                 'status_changed_at' => now(),
                 'warranty_eligibility' => $eligibility,
                 'out_of_scope_reason' => $scope !== '' ? $scope : null,
@@ -179,8 +188,14 @@ final class RepairService
                 'device_accessories' => $data['device_accessories'] ?? null, 'received_condition' => $data['received_condition'] ?? null,
                 'delivered_by' => $data['delivered_by'] ?? null, 'received_by' => $data['received_by'] ?? $actor->id,
             ]);
+            } catch (QueryException) {
+                throw new WarrantyException('Serial này vừa có phiếu khác được tạo cùng lúc. Vui lòng tải lại.');
+            }
             $claim->refresh();
 
+            if ($override) {
+                WarrantyAudit::log($claim->id, 'duplicate_override', null, null, null, ['serial' => $claim->serial_code], $overrideReason, $actor->id);
+            }
             WarrantyAudit::log($claim->id, 'received', null, 'diagnosing', null, [
                 'customer' => $cust['name'], 'phone' => $cust['phone'], 'device' => trim($data['device_type'].' '.($data['device_brand'] ?? '').' '.$data['device_model']),
                 'serial' => $claim->serial_code, 'eligibility' => $eligibility,
@@ -306,7 +321,7 @@ final class RepairService
         });
     }
 
-    // ------------------------------------------------------------------ 5. khách xác nhận
+    // ------------------------------------------------------------------ 5. khách xác nhận (báo giá gốc HOẶC báo giá phát sinh)
 
     public function customerDecision(int $claimId, User $actor, string $decision, string $method, ?string $decidedAt, ?string $note): SolarWarrantyClaim
     {
@@ -319,8 +334,9 @@ final class RepairService
 
         return DB::transaction(function () use ($claimId, $actor, $decision, $method, $decidedAt, $note) {
             $c = $this->lock($claimId);
-            $this->requireStatus($c, ['waiting_customer_confirmation']);
+            $this->requireStatus($c, ['waiting_customer_confirmation', 'waiting_change_confirmation']);
             $this->requireAssignedOrLead($c, $actor);
+            $isChange = $c->status === 'waiting_change_confirmation';
             $q = $this->currentQuotation($c, true);
             if (! $q || $q->status !== 'sent') {
                 throw new WarrantyException('Không có báo giá đang chờ khách xác nhận.');
@@ -332,31 +348,169 @@ final class RepairService
                 'locked_at' => $decision === 'approved' ? now() : null, 'updated_at' => now(),
             ]);
 
-            if ($decision === 'approved') {
-                foreach (DB::table('warranty_repair_quotation_items')->where('quotation_id', $q->id)->whereNotNull('product_id')->get() as $it) {
-                    $exists = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('product_id', $it->product_id)->first();
-                    if ($exists) {
-                        DB::table('warranty_repair_parts')->where('id', $exists->id)->update(['qty_planned' => (float) $exists->qty_planned + (float) $it->quantity, 'updated_at' => now()]);
-                    } else {
-                        DB::table('warranty_repair_parts')->insert([
-                            'claim_id' => $c->id, 'product_id' => $it->product_id, 'name' => $it->name, 'qty_planned' => $it->quantity,
-                            'status' => 'planned', 'created_at' => now(), 'updated_at' => now(),
-                        ]);
+            if (! $isChange) {
+                if ($decision === 'approved') {
+                    $this->syncPartsFromQuotation($c, $q);
+                    $this->transition($c, 'approved_for_repair', $actor, 'customer_approved', $note, ['approval_status' => 'approved'], null, 'quotation', (int) $q->id);
+                    if ($this->partsPending($c)) {
+                        $this->exchange->notify($c, 'warehouse', 'parts_needed', 'Việc mới cho Kho: chuẩn bị linh kiện sửa chữa', $c->claim_code);
                     }
+                } else {
+                    $this->transition($c, 'quotation_rejected', $actor, 'customer_rejected', $note, [], null, 'quotation', (int) $q->id);
                 }
-                $this->transition($c, 'approved_for_repair', $actor, 'customer_approved', $note, ['approval_status' => 'approved'], null, 'quotation', (int) $q->id);
-                if (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->exists()) {
-                    $this->exchange->notify($c, 'warehouse', 'parts_needed', 'Việc mới cho Kho: chuẩn bị linh kiện sửa chữa', $c->claim_code);
+
+                return $c;
+            }
+
+            // ---- báo giá PHÁT SINH khi đang sửa
+            $base = DB::table('warranty_repair_quotations')->where('id', $q->base_quotation_id)->lockForUpdate()->first();
+            if ($decision === 'approved') {
+                if ($base) {
+                    DB::table('warranty_repair_quotations')->where('id', $base->id)->update(['status' => 'superseded', 'updated_at' => now()]);
+                }
+                $this->syncPartsFromQuotation($c, $q);
+                $next = $this->partsPending($c) ? 'waiting_parts' : 'repairing';
+                $this->transition($c, $next, $actor, 'change_approved', $note, ['approval_status' => 'approved'], null, 'quotation', (int) $q->id);
+                if ($next === 'waiting_parts') {
+                    $this->exchange->notify($c, 'warehouse', 'parts_needed', 'Phát sinh: Kho xuất bổ sung linh kiện', $c->claim_code);
                 }
             } else {
-                $this->transition($c, 'quotation_rejected', $actor, 'customer_rejected', $note, [], null, 'quotation', (int) $q->id);
+                // khách từ chối: V1 vẫn là báo giá hiệu lực, V2 giữ lại lịch sử
+                $this->transition($c, 'change_rejected', $actor, 'change_rejected', $note, ['current_quotation_id' => $base?->id ?? $c->current_quotation_id], null, 'quotation', (int) $q->id);
             }
 
             return $c;
         });
     }
 
-    // ------------------------------------------------------------------ 6. linh kiện (Kho)
+    /**
+     * BÁO GIÁ PHÁT SINH khi đang sửa: tạo VERSION MỚI (V1 đã duyệt giữ nguyên bất biến), lý do bắt buộc,
+     * claim chuyển "Chờ khách xác nhận phát sinh". Phần phát sinh KHÔNG được coi là đã duyệt cho tới khi khách xác nhận.
+     */
+    public function saveChangeQuotation(int $claimId, User $actor, array $q, string $reason): object
+    {
+        $reason = trim($reason);
+        if (mb_strlen($reason) < (int) config('warranty.min_reason_length', 5)) {
+            throw new WarrantyException('Bắt buộc nhập lý do phát sinh.');
+        }
+
+        return DB::transaction(function () use ($claimId, $actor, $q, $reason) {
+            $c = $this->lock($claimId);
+            $this->requireStatus($c, ['repairing']);
+            $this->requireAssignedOrLead($c, $actor);
+            $base = DB::table('warranty_repair_quotations')->where('claim_id', $c->id)->where('status', 'approved')->orderByDesc('version')->lockForUpdate()->first();
+            if (! $base) {
+                throw new WarrantyException('Chưa có báo giá đã được khách duyệt để lập phát sinh.');
+            }
+            $calc = self::computeQuotation((array) ($q['items'] ?? []), $q['labor_amount'] ?? 0, $q['onsite_amount'] ?? 0, $q['shipping_amount'] ?? 0, $q['extra_amount'] ?? 0, $q['discount_amount'] ?? 0);
+            $items = $this->hydrateItems($calc['items']);
+            $version = (int) DB::table('warranty_repair_quotations')->where('claim_id', $c->id)->max('version') + 1;
+            $qid = (int) DB::table('warranty_repair_quotations')->insertGetId([
+                'claim_id' => $c->id, 'version' => $version, 'status' => 'sent', 'is_change' => true, 'change_reason' => $reason, 'base_quotation_id' => $base->id,
+                'parts_total' => $calc['parts_total'], 'labor_amount' => $calc['labor_amount'], 'onsite_amount' => $calc['onsite_amount'],
+                'shipping_amount' => $calc['shipping_amount'], 'extra_amount' => $calc['extra_amount'], 'discount_amount' => $calc['discount_amount'],
+                'total_amount' => $calc['total_amount'], 'note' => $q['note'] ?? null, 'created_by' => $actor->id, 'sent_at' => now(),
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            foreach ($items as $it) {
+                DB::table('warranty_repair_quotation_items')->insert($it + ['quotation_id' => $qid, 'created_at' => now(), 'updated_at' => now()]);
+            }
+            $delta = round((float) $calc['total_amount'] - (float) $base->total_amount, 2);
+            $this->transition($c, 'waiting_change_confirmation', $actor, 'change_quote_send', $reason, ['current_quotation_id' => $qid], null, 'quotation', $qid);
+            WarrantyAudit::log((int) $c->id, 'change_quote_delta', 'repairing', 'waiting_change_confirmation',
+                ['version' => (int) $base->version, 'total' => (string) $base->total_amount],
+                ['version' => $version, 'total' => $calc['total_amount'], 'delta' => number_format($delta, 2, '.', '')], $reason, (int) $actor->id, 'quotation', $qid);
+
+            return DB::table('warranty_repair_quotations')->where('id', $qid)->first();
+        });
+    }
+
+    /** Khách từ chối phát sinh → Kỹ thuật/Trưởng phòng quyết định tiếp tục theo báo giá gốc. */
+    public function resumeOriginal(int $claimId, User $actor, ?string $note): SolarWarrantyClaim
+    {
+        return DB::transaction(function () use ($claimId, $actor, $note) {
+            $c = $this->lock($claimId);
+            $this->requireStatus($c, ['change_rejected']);
+            $this->requireAssignedOrLead($c, $actor);
+            $this->transition($c, 'repairing', $actor, 'change_resume_original', $note, []);
+
+            return $c;
+        });
+    }
+
+    // ------------------------------------------------------------------ 6. linh kiện (Kho) — số lượng tích lũy
+
+    /** planned = SL cần (theo báo giá đã duyệt); reserved = đang giữ chưa xuất; issued = đã xuất (cộng dồn); used = đã dùng; returned = đã hoàn. */
+    private function partPending(object $p): float
+    {
+        return max(0.0, (float) $p->qty_planned - (float) $p->qty_issued - (float) $p->qty_reserved);
+    }
+
+    private function partLeftover(object $p): float
+    {
+        return max(0.0, (float) $p->qty_issued - (float) $p->qty_used - (float) $p->qty_returned);
+    }
+
+    private function partStatus(object $p): string
+    {
+        if ((float) $p->qty_reserved > 0.0001) {
+            return 'reserved';
+        }
+        if ($this->partPending($p) > 0.0001) {
+            return 'planned';
+        }
+        if ((float) $p->qty_issued > 0.0001) {
+            return $this->partLeftover($p) > 0.0001 ? 'issued' : 'closed';
+        }
+
+        return 'released';
+    }
+
+    private function refreshPart(int $id): void
+    {
+        $p = DB::table('warranty_repair_parts')->where('id', $id)->first();
+        if ($p) {
+            DB::table('warranty_repair_parts')->where('id', $id)->update(['status' => $this->partStatus($p), 'updated_at' => now()]);
+        }
+    }
+
+    private function partsPending(object $c): bool
+    {
+        return DB::table('warranty_repair_parts')->where('claim_id', $c->id)->get()
+            ->contains(fn ($p) => $this->partPending($p) > 0.0001 || (float) $p->qty_reserved > 0.0001);
+    }
+
+    /** Đồng bộ dòng linh kiện theo báo giá ĐÃ DUYỆT (V1 hoặc phiên bản phát sinh): thêm/tăng/giảm SL cần, không đụng SL đã xuất. */
+    private function syncPartsFromQuotation(SolarWarrantyClaim $c, object $q): void
+    {
+        $groups = [];
+        foreach (DB::table('warranty_repair_quotation_items')->where('quotation_id', $q->id)->whereNotNull('product_id')->get() as $it) {
+            $g = $groups[$it->product_id] ?? ['name' => $it->name, 'qty' => 0.0, 'total' => 0.0];
+            $g['qty'] += (float) $it->quantity;
+            $g['total'] += (float) $it->line_total;
+            $groups[$it->product_id] = $g;
+        }
+        $existing = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->lockForUpdate()->get()->keyBy('product_id');
+        foreach ($groups as $productId => $g) {
+            $price = $g['qty'] > 0 ? round($g['total'] / $g['qty'], 2) : 0;
+            if ($existing->has($productId)) {
+                DB::table('warranty_repair_parts')->where('id', $existing[$productId]->id)->update(['qty_planned' => $g['qty'], 'unit_price' => $price, 'name' => $g['name'], 'updated_at' => now()]);
+                $this->refreshPart((int) $existing[$productId]->id);
+            } else {
+                DB::table('warranty_repair_parts')->insert([
+                    'claim_id' => $c->id, 'product_id' => $productId, 'name' => $g['name'], 'qty_planned' => $g['qty'], 'unit_price' => $price,
+                    'status' => 'planned', 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        }
+        foreach ($existing as $productId => $line) {
+            if (! isset($groups[$productId])) {
+                // dòng bị bỏ khỏi báo giá mới: SL cần = 0, nhả phần đang giữ; phần đã xuất (nếu có) sẽ hoàn kho như dư
+                DB::table('warranty_repair_parts')->where('id', $line->id)->update(['qty_planned' => 0, 'qty_reserved' => 0, 'updated_at' => now()]);
+                $this->refreshPart((int) $line->id);
+            }
+        }
+    }
 
     public function reserveParts(int $claimId, User $actor, int $warehouseId): SolarWarrantyClaim
     {
@@ -367,21 +521,31 @@ final class RepairService
             if (! DB::table('crm_warehouses')->where('id', $warehouseId)->exists()) {
                 throw new WarrantyException('Kho không tồn tại.');
             }
-            $parts = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'planned')->lockForUpdate()->get();
+            $this->lockStockRows($c, $warehouseId);
+            $parts = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->lockForUpdate()->get()->filter(fn ($p) => $this->partPending($p) > 0.0001);
             if ($parts->isEmpty()) {
                 throw new WarrantyException('Không có linh kiện cần giữ hàng.');
             }
+            // Khóa dòng tồn (sản phẩm × kho) để 2 phiếu tranh cùng tồn được xử lý TUẦN TỰ — phiếu sau thấy phần đã giữ của phiếu trước.
             foreach ($parts as $p) {
-                $avail = $this->ledger->availablePartQty((int) $p->product_id, $warehouseId);
-                if ($avail + 0.0001 < (float) $p->qty_planned) {
-                    throw new WarrantyException('Tồn khả dụng không đủ cho “'.$p->name.'” (cần '.(float) $p->qty_planned.', khả dụng '.(float) $avail.').');
+                DB::table('crm_product_stock')->where('product_id', $p->product_id)->where('warehouse_id', $warehouseId)->lockForUpdate()->first();
+            }
+            foreach ($parts as $p) {
+                if ($p->warehouse_id && (int) $p->warehouse_id !== $warehouseId && ((float) $p->qty_issued > 0 || (float) $p->qty_reserved > 0)) {
+                    throw new WarrantyException('Linh kiện “'.$p->name.'” đã giữ/xuất ở kho khác — dùng cùng kho.');
+                }
+                $avail = $this->ledger->availablePartQty((int) $p->product_id, $warehouseId, true);
+                $need = $this->partPending($p);
+                if ($avail + 0.0001 < $need) {
+                    throw new WarrantyException('Tồn khả dụng không đủ cho “'.$p->name.'” (cần '.$need.', khả dụng '.$avail.').');
                 }
             }
             foreach ($parts as $p) {
                 DB::table('warranty_repair_parts')->where('id', $p->id)->update([
-                    'status' => 'reserved', 'warehouse_id' => $warehouseId, 'qty_reserved' => $p->qty_planned,
+                    'warehouse_id' => $warehouseId, 'qty_reserved' => (float) $p->qty_reserved + $this->partPending($p),
                     'reserved_by' => $actor->id, 'reserved_at' => now(), 'updated_at' => now(),
                 ]);
+                $this->refreshPart((int) $p->id);
             }
             if ($c->status === 'approved_for_repair') {
                 $this->transition($c, 'waiting_parts', $actor, 'parts_reserve', null, []);
@@ -399,62 +563,89 @@ final class RepairService
             $c = $this->lock($claimId);
             $this->requireWarehouse($actor);
             $this->requireStatus($c, ['waiting_parts']);
-            $parts = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'reserved')->lockForUpdate()->get();
+            $this->lockStockRows($c);
+            $parts = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('qty_reserved', '>', 0)->lockForUpdate()->get();
             if ($parts->isEmpty()) {
                 throw new WarrantyException('Không có linh kiện đã giữ để xuất.');
             }
             $receiver = $receiverUserId ?: ((int) $c->assigned_to ?: null);
+            $detail = [];
             foreach ($parts as $p) {
-                [$before, $after] = $this->ledger->adjustProductStock((int) $p->product_id, (int) $p->warehouse_id, (int) $c->company_id ?: null, -(float) $p->qty_reserved, 'Xuất linh kiện sửa chữa '.$c->claim_code, (int) $c->id, (int) $actor->id);
+                $qty = (float) $p->qty_reserved;
+                [$before, $after] = $this->ledger->adjustProductStock((int) $p->product_id, (int) $p->warehouse_id, (int) $c->company_id ?: null, -$qty, 'Xuất linh kiện sửa chữa '.$c->claim_code, (int) $c->id, (int) $actor->id);
                 DB::table('warranty_repair_parts')->where('id', $p->id)->update([
-                    'status' => 'issued', 'qty_issued' => $p->qty_reserved, 'qty_reserved' => 0,
+                    'qty_issued' => (float) $p->qty_issued + $qty, 'qty_reserved' => 0,
                     'issued_by' => $actor->id, 'issued_at' => now(), 'received_by' => $receiver, 'updated_at' => now(),
                 ]);
-                $mid = (int) DB::table('solar_warranty_stock_movements')->insertGetId([
-                    'movement_code' => 'TMP-'.uniqid(), 'company_id' => $c->company_id, 'warranty_claim_id' => $c->id, 'site_id' => $c->site_id,
-                    'movement_type' => 'repair_part_out', 'status' => 'completed', 'warehouse_id' => $p->warehouse_id, 'product_id' => $p->product_id,
-                    'quantity' => $p->qty_reserved, 'requested_by' => $actor->id, 'approved_by' => $actor->id, 'completed_by' => $actor->id,
-                    'requested_at' => now(), 'approved_at' => now(), 'completed_at' => now(), 'part_line_id' => $p->id,
-                    'qty_before' => $before, 'qty_after' => $after, 'note' => 'Xuất linh kiện '.$p->name,
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
-                DB::table('solar_warranty_stock_movements')->where('id', $mid)->update(['movement_code' => sprintf('XKBH-%s-%06d', now()->format('Y'), $mid)]);
+                $this->refreshPart((int) $p->id);
+                $this->partMovement($c, $p, 'repair_part_out', $qty, $before, $after, $actor, 'Xuất linh kiện '.$p->name);
+                $detail[] = ['product_id' => (int) $p->product_id, 'qty' => $qty];
             }
-            WarrantyAudit::log((int) $c->id, 'parts_issue', $c->status, $c->status, null, ['lines' => $parts->count(), 'receiver' => $receiver], null, (int) $actor->id);
+            WarrantyAudit::log((int) $c->id, 'parts_issue', $c->status, $c->status, null, ['lines' => $detail, 'receiver' => $receiver], null, (int) $actor->id);
 
             return $c;
         });
     }
 
-    /** Hoàn kho linh kiện dư (issued − used − returned). */
+    /** Hoàn kho linh kiện dư = đã xuất − đã dùng − đã hoàn. Chạy trong transaction, không hoàn 2 lần. */
     public function returnLeftoverParts(int $claimId, User $actor): SolarWarrantyClaim
     {
         return DB::transaction(function () use ($claimId, $actor) {
             $c = $this->lock($claimId);
             $this->requireWarehouse($actor);
-            $this->requireStatus($c, ['repairing', 'qa_testing', 'qa_failed', 'ready_handover', 'handed_over', 'waiting_parts', 'approved_for_repair']);
-            $moved = 0;
-            foreach (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'issued')->lockForUpdate()->get() as $p) {
-                $left = (float) $p->qty_issued - (float) $p->qty_used - (float) $p->qty_returned;
-                if ($left <= 0) {
-                    DB::table('warranty_repair_parts')->where('id', $p->id)->update(['status' => 'closed', 'updated_at' => now()]);
+            $this->requireStatus($c, ['repairing', 'qa_testing', 'qa_failed', 'ready_handover', 'handed_over', 'waiting_parts', 'approved_for_repair', 'change_rejected', 'waiting_change_confirmation']);
+            if (in_array($c->status, ['repairing', 'qa_testing', 'qa_failed', 'waiting_change_confirmation'], true) && trim((string) $c->repair_work_done) === '') {
+                throw new WarrantyException('Kỹ thuật chưa ghi nhận linh kiện đã dùng — chưa thể hoàn kho phần dư.');
+            }
+            $detail = [];
+            $this->lockStockRows($c);
+            foreach (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('qty_issued', '>', 0)->lockForUpdate()->get() as $p) {
+                $left = $this->partLeftover($p);
+                if ($left <= 0.0001) {
                     continue;
                 }
-                $this->ledger->adjustProductStock((int) $p->product_id, (int) $p->warehouse_id, (int) $c->company_id ?: null, $left, 'Hoàn kho linh kiện dư '.$c->claim_code, (int) $c->id, (int) $actor->id);
-                DB::table('warranty_repair_parts')->where('id', $p->id)->update([
-                    'qty_returned' => (float) $p->qty_returned + $left, 'status' => 'closed', 'updated_at' => now(),
-                ]);
-                $moved++;
+                [$before, $after] = $this->ledger->adjustProductStock((int) $p->product_id, (int) $p->warehouse_id, (int) $c->company_id ?: null, $left, 'Hoàn kho linh kiện dư '.$c->claim_code, (int) $c->id, (int) $actor->id);
+                DB::table('warranty_repair_parts')->where('id', $p->id)->update(['qty_returned' => (float) $p->qty_returned + $left, 'updated_at' => now()]);
+                $this->refreshPart((int) $p->id);
+                $this->partMovement($c, $p, 'repair_part_return', $left, $before, $after, $actor, 'Hoàn kho linh kiện dư '.$p->name);
+                $detail[] = ['product_id' => (int) $p->product_id, 'qty' => $left];
             }
-            if (! $moved) {
+            if (! $detail) {
                 throw new WarrantyException('Không có linh kiện dư cần hoàn kho.');
             }
-            WarrantyAudit::log((int) $c->id, 'parts_return', $c->status, $c->status, null, ['lines' => $moved], null, (int) $actor->id);
+            WarrantyAudit::log((int) $c->id, 'parts_return', $c->status, $c->status, null, ['lines' => $detail], null, (int) $actor->id);
 
             return $c;
         });
     }
 
+    /** Thứ tự khóa THỐNG NHẤT: phiếu → dòng tồn (sản phẩm×kho, sắp xếp) → dòng linh kiện. Tránh deadlock giữa reserve/issue/return của các phiếu khác nhau. */
+    private function lockStockRows(SolarWarrantyClaim $c, ?int $warehouseId = null): void
+    {
+        $keys = [];
+        foreach (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->get(['product_id', 'warehouse_id']) as $l) {
+            $wh = $warehouseId ?: (int) $l->warehouse_id;
+            if ($wh > 0) {
+                $keys[$l->product_id.'-'.$wh] = [(int) $l->product_id, $wh];
+            }
+        }
+        ksort($keys);
+        foreach ($keys as [$pid, $wh]) {
+            DB::table('crm_product_stock')->where('product_id', $pid)->where('warehouse_id', $wh)->lockForUpdate()->first();
+        }
+    }
+
+    private function partMovement(SolarWarrantyClaim $c, object $p, string $type, float $qty, $before, $after, User $actor, string $note): void
+    {
+        $mid = (int) DB::table('solar_warranty_stock_movements')->insertGetId([
+            'movement_code' => 'TMP-'.uniqid(), 'company_id' => $c->company_id, 'warranty_claim_id' => $c->id, 'site_id' => $c->site_id,
+            'movement_type' => $type, 'status' => 'completed', 'warehouse_id' => $p->warehouse_id, 'product_id' => $p->product_id,
+            'quantity' => $qty, 'requested_by' => $actor->id, 'approved_by' => $actor->id, 'completed_by' => $actor->id,
+            'requested_at' => now(), 'approved_at' => now(), 'completed_at' => now(), 'part_line_id' => $p->id,
+            'qty_before' => $before, 'qty_after' => $after, 'note' => $note, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('solar_warranty_stock_movements')->where('id', $mid)->update(['movement_code' => sprintf('XKBH-%s-%06d', now()->format('Y'), $mid)]);
+    }
     // ------------------------------------------------------------------ 7. sửa chữa
 
     public function startRepair(int $claimId, User $actor): SolarWarrantyClaim
@@ -464,8 +655,7 @@ final class RepairService
             $this->requireStatus($c, ['approved_for_repair', 'waiting_parts', 'qa_failed']);
             $this->requireAssignedOrLead($c, $actor);
             if ($c->status !== 'qa_failed') {
-                $pending = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->whereNotIn('status', ['issued', 'closed'])->exists();
-                if ($pending) {
+                if ($this->partsPending($c)) {
                     throw new WarrantyException('Chưa thể sửa: linh kiện chưa được Kho giữ/xuất đầy đủ.');
                 }
             }
@@ -588,7 +778,7 @@ final class RepairService
     public function checklist(object $c): array
     {
         $q = $c->current_quotation_id ? DB::table('warranty_repair_quotations')->where('id', $c->current_quotation_id)->first() : null;
-        $unsettled = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'issued')->exists();
+        $unsettled = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->get()->contains(fn ($p) => $this->partLeftover($p) > 0.0001 || (float) $p->qty_reserved > 0.0001);
         $qaPass = DB::table('warranty_repair_qa')->where('claim_id', $c->id)->orderByDesc('id')->value('result') === 'pass';
 
         return [
@@ -647,11 +837,11 @@ final class RepairService
 
         return DB::transaction(function () use ($claimId, $actor, $reason) {
             $c = $this->lock($claimId);
-            $this->requireStatus($c, ['diagnosing', 'quotation_draft', 'waiting_customer_confirmation', 'quotation_rejected', 'approved_for_repair', 'waiting_parts']);
+            $this->requireStatus($c, ['diagnosing', 'quotation_draft', 'waiting_customer_confirmation', 'quotation_rejected', 'approved_for_repair', 'waiting_parts', 'change_rejected']);
             if (! SolarMaintenanceAccess::isTechnicalLead($actor) && (int) $c->created_by !== (int) $actor->id) {
                 throw new WarrantyException('Chỉ Trưởng phòng/Admin (hoặc người tạo) được hủy phiếu.');
             }
-            if (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'issued')->exists()) {
+            if (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->get()->contains(fn ($p) => $this->partLeftover($p) > 0.0001 || (float) $p->qty_used > 0)) {
                 throw new WarrantyException('Linh kiện đã xuất kho: Kho phải hoàn kho trước khi hủy phiếu.');
             }
             $this->releaseAllParts($c, $actor, 'Hủy phiếu: '.$reason);
@@ -743,14 +933,17 @@ final class RepairService
 
     private function releaseAllParts(SolarWarrantyClaim $c, User $actor, string $reason): void
     {
-        $n = DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('status', 'reserved')->update([
-            'status' => 'released', 'qty_reserved' => 0, 'updated_at' => now(),
-        ]);
+        $n = 0;
+        foreach (DB::table('warranty_repair_parts')->where('claim_id', $c->id)->where('qty_issued', '<=', 0)->lockForUpdate()->get() as $p) {
+            if ((float) $p->qty_reserved > 0 || (float) $p->qty_planned > 0) {
+                DB::table('warranty_repair_parts')->where('id', $p->id)->update(['qty_reserved' => 0, 'qty_planned' => 0, 'status' => 'released', 'updated_at' => now()]);
+                $n++;
+            }
+        }
         if ($n) {
             WarrantyAudit::log((int) $c->id, 'parts_release', null, null, null, ['lines' => $n], $reason, (int) $actor->id);
         }
     }
-
     private function transition(SolarWarrantyClaim $c, string $to, User $actor, string $action, ?string $reason, array $fields, ?array $before = null, ?string $relType = null, ?int $relId = null): void
     {
         $from = (string) $c->status;
@@ -759,6 +952,7 @@ final class RepairService
         $update = $fields + ['status' => $to, 'status_changed_at' => now(), 'updated_at' => now()];
         if (! WarrantyFlow::isOpen($to)) {
             $update['open_serial_key'] = null;
+            $update['open_serial_norm'] = null;
         }
         DB::table('crm_serial_warranty_claims')->where('id', $c->id)->update($update);
         $c->refresh();
