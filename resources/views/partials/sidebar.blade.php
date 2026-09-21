@@ -580,13 +580,27 @@
 @if($egoCanTechnicalMenu)
 @php
     $egoTechnicalMenuOpen = request()->routeIs(
+        'technical.dashboard*',
         'ky-thuat.tong-quan',
         'ky-thuat.ke-hoach*',
         'ky-thuat.warranty-exchange.*',
         'ky-thuat.bao-cao*',
         'ky-thuat.kpis.*',
-        'ky-thuat.luong.*'
+        'ky-thuat.luong.*',
+        'technical.work.*',
+        'technical.daily-reports.*'
     );
+
+    /* "Quản lý kỹ thuật" chỉ hiện với trưởng kỹ thuật / Ban giám đốc / Admin.
+       Dùng lại đúng cơ chế phân quyền sẵn có, không tạo cờ riêng. */
+    $egoCanTechnicalManage = false;
+    if ($egoSidebarUser) {
+        try {
+            $egoCanTechnicalManage = app(\App\Services\Technical\TechnicalAccess::class)->canManage($egoSidebarUser);
+        } catch (\Throwable $e) {
+            $egoCanTechnicalManage = false;
+        }
+    }
 @endphp
 <li class="ego-item ego-item--has-sub" data-title="Kỹ thuật" data-ego-sub="true" data-ego-menu-permission="menu.technical">
     <a href="#menuKyThuat" class="ego-link {{ $egoTechnicalMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoTechnicalMenuOpen ? 'true' : 'false' }}" aria-controls="menuKyThuat">
@@ -594,23 +608,77 @@
         <span class="ego-txt">Kỹ thuật</span>
         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
     </a>
+    {{--
+        ĐƠN GIẢN HOÁ (2026-09) — nhánh dự phòng này phải cho ra CÙNG một menu
+        Kỹ thuật như menu workspace V4 (config/ego_menu_v4.php):
+          - Kỹ thuật viên : Tổng quan / Kế hoạch / Báo cáo (3 mục)
+          - Trưởng phòng  : 5 mục điều phối
+          - Admin / GĐ    : Tổng quan / Kế hoạch & Giao việc /
+                            Báo cáo ngày/tuần / KPIs
+                            (Admin nay ĐƯỢC tạo kế hoạch và giao việc; mục Báo
+                            cáo trỏ /ky-thuat/bao-cao-ngay dùng chung 3 vai trò)
+        Các màn hình cũ (Công việc của tôi, Lịch công việc, Quản lý kỹ thuật,
+        KPIs, "Kế hoạch (bản cũ)", "Báo cáo (bản cũ)") GIỮ NGUYÊN route và dữ
+        liệu, chỉ không còn là lối vào chính nữa.
+        "Đề xuất đổi hàng BH" chuyển sang nhóm Bảo trì / Bảo hành bên dưới.
+    --}}
     <ul id="menuKyThuat" class="ego-sub collapse {{ $egoTechnicalMenuOpen ? 'show' : '' }}" data-ego-submenu>
-        <li><a href="{{ route('ky-thuat.tong-quan') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.tong-quan') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
-        <li><a href="{{ route('ky-thuat.ke-hoach') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.ke-hoach*') ? 'active' : '' }}" data-ego-type="nav">Kế hoạch</a></li>
-        <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đề xuất đổi hàng BH</a></li>
-        <li><a href="{{ route('ky-thuat.bao-cao') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.bao-cao*') ? 'active' : '' }}" data-ego-type="nav">Báo cáo</a></li>
-        <li><a href="{{ route('ky-thuat.kpis.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.kpis.*', 'ky-thuat.luong.*') ? 'active' : '' }}" data-ego-type="nav">KPIs</a></li>
+        @php
+            $egoIsTechnicalAdmin = false;
+            try { $egoIsTechnicalAdmin = $egoSidebarUser && method_exists($egoSidebarUser, 'isAdmin') && $egoSidebarUser->isAdmin(); }
+            catch (\Throwable $e) { $egoIsTechnicalAdmin = false; }
+        @endphp
+
+        @if($egoIsTechnicalAdmin && \Illuminate\Support\Facades\Route::has('technical.dashboard'))
+            <li><a href="{{ route('technical.dashboard') }}" class="ego-sublink {{ request()->routeIs('technical.dashboard') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+            {{-- Admin vào bàn điều phối để TẠO/GIAO kế hoạch thì mục này vẫn là
+                 mục đang active — liệt kê tên route CHÍNH XÁC, không dùng prefix rộng. --}}
+            <li><a href="{{ route('technical.dashboard.plans') }}" class="ego-sublink {{ request()->routeIs('technical.dashboard.plans', 'technical.dashboard.plans.detail', 'technical.manager.board', 'technical.manager.detail') ? 'active' : '' }}" data-ego-type="nav">Kế hoạch & Giao việc</a></li>
+            {{-- 2026-09: mục Báo cáo của Admin dùng CHUNG trang báo cáo ngày/tuần
+                 với trưởng phòng và nhân viên. URL cũ /ky-thuat/dashboard/bao-cao
+                 chỉ còn redirect 302, không còn là mục menu. --}}
+            <li><a href="{{ route('technical.daily-reports.index') }}" class="ego-sublink {{ request()->routeIs('technical.daily-reports.*') ? 'active' : '' }}" data-ego-type="nav">Báo cáo ngày/tuần</a></li>
+            {{-- KPI CHÍNH THỨC: `/ky-thuat/kpis`. Trang "KPI tham khảo" cũ
+                 (`/ky-thuat/dashboard/kpis`) đã retire, chỉ còn redirect 302. --}}
+            <li><a href="{{ route('ky-thuat.kpis.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.kpis.*') ? 'active' : '' }}" data-ego-type="nav">KPIs</a></li>
+        @elseif($egoCanTechnicalManage && \Illuminate\Support\Facades\Route::has('technical.manager.overview'))
+            <li><a href="{{ route('technical.manager.overview') }}" class="ego-sublink {{ request()->routeIs('technical.manager.overview') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+            <li><a href="{{ route('technical.manager.board') }}" class="ego-sublink {{ request()->routeIs('technical.manager.board') ? 'active' : '' }}" data-ego-type="nav">Kế hoạch nhân viên</a></li>
+            {{-- 2026-09: mở THẲNG drawer Giao việc trên trang ma trận. --}}
+            <li><a href="{{ route('technical.manager.board', ['open' => 'assign']) }}" class="ego-sublink {{ request()->routeIs('technical.manager.detail') ? 'active' : '' }}" data-ego-type="nav">Giao việc</a></li>
+            <li><a href="{{ route('technical.daily-reports.index') }}" class="ego-sublink {{ request()->routeIs('technical.daily-reports.*') ? 'active' : '' }}" data-ego-type="nav">Báo cáo</a></li>
+            <li><a href="{{ route('technical.manager.weekly-summary') }}" class="ego-sublink {{ request()->routeIs('technical.manager.weekly-summary') ? 'active' : '' }}" data-ego-type="nav">Tổng kết tuần</a></li>
+        @else
+            <li><a href="{{ route('ky-thuat.tong-quan') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.tong-quan') ? 'active' : '' }}" data-ego-type="nav">Tổng quan</a></li>
+            @if(\Illuminate\Support\Facades\Route::has('technical.week-plan.index'))
+                <li><a href="{{ route('technical.week-plan.index') }}" class="ego-sublink {{ request()->routeIs('technical.week-plan.*') ? 'active' : '' }}" data-ego-type="nav">Kế hoạch</a></li>
+            @endif
+            @if(\Illuminate\Support\Facades\Route::has('technical.daily-reports.index'))
+                <li><a href="{{ route('technical.daily-reports.index') }}" class="ego-sublink {{ request()->routeIs('technical.daily-reports.*') ? 'active' : '' }}" data-ego-type="nav">Báo cáo</a></li>
+            @endif
+        @endif
     </ul>
 </li>
 @endif
 
 {{-- BẢO TRÌ / BẢO HÀNH --}}
 @if($egoCanConstructionMenu || $egoCanTechnicalMenu)
-<li class="ego-item" data-title="Bảo trì / Bảo hành" data-ego-menu-permission="menu.sites">
-    <a href="{{ route('projects-unified.maintenance.index') }}" class="ego-link {{ request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*') ? 'active' : '' }}" data-ego-type="nav">
+@php
+    $egoMaintenanceMenuOpen = request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*', 'ky-thuat.warranty-exchange.*');
+@endphp
+<li class="ego-item ego-item--has-sub" data-title="Bảo trì / Bảo hành" data-ego-sub="true" data-ego-menu-permission="menu.sites">
+    <a href="#menuBaoTriBaoHanh" class="ego-link {{ $egoMaintenanceMenuOpen ? 'active' : '' }}" data-bs-toggle="collapse" data-ego-type="toggle" aria-expanded="{{ $egoMaintenanceMenuOpen ? 'true' : 'false' }}" aria-controls="menuBaoTriBaoHanh">
         <span class="ego-ic"><i class="bi bi-shield-check"></i></span>
         <span class="ego-txt">Bảo trì / Bảo hành</span>
+        <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
     </a>
+    <ul id="menuBaoTriBaoHanh" class="ego-sub collapse {{ $egoMaintenanceMenuOpen ? 'show' : '' }}" data-ego-submenu>
+        <li><a href="{{ route('projects-unified.maintenance.index') }}" class="ego-sublink {{ request()->routeIs('projects-unified.maintenance.*', 'ky-thuat.maintenance.*') ? 'active' : '' }}" data-ego-type="nav">Bảo trì / Bảo hành</a></li>
+        @if($egoCanTechnicalMenu && \Illuminate\Support\Facades\Route::has('ky-thuat.warranty-exchange.index'))
+            {{-- Bước của quy trình bảo hành: chuyển về đây để không nằm lẫn trong nhóm Kỹ thuật. --}}
+            <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đề xuất đổi hàng BH</a></li>
+        @endif
+    </ul>
 </li>
 @endif
 

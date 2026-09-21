@@ -13,8 +13,25 @@
             ->value();
     };
 
-    $egoExcelIsTechnicalHead = false;
+    /*
+     * Giai đoạn 2 (module Kỹ thuật): workspace `technical` có BA nhánh menu
+     * riêng thay vì hai —
+     *   technical_admin : Admin / Giám đốc (chỉ Dashboard kết quả, chỉ xem)
+     *   technical_head  : Trưởng phòng Kỹ thuật (điều phối kế hoạch tuần)
+     *   technical_staff : Kỹ thuật viên (tự lập kế hoạch, báo cáo của mình)
+     * Menu chỉ là lối vào; controller vẫn kiểm tra quyền lần nữa ở phía server.
+     */
+    $egoExcelIsTechnicalAdmin = false;
     if ($egoExcelUser && $egoExcelWorkspace === 'technical') {
+        try {
+            $egoExcelIsTechnicalAdmin = method_exists($egoExcelUser, 'isAdmin') && $egoExcelUser->isAdmin();
+        } catch (\Throwable $e) {
+            $egoExcelIsTechnicalAdmin = false;
+        }
+    }
+
+    $egoExcelIsTechnicalHead = false;
+    if ($egoExcelUser && $egoExcelWorkspace === 'technical' && ! $egoExcelIsTechnicalAdmin) {
         $egoExcelUser->loadMissing(['roles', 'position']);
         $roleNames = $egoExcelUser->roles->pluck('name')->map(fn ($name) => (string) $name)->all();
         $headRoles = (array) config('ego_menu_v4.technical_head_roles', []);
@@ -26,7 +43,9 @@
     }
 
     $egoExcelMenuKey = match ($egoExcelWorkspace) {
-        'technical' => $egoExcelIsTechnicalHead ? 'technical_head' : 'technical_staff',
+        'technical' => $egoExcelIsTechnicalAdmin
+            ? 'technical_admin'
+            : ($egoExcelIsTechnicalHead ? 'technical_head' : 'technical_staff'),
         'admin' => 'admin',
         'management' => 'management',
         'accounting' => 'accounting',
@@ -108,7 +127,7 @@
 
     $egoExcelWorkspaceLabels = (array) config('ego_menu_v4.workspace_labels', []);
     $egoExcelWorkspaceLabelKey = $egoExcelWorkspace === 'technical'
-        ? ($egoExcelIsTechnicalHead ? 'technical_head' : 'technical_staff')
+        ? $egoExcelMenuKey
         : $egoExcelWorkspace;
 @endphp
 

@@ -25,7 +25,19 @@ Route::middleware(['auth'])
     ->prefix('ky-thuat')
     ->name('ky-thuat.')
     ->group(function () {
-        Route::get('/', [\App\Http\Controllers\Technical\TechnicalWorkController::class, 'overview'])
+        /*
+         * Tổng quan Kỹ thuật (giai đoạn 1, 2026-09).
+         *
+         * Giữ NGUYÊN tên route `ky-thuat.tong-quan` để sidebar và mọi link cũ
+         * không gãy, nhưng chuyển sang controller mới đọc dữ liệu từ 3 nguồn
+         * công việc THẬT (quy trình Công trình / Task / Bảo trì) thay vì bảng
+         * `technical_work_records` vốn chỉ được ghi bởi chính form kế hoạch
+         * bên dưới — đây là nguyên nhân trang cũ luôn hiển thị toàn số 0.
+         *
+         * Các route Kế hoạch / Báo cáo / Hoàn thiện cũ được giữ nguyên để dữ
+         * liệu đã nhập trước đây vẫn truy cập được.
+         */
+        Route::get('/', [\App\Http\Controllers\Technical\TechnicalWorkboardController::class, 'overview'])
             ->name('tong-quan');
 
         Route::get('/ke-hoach', [\App\Http\Controllers\Technical\TechnicalWorkController::class, 'plan'])
@@ -157,3 +169,12 @@ Route::post('/ky-thuat/luong/settings/kpi-items', [\App\Http\Controllers\Synced\
 Route::delete('/ky-thuat/luong/settings/kpi-items/{id}', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalPayrollController::class, 'destroyKpiItem'])
     ->middleware(['auth', 'role:admin|accounting|manager'])
     ->name('ky-thuat.luong.settings.kpi-items.destroy');
+
+/*
+|--------------------------------------------------------------------------
+| Bàn làm việc Kỹ thuật + Báo cáo ngày (giai đoạn 1, 2026-09)
+|--------------------------------------------------------------------------
+| Đặt ở CUỐI file để không thay đổi thứ tự khớp URL của bất kỳ route nào
+| đang chạy. Toàn bộ tên route dùng tiền tố mới `technical.*`.
+*/
+require __DIR__.'/technical_work.php';

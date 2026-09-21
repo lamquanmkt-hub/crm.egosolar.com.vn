@@ -1,0 +1,566 @@
+/*
+ * Kế hoạch tuần Kỹ thuật — giai đoạn 2.
+ *
+ * Mở rộng ego-technical-work.css (nạp trước file này), dùng chung token
+ * --tw-* đã khai báo ở .tw-wrap. Không ghi đè style của module khác,
+ * không dùng emoji (icon lấy từ Bootstrap Icons đã có sẵn).
+ */
+
+/* ---------- Thanh chọn tuần ---------- */
+.tp-weekbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid var(--tw-border);
+    border-radius: var(--tw-radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.tp-weekbar__range {
+    font-weight: 600;
+    font-size: .95rem;
+    white-space: nowrap;
+}
+
+.tp-weekbar__spacer { flex: 1 1 auto; }
+
+.tp-weekbar__nav { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.tp-weekbar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Trạng thái tuần ---------- */
+.tp-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .8rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--tw-border);
+    background: var(--tw-soft);
+    color: var(--tw-muted);
+    white-space: nowrap;
+}
+
+.tp-state--success { background: #e8f7f1; border-color: #bfe8d9; color: #0f7052; }
+.tp-state--warning { background: #fff5e6; border-color: #ffd9a0; color: #a15c00; }
+.tp-state--danger { background: #fdecec; border-color: #f7c5c5; color: #a31515; }
+.tp-state--info { background: #eaf1ff; border-color: #c5d8ff; color: #1b4fbf; }
+
+/* ---------- Nhóm ngày (desktop: từng bảng nhỏ) ---------- */
+.tp-day {
+    background: #fff;
+    border: 1px solid var(--tw-border);
+    border-radius: var(--tw-radius);
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+
+.tp-day--today { border-color: var(--tw-project); box-shadow: 0 0 0 1px rgba(37, 99, 235, .12); }
+.tp-day--overload { border-color: #f0b429; }
+
+.tp-day__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    background: var(--tw-soft);
+    border-bottom: 1px solid var(--tw-border);
+}
+
+.tp-day__title { font-weight: 700; font-size: .95rem; margin: 0; }
+.tp-day__date { color: var(--tw-muted); font-size: .84rem; }
+.tp-day__meta { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.tp-day__body { padding: 0; }
+
+/* ---------- Bảng kế hoạch ---------- */
+.tp-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+
+.tp-table thead th {
+    background: #fff;
+    border-bottom: 1px solid var(--tw-border);
+    color: var(--tw-muted);
+    font-weight: 600;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    padding: 9px 12px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tp-table tbody td {
+    border-bottom: 1px solid #f0f2f7;
+    padding: 11px 12px;
+    vertical-align: top;
+}
+
+.tp-table tbody tr:last-child td { border-bottom: 0; }
+.tp-table tbody tr:hover { background: #fbfcff; }
+
+.tp-table__title { font-weight: 600; display: block; margin-bottom: 2px; }
+.tp-table__sub { color: var(--tw-muted); font-size: .8rem; display: block; }
+.tp-table__actions { white-space: nowrap; text-align: right; }
+
+.tp-col-narrow { width: 110px; }
+.tp-col-mid { width: 150px; }
+.tp-col-actions { width: 120px; }
+
+/* ---------- Ma trận trưởng phòng ---------- */
+.tp-matrix-scroll { overflow-x: auto; }
+
+.tp-matrix {
+    width: 100%;
+    min-width: 1080px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: .84rem;
+}
+
+.tp-matrix th, .tp-matrix td {
+    border: 1px solid var(--tw-border);
+    padding: 8px 10px;
+    vertical-align: top;
+}
+
+.tp-matrix thead th {
+    background: var(--tw-soft);
+    font-weight: 600;
+    font-size: .78rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tp-matrix thead th:first-child { text-align: left; }
+
+.tp-matrix__name { font-weight: 600; width: 150px; }
+.tp-matrix th:first-child { width: 150px; }
+.tp-matrix th:nth-last-child(2) { width: 75px; }
+.tp-matrix th:last-child { width: 140px; }
+
+.tp-cell { display: block; text-decoration: none; color: inherit; min-height: 42px; }
+.tp-cell:hover { color: var(--tw-project); }
+.tp-cell__count { font-weight: 700; font-size: .95rem; display: block; }
+.tp-cell__site {
+    display: block;
+    color: var(--tw-muted);
+    font-size: .76rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+.tp-cell__hours { display: block; color: var(--tw-muted); font-size: .76rem; }
+.tp-cell--empty { color: #c3c9d4; }
+.tp-cell--overload { background: #fff8ea; }
+.tp-cell--overdue { background: #fdf0f0; }
+
+.tp-matrix-mobile { display: none; padding: 12px; }
+.tp-person-card { border: 1px solid var(--tw-border); border-radius: 12px; background: #fff; margin-bottom: 10px; overflow: hidden; }
+.tp-person-card__head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; background: var(--tw-soft); cursor: pointer; }
+.tp-person-card__head strong, .tp-person-card__head small { display: block; }
+.tp-person-card__head small { color: var(--tw-muted); margin-top: 2px; }
+.tp-person-card__days { display: grid; gap: 8px; padding: 10px; }
+.tp-person-day { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--tw-border); border-radius: 10px; color: inherit; text-decoration: none; }
+.tp-person-day:hover { color: inherit; border-color: var(--tw-project); }
+.tp-person-day__date { display: flex; justify-content: space-between; color: var(--tw-muted); }
+.tp-person-day em { color: #a15c00; font-size: .78rem; font-style: normal; }
+.tp-person-day--warn { background: #fff8ea; }
+.tp-person-day--danger { border-color: #f7c5c5; }
+.tp-person-card > .btn { margin: 0 10px 10px; width: calc(100% - 20px) !important; }
+
+/* ---------- Dashboard: thẻ số ---------- */
+.tp-cards {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 1200px) { .tp-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 992px) { .tp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .tp-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px) { .tp-cards { grid-template-columns: 1fr; } }
+
+/* ---------- Biểu đồ ---------- */
+.tp-charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 992px) { .tp-charts { grid-template-columns: 1fr; } }
+
+.tp-chart {
+    background: #fff;
+    border: 1px solid var(--tw-border);
+    border-radius: var(--tw-radius);
+    padding: 14px 16px;
+}
+
+.tp-chart__title { font-size: .92rem; font-weight: 600; margin: 0 0 10px; }
+.tp-chart__canvas { position: relative; height: 260px; }
+.tp-chart__empty { color: var(--tw-muted); font-size: .85rem; padding: 40px 0; text-align: center; }
+
+/* ---------- Bộ lọc ---------- */
+.tp-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+
+/* ---------- Thẻ việc (mobile) ---------- */
+.tp-cards-list { display: none; flex-direction: column; gap: 10px; padding: 12px; }
+
+.tp-jobcard {
+    border: 1px solid var(--tw-border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+}
+
+.tp-jobcard__title { font-weight: 600; font-size: .92rem; margin: 0 0 6px; }
+.tp-jobcard__row { display: flex; justify-content: space-between; gap: 10px; font-size: .82rem; padding: 2px 0; }
+.tp-jobcard__label { color: var(--tw-muted); flex: 0 0 auto; }
+.tp-jobcard__value { text-align: right; word-break: break-word; }
+.tp-jobcard__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* ---------- Danh sách cảnh báo ---------- */
+.tp-checks { display: grid; gap: 10px; margin-bottom: 16px; }
+
+.tp-check {
+    border: 1px solid var(--tw-border);
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: #fff;
+    font-size: .86rem;
+}
+
+.tp-check--error { border-left-color: var(--tw-danger); background: #fdf6f6; }
+.tp-check--warn { border-left-color: #f0b429; background: #fffaf0; }
+.tp-check__title { font-weight: 600; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+.tp-check ul { margin: 0; padding-left: 20px; }
+.tp-check li { margin-bottom: 2px; }
+
+/* ---------- Form thêm việc ---------- */
+.tp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tp-form__full { grid-column: 1 / -1; }
+.tp-form__actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Bảng số liệu chung ---------- */
+.tp-data { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.tp-data thead th {
+    background: var(--tw-soft);
+    border-bottom: 1px solid var(--tw-border);
+    padding: 9px 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    white-space: normal;
+    vertical-align: bottom;
+}
+.tp-data tbody td { border-bottom: 1px solid #f0f2f7; padding: 10px 8px; }
+.tp-data tbody tr:last-child td { border-bottom: 0; }
+.tp-data__num { text-align: right; font-variant-numeric: tabular-nums; }
+.tp-data__muted { color: var(--tw-muted); }
+
+/* ---------- Responsive: mobile chuyển sang thẻ ---------- */
+@media (max-width: 768px) {
+    .tp-table { display: none; }
+    .tp-cards-list { display: flex; }
+    .tp-data-scroll { display: none; }
+    .tp-matrix-scroll { display: none; }
+    .tp-matrix-mobile { display: block; }
+
+    .tp-weekbar__actions { width: 100%; }
+    .tp-weekbar__actions .btn { flex: 1 1 auto; }
+    .tp-day__meta { margin-left: 0; width: 100%; }
+
+    .tp-chart__canvas { height: 220px; }
+}
+
+@media (max-width: 480px) {
+    .tp-weekbar { padding: 10px; }
+    .tp-weekbar__nav { width: 100%; }
+    .tp-weekbar__nav .btn { flex: 1 1 auto; }
+}
+
+/* ---------- Dashboard rút gọn 2026-09: đúng 6 thẻ ở hàng đầu ---------- */
+.tp-cards--six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1500px) { .tp-cards--six { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 992px)  { .tp-cards--six { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 380px)  { .tp-cards--six { grid-template-columns: 1fr; } }
+
+/* Khối "Chi tiết" — các số liệu chuyển khỏi hàng thẻ đầu.
+   Dùng danh sách (không phải <table>) để hiển thị đúng ở mọi bề ngang. */
+.tp-detail-list { margin: 0; }
+.tp-detail-list__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 2px;
+    border-bottom: 1px solid #eef1f5;
+}
+.tp-detail-list__row:last-child { border-bottom: 0; }
+.tp-detail-list dt { font-weight: 500; color: #374151; min-width: 0; }
+.tp-detail-list dd { margin: 0; font-weight: 600; white-space: nowrap; }
+
+/* Biểu tượng giải thích công thức (tooltip/popover, bấm được trên mobile). */
+.tp-info { text-decoration: none; line-height: 1; }
+.tp-info i { font-size: 1rem; }
+
+/* =========================================================================
+   KHU DASHBOARD KỸ THUẬT — 4 trang Admin/Giám đốc (bổ sung 2026-09)
+   Chỉ thêm ở CUỐI file, không sửa quy tắc có sẵn.
+   ========================================================================= */
+
+/* Breadcrumb nhỏ, cùng phong cách navy/xám của CRM. */
+.tp-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: .82rem;
+    color: var(--tw-muted);
+    margin-bottom: 10px;
+}
+.tp-breadcrumb a { color: var(--tw-project, #1f3c88); text-decoration: none; }
+.tp-breadcrumb a:hover { text-decoration: underline; }
+.tp-breadcrumb i { font-size: .7rem; opacity: .6; }
+.tp-breadcrumb span[aria-current] { color: #374151; font-weight: 600; }
+
+/* Trang Báo cáo: đúng 8 chỉ số — 4 cột desktop, 2 tablet, 1 mobile hẹp. */
+.tp-cards--eight { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .tp-cards--eight { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 992px)  { .tp-cards--eight { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px)  { .tp-cards--eight { grid-template-columns: 1fr; } }
+
+/* Thẻ có giá trị là CHỮ (vd "N/A", "6h / 4h 30p") — không để tràn ô. */
+.tw-stat__value--text {
+    font-size: .98rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+/* Ghi chú KPI và ghi chú nguồn dữ liệu. */
+.tp-kpi-note strong { color: #a15c00; }
+.tp-source-note {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 0;
+    font-size: .82rem;
+    color: var(--tw-muted);
+}
+.tp-source-note code {
+    background: #f3f5f9;
+    border-radius: 4px;
+    padding: 0 4px;
+    color: #374151;
+}
+
+/* Danh sách nguồn dữ liệu: mô tả dài nên cho xuống dòng, không ép một hàng. */
+.tp-detail-list--wide .tp-detail-list__row { align-items: flex-start; }
+.tp-detail-list--wide dt { flex: 0 0 34%; }
+/* Đặc tả phải thắng `.tp-detail-list dd { white-space: nowrap }` ở trên, nếu
+   không mô tả nguồn dữ liệu sẽ bị cắt ngang ở màn hình hẹp. */
+.tp-detail-list--wide dd.tp-detail-list__source {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-align: right;
+    font-weight: 400;
+    color: var(--tw-muted);
+    font-size: .82rem;
+}
+@media (max-width: 768px) {
+    .tp-detail-list--wide .tp-detail-list__row { flex-direction: column; gap: 2px; }
+    .tp-detail-list--wide dt { flex: 1 1 auto; }
+    .tp-detail-list__source { text-align: left; }
+}
+
+/* =====================================================================
+   ĐỢT V5 — Ba trang Kỹ thuật dùng chung một hệ giao diện
+   (Kế hoạch / Báo cáo / KPIs): header + CTA, tóm tắt, bảng nhật ký
+   công việc, Drawer xem báo cáo. Chỉ BỔ SUNG ở cuối file, không sửa
+   quy tắc có sẵn ở trên.
+   ===================================================================== */
+
+/* --- Header dùng chung + nút "Tạo kế hoạch" --- */
+.tp-head { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.tp-head__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tp-head__actions .btn { font-size: .8rem; }
+.tp-cta-create { white-space: nowrap; font-weight: 600; }
+
+/* --- Tóm tắt kế hoạch tuần (trang chi tiết 7 ngày) --- */
+.tp-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px 18px;
+    margin: 0;
+}
+.tp-summary > div { min-width: 0; }
+.tp-summary dt { font-size: .76rem; color: var(--tw-muted); font-weight: 500; margin: 0; }
+.tp-summary dd { font-size: .92rem; font-weight: 600; margin: 2px 0 0; overflow-wrap: anywhere; }
+
+/* --- Nút "+ Thêm công việc" trong đầu mỗi ngày --- */
+.tp-day__add { margin-left: auto; font-size: .76rem; padding: 2px 8px; }
+
+/* --- Bộ lọc: cụm nút Áp dụng / Đặt lại --- */
+.tp-filters__actions { display: flex; gap: 8px; align-items: flex-end; }
+.tp-filters__actions .btn { flex: 1 1 auto; }
+
+/* --- Bảng nhật ký công việc thực tế (trang Báo cáo) --- */
+.tp-worklog td { vertical-align: top; }
+.tp-person { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.tp-person__avatar {
+    flex: 0 0 auto;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #e8eefb;
+    color: #274690;
+    font-size: .72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.tp-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    max-width: 38ch;
+}
+
+/* --- Drawer "Xem báo cáo" --- */
+.tp-drawer { width: min(460px, 100vw); max-width: 100vw; }
+.tp-drawer .offcanvas-body { font-size: .84rem; }
+.tp-drawer__list { margin: 0; }
+.tp-drawer__list > div {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #eef1f6;
+}
+.tp-drawer__list dt { flex: 0 0 40%; color: var(--tw-muted); font-weight: 500; margin: 0; }
+.tp-drawer__list dd { flex: 1 1 auto; margin: 0; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.tp-drawer__text { white-space: pre-line; font-weight: 400; }
+.tp-drawer__section { font-size: .82rem; font-weight: 700; margin: 14px 0 6px; }
+.tp-drawer__thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tp-drawer__thumbs img {
+    width: 92px; height: 92px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e3e7ee;
+}
+.tp-drawer__files { list-style: none; margin: 0; padding: 0; }
+.tp-drawer__files li { padding: 4px 0; overflow-wrap: anywhere; }
+
+@media (max-width: 992px) {
+    .tp-clamp { max-width: 26ch; }
+}
+@media (max-width: 768px) {
+    .tp-head__actions { width: 100%; }
+    .tp-head__actions .btn { flex: 1 1 auto; justify-content: center; }
+    .tp-filters__actions { width: 100%; }
+    .tp-day__add { margin-left: 0; }
+    .tp-drawer { width: 100vw; }
+    .tp-drawer__list > div { flex-direction: column; gap: 2px; }
+    .tp-drawer__list dt { flex: 1 1 auto; }
+}
+
+/* ==========================================================================
+   DRAWER TẠO / GIAO KẾ HOẠCH (trang ma trận của quản lý) — 2026-09
+   Rộng hơn drawer "Xem báo cáo" (.tp-drawer) vì là form nhập nhiều dòng.
+   ========================================================================== */
+.tp-plandrawer {
+    /* Bootstrap dùng biến --bs-offcanvas-width; ghi đè biến để không phụ thuộc
+       thứ tự nạp CSS giữa bootstrap.css và file này. */
+    --bs-offcanvas-width: min(880px, 100vw);
+    width: min(880px, 100vw);
+    max-width: 100vw;
+}
+.tp-plandrawer .offcanvas-header { padding: 12px 16px; border-bottom: 1px solid var(--tw-border); }
+.tp-plandrawer .offcanvas-title { font-size: 1.02rem; font-weight: 700; margin: 0; }
+
+/* Form chiếm hết chiều cao: thân cuộn, footer luôn nhìn thấy. */
+.tp-plandrawer__form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.tp-plandrawer__body { flex: 1 1 auto; overflow-y: auto; font-size: .84rem; padding: 14px 16px; }
+.tp-plandrawer__footer {
+    flex: 0 0 auto;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--tw-border);
+    background: #fff;
+}
+.tp-plandrawer__footer .btn { font-size: .8rem; }
+
+.tp-plandrawer__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin-bottom: 14px; }
+.tp-plandrawer__rows { display: grid; gap: 12px; }
+.tp-plandrawer__rowtools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 14px; }
+.tp-plandrawer__rowtools .form-text { margin: 0; }
+.tp-plandrawer__reason { padding-top: 12px; border-top: 1px dashed var(--tw-border); }
+
+.tp-req { color: #c02929; }
+
+/* --- Một dòng công việc = một thẻ dọc (không bảng nhập ngang) --- */
+.tp-rowcard { border: 1px solid var(--tw-border); border-radius: 10px; background: #fcfdff; overflow: hidden; }
+.tp-rowcard__head {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: var(--tw-soft); border-bottom: 1px solid var(--tw-border);
+}
+.tp-rowcard__badge { font-weight: 700; font-size: .82rem; }
+.tp-rowcard__tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-rowcard__tools .btn { font-size: .76rem; padding: 2px 8px; }
+.tp-rowcard__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; padding: 12px; }
+.tp-rowcard__full { grid-column: 1 / -1; }
+.tp-rowcard .form-label { margin-bottom: 2px; font-size: .78rem; }
+.tp-rowcard .form-control, .tp-rowcard .form-select { font-size: .82rem; }
+
+/* Thao tác nhanh trong thẻ nhân viên (bản mobile của ma trận). */
+.tp-person-card__tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 10px 10px; }
+.tp-person-card__tools .btn { flex: 1 1 auto; font-size: .78rem; }
+
+@media (max-width: 1200px) {
+    .tp-rowcard__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+    /* Mobile: drawer TOÀN MÀN HÌNH, form một cột. */
+    .tp-plandrawer { --bs-offcanvas-width: 100vw; width: 100vw; max-width: 100vw; }
+    .tp-plandrawer__grid { grid-template-columns: 1fr; }
+    .tp-rowcard__grid { grid-template-columns: 1fr; }
+    .tp-plandrawer__footer { position: sticky; bottom: 0; }
+    .tp-plandrawer__footer .btn { flex: 1 1 auto; justify-content: center; }
+    .tp-plandrawer__footer .btn-link { flex: 1 1 100%; }
+}
+
+/* Ma trận: menu ba chấm nằm cạnh TÊN nhân viên, không thêm cột mới. */
+.tp-matrix__name { white-space: normal; }
+.tp-matrix__menu { display: inline-block; vertical-align: middle; margin-left: 6px; }
+.tp-matrix__menu .btn { padding: 0 5px; line-height: 1.5; }
+/* Cột "Tình trạng" phải đủ chỗ: cho nhãn xuống dòng thay vì tràn khỏi bảng. */
+.tp-matrix th:last-child, .tp-matrix td:last-child { min-width: 112px; }
+.tp-matrix td:last-child .tp-state {
+    display: inline-block;
+    white-space: normal;
+    text-align: center;
+    margin-bottom: 3px;
+}
+
+/* Drawer "Giao việc" chỉ có MỘT dòng: ẩn công cụ nhân bản/xoá dòng cho gọn. */
+#tpAssignDrawer .tp-rowcard__tools { display: none; }

@@ -443,6 +443,37 @@
         .tkpi-thresholds{grid-template-columns:1fr 1fr}
         .tkpi-material-scale{grid-template-columns:1fr 1fr}
     }
+
+    /*
+        RESPONSIVE BẢNG KPI (2026-09) — CHỈ CSS, KHÔNG đổi công thức/dữ liệu/route.
+        Vấn đề ghi nhận: ở 1440px (sidebar chiếm ~250px) bảng `min-width:1180px`
+        làm cột cuối bị khuất, phải cuộn ngang mới thấy.
+        Cách sửa tối thiểu: giảm padding và cho tiêu đề cột xuống dòng ở desktop
+        để bảng vừa khung, chữ vẫn giữ nguyên cỡ. Không làm tràn ngang toàn trang
+        (bảng vẫn nằm trong `.tkpi-table-wrap{overflow:auto}`).
+    */
+    @media (min-width:1200px){
+        .tkpi-table{min-width:0}
+        .tkpi-table thead th{
+            padding:9px 7px;
+            white-space:normal;   /* tiêu đề dài được xuống dòng thay vì đẩy bảng rộng ra */
+            line-height:1.25;
+        }
+        .tkpi-table tbody td{padding:9px 7px}
+    }
+
+    /* Dưới 1200px: vẫn cuộn ngang, nhưng có chỉ dẫn rõ thay vì cắt câm lặng. */
+    .tkpi-table-wrap{position:relative}
+    .tkpi-scroll-hint{
+        display:none;
+        margin:0 0 6px;
+        color:#60748a;
+        font-size:11px;
+        font-weight:700;
+    }
+    @media (max-width:1199.98px){
+        .tkpi-scroll-hint{display:flex;align-items:center;gap:6px}
+    }
 </style>
 
 <div class="tkpi-page">
@@ -460,6 +491,8 @@
             </div>
 
             <div class="tkpi-actions">
+                {{-- CHỈ thêm lối vào hướng dẫn; không đổi bất kỳ logic KPI nào của trang này. --}}
+                @include('technical.guides.partials.help-button', ['slug' => 'admin-kpi-ky-thuat'])
                 @if($canManageKpi && \Illuminate\Support\Facades\Route::has('ky-thuat.luong.settings'))
                     <a href="{{ route('ky-thuat.luong.settings') }}" class="tkpi-btn">
                         <i class="bi bi-sliders"></i>Cấu hình KPI
@@ -576,6 +609,10 @@
                 </div>
             </form>
 
+            <p class="tkpi-scroll-hint">
+                <i class="bi bi-arrow-left-right"></i>
+                Vuốt ngang trong bảng để xem đủ các cột.
+            </p>
             <div class="tkpi-table-wrap">
                 <table class="tkpi-table" id="technicalKpiTable">
                     <thead>
