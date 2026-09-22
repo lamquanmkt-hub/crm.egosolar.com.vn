@@ -57,7 +57,8 @@ Route::middleware(['auth'])
                 Route::post('/{claim}/minh-chung', 'uploadEvidence')->whereNumber('claim')->name('evidence.upload');
                 Route::get('/{claim}/minh-chung/{attachment}', 'downloadEvidence')->whereNumber('claim')->whereNumber('attachment')->name('evidence.download');
                 Route::delete('/{claim}/minh-chung/{attachment}', 'destroyEvidence')->whereNumber('claim')->whereNumber('attachment')->name('evidence.destroy');
-                Route::get('/viec-kho', 'warehouseQueue')->name('warehouse-queue');
+                // Đã chuyển hẳn sang trang riêng của Kho (không còn ở menu Kỹ thuật) — giữ route cũ để không gãy link đã lưu.
+                Route::get('/viec-kho', fn () => redirect()->route('warehouse.warranty-fulfillment.index'))->name('warehouse-queue');
                 Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
 
                 // Hành động quy trình Đổi hàng bảo hành (whitelist theo từng action, KHÔNG nhận status tuỳ ý)

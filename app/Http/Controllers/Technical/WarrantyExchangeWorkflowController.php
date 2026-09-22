@@ -70,9 +70,10 @@ class WarrantyExchangeWorkflowController extends Controller
         return $this->run($claim, 'Đã hủy phiếu.', fn () => $this->service->cancel($claim->id, $r->user(), $d['reason']));
     }
 
-    // ---- Kho
+    // ---- Kho (chặn cứng server-side: Kỹ thuật không được gọi trực tiếp các action này)
     public function reserve(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
         $d = $r->validate([
             'warehouse_id' => ['required', 'integer', 'exists:crm_warehouses,id'],
             'serial_code' => ['required', 'string', 'max:190'],
@@ -84,6 +85,7 @@ class WarrantyExchangeWorkflowController extends Controller
 
     public function release(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
         $d = $r->validate(['reason' => ['required', 'string', 'max:5000']]);
 
         return $this->run($claim, 'Đã nhả hàng.', fn () => $this->service->releaseReservation($claim->id, $r->user(), $d['reason']));
@@ -91,6 +93,7 @@ class WarrantyExchangeWorkflowController extends Controller
 
     public function issue(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
         $d = $r->validate(['note' => ['nullable', 'string', 'max:5000']]);
 
         return $this->run($claim, 'Đã xuất kho thiết bị thay thế.', fn () => $this->service->issue($claim->id, $r->user(), $d['note'] ?? null));
@@ -98,6 +101,7 @@ class WarrantyExchangeWorkflowController extends Controller
 
     public function faultyReturn(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
         $d = $r->validate([
             'warehouse_id' => ['required', 'integer', 'exists:crm_warehouses,id'],
             'returned_by' => ['required', 'string', 'max:190'],

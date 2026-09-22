@@ -323,7 +323,8 @@ final class WarrantyExchangeWorkflowTest extends TestCase
                 $this->assertStringContainsString('Kho', $e->getMessage());
             }
         }
-        $this->actingAs($this->tech)->post(route('ky-thuat.warranty-exchange.reserve', $c->id), ['warehouse_id' => $this->wh, 'serial_code' => $this->code($new)])->assertSessionHasErrors('workflow');
+        // Chặn cứng server-side (403), không chỉ ẩn nút UI — Kỹ thuật không được gọi thẳng action Kho.
+        $this->actingAs($this->tech)->post(route('ky-thuat.warranty-exchange.reserve', $c->id), ['warehouse_id' => $this->wh, 'serial_code' => $this->code($new)])->assertForbidden();
         $this->assertSame('in_stock', $this->state($new)->state);
     }
 
@@ -636,9 +637,11 @@ final class WarrantyExchangeWorkflowTest extends TestCase
             $this->actingAs($u)->get(route('ky-thuat.warranty-exchange.index'))->assertOk();
             $this->actingAs($u)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk();
         }
-        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.warehouse-queue'))->assertOk()->assertSee($c->claim_code);
-        $this->actingAs($this->lead)->get(route('ky-thuat.warranty-exchange.warehouse-queue'))->assertOk();
-        $this->actingAs($this->tech)->get(route('ky-thuat.warranty-exchange.warehouse-queue'))->assertForbidden();
+        // Route cũ "Việc của Kho" nay chỉ redirect sang trang riêng của Kho (đã tách khỏi menu Kỹ thuật).
+        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.warehouse-queue'))->assertRedirect(route('warehouse.warranty-fulfillment.index'));
+        $this->actingAs($this->kho)->get(route('warehouse.warranty-fulfillment.index', ['tab' => 'reserved']))->assertOk()->assertSee($c->claim_code);
+        $this->actingAs($this->lead)->get(route('warehouse.warranty-fulfillment.index'))->assertForbidden();
+        $this->actingAs($this->tech)->get(route('warehouse.warranty-fulfillment.index'))->assertForbidden();
         $this->actingAs($this->tech2)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertForbidden();
     }
 
@@ -648,7 +651,9 @@ final class WarrantyExchangeWorkflowTest extends TestCase
         DB::table('crm_serial_warranty_claims')->where('id', $c->id)->update(['internal_note' => 'GHI-CHU-NOI-BO-KY-THUAT']);
         $this->actingAs($this->sales)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertDontSee('GHI-CHU-NOI-BO-KY-THUAT');
         $this->actingAs($this->tech)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('GHI-CHU-NOI-BO-KY-THUAT')->assertDontSee('XÁC NHẬN XUẤT KHO');
-        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertSee('XÁC NHẬN XUẤT KHO');
+        // Trang Kỹ thuật không còn hiện action Kho (kể cả cho role Kho) — nghiệp vụ Kho nay ở trang riêng.
+        $this->actingAs($this->kho)->get(route('ky-thuat.warranty-exchange.show', $c->id))->assertOk()->assertDontSee('XÁC NHẬN XUẤT KHO');
+        $this->actingAs($this->kho)->get(route('warehouse.warranty-fulfillment.index', ['tab' => 'reserved']))->assertOk()->assertSee('Xuất hàng');
     }
 
     // ------------------------------------------------------------------ tương thích phiếu cũ (trước v2)

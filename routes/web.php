@@ -630,6 +630,25 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/output', [ProductController::class, 'output'])->name('products.output');
     Route::get('/products/history', [ProductController::class, 'history'])->name('products.history');
 
+    /* EGO_GUIDES_ROUTES_START */
+    Route::get('/huong-dan/{slug}', [\App\Http\Controllers\GuideController::class, 'show'])->name('guides.show');
+    /* EGO_GUIDES_ROUTES_END */
+
+    /* EGO_WAREHOUSE_WARRANTY_FULFILLMENT_ROUTES_START */
+    // Trang RIÊNG của Kho cho nghiệp vụ Đổi hàng bảo hành / Sửa chữa tính phí — tách khỏi menu Kỹ thuật.
+    // Action thật (reserve/issue/faulty-return/parts.*) vẫn nằm ở ky-thuat.warranty-exchange.* /
+    // ky-thuat.repair.parts.* (đã chặn role warehouse ở server) để không có 2 nguồn nghiệp vụ.
+    Route::middleware(['auth'])
+        ->prefix('kho/xuat-hang-bh-sc')
+        ->name('warehouse.warranty-fulfillment.')
+        ->controller(\App\Http\Controllers\Warehouse\WarrantyFulfillmentController::class)
+        ->group(function (): void {
+            Route::get('/', 'index')->name('index');
+            Route::get('/{claim}', 'show')->whereNumber('claim')->name('show');
+            Route::post('/{claim}/ghi-chu', 'note')->whereNumber('claim')->name('note');
+        });
+    /* EGO_WAREHOUSE_WARRANTY_FULFILLMENT_ROUTES_END */
+
     // Products
 
     /* EGO_PRODUCT_SERIAL_MANAGEMENT_ROUTES_START */

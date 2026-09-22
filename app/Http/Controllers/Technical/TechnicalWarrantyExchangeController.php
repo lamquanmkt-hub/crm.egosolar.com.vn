@@ -269,7 +269,6 @@ class TechnicalWarrantyExchangeController extends Controller
         $service = app(\App\Services\Warranty\WarrantyExchangeService::class);
         $status = (string) $claim->status;
         $isLead = SolarMaintenanceAccess::isTechnicalLead($user);
-        $isWarehouse = SolarMaintenanceAccess::canHandleWarrantyStock($user);
         $isAssigned = $isLead || ((int) $claim->assigned_to === (int) $user->id && SolarMaintenanceAccess::isTechnician($user));
         $self = in_array((int) $user->id, array_filter([(int) $claim->created_by, (int) $claim->assigned_to, (int) $claim->exception_requested_by]), true);
 
@@ -281,10 +280,13 @@ class TechnicalWarrantyExchangeController extends Controller
             'reopen' => $isLead && $status === 'rejected',
             'cancel' => in_array($status, ['pending_approval', 'needs_more_information', 'waiting_stock', 'reserved'], true)
                 && ($isLead || ((int) $claim->created_by === (int) $user->id && in_array($status, ['pending_approval', 'needs_more_information'], true))),
-            'reserve' => $isWarehouse && in_array($status, ['waiting_stock', 'reserved'], true),
-            'release' => $isWarehouse && $status === 'reserved',
-            'issue' => $isWarehouse && $status === 'reserved',
-            'faulty_return' => $isWarehouse && ($status === 'waiting_faulty_return' || ($status === 'completed' && $claim->faulty_return_status === 'deferred')),
+            // Nghiệp vụ Kho (giữ hàng/nhả/xuất/thu hồi) đã chuyển sang trang riêng Kho → Xuất hàng BH/SC.
+            // Trang Kỹ thuật KHÔNG hiện các nút này nữa (chỉ xem trạng thái/timeline); action thật vẫn được
+            // chặn lại ở server (WarrantyExchangeWorkflowController) nên luôn false ở đây, không phụ thuộc role.
+            'reserve' => false,
+            'release' => false,
+            'issue' => false,
+            'faulty_return' => false,
             'tech_receive' => $isAssigned && $status === 'issued',
             'replace' => $isAssigned && in_array($status, ['technician_received', 'replacing'], true),
             'defer_return' => $isLead && $status === 'waiting_faulty_return' && $claim->faulty_return_status !== 'deferred' && $claim->faulty_return_status !== 'returned',

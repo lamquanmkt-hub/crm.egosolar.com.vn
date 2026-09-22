@@ -47,7 +47,8 @@
             <h1 style="font-size:22px">{{ $claim->claim_code }}</h1>
             <p>{{ $claim->customer_name }} · {{ trim(($claim->device_type ?: '').' '.($claim->device_brand ?: '').' '.($claim->device_model ?: '')) }}</p>
         </div>
-        <div class="wx-detail-badges"><span class="wx-pill {{ $tone[$claim->status] ?? 'gray' }}">{{ $statuses[$claim->status] ?? $claim->status }}</span><span class="wx-pill mini">{{ $eligLabel }}</span></div>
+        <div class="wx-detail-badges"><span class="wx-pill {{ $tone[$claim->status] ?? 'gray' }}">{{ $statuses[$claim->status] ?? $claim->status }}</span><span class="wx-pill mini">{{ $eligLabel }}</span>
+            <a href="{{ route('guides.show', 'sua-chua-tinh-phi') }}" class="wx-btn secondary tiny"><i class="bi bi-question-circle"></i> Hướng dẫn sử dụng</a></div>
     </header>
 
     @include('technical.warranty._timeline')

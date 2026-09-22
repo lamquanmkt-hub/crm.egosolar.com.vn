@@ -251,7 +251,6 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         $qa = DB::table('warranty_repair_qa as q')->leftJoin('users as u', 'u.id', '=', 'q.tested_by')->where('q.claim_id', $claim->id)->orderByDesc('q.id')->get(['q.*', 'u.name as tester']);
         $status = (string) $claim->status;
         $isLead = SolarMaintenanceAccess::isTechnicalLead($user);
-        $isWarehouse = SolarMaintenanceAccess::canHandleWarrantyStock($user);
         $isAssigned = $isLead || ((int) $claim->assigned_to === (int) $user->id && SolarMaintenanceAccess::isTechnician($user));
         $device = $this->findSerialByUnitId((int) $claim->serial_unit_id);
         $flags = [
@@ -268,9 +267,11 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
             'decide' => $isAssigned && in_array($status, ['waiting_customer_confirmation', 'waiting_change_confirmation'], true),
             'change_quote' => $isAssigned && $status === 'repairing',
             'resume' => $isAssigned && $status === 'change_rejected',
-            'reserve_parts' => $isWarehouse && in_array($status, ['approved_for_repair', 'waiting_parts'], true) && $parts->contains('status', 'planned'),
-            'issue_parts' => $isWarehouse && $status === 'waiting_parts' && $parts->contains('status', 'reserved'),
-            'return_parts' => $isWarehouse && $parts->contains('status', 'issued'),
+            // Nghiệp vụ Kho (giữ/xuất/hoàn linh kiện) đã chuyển sang trang riêng Kho → Xuất hàng BH/SC;
+            // trang Kỹ thuật chỉ xem trạng thái linh kiện, không còn nút thao tác Kho.
+            'reserve_parts' => false,
+            'issue_parts' => false,
+            'return_parts' => false,
             'start' => $isAssigned && in_array($status, ['approved_for_repair', 'waiting_parts', 'qa_failed'], true),
             'update' => $isAssigned && $status === 'repairing',
             'qa_submit' => $isAssigned && $status === 'repairing',
@@ -342,8 +343,10 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         return $this->act($claim, 'Đã ghi nhận quyết định của khách.', fn () => $this->repair->customerDecision($claim->id, $r->user(), $d['decision'], $d['method'], $d['decided_at'] ?? null, $d['note'] ?? null));
     }
 
+    // ---- Kho (chặn cứng server-side: Kỹ thuật không được gọi trực tiếp các action này)
     public function reserveParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
         $d = $r->validate(['warehouse_id' => ['required', 'integer', 'exists:crm_warehouses,id']]);
 
         return $this->act($claim, 'Đã giữ linh kiện.', fn () => $this->repair->reserveParts($claim->id, $r->user(), (int) $d['warehouse_id']));
@@ -351,11 +354,15 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
 
     public function issueParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
+
         return $this->act($claim, 'Đã xuất linh kiện cho Kỹ thuật.', fn () => $this->repair->issueParts($claim->id, $r->user()));
     }
 
     public function returnParts(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
+        abort_unless(SolarMaintenanceAccess::isWarehouse($r->user()), 403);
+
         return $this->act($claim, 'Đã hoàn kho linh kiện dư.', fn () => $this->repair->returnLeftoverParts($claim->id, $r->user()));
     }
 

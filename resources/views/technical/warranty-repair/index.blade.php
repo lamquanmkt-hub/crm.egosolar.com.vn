@@ -22,7 +22,8 @@
     <header class="wx-hero" style="padding:14px 18px">
         <div><div class="wx-kicker">KỸ THUẬT · BẢO HÀNH & SỬA CHỮA</div><h1 style="font-size:22px">Sửa chữa sản phẩm tính phí</h1>
             <p>Khách hàng + thiết bị + lỗi là dữ liệu chính — nhận cả thiết bị mua nơi khác, chưa có trong CRM, không cần đơn hàng hay công trình.</p></div>
-        <div class="wx-hero-actions">@if($canCreate)<button class="wx-btn primary" type="button" data-wx-open="rpIntakeModal"><i class="bi bi-plus-lg"></i>Tiếp nhận sửa chữa</button>@endif</div>
+        <div class="wx-hero-actions">@if($canCreate)<button class="wx-btn primary" type="button" data-wx-open="rpIntakeModal"><i class="bi bi-plus-lg"></i>Tiếp nhận sửa chữa</button>@endif
+            <a href="{{ route('guides.show', 'sua-chua-tinh-phi') }}" class="wx-btn secondary"><i class="bi bi-question-circle"></i> Hướng dẫn sử dụng</a></div>
     </header>
 
     <section class="wx-panel" style="padding:12px 14px">

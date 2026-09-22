@@ -38,6 +38,7 @@
             <span class="wx-pill {{ $tone[$claim->status] ?? 'gray' }}">{{ $statuses[$claim->status] ?? $claim->status }}</span>
             <span class="wx-pill mini">{{ $priorities[$claim->priority] ?? $claim->priority }}</span>
             @if($claim->warranty_exception)<span class="wx-pill mini amber">Ngoại lệ BH</span>@endif
+            <a href="{{ route('guides.show', 'doi-hang-bao-hanh') }}" class="wx-btn secondary tiny"><i class="bi bi-question-circle"></i> Hướng dẫn sử dụng</a>
         </div>
     </header>
 

@@ -679,9 +679,7 @@
             <li><a href="{{ route('ky-thuat.warranty-exchange.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.*') ? 'active' : '' }}" data-ego-type="nav">Đổi hàng bảo hành</a></li>
             @if(\Illuminate\Support\Facades\Route::has('ky-thuat.repair.index'))<li><a href="{{ route('ky-thuat.repair.index') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.repair.*') ? 'active' : '' }}" data-ego-type="nav">Sửa chữa tính phí</a></li>@endif
         @endif
-        @if(\App\Support\SolarMaintenanceAccess::isWarehouse(auth()->user()) && \Illuminate\Support\Facades\Route::has('ky-thuat.warranty-exchange.warehouse-queue'))
-            <li><a href="{{ route('ky-thuat.warranty-exchange.warehouse-queue') }}" class="ego-sublink {{ request()->routeIs('ky-thuat.warranty-exchange.warehouse-queue') ? 'active' : '' }}" data-ego-type="nav">Việc của Kho (BH/SC)</a></li>
-        @endif
+        {{-- "Việc của Kho (BH/SC)" đã chuyển hẳn sang menu Kho → "Xuất hàng BH/SC". --}}
     </ul>
 </li>
 @endif
@@ -1073,6 +1071,17 @@
                                    class="ego-sublink {{ request()->routeIs('products.serials.*') ? 'active' : '' }}"
                                    data-ego-type="nav">
                                     Quản lý serial
+                                </a>
+                            </li>
+                        @endif
+
+                        {{-- Nghiệp vụ Kho cho đổi hàng bảo hành / sửa chữa tính phí — tách khỏi menu Kỹ thuật. --}}
+                        @if(\App\Support\SolarMaintenanceAccess::isWarehouse($u) && \Illuminate\Support\Facades\Route::has('warehouse.warranty-fulfillment.index'))
+                            <li>
+                                <a href="{{ route('warehouse.warranty-fulfillment.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('warehouse.warranty-fulfillment.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Xuất hàng BH/SC
                                 </a>
                             </li>
                         @endif

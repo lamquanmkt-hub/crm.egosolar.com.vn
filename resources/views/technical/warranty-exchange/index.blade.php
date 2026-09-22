@@ -48,6 +48,7 @@
             </div>
             <div class="wx-hero-actions">
                 @if($canCreate)<button class="wx-btn primary" type="button" data-wx-open="wxCreateModal"><i class="bi bi-plus-lg"></i>Tạo đề xuất đổi hàng</button>@endif
+                <a href="{{ route('guides.show', 'doi-hang-bao-hanh') }}" class="wx-btn secondary"><i class="bi bi-question-circle"></i> Hướng dẫn sử dụng</a>
             </div>
         </header>
 
