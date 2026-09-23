@@ -1,0 +1,158 @@
+{
+  "414": {
+    "index": {
+      "docScrollW": 414,
+      "vw": 414,
+      "overflowX": false,
+      "tableWrapScroll": {
+        "sw": 1120,
+        "cw": 396
+      }
+    },
+    "modal": {
+      "vw": 414,
+      "vh": 896,
+      "modalHeight": 880,
+      "modalTop": 8,
+      "bodyScrollH": 1375,
+      "bodyClientH": 663,
+      "bodyScrollable": true,
+      "footerBottom": 888,
+      "footerVisible": true,
+      "headerVisible": true,
+      "closeBtnVisible": true,
+      "gridColumns": 1,
+      "fileInputW": 158,
+      "clippedFields": 0,
+      "elementsOutsideViewportX": 0,
+      "docScrollW": 414
+    },
+    "previewOk": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành còn hiệu lực · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2031-03-21",
+    "previewExpired": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành không còn hiệu lực / chưa đủ dữ liệu · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2026-08-22",
+    "previewOpenClaim": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành còn hiệu lực · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2031-03-21",
+    "previewMissing": "Không xác nhận được serial\nKhông tìm thấy serial “WXT-SN-KHONG-CO” trong hệ thống.",
+    "orderSerialOptions": 22,
+    "show": {
+      "docScrollW": 414,
+      "vw": 414,
+      "overflowX": false
+    },
+    "errorState": {
+      "url": "/ky-thuat/de-xuat-doi-hang-bao-hanh",
+      "alert": "Chưa thể tạo đề xuất\nVui lòng mô tả lỗi/hiện tượng thực tế.\nVui lòng nhập kết quả chẩn đoán của kỹ thuật.\nVui lòng nhập lý do và phương án đề xuất đổi.",
+      "modalOpen": true
+    }
+  },
+  "768": {
+    "index": {
+      "docScrollW": 768,
+      "vw": 768,
+      "overflowX": false,
+      "tableWrapScroll": {
+        "sw": 1120,
+        "cw": 715
+      }
+    },
+    "modal": {
+      "vw": 768,
+      "vh": 1024,
+      "modalHeight": 968,
+      "modalTop": 28,
+      "bodyScrollH": 1055,
+      "bodyClientH": 751,
+      "bodyScrollable": true,
+      "footerBottom": 996,
+      "footerVisible": true,
+      "headerVisible": true,
+      "closeBtnVisible": true,
+      "gridColumns": 2,
+      "fileInputW": 201,
+      "clippedFields": 0,
+      "elementsOutsideViewportX": 0,
+      "docScrollW": 768
+    },
+    "show": {
+      "docScrollW": 768,
+      "vw": 768,
+      "overflowX": false
+    }
+  },
+  "1366": {
+    "index": {
+      "docScrollW": 1351,
+      "vw": 1366,
+      "overflowX": false,
+      "tableWrapScroll": {
+        "sw": 1129,
+        "cw": 1129
+      }
+    },
+    "modal": {
+      "vw": 1366,
+      "vh": 768,
+      "modalHeight": 698,
+      "modalTop": 35,
+      "bodyScrollH": 499,
+      "bodyClientH": 499,
+      "bodyScrollable": false,
+      "footerBottom": 733,
+      "footerVisible": true,
+      "headerVisible": true,
+      "closeBtnVisible": true,
+      "gridColumns": 3,
+      "fileInputW": 144,
+      "clippedFields": 0,
+      "elementsOutsideViewportX": 0,
+      "docScrollW": 1366
+    },
+    "show": {
+      "docScrollW": 1351,
+      "vw": 1366,
+      "overflowX": false
+    }
+  },
+  "1440": {
+    "index": {
+      "docScrollW": 1425,
+      "vw": 1440,
+      "overflowX": false,
+      "tableWrapScroll": {
+        "sw": 1203,
+        "cw": 1203
+      }
+    },
+    "modal": {
+      "vw": 1440,
+      "vh": 900,
+      "modalHeight": 698,
+      "modalTop": 101,
+      "bodyScrollH": 499,
+      "bodyClientH": 499,
+      "bodyScrollable": false,
+      "footerBottom": 799,
+      "footerVisible": true,
+      "headerVisible": true,
+      "closeBtnVisible": true,
+      "gridColumns": 3,
+      "fileInputW": 144,
+      "clippedFields": 0,
+      "elementsOutsideViewportX": 0,
+      "docScrollW": 1440
+    },
+    "previewOk": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành còn hiệu lực · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2031-03-21",
+    "previewExpired": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành không còn hiệu lực / chưa đủ dữ liệu · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2026-08-22",
+    "previewOpenClaim": "[LOCAL TEST WARRANTY] Inverter 10kW\nBảo hành còn hiệu lực · [LOCAL TEST WARRANTY] Khach A · WXT-ORD-001 · BH đến 2031-03-21",
+    "previewMissing": "Không xác nhận được serial\nKhông tìm thấy serial “WXT-SN-KHONG-CO” trong hệ thống.",
+    "orderSerialOptions": 22,
+    "show": {
+      "docScrollW": 1425,
+      "vw": 1440,
+      "overflowX": false
+    },
+    "errorState": {
+      "url": "/ky-thuat/de-xuat-doi-hang-bao-hanh",
+      "alert": "Chưa thể tạo đề xuất\nVui lòng mô tả lỗi/hiện tượng thực tế.\nVui lòng nhập kết quả chẩn đoán của kỹ thuật.\nVui lòng nhập lý do và phương án đề xuất đổi.",
+      "modalOpen": true
+    }
+  }
+}
