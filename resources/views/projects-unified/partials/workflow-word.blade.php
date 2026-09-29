@@ -175,6 +175,7 @@
                 @endif
                 @if($wfStepCode === 'acceptance')
                     <label>Ngày bàn giao dự kiến/thực tế<input type="date" name="handover_at" value="{{ old('handover_at',$site->handover_at?->format('Y-m-d') ?? ($wfStepData['handover_at'] ?? '')) }}"></label>
+                    @include('projects-unified.partials.workflow-kpi-review', ['kpiCanReview' => !empty($wfPermissions['can_assign'])])
                 @endif
                 <label>{{ $wfStepCode === 'construction' ? 'Ghi chú thi công' : 'Ghi chú' }}<textarea name="step_note" rows="3">{{ $wfStepData['step_note'] ?? '' }}</textarea></label>
                 <button class="pword-btn primary" type="submit">{{ $wfStepCode === 'construction' ? 'Lưu cập nhật' : 'Lưu' }}</button>

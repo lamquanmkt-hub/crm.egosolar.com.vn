@@ -129,6 +129,16 @@ Route::middleware(['auth'])
             Route::post('/luu-nhap', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'storeDraft'])->name('.draft');
             Route::post('/phe-duyet/{id}', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'approve'])->name('.approve');
             Route::get('/xem-truoc/{id?}', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'preview'])->name('.preview');
+            // Lương thoả thuận từng kỹ sư (Admin / HR / Kế toán) — kiểm quyền trong controller.
+            Route::post('/luong-thoa-thuan', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiInputController::class, 'storeSalaries'])->name('.salaries');
+        });
+
+        // Nhập số liệu KPI tháng: Kế hoạch / Thực tế từng tiêu chí + cộng/trừ điểm (Trưởng phòng KT / BGĐ / Admin).
+        Route::prefix('kpis/nhap-lieu')->name('kpis.input')->controller(\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiInputController::class)->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store')->name('.store');
+            Route::post('/dieu-chinh', 'storeAdjustment')->name('.adjust');
+            Route::delete('/dieu-chinh/{adjustment}', 'destroyAdjustment')->whereNumber('adjustment')->name('.adjust.destroy');
         });
 
         Route::get('/kpis/cong-trinh/{site}', [\App\Http\Controllers\TechnicalKpi\TechnicalProjectKpiController::class, 'show'])

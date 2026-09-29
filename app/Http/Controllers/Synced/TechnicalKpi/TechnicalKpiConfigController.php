@@ -74,10 +74,14 @@ class TechnicalKpiConfigController extends Controller
 
         $activeConfig = $versions->firstWhere('is_current', true);
 
+        $canEditSalary = TechnicalKpiInputController::canEditSalary($request->user());
+
         return view('synced.kythuat.kpi_config', array_merge($permissions, [
             'versions' => $versions,
             'config' => $currentConfig,
             'activeConfig' => $activeConfig,
+            'canEditSalary' => $canEditSalary,
+            'salaryRows' => $canEditSalary ? app(TechnicalKpiInputController::class)->salaryRows() : collect(),
         ]));
     }
 
@@ -101,6 +105,15 @@ class TechnicalKpiConfigController extends Controller
             'payout_tiers' => 'required|array',
         ]);
 
+        $request->validate(['max_kpi_rate' => 'nullable|numeric|min:0|max:10000']);
+        $maxKpiRate = $request->filled('max_kpi_rate') ? (float) $request->input('max_kpi_rate') : null;
+        if ($maxKpiRate !== null && $maxKpiRate > 10) {
+            $maxKpiRate = $maxKpiRate / 100.0;
+        }
+        if ($maxKpiRate !== null && $maxKpiRate <= 0) {
+            $maxKpiRate = null;
+        }
+
         $baseRate = (float) $request->input('base_salary_rate');
         $kpiRate = (float) $request->input('kpi_salary_rate');
 
@@ -116,7 +129,8 @@ class TechnicalKpiConfigController extends Controller
             'base_salary_rate' => round($baseRate, 4),
             'kpi_salary_rate' => round($kpiRate, 4),
             'allow_exceed_100' => (bool) $request->input('allow_exceed_100', false),
-            'max_kpi_rate' => (float) $request->input('max_kpi_rate', 1.0),
+            // Để trống = không giới hạn; nhập 150 (%) hoặc 1.5 = tối đa 150% lương KPI.
+            'max_kpi_rate' => $maxKpiRate,
             'round_rule' => (string) $request->input('round_rule', '1000'),
             'effective_date' => $request->input('effective_date'),
         ];

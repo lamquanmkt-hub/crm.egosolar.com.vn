@@ -9,6 +9,7 @@ use App\Models\Projects\Site;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
 use App\Services\Projects\ProjectWorkflowV2Service;
+use App\Services\TechnicalKpi\ProjectKpiLinkService;
 use App\Services\Synced\Technical\SolarMaintenanceService;
 use App\Support\SolarMaintenanceAccess;
 use Carbon\Carbon;
@@ -805,6 +806,13 @@ class ProjectWorkflowV2Controller extends Controller
             'uses_replacement_material' => ['nullable', 'boolean'],
             'warranty_scope' => ['nullable', Rule::in(['in_scope', 'out_of_scope', 'pending'])],
             'step_note' => ['nullable', 'string', 'max:10000'],
+            // Đánh giá KPI kỹ thuật tại bước Nghiệm thu và bàn giao.
+            'kpi_customer_complaint' => ['nullable', Rule::in(['0', '1', 0, 1])],
+            'kpi_customer_complaint_note' => ['nullable', 'string', 'max:5000', 'required_if:kpi_customer_complaint,1'],
+            'kpi_material_deviation_percent' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+        ], [], [
+            'kpi_customer_complaint_note' => 'nội dung phàn nàn của chủ nhà',
+            'kpi_material_deviation_percent' => '% chênh lệch vật tư',
         ]);
 
         $booleanKeys = [
@@ -813,6 +821,26 @@ class ProjectWorkflowV2Controller extends Controller
         ];
         foreach ($booleanKeys as $key) {
             $data[$key] = $request->boolean($key);
+        }
+
+        if ($step === 'acceptance' && $request->boolean('kpi_review_submitted')) {
+            // Người được giao không tự chấm KPI của mình: chỉ Trưởng phòng Kỹ thuật / Admin đánh giá.
+            abort_unless($this->workflow->canAssign($user, $definition), 403, 'Chỉ Trưởng phòng Kỹ thuật hoặc Admin được đánh giá KPI nghiệm thu.');
+            foreach (array_merge(['kpi_evn_grid_tested', 'kpi_app_installed'], array_keys(ProjectKpiLinkService::ACCEPTANCE_HSE_CHECKS)) as $key) {
+                $data[$key] = $request->boolean($key);
+            }
+            if (isset($data['kpi_customer_complaint'])) {
+                $data['kpi_customer_complaint'] = (bool) (int) $data['kpi_customer_complaint'];
+                $data['kpi_customer_complaint_note'] = $data['kpi_customer_complaint'] ? trim((string) ($data['kpi_customer_complaint_note'] ?? '')) : '';
+            }
+            // Để trống = xoá số nhập tay, KPI quay về tự tính từ đề xuất vật tư.
+            $data['kpi_material_deviation_percent'] = $request->filled('kpi_material_deviation_percent')
+                ? round((float) $data['kpi_material_deviation_percent'], 2)
+                : '';
+            $data['kpi_reviewed_by'] = (int) $user->id;
+            $data['kpi_reviewed_at'] = now()->toDateTimeString();
+        } else {
+            unset($data['kpi_customer_complaint'], $data['kpi_customer_complaint_note'], $data['kpi_material_deviation_percent']);
         }
 
         DB::transaction(function () use ($site, $step, $row, $user, $data): void {

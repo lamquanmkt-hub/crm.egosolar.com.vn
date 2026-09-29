@@ -147,6 +147,82 @@
         </div>
     </div>
 
+    {{-- Lương thoả thuận từng kỹ sư (nguồn duy nhất cho cột lương ở Bảng KPI) --}}
+    @if($canEditSalary ?? false)
+    <div class="tw-card mb-3" id="luong-thoa-thuan">
+        <div class="tw-card__head">
+            <div>
+                <h2 class="tw-card__title">Lương thoả thuận của từng kỹ sư</h2>
+                <div class="text-muted small">Bảng KPI lấy lương thoả thuận từ đây (theo tháng áp dụng gần nhất). Phiếu lương đã duyệt vẫn giữ số đã chốt.</div>
+            </div>
+            <a href="{{ route('ky-thuat.kpis.input') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil-square"></i> Nhập số liệu KPI tháng
+            </a>
+        </div>
+        <div class="tw-card__body">
+            <form method="POST" action="{{ route('ky-thuat.kpis.config.salaries') }}">
+                @csrf
+                <div class="row g-2 align-items-end mb-3">
+                    <div class="col-sm-4 col-md-3">
+                        <label class="form-label small fw-semibold" for="salary-month">Áp dụng từ tháng *</label>
+                        <input type="month" class="form-control form-control-sm" id="salary-month" name="effective_month" required
+                               value="{{ old('effective_month', now()->format('Y-m')) }}">
+                    </div>
+                    <div class="col text-muted small">Chỉ nhập cho người cần thay đổi; ô để trống sẽ giữ nguyên lương hiện hành.</div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-3 tp-table">
+                        <thead>
+                            <tr>
+                                <th>Nhân viên</th>
+                                <th class="text-end">Lương đang áp dụng</th>
+                                <th style="min-width:180px">Lương thoả thuận mới (đ)</th>
+                                <th style="min-width:200px">Ghi chú</th>
+                                <th>Lịch sử</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($salaryRows as $row)
+                                <tr>
+                                    <td>
+                                        <span class="fw-semibold">{{ $row['name'] }}</span>
+                                        <div class="text-muted small">{{ $row['code'] }} · {{ $row['position'] }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        @if($row['current'] !== null)
+                                            <span class="fw-semibold">{{ number_format($row['current'], 0, ',', '.') }} đ</span>
+                                        @else
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border">Chưa nhập</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <input type="number" min="0" step="1000" class="form-control form-control-sm text-end"
+                                               name="salaries[{{ $row['id'] }}][amount]" value="{{ old('salaries.'.$row['id'].'.amount') }}"
+                                               placeholder="{{ $row['current'] !== null ? number_format($row['current'], 0, '', '') : 'VD: 15000000' }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" maxlength="500" class="form-control form-control-sm"
+                                               name="salaries[{{ $row['id'] }}][note]" value="{{ old('salaries.'.$row['id'].'.note') }}"
+                                               placeholder="VD: Tăng lương theo HĐLĐ">
+                                    </td>
+                                    <td class="small text-muted">
+                                        @forelse($row['history']->take(3) as $h)
+                                            <div>Từ {{ \Illuminate\Support\Carbon::createFromFormat('Y-m', $h->effective_month)->format('m/Y') }}: {{ number_format((float) $h->agreed_salary, 0, ',', '.') }} đ</div>
+                                        @empty
+                                            —
+                                        @endforelse
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-save"></i> Lưu lương thoả thuận</button>
+            </form>
+        </div>
+    </div>
+    @endif
+
     {{-- Form tạo bản nháp mới / cấu hình --}}
     @if($canEdit)
     <div class="tw-card mb-3">
@@ -210,6 +286,14 @@
                                 Cho phép KPI vượt 100%
                             </label>
                         </div>
+                        @php
+                            $maxRateOld = $struct['max_kpi_rate'] ?? null;
+                            $maxRateVal = old('max_kpi_rate', ($maxRateOld !== null && (float) $maxRateOld > 0) ? number_format((float) $maxRateOld * 100, 0, '.', '') : '');
+                        @endphp
+                        <label class="form-label small mt-2 mb-1" for="cfg-max-kpi-rate">Trần tối đa khi vượt (%)</label>
+                        <input type="number" step="1" min="0" class="form-control form-control-sm" id="cfg-max-kpi-rate"
+                               name="max_kpi_rate" value="{{ $maxRateVal }}" placeholder="Để trống = không giới hạn">
+                        <div class="form-text">Vượt bao nhiêu trả bấy nhiêu nếu để trống.</div>
                     </div>
                 </div>
 

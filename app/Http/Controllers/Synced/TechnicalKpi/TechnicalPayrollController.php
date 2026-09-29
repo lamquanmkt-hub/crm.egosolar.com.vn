@@ -203,6 +203,30 @@ class TechnicalPayrollController extends Controller
      * Đồng thời nhận diện theo phòng ban/chức vụ để nhân sự HR đã xếp vào
      * phòng Kỹ thuật vẫn xuất hiện dù role chưa được chuẩn hoá.
      */
+    /** Danh sách nhân viên kỹ thuật dùng chung cho trang KPI, Cài đặt lương KPI và Nhập số liệu KPI tháng. */
+    public function kpiEmployees(?int $departmentId = null)
+    {
+        return $this->employees($departmentId);
+    }
+
+    /**
+     * Lương thoả thuận nhập ở Cài đặt KPI: bản ghi có tháng hiệu lực gần nhất, không sau tháng đang xét.
+     */
+    public static function kpiAgreedSalary(int $userId, string $month): ?float
+    {
+        if (! SchemaCache::hasTable('technical_kpi_salaries')) {
+            return null;
+        }
+
+        $value = DB::table('technical_kpi_salaries')
+            ->where('user_id', $userId)
+            ->where('effective_month', '<=', $month)
+            ->orderByDesc('effective_month')
+            ->value('agreed_salary');
+
+        return $value !== null && (float) $value > 0 ? (float) $value : null;
+    }
+
     private function employees(?int $departmentId = null)
     {
         if (! $this->tableExists('users')) {
@@ -977,6 +1001,8 @@ class TechnicalPayrollController extends Controller
         $periodDate = !empty($months[0]) ? $months[0] . '-01' : now()->toDateString();
         $activeConfig = \App\Models\TechnicalKpiConfig::getActiveForDate($periodDate);
         $hasConfig = !empty($activeConfig);
+        // Trọng số / tiêu chí tính điểm lấy theo phiên bản cấu hình đã duyệt của kỳ (trang Cài đặt KPI).
+        $evaluator->useConfig($activeConfig);
 
         $canConfigureKpi = $currentUser && (
             (method_exists($currentUser, 'isAdmin') && $currentUser->isAdmin())
@@ -987,7 +1013,7 @@ class TechnicalPayrollController extends Controller
         $engineers = collect();
         foreach ($scope as $employee) {
             $data = $this->kpiCollectFor($evaluator, $employee, $months, $selectedSiteId);
-            $result = $evaluator->score($data['projects'], $data['evidence'], $data['warranty']);
+            $result = $evaluator->score($data['projects'], $data['evidence'], $data['warranty'], $data['manual'], $data['adjustments']);
 
             // Tra cứu bảng lương hiện hành trong kỳ nếu có
             $existingPayroll = null;
@@ -999,23 +1025,14 @@ class TechnicalPayrollController extends Controller
                     ->first();
             }
 
-            // Tra cứu bảng lương gần nhất để lấy mức lương cơ sở thỏa thuận nếu chưa có kỳ này
-            $latestPayroll = null;
-            if ($this->tableExists('technical_kpi_payrolls')) {
-                $latestPayroll = DB::table('technical_kpi_payrolls')
-                    ->where('user_id', $employee->id)
-                    ->orderByDesc('id')
-                    ->first();
-            }
-
-            // Mức lương thỏa thuận: từ kỳ hiện hành -> kỳ gần nhất -> users.official_salary -> null (KHÔNG dùng 15.000.000 đ mặc định)
+            // Mức lương thỏa thuận: phiếu ĐÃ DUYỆT của kỳ giữ nguyên số đã chốt; còn lại lấy từ Cài đặt KPI
+            // (bảng technical_kpi_salaries, theo tháng hiệu lực). Không lấy từ phiếu nháp, không dùng số mặc định.
+            $isApprovedPayroll = $existingPayroll && $existingPayroll->status === 'approved';
             $agreedSalary = null;
-            if ($existingPayroll && !empty($existingPayroll->gross_salary) && (float) $existingPayroll->gross_salary > 0) {
+            if ($isApprovedPayroll && !empty($existingPayroll->gross_salary) && (float) $existingPayroll->gross_salary > 0) {
                 $agreedSalary = (float) $existingPayroll->gross_salary;
-            } elseif ($latestPayroll && !empty($latestPayroll->gross_salary) && (float) $latestPayroll->gross_salary > 0) {
-                $agreedSalary = (float) $latestPayroll->gross_salary;
-            } elseif (!empty($employee->official_salary) && (float) $employee->official_salary > 0) {
-                $agreedSalary = (float) $employee->official_salary;
+            } else {
+                $agreedSalary = self::kpiAgreedSalary((int) $employee->id, (string) end($months));
             }
 
             if ($existingPayroll && $existingPayroll->status === 'approved') {
@@ -1026,12 +1043,21 @@ class TechnicalPayrollController extends Controller
                 $payrollStatus = 'pending_calc';
             }
 
-            // Tỷ lệ KPI đạt được (%)
+            // Tỷ lệ KPI đạt được (%): phiếu đã duyệt giữ số đã chốt; còn lại tính trực tiếp từ dữ liệu kỳ.
             $kpiPercent = null;
-            if ($existingPayroll && $existingPayroll->total_kpi_percent !== null) {
+            if ($isApprovedPayroll && $existingPayroll->total_kpi_percent !== null) {
                 $kpiPercent = (float) $existingPayroll->total_kpi_percent;
             } elseif ($result['total'] !== null) {
                 $kpiPercent = (float) $result['total'];
+            }
+
+            // Những gì còn thiếu để tính được lương KPI (hiển thị ngay trên dòng nhân viên).
+            $missing = [];
+            if ($agreedSalary === null) {
+                $missing[] = 'Lương thoả thuận';
+            }
+            foreach ((array) ($result['missing_summary'] ?? []) as $criterionName) {
+                $missing[] = $criterionName;
             }
 
             // Tính toán chi tiết các cấu phần theo cấu hình KPI hiệu lực (KHÔNG hardcode 70/30)
@@ -1088,6 +1114,7 @@ class TechnicalPayrollController extends Controller
                 'payroll_record' => $existingPayroll,
                 'result' => $result,
                 'data' => $data,
+                'missing' => $missing,
             ]);
         }
 
@@ -1110,7 +1137,8 @@ class TechnicalPayrollController extends Controller
         $isTeam = ! $selectedUserId;
         $focus = $isTeam ? $engineers : collect([$selectedEngineer])->filter()->values();
         $pooled = $this->kpiPool($focus->pluck('data'));
-        $detail = $evaluator->score($pooled['projects'], $pooled['evidence'], $pooled['warranty']);
+        // Điểm cộng/trừ là của từng người: chỉ áp khi xem một kỹ sư, không cộng dồn cho cả phòng.
+        $detail = $evaluator->score($pooled['projects'], $pooled['evidence'], $pooled['warranty'], $pooled['manual'], $isTeam ? null : $pooled['adjustments']);
 
         // So sánh giữa kỹ sư: người đủ dữ liệu xếp theo điểm, người thiếu dữ liệu đứng sau.
         $ranking = $engineers
@@ -1162,7 +1190,7 @@ class TechnicalPayrollController extends Controller
                     [$month],
                     $selectedSiteId
                 )));
-            $monthResult = $evaluator->score($monthData['projects'], $monthData['evidence'], null);
+            $monthResult = $evaluator->score($monthData['projects'], $monthData['evidence'], null, $monthData['manual'], $isTeam ? null : $monthData['adjustments']);
             [$y, $m] = explode('-', $month);
             $trend[] = [
                 'month' => $month,
@@ -1188,6 +1216,7 @@ class TechnicalPayrollController extends Controller
             'hasConfig' => $hasConfig,
             'activeConfig' => $activeConfig,
             'canConfigureKpi' => $canConfigureKpi,
+            'canInputKpi' => TechnicalKpiInputController::canInput($currentUser),
             'criteriaStandard' => $activeConfig ? ($activeConfig->criteria_config ?? $evaluator->criteria()) : $evaluator->criteria(),
             'weightTotal' => $evaluator->weightTotal(),
             'bonusTiers' => $evaluator->bonusTiers(),
@@ -1243,11 +1272,15 @@ class TechnicalPayrollController extends Controller
     {
         $projects = collect();
         $evidence = collect();
+        $manual = collect();
+        $adjustments = collect();
         $warranty = null;
 
         foreach ($collections as $data) {
             $projects = $projects->concat($data['projects'] ?? []);
             $evidence = $evidence->concat($data['evidence'] ?? []);
+            $manual = $manual->concat($data['manual'] ?? []);
+            $adjustments = $adjustments->concat($data['adjustments'] ?? []);
             if (! empty($data['warranty'])) {
                 $warranty ??= ['total' => 0, 'resolved' => 0, 'rows' => collect()];
                 $warranty['total'] += (int) $data['warranty']['total'];
@@ -1256,7 +1289,13 @@ class TechnicalPayrollController extends Controller
             }
         }
 
-        return ['projects' => $projects->values(), 'evidence' => $evidence->values(), 'warranty' => $warranty];
+        return [
+            'projects' => $projects->values(),
+            'evidence' => $evidence->values(),
+            'warranty' => $warranty,
+            'manual' => $manual->values(),
+            'adjustments' => $adjustments->values(),
+        ];
     }
 
     /**

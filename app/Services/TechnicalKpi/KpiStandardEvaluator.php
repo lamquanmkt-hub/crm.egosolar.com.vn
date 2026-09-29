@@ -49,6 +49,12 @@ class KpiStandardEvaluator
         self::DATA_NONE => 'Chưa đánh giá',
     ];
 
+    /** Nguồn: Trưởng phòng nhập Kế hoạch / Thực tế ở trang Nhập số liệu KPI tháng. */
+    public const SOURCE_MANUAL_LABEL = 'Nhập tay theo tháng (Trưởng phòng)';
+
+    /** Tiêu chí lấy từ cấu hình đã duyệt ở trang Cài đặt KPI (null = dùng file chuẩn). */
+    private ?array $configCriteria = null;
+
     public function __construct(private readonly ProjectKpiLinkService $links) {}
 
     /*
@@ -57,9 +63,42 @@ class KpiStandardEvaluator
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Dùng tiêu chí + trọng số của phiên bản cấu hình đã duyệt (trang Cài đặt KPI) thay cho file chuẩn.
+     * Tiêu chí không tick "tính điểm" hoặc chưa ở trạng thái áp dụng => không trọng số (chờ xác nhận).
+     */
+    public function useConfig(?\App\Models\TechnicalKpiConfig $config): static
+    {
+        $rows = $config ? (array) ($config->criteria_config ?? []) : [];
+        if ($rows === []) {
+            $this->configCriteria = null;
+
+            return $this;
+        }
+
+        $standard = collect((array) config('technical_kpi_standard.criteria', []))->keyBy('code');
+        $this->configCriteria = collect($rows)->map(function (array $c) use ($standard): array {
+            $base = (array) ($standard->get($c['code'] ?? '') ?? []);
+            $active = ! empty($c['is_calculated']) && ($c['status'] ?? '') === 'applied' && (float) ($c['weight'] ?? 0) > 0;
+
+            return array_merge($base, [
+                'no' => (int) ($c['no'] ?? ($base['no'] ?? 0)),
+                'code' => (string) ($c['code'] ?? ''),
+                'name' => (string) ($c['name'] ?? ($base['name'] ?? '')),
+                'weight' => $active ? (float) $c['weight'] : null,
+                'target' => (string) (($c['threshold'] ?? '') !== '' ? $c['threshold'] : ($base['target'] ?? '')),
+                'measure' => (string) (($c['formula'] ?? '') !== '' ? $c['formula'] : ($base['measure'] ?? '')),
+                'pending_confirmation' => ! $active,
+                'pending_reason' => $active ? null : ($c['pending_reason'] ?? ($base['pending_reason'] ?? 'Tiêu chí chưa được áp dụng tính điểm trong cấu hình KPI.')),
+            ]);
+        })->sortBy('no')->values()->all();
+
+        return $this;
+    }
+
     public function criteria(): array
     {
-        return (array) config('technical_kpi_standard.criteria', []);
+        return $this->configCriteria ?? (array) config('technical_kpi_standard.criteria', []);
     }
 
     /** Tổng trọng số các tiêu chí có trọng số (đúng ô C9 của file chuẩn). */
@@ -152,7 +191,13 @@ class KpiStandardEvaluator
         $evidence = collect();
 
         foreach ($months as $month) {
-            $monthProjects = $this->links->projectsForUserMonth($userId, $month)
+            $legacy = $this->links->projectsForUserMonth($userId, $month);
+            $legacySiteIds = $legacy->pluck('site_id')->map(fn ($id) => (int) $id)->filter()->all();
+            // Module Dự án mới (/du-an): bỏ các dự án đã có ở nguồn cũ (trùng công trình liên kết) để không đếm 2 lần.
+            $duAn = $this->links->duAnProjectsForUserMonth($userId, $month)
+                ->reject(fn ($p) => (int) ($p['site_id'] ?? 0) > 0 && in_array((int) $p['site_id'], $legacySiteIds, true));
+
+            $monthProjects = $legacy->concat($duAn)
                 ->map(fn ($p) => $p + ['month' => $month, 'user_id' => $userId]);
             if ($siteId) {
                 $monthProjects = $monthProjects->where('site_id', $siteId)->values();
@@ -160,22 +205,65 @@ class KpiStandardEvaluator
             $projects = $projects->concat($monthProjects);
 
             $ids = $monthProjects->pluck('site_id')->map(fn ($id) => (int) $id)->filter()->unique()->values();
+            $legacyEvidence = collect();
             if ($ids->isNotEmpty() && SchemaCache::hasTable('technical_kpi_project_evidence')) {
-                $rows = DB::table('technical_kpi_project_evidence')
+                $legacyEvidence = DB::table('technical_kpi_project_evidence')
                     ->where('user_id', $userId)
                     ->where('payroll_month', $month)
                     ->whereIn('site_id', $ids->all())
                     ->whereNotNull('approved_at')
                     ->get();
-                $evidence = $evidence->concat($rows);
+                $evidence = $evidence->concat($legacyEvidence);
             }
+
+            // Tự động từ quy trình dự án /du-an: công trình được duyệt nghiệm thu trong tháng
+            // (chất lượng, khảo sát & vật tư, HSE, EVN/App). Ưu tiên: minh chứng nhập tay → quy trình /du-an
+            // → dữ liệu module Công trình cũ (project_test_*); mỗi công trình chỉ đếm một lần.
+            $takenSites = $legacyEvidence->pluck('site_id')->map(fn ($id) => (int) $id)->all();
+            $workflowMetrics = $this->links->workflowAcceptanceMetrics($userId, $month)
+                ->reject(fn ($e) => in_array($e->site_id, $takenSites, true))
+                ->when($siteId, fn ($c) => $c->filter(fn ($e) => $e->site_id === $siteId));
+            $takenSites = array_merge($takenSites, $workflowMetrics->pluck('site_id')->all());
+            $duAnMetrics = $this->links->duAnAcceptanceMetrics($userId, $month)
+                ->reject(fn ($e) => $e->site_id > 0 && in_array($e->site_id, $takenSites, true))
+                ->when($siteId, fn ($c) => $c->filter(fn ($e) => $e->site_id === $siteId));
+            $evidence = $evidence->concat($workflowMetrics)->concat($duAnMetrics);
         }
 
         return [
             'projects' => $projects->values(),
             'evidence' => $evidence->values(),
             'warranty' => $this->warrantyClaims($userId, $months, $siteId),
+            'manual' => $this->manualScores($userId, $months),
+            'adjustments' => $this->adjustments($userId, $months),
         ];
+    }
+
+    /** Số liệu Kế hoạch / Thực tế Trưởng phòng nhập theo tháng. */
+    public function manualScores(int $userId, array $months): Collection
+    {
+        if (! SchemaCache::hasTable('technical_kpi_monthly_scores')) {
+            return collect();
+        }
+
+        return DB::table('technical_kpi_monthly_scores')
+            ->where('user_id', $userId)
+            ->whereIn('payroll_month', $months)
+            ->get();
+    }
+
+    /** Điểm cộng/trừ (kèm lý do) trong các tháng. */
+    public function adjustments(int $userId, array $months): Collection
+    {
+        if (! SchemaCache::hasTable('technical_kpi_adjustments')) {
+            return collect();
+        }
+
+        return DB::table('technical_kpi_adjustments')
+            ->where('user_id', $userId)
+            ->whereIn('payroll_month', $months)
+            ->orderBy('id')
+            ->get();
     }
 
     /** Phiếu bảo hành giao cho kỹ sư trong kỳ — chỉ để hiển thị, KHÔNG tính điểm. */
@@ -218,27 +306,88 @@ class KpiStandardEvaluator
      *                                completed_iso, on_time, timeline_excluded, (user_name)
      * @param  Collection  $evidence  dòng technical_kpi_project_evidence đã duyệt
      */
-    public function score(Collection $projects, Collection $evidence, ?array $warranty = null): array
+    public function score(Collection $projects, Collection $evidence, ?array $warranty = null, ?Collection $manual = null, ?Collection $adjustments = null): array
     {
         $projectIndex = $projects->keyBy(fn ($p) => $this->key($p['site_id'] ?? 0, $p['month'] ?? '', $p['user_id'] ?? 0));
+        $manualByCode = ($manual ?? collect())
+            ->filter(fn ($m) => $m->plan_value !== null && $m->actual_value !== null && (float) $m->plan_value > 0)
+            ->groupBy('criterion_code');
         $results = [];
 
         foreach ($this->criteria() as $criterion) {
+            if ($criterion['weight'] === null) {
+                $results[] = $this->pending($criterion, $warranty);
+
+                continue;
+            }
+
+            // Số liệu Trưởng phòng nhập theo tháng được ưu tiên hơn số tự động.
+            if ($manualByCode->has($criterion['code'])) {
+                $results[] = $this->scoreManual($criterion, $manualByCode->get($criterion['code']));
+
+                continue;
+            }
+
             $results[] = match ($criterion['code']) {
                 'timeline' => $this->scoreTimeline($criterion, $projects),
                 'quality' => $this->scoreEvidence($criterion, $evidence, $projectIndex, 'quality_first_pass',
-                    fn ($v) => (bool) $v, fn ($v) => $v ? 'Nghiệm thu đạt lần đầu' : 'Phải sửa / nghiệm thu lại'),
-                'survey' => $this->scoreEvidence($criterion, $evidence, $projectIndex, 'material_waste_percent',
-                    fn ($v) => (float) $v < (float) ($criterion['threshold_percent'] ?? 3),
-                    fn ($v) => 'Sai lệch vật tư '.rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',').'%'),
+                    fn ($v) => (bool) $v, fn ($v) => $v ? 'Nghiệm thu đạt lần đầu' : 'Phải sửa / nghiệm thu lại hoặc chủ nhà phàn nàn'),
+                'survey' => $this->scoreSurvey($criterion, $evidence, $projectIndex),
                 'hse' => $this->scoreEvidence($criterion, $evidence, $projectIndex, 'hse_pass',
                     fn ($v) => (bool) $v, fn ($v) => $v ? 'Đạt checklist HSE' : 'Không đạt HSE'),
                 'evn_app' => $this->scoreEvnApp($criterion, $evidence, $projectIndex),
-                default => $this->pending($criterion, $warranty),
+                default => $this->noAutoSource($criterion),
             };
         }
 
-        return $this->summarize($results, $projects, $evidence);
+        return $this->summarize($results, $projects, $evidence, $adjustments ?? collect());
+    }
+
+    /**
+     * Tiêu chí từ số liệu nhập tay: tỷ lệ = Σ Thực tế / Σ Kế hoạch (cộng dồn các tháng trong kỳ).
+     * KHÔNG chặn trần — thực tế vượt kế hoạch thì tiêu chí được vượt 100%.
+     */
+    private function scoreManual(array $criterion, Collection $rows): array
+    {
+        $r = $this->base($criterion);
+        $r['source'] = self::SOURCE_MANUAL_LABEL;
+        $plan = (float) $rows->sum(fn ($m) => (float) $m->plan_value);
+        $actual = (float) $rows->sum(fn ($m) => (float) $m->actual_value);
+
+        foreach ($rows as $m) {
+            $r['evidence'][] = [
+                'project' => 'Tháng '.$m->payroll_month,
+                'site_id' => null,
+                'month' => (string) $m->payroll_month,
+                'user' => null,
+                'detail' => trim((string) ($m->note ?? '')) ?: 'Kế hoạch '.$this->num($m->plan_value).' · Thực tế '.$this->num($m->actual_value),
+                'result' => 'Đạt '.$this->num((float) $m->actual_value).'/'.$this->num((float) $m->plan_value),
+                'state' => (float) $m->actual_value >= (float) $m->plan_value ? 'pass' : 'fail',
+            ];
+        }
+
+        $r['passed'] = $actual;
+        $r['total'] = $plan;
+        $r['rate'] = $plan > 0 ? $actual / $plan : null;
+        $r['score'] = $r['rate'] !== null ? $r['rate'] * (float) $r['weight'] : null;
+        $r['status'] = $r['rate'] === null ? self::STATUS_NO_DATA : ($r['rate'] >= 1 - 1e-9 ? self::STATUS_PASS : self::STATUS_FAIL);
+
+        return $r;
+    }
+
+    /** Tiêu chí có trọng số nhưng không có nguồn tự động: chỉ chấm được khi Trưởng phòng nhập số liệu. */
+    private function noAutoSource(array $criterion): array
+    {
+        $r = $this->base($criterion);
+        $r['source'] = self::SOURCE_MANUAL_LABEL;
+        $r['missing'][] = 'Chưa nhập Kế hoạch / Thực tế cho tiêu chí này trong kỳ.';
+
+        return $r;
+    }
+
+    private function num(float|string|null $v): string
+    {
+        return rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
     }
 
     private function key($siteId, $month, $userId): string
@@ -332,10 +481,48 @@ class KpiStandardEvaluator
         }
 
         if ($rows->isEmpty()) {
-            $r['missing'][] = 'Chưa có minh chứng đã duyệt cho tiêu chí này trong kỳ.';
+            $r['missing'][] = $field === 'hse_pass'
+                ? 'Chưa có đánh giá HSE trong kỳ (checklist HSE khi nghiệm thu) — hoặc Trưởng phòng nhập ở trang Nhập số liệu KPI tháng.'
+                : 'Chưa có dự án được nghiệm thu trong kỳ (hoặc chưa có phiếu vật tư) — có thể nhập tay ở trang Nhập số liệu KPI tháng.';
         }
-        if ($field === 'quality_first_pass') {
-            $r['missing'][] = 'Phản ánh khách hàng và số lần sửa/rework chưa có nguồn liên kết với công trình/kỹ sư.';
+        if ($field === 'quality_first_pass' && $rows->isNotEmpty() && $rows->contains(fn ($e) => empty($e->complaint_recorded))) {
+            $r['missing'][] = 'Có biên bản nghiệm thu chưa ghi nhận chủ nhà có phàn nàn hay không.';
+        }
+
+        return $this->finishRatio($r, $passed, $rows->count());
+    }
+
+    /**
+     * Tiêu chí 3: công trình đạt khi hồ sơ khảo sát đầy đủ (hiện trạng, số đo, bản vẽ mô phỏng, dự toán)
+     * VÀ sai lệch vật tư dưới ngưỡng. Minh chứng cũ không có thông tin hồ sơ khảo sát thì chỉ xét vật tư.
+     */
+    private function scoreSurvey(array $criterion, Collection $evidence, Collection $projectIndex): array
+    {
+        $r = $this->base($criterion);
+        $r['source'] = 'Hồ sơ khảo sát và phiếu vật tư dự án · % sai lệch vật tư';
+        $threshold = (float) ($criterion['threshold_percent'] ?? 3);
+        $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
+
+        $rows = $evidence->filter(fn ($e) => $e->material_waste_percent !== null || isset($e->survey_complete));
+        $passed = 0;
+        foreach ($rows as $e) {
+            $problems = [];
+            if (isset($e->survey_complete) && ! $e->survey_complete) {
+                $problems[] = 'Khảo sát thiếu '.implode(', ', (array) ($e->survey_missing ?? []));
+            }
+            if ($e->material_waste_percent !== null && (float) $e->material_waste_percent >= $threshold) {
+                $problems[] = 'Sai lệch vật tư '.$fmt($e->material_waste_percent).'%';
+            }
+            $ok = $problems === [];
+            $passed += $ok ? 1 : 0;
+            $result = $ok
+                ? 'Khảo sát đủ hồ sơ'.($e->material_waste_percent !== null ? ' · lệch vật tư '.$fmt($e->material_waste_percent).'%' : '')
+                : implode(' · ', $problems);
+            $r['evidence'][] = $this->evidenceRow($e, $projectIndex, $result, $ok ? 'pass' : 'fail');
+        }
+
+        if ($rows->isEmpty()) {
+            $r['missing'][] = 'Chưa có dự án được nghiệm thu trong kỳ (hoặc chưa có phiếu vật tư) — có thể nhập tay ở trang Nhập số liệu KPI tháng.';
         }
 
         return $this->finishRatio($r, $passed, $rows->count());
@@ -370,7 +557,7 @@ class KpiStandardEvaluator
         $total = $required->filter(fn ($e) => $e->evn_app_completed !== null)->count();
 
         if ($rows->isEmpty()) {
-            $r['missing'][] = 'Chưa có minh chứng EVN/App đã duyệt trong kỳ.';
+            $r['missing'][] = 'Chưa có dự án được nghiệm thu trong kỳ — có thể nhập tay ở trang Nhập số liệu KPI tháng.';
         } elseif ($required->isEmpty()) {
             // Mọi công trình trong kỳ đều không yêu cầu: không có mẫu số để chấm.
             $r['missing'][] = 'Không có công trình nào yêu cầu EVN/App trong kỳ (N/A) — không đủ căn cứ chấm tiêu chí.';
@@ -416,7 +603,7 @@ class KpiStandardEvaluator
         $project = $projectIndex->get($this->key($e->site_id, $e->payroll_month, $e->user_id));
 
         return [
-            'project' => $project ? (($project['code'] ?? '').' · '.($project['name'] ?? '')) : ('Công trình #'.$e->site_id),
+            'project' => $project ? (($project['code'] ?? '').' · '.($project['name'] ?? '')) : ((string) ($e->project_label ?? '') ?: ('Công trình #'.$e->site_id)),
             'site_id' => (int) $e->site_id,
             'month' => (string) $e->payroll_month,
             'user' => $project['user_name'] ?? null,
@@ -443,12 +630,15 @@ class KpiStandardEvaluator
         return $r;
     }
 
-    private function summarize(array $results, Collection $projects, Collection $evidence): array
+    private function summarize(array $results, Collection $projects, Collection $evidence, ?Collection $adjustments = null): array
     {
         $weighted = collect($results)->filter(fn ($r) => $r['weight'] !== null);
         $withData = $weighted->filter(fn ($r) => $r['rate'] !== null);
         $complete = $weighted->isNotEmpty() && $withData->count() === $weighted->count();
-        $total = $complete ? (float) $withData->sum('score') : null;
+        // Điểm cộng/trừ của Trưởng phòng: 1 điểm = 1% KPI. Chỉ áp khi tổng KPI đã tính được.
+        $adjustments ??= collect();
+        $adjustmentPoints = (float) $adjustments->sum(fn ($a) => (float) $a->points);
+        $total = $complete ? (float) $withData->sum('score') + $adjustmentPoints / 100 : null;
 
         $dataStatus = $withData->isEmpty()
             ? self::DATA_NONE
@@ -478,7 +668,14 @@ class KpiStandardEvaluator
             'weighted_count' => $weighted->count(),
             'completion' => $completion,
             'penalty_points' => (float) $evidence->sum(fn ($e) => (float) ($e->penalty_points ?? 0)),
-            'project_count' => $projects->pluck('site_id')->unique()->count(),
+            'project_count' => $projects->map(fn ($p) => ($p['project_id'] ?? null) ? 'p'.$p['project_id'] : 's'.($p['site_id'] ?? 0))->unique()->count(),
+            'adjustment_points' => $adjustmentPoints,
+            'adjustments' => $adjustments->map(fn ($a) => [
+                'month' => (string) $a->payroll_month,
+                'points' => (float) $a->points,
+                'reason' => (string) $a->reason,
+            ])->values()->all(),
+            'missing_summary' => $weighted->filter(fn ($r) => $r['rate'] === null)->pluck('name')->values()->all(),
         ];
     }
 }

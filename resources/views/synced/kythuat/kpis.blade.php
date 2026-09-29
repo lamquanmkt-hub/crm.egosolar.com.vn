@@ -60,6 +60,11 @@
             </p>
         </div>
         <div class="tw-head__actions">
+            @if($canInputKpi ?? false)
+                <a href="{{ route('ky-thuat.kpis.input', ['month' => $selectedMonth]) }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-pencil-square"></i> Nhập số liệu tháng
+                </a>
+            @endif
             @if($canConfigureKpi)
                 <a href="{{ route('ky-thuat.kpis.config') }}" class="btn btn-sm btn-outline-secondary">
                     <i class="bi bi-gear"></i> Cài đặt KPI
@@ -271,9 +276,17 @@
                             </td>
                             <td class="text-center">
                                 @if($kpiPct !== null)
-                                    <span class="fw-bold text-primary">{{ $pct($kpiPct) }}</span>
+                                    <span class="fw-bold {{ $kpiPct > 1 + 1e-9 ? 'text-success' : 'text-primary' }}">{{ $pct($kpiPct) }}</span>
+                                    @if(($e['result']['adjustment_points'] ?? 0) != 0)
+                                        <div class="small text-muted">gồm {{ $e['result']['adjustment_points'] > 0 ? '+' : '' }}{{ rtrim(rtrim(number_format($e['result']['adjustment_points'], 2, ',', '.'), '0'), ',') }} điểm điều chỉnh</div>
+                                    @endif
                                 @else
                                     <span class="text-muted small">Chưa đủ dữ liệu</span>
+                                @endif
+                                @if(! empty($e['missing']))
+                                    <div class="small text-warning-emphasis mt-1" title="Cần bổ sung để tính được KPI và lương">
+                                        Thiếu: {{ implode(', ', $e['missing']) }}
+                                    </div>
                                 @endif
                             </td>
                             <td class="text-end">

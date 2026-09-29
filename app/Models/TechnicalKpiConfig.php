@@ -90,7 +90,10 @@ class TechnicalKpiConfig extends Model
         $baseRate = isset($struct['base_salary_rate']) ? (float) $struct['base_salary_rate'] : null;
         $kpiRate = isset($struct['kpi_salary_rate']) ? (float) $struct['kpi_salary_rate'] : null;
         $allowExceed = !empty($struct['allow_exceed_100']);
-        $maxKpiRate = isset($struct['max_kpi_rate']) ? (float) $struct['max_kpi_rate'] : 1.0;
+        // Trần hệ số khi vượt 100%: null/0 = KHÔNG giới hạn (vượt bao nhiêu trả bấy nhiêu).
+        $maxKpiRate = array_key_exists('max_kpi_rate', $struct)
+            ? (($struct['max_kpi_rate'] !== null && (float) $struct['max_kpi_rate'] > 0) ? (float) $struct['max_kpi_rate'] : null)
+            : 1.0;
         $roundRule = (string) ($struct['round_rule'] ?? '1000');
 
         $baseSalary = null;
@@ -126,7 +129,10 @@ class TechnicalKpiConfig extends Model
                 $tierInfo = $tiers['above_100'] ?? ['rate' => 1.00, 'label' => 'Vượt chỉ tiêu (≥ 100%)'];
                 $baseMultiplier = (float) ($tierInfo['rate'] ?? 1.00);
                 if ($allowExceed) {
-                    $appliedTierRate = min($maxKpiRate, $kpiPercent * $baseMultiplier);
+                    $appliedTierRate = $kpiPercent * $baseMultiplier;
+                    if ($maxKpiRate !== null) {
+                        $appliedTierRate = min($maxKpiRate, $appliedTierRate);
+                    }
                 } else {
                     $appliedTierRate = min(1.0, $baseMultiplier);
                 }
