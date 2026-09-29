@@ -35,6 +35,9 @@
             <small>
                 {{ $kpiReviewed ? 'Đã đánh giá '.\Illuminate\Support\Carbon::parse($kpiData['kpi_reviewed_at'])->format('H:i d/m/Y').($kpiReviewer ? ' · '.$kpiReviewer : '') : 'Chưa đánh giá' }}
                 · {{ $kpiCanReview ? 'Trưởng phòng Kỹ thuật / Admin đánh giá trước khi duyệt nghiệm thu' : 'Chỉ Trưởng phòng Kỹ thuật hoặc Admin được đánh giá — bạn chỉ xem' }}
+                @if($kpiCanReview && \Illuminate\Support\Facades\Route::has('technical.guides.show'))
+                    · <a href="{{ route('technical.guides.show', ['slug' => 'truong-phong-kpi-thang']) }}?return={{ rawurlencode(request()->getRequestUri()) }}" target="_blank" rel="noopener"><i class="bi bi-question-circle"></i> Cách đánh giá</a>
+                @endif
             </small>
         </div>
     </header>

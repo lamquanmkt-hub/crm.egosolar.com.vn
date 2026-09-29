@@ -15,6 +15,13 @@ Danh sách các trang chính và đường dẫn. Menu bạn thấy phụ thuộ
 - [Hàng ký gửi](/ky-gui-hang-hoa) — hàng gửi tại khách/đại lý: tạo hồ sơ, gửi duyệt, phê duyệt, kho xuất giao.
 - [KPI & hoa hồng](/sales/kpi) — KPI và hoa hồng của sales.
 
+## Kỹ thuật
+- [Tổng quan Kỹ thuật](/ky-thuat), [Kế hoạch tuần](/ky-thuat/ke-hoach-tuan), [Báo cáo ngày](/ky-thuat/bao-cao-ngay).
+- [Bảng KPI kỹ thuật và lương hiệu suất](/ky-thuat/kpis) — % KPI tháng, tiền KPI của kỹ sư (khác với KPI & hoa hồng của Sales).
+- [Nhập số liệu KPI tháng](/ky-thuat/kpis/nhap-lieu) — Trưởng phòng Kỹ thuật nhập Kế hoạch (KH) / Thực hiện (TH), cộng/trừ điểm.
+- [Cài đặt KPI](/ky-thuat/kpis/cai-dat) — công thức KPI, lương thoả thuận của từng kỹ sư.
+- [Hướng dẫn sử dụng module Kỹ thuật](/ky-thuat/huong-dan) — các bài "Cách sử dụng" theo vai trò, gồm bài về KPI.
+
 ## Tài chính – Kế toán
 - [Tổng quan tài chính](/finance)
 - [Công nợ phải thu](/finance/customer-debts) — công nợ khách hàng theo đơn.

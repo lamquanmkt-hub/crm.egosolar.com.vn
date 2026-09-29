@@ -60,6 +60,19 @@
             </p>
         </div>
         <div class="tw-head__actions">
+            @php
+                // Bài "Cách sử dụng" đúng vai trò: Admin / Trưởng phòng / Kỹ thuật viên.
+                $kpiGuideRole = app(\App\Services\Technical\TechnicalGuideRegistry::class)->roleFor(auth()->user());
+                $kpiGuideSlug = match ($kpiGuideRole) {
+                    \App\Services\Technical\TechnicalGuideRegistry::ROLE_ADMIN => 'admin-kpi-ky-thuat',
+                    \App\Services\Technical\TechnicalGuideRegistry::ROLE_MANAGER => 'truong-phong-kpi-thang',
+                    \App\Services\Technical\TechnicalGuideRegistry::ROLE_STAFF => 'nhan-vien-kpi-cua-toi',
+                    default => null,
+                };
+            @endphp
+            @if($kpiGuideSlug)
+                @include('technical.guides.partials.help-button', ['slug' => $kpiGuideSlug])
+            @endif
             @if($canInputKpi ?? false)
                 <a href="{{ route('ky-thuat.kpis.input', ['month' => $selectedMonth]) }}" class="btn btn-sm btn-primary">
                     <i class="bi bi-pencil-square"></i> Nhập số liệu tháng

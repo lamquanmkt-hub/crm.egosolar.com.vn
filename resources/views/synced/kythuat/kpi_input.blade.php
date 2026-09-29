@@ -45,6 +45,7 @@
             </p>
         </div>
         <div class="tw-head__actions d-flex gap-2">
+            @include('technical.guides.partials.help-button', ['slug' => 'truong-phong-kpi-thang'])
             <form method="GET" action="{{ route('ky-thuat.kpis.input') }}" class="d-flex gap-2">
                 <input type="month" name="month" value="{{ $month }}" class="form-control form-control-sm" onchange="this.form.submit()">
             </form>
