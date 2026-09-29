@@ -96,7 +96,6 @@
 
   {{-- FILTER FORM --}}
   <form method="GET" id="filterForm" class="mb-3">
-    <input type="hidden" name="company_id" id="company_id_input" value="2">
     <input type="hidden" name="price_tier_id" id="price_tier_id" value="{{ $selectedPriceTier }}">
 
     <div class="card ego-card">

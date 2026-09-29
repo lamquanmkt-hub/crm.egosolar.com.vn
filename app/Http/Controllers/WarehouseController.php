@@ -22,16 +22,11 @@ class WarehouseController extends Controller
 
         $query = Warehouse::query()->with(['companies','manager'])->orderByDesc('id');
 
-        $selectedCompanyIds = request()->input('company_ids', []);
-        if (is_string($selectedCompanyIds)) {
-            $selectedCompanyIds = array_filter(explode(',', $selectedCompanyIds));
-        }
+        $selectedCompanyIds = [\App\Support\EgoCompanyLock::id()];
 
-        if (!empty($selectedCompanyIds) && is_array($selectedCompanyIds)) {
-            $query->whereHas('companies', function ($q) use ($selectedCompanyIds) {
-                $q->whereIn('companies.id', $selectedCompanyIds);
-            });
-        }
+        $query->whereHas('companies', function ($q) use ($selectedCompanyIds) {
+            $q->whereIn('companies.id', $selectedCompanyIds);
+        });
 
         $warehouses = $query->paginate(20)->withQueryString();
 
@@ -49,11 +44,7 @@ class WarehouseController extends Controller
 {
     $data = $request->validated();
 
-    // lấy company_ids từ form (multi-select)
-    $companyIds = $request->input('company_ids', []);
-    if (is_string($companyIds)) {
-        $companyIds = array_filter(explode(',', $companyIds));
-    }
+    $companyIds = [\App\Support\EgoCompanyLock::id()];
 
     $warehouse = $this->service->create($data);
 
@@ -77,10 +68,7 @@ class WarehouseController extends Controller
 {
     $data = $request->validated();
 
-    $companyIds = $request->input('company_ids', []);
-    if (is_string($companyIds)) {
-        $companyIds = array_filter(explode(',', $companyIds));
-    }
+    $companyIds = [\App\Support\EgoCompanyLock::id()];
 
     $this->service->update($warehouse, $data);
 

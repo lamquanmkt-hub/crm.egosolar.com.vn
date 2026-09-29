@@ -123,6 +123,13 @@ Route::middleware(['auth'])
             ->middleware('role:ky_thuat|technical|technical_manager|accounting|admin|manager|management')
             ->name('kpis.index');
 
+        Route::prefix('kpis/cai-dat')->name('kpis.config')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'index']);
+            Route::post('/luu-nhap', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'storeDraft'])->name('.draft');
+            Route::post('/phe-duyet/{id}', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'approve'])->name('.approve');
+            Route::get('/xem-truoc/{id?}', [\App\Http\Controllers\Synced\TechnicalKpi\TechnicalKpiConfigController::class, 'preview'])->name('.preview');
+        });
+
         Route::get('/kpis/cong-trinh/{site}', [\App\Http\Controllers\TechnicalKpi\TechnicalProjectKpiController::class, 'show'])
             ->whereNumber('site')
             ->middleware('role:ky_thuat|technical|technical_manager|accounting|admin|manager|management')

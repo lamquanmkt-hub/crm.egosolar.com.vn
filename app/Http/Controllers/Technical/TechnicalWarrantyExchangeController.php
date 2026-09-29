@@ -146,7 +146,9 @@ class TechnicalWarrantyExchangeController extends Controller
         $company = EgoCompanyScope::currentId();
         $scope = function ($q) use ($company): void {
             if ($company > 0) {
-                $q->where(fn ($w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+                $q->where('company_id', $company);
+            } else {
+                $q->whereRaw('1 = 0');
             }
         };
 
@@ -518,14 +520,10 @@ class TechnicalWarrantyExchangeController extends Controller
         $query = SolarWarrantyClaim::query()->where('claim_type', 'replacement');
         $companyId = EgoCompanyScope::currentId();
 
-        if ($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
-            $query->where(function (Builder $company) use ($companyId): void {
-                $company->where('company_id', $companyId)
-                    ->orWhere(function (Builder $fallback) use ($companyId): void {
-                        $fallback->whereNull('company_id')
-                            ->whereHas('site', fn (Builder $site) => $site->where('company_id', $companyId));
-                    });
-            });
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         if (SolarMaintenanceAccess::isTechnicianOnly($user)) {
@@ -856,8 +854,15 @@ class TechnicalWarrantyExchangeController extends Controller
 
     protected function assertSerialCompany(object $serial, int $companyId, Request $request): void
     {
+        $current = EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            throw ValidationException::withMessages(['serial_code' => 'Phiên làm việc không có công ty.']);
+        }
         if ($companyId <= 0) {
-            return;
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không xác định công ty.']);
+        }
+        if ($current !== $companyId) {
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không thuộc công ty đang làm việc.']);
         }
 
         $knownCompanyIds = collect([
@@ -865,6 +870,12 @@ class TechnicalWarrantyExchangeController extends Controller
             (int) ($serial->order_company_id ?? 0),
             (int) ($serial->customer_company_id ?? 0),
         ])->filter(fn (int $id): bool => $id > 0)->unique();
+
+        if ($knownCompanyIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'serial_code' => 'Serial này không xác định công ty.',
+            ]);
+        }
 
         if ($knownCompanyIds->contains(fn (int $id): bool => $id !== $companyId)) {
             throw ValidationException::withMessages([
@@ -876,7 +887,13 @@ class TechnicalWarrantyExchangeController extends Controller
     protected function assertCompany(int $companyId, Request $request): void
     {
         $current = EgoCompanyScope::currentId();
-        if ($current > 0 && $companyId > 0 && $current !== $companyId && ! SolarMaintenanceAccess::isAdmin($request->user())) {
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        if ($companyId <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        if ($current !== $companyId) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
     }

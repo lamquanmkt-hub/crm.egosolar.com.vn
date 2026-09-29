@@ -4,10 +4,7 @@
     $warehouse = $warehouse ?? null;
     $companies = $companies ?? collect();
 
-    $selectedCompanyIds = old(
-        'company_ids',
-        $warehouse?->companies?->pluck('id')->toArray() ?? []
-    );
+
 @endphp
 
 <form action="{{ $action }}" method="POST" class="mt-3">
@@ -27,17 +24,7 @@
         </div>
     @endif
 
-    <div class="mb-3">
-        <label class="form-label">Công ty <span class="text-danger">*</span></label>
-        <select name="company_ids[]" class="form-select" multiple required size="3">
-            @foreach($companies as $c)
-                <option value="{{ $c->id }}" {{ in_array($c->id, $selectedCompanyIds) ? 'selected' : '' }}>
-                    {{ $c->name }} @if(!empty($c->code)) ({{ $c->code }}) @endif
-                </option>
-            @endforeach
-        </select>
-        <small class="text-muted">Giữ Ctrl (Windows) / Cmd (Mac) để chọn nhiều.</small>
-    </div>
+
 
     <div class="mb-3">
         <label class="form-label">Tên kho</label>

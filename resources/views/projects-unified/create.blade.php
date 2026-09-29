@@ -46,7 +46,7 @@
                             <div class="pu-field full"><label>Tên công trình <span class="text-danger">*</span></label><input id="projectName" name="name" value="{{ old('name') }}" required placeholder="Ví dụ: Solar Farm 6MW – Sekong, Lào"></div>
                             <div class="pu-field"><label>Loại công trình <span class="text-danger">*</span></label><select id="projectType" name="project_type" required>@foreach($typeLabels as $key=>$label)<option value="{{ $key }}" @selected(old('project_type','industrial')===$key)>{{ $label }}</option>@endforeach</select></div>
                             @if(!$isSalesScope)
-                            <div class="pu-field"><label>Công ty</label><select name="company_id"><option value="">Theo công ty đang chọn</option>@foreach($companies as $company)<option value="{{ $company->id }}" @selected((int) old('company_id',$activeCompanyId)===(int)$company->id)>{{ $company->code ?: $company->name }}</option>@endforeach</select></div>
+
                             @else
                             <div class="pu-field"><label>Nguồn công trình</label><input value="Sales · {{ auth()->user()->name }}" disabled></div>
                             @endif

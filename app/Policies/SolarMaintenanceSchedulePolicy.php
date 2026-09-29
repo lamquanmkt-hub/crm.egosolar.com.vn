@@ -114,6 +114,22 @@ class SolarMaintenanceSchedulePolicy
     }
 
     /**
+     * Kỹ thuật viên được phân công được phép hoàn tất trực tiếp (nếu phân công đã duyệt).
+     */
+    public function completeDirectly(User $user, SolarMaintenanceSchedule $schedule): bool
+    {
+        if (! $this->sameCompany($user, $schedule)) {
+            return false;
+        }
+
+        if (! SolarMaintenanceAccess::isTechnician($user) || ! $this->isAssigned($user, $schedule)) {
+            return false;
+        }
+
+        return in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true);
+    }
+
+    /**
      * Cho phép yêu cầu chỉnh sửa lại (cùng điều kiện với quyền duyệt).
      */
     public function requestRevision(User $user, SolarMaintenanceSchedule $schedule): bool

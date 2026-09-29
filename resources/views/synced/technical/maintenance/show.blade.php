@@ -11,6 +11,149 @@
 <link rel="stylesheet" href="{{ asset('css/technical-maintenance-assignment-v10.css') }}?v={{ file_exists(public_path('css/technical-maintenance-assignment-v10.css')) ? filemtime(public_path('css/technical-maintenance-assignment-v10.css')) : time() }}">
 <link rel="stylesheet" href="{{ asset('css/technical-maintenance-execution-v11.css') }}?v={{ file_exists(public_path('css/technical-maintenance-execution-v11.css')) ? filemtime(public_path('css/technical-maintenance-execution-v11.css')) : time() }}">
 <link rel="stylesheet" href="{{ asset('css/technical-maintenance-incident-v12.css') }}?v={{ file_exists(public_path('css/technical-maintenance-incident-v12.css')) ? filemtime(public_path('css/technical-maintenance-incident-v12.css')) : time() }}">
+<style>
+/* Enhanced Workflow UI/UX Styles */
+.eme11-title-main { display: flex; flex-direction: column; gap: 4px; }
+.eme11-title-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.eme11-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; line-height: 1.3; }
+.eme11-tag.req { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.eme11-tag.opt { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.eme11-tag.files { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
+.eme11-state.ready { color: #b45309; }
+.eme11-state.done { color: #059669; }
+.eme11-state.pending { color: #64748b; }
+
+.eme11-item-alert { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; margin-bottom: 12px; }
+.eme11-item-alert.danger { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.eme11-item-alert.danger i { color: #dc2626; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+.eme11-item-alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+.eme11-item-alert.success i { color: #16a34a; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+.eme11-btn-add-file { font-size: 12px !important; padding: 6px 14px !important; cursor: pointer; }
+
+@keyframes eme11PulseHighlight {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); border-color: #dc2626; }
+    50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.2); border-color: #dc2626; }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+.eme11-highlight-pulse { animation: eme11PulseHighlight 1.2s ease-in-out 2; }
+
+/* Step 4 Action Area */
+.eme11-action-area { margin-top: 24px; padding-top: 20px; border-top: 1.5px solid #e2e8f0; display: flex; flex-direction: column; gap: 16px; }
+.eme11-alert-box { padding: 16px 18px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+.eme11-alert-box.danger { background: #fff5f5; border: 1px solid #fed7d7; }
+.eme11-alert-box.success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.eme11-alert-head { display: flex; align-items: flex-start; gap: 12px; }
+.eme11-alert-box.danger .eme11-alert-head > i { color: #e53e3e; font-size: 22px; line-height: 1; margin-top: 2px; flex-shrink: 0; }
+.eme11-alert-box.success .eme11-alert-head > i { color: #16a34a; font-size: 22px; line-height: 1; margin-top: 2px; flex-shrink: 0; }
+.eme11-alert-title-wrap { flex: 1; }
+.eme11-alert-title-wrap h4 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.eme11-alert-box.danger .eme11-alert-title-wrap h4 { color: #9b2c2c; }
+.eme11-alert-box.success .eme11-alert-title-wrap h4 { color: #166534; }
+.eme11-alert-progress { font-size: 13px; font-weight: 600; display: inline-block; }
+.eme11-alert-box.danger .eme11-alert-progress { color: #c53030; }
+.eme11-alert-box.success .eme11-alert-progress { color: #15803d; }
+.eme11-alert-list ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.eme11-alert-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 1px solid #fed7d7; border-radius: 8px; padding: 9px 13px; font-size: 13px; }
+.eme11-missing-info { display: flex; align-items: center; gap: 8px; color: #742a2a; }
+.eme11-missing-info i { color: #e53e3e; font-size: 14px; flex-shrink: 0; }
+.eme11-jump-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 4px 10px; text-decoration: none; white-space: nowrap; transition: all .15s; }
+.eme11-jump-link:hover { background: #0284c7; color: #ffffff; border-color: #0284c7; text-decoration: none; }
+
+.eme11-result-quick { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; }
+.eme11-result-quick label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #334155; }
+.eme11-result-quick textarea { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; font-size: 13px; resize: vertical; font-family: inherit; }
+
+.eme11-action-buttons { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding-top: 10px; }
+.eme11-btn-incident { border: 1.5px solid #d97706 !important; background: #fffbeb !important; color: #b45309 !important; font-weight: 600 !important; padding: 10px 18px !important; border-radius: 8px !important; display: inline-flex !important; align-items: center !important; gap: 8px !important; font-size: 13.5px !important; cursor: pointer; transition: all .2s; }
+.eme11-btn-incident:hover { background: #fef3c7 !important; border-color: #92400e !important; color: #92400e !important; }
+.eme11-btn-complete { background: #059669 !important; border: 1px solid #059669 !important; color: #ffffff !important; font-weight: 600 !important; padding: 10px 22px !important; border-radius: 8px !important; display: inline-flex !important; align-items: center !important; gap: 8px !important; font-size: 14px !important; cursor: pointer; transition: all .2s; }
+.eme11-btn-complete:hover:not(:disabled) { background: #047857 !important; border-color: #047857 !important; }
+.eme11-btn-complete:disabled { opacity: 0.55 !important; background: #94a3b8 !important; border-color: #94a3b8 !important; cursor: not-allowed !important; }
+
+/* Step 5 Incident Empty State & Card */
+.emi12-empty-card { padding: 48px 24px !important; text-align: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }
+.emi12-empty-state { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.emi12-empty-icon { width: 68px; height: 68px; border-radius: 50%; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 34px; margin-bottom: 4px; border: 2px solid #bbf7d0; }
+.emi12-empty-state h3 { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
+.emi12-empty-state p { font-size: 14px; color: #64748b; line-height: 1.5; margin: 0; }
+.emi12-empty-actions { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+
+.emi12-info-summary { padding: 16px 18px; }
+.emi12-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.emi12-info-grid .wide { grid-column: 1 / -1; }
+.emi12-info-grid small { display: block; font-size: 11px; color: #64748b; margin-bottom: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.emi12-info-grid strong { display: block; font-size: 14px; color: #0f172a; }
+.emi12-info-grid p { margin: 0; font-size: 13.5px; color: #334155; line-height: 1.5; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
+.emi12-edit-action { margin-top: 14px; display: flex; justify-content: flex-end; }
+
+/* Incident Modal / Drawer */
+.emi15-modal[hidden] { display: none !important; }
+.emi15-modal { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.emi15-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+.emi15-dialog { position: relative; background: #ffffff; border-radius: 16px; width: min(650px, 96vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; }
+.emi15-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid #e2e8f0; }
+.emi15-header h3 { margin: 4px 0 2px; font-size: 18px; font-weight: 700; color: #0f172a; }
+.emi15-header p { margin: 0; font-size: 12px; color: #64748b; }
+.emi15-close { border: 0; background: #f1f5f9; color: #64748b; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.emi15-close:hover { background: #e2e8f0; color: #0f172a; }
+.emi15-form { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.emi15-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.emi15-grid .wide { grid-column: 1 / -1; }
+.emi15-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #334155; }
+.emi15-grid input, .emi15-grid select, .emi15-grid textarea { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13.5px; color: #0f172a; background: #ffffff; font-family: inherit; }
+.emi15-grid input:focus, .emi15-grid select:focus, .emi15-grid textarea:focus { outline: none; border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15); }
+.emi15-file-field { background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.emi15-file-field input[type=file] { border: none; padding: 4px 0; background: transparent; }
+.emi15-file-field small { color: #64748b; font-size: 12px; }
+.emi15-footer { display: flex; justify-content: flex-end; gap: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+body.emi15-modal-open { overflow: hidden; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .emi15-grid { grid-template-columns: 1fr; }
+    .eme11-action-buttons { flex-direction: column-reverse !important; width: 100% !important; gap: 12px !important; }
+    .eme11-action-sub, .eme11-action-main, .eme11-action-main form { width: 100% !important; }
+    .eme11-btn-incident, .eme11-btn-complete { width: 100% !important; justify-content: center !important; padding: 12px 16px !important; }
+    .eme11-alert-list li { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .eme11-jump-link { width: 100%; justify-content: center; }
+}
+
+/* Step 2 Plan Simplification */
+.emp1-plan-layout { display: flex; flex-direction: column; gap: 24px; padding-top: 6px; }
+.emp1-plan-purpose { display: flex; flex-direction: column; gap: 14px; }
+.emp1-plan-purpose h3 { font-size: 14px; font-weight: 700; color: #0f172a; margin: 0; }
+.emp1-plan-purpose h3 span { color: #dc2626; margin-left: 4px; }
+.emp1-radio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.emp1-radio-card { position: relative; display: flex; flex-direction: column; padding: 13px 15px; border: 1.5px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: #ffffff; }
+.emp1-radio-card:hover { border-color: #94a3b8; background: #f8fafc; }
+.emp1-radio-card input { position: absolute; opacity: 0; width: 0; height: 0; }
+.emp1-radio-card input:checked ~ .emp1-radio-content { color: #0369a1; }
+.emp1-radio-card input:checked ~ .emp1-radio-content b { color: #0369a1; }
+.emp1-radio-card:has(input:checked) { border-color: #0ea5e9; background: #f0f9ff; box-shadow: 0 0 0 1px #0ea5e9; }
+.emp1-radio-content { display: flex; align-items: center; gap: 10px; color: #475569; }
+.emp1-radio-content i { font-size: 18px; line-height: 1; }
+.emp1-radio-content b { font-size: 13.5px; font-weight: 600; color: #1e293b; }
+
+.emp1-plan-summary { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-top: 10px; }
+.emp1-plan-summary > div { display: flex; flex-direction: column; gap: 5px; }
+.emp1-plan-summary small { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+.emp1-plan-summary strong { font-size: 14px; font-weight: 600; color: #0f172a; }
+
+.emp1-advanced-opts { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; margin-top: 6px; }
+.emp1-advanced-opts summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #f1f5f9; cursor: pointer; font-weight: 600; font-size: 14px; color: #334155; user-select: none; transition: background .2s; }
+.emp1-advanced-opts summary:hover { background: #e2e8f0; }
+.emp1-advanced-opts summary::after { content: '\F282'; font-family: 'bootstrap-icons'; font-size: 16px; transition: transform 0.2s; }
+.emp1-advanced-opts[open] summary::after { transform: rotate(-180deg); }
+.emp1-advanced-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 20px; border-top: 1px solid #e2e8f0; }
+.emp1-advanced-grid .wide { grid-column: 1 / -1; }
+.emp1-advanced-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 800; color: #455d74; }
+.emp1-advanced-grid input, .emp1-advanced-grid select, .emp1-advanced-grid textarea { padding: 8px 12px; border: 1px solid #d7e2e9; border-radius: 9px; font-size: 12px; color: #0f172a; background: #ffffff; font-family: inherit; min-height: 42px; }
+.emp1-advanced-grid textarea { min-height: 88px; resize: vertical; }
+.emp1-advanced-grid input:focus, .emp1-advanced-grid select:focus, .emp1-advanced-grid textarea:focus { outline: none; border-color: #3a9cce; box-shadow: 0 0 0 3px rgba(39, 141, 194, 0.1); }
+@media (max-width: 768px) {
+    .emp1-advanced-grid { grid-template-columns: 1fr; }
+}
+</style>
 @endsection
 
 @section('content')
@@ -28,8 +171,6 @@
     $isOverdue = $schedule->isOverdue();
     $overdueDays = $isOverdue ? max(1, (int) $schedule->scheduled_date->diffInDays(today())) : 0;
     $editMode = request()->boolean('edit') && ($permissions['update'] ?? false);
-    $workflowPercent = count($workflowSteps) > 0 ? (int) round(($currentWorkflowStep / count($workflowSteps)) * 100) : 0;
-    $displayProgress = $workSummary['total'] > 0 ? $workSummary['progress'] : $workflowPercent;
     $statusTone = match (true) {
         in_array($schedule->status, ['completed','approved'], true) => 'success',
         in_array($schedule->status, ['pending_approval','waiting_submission','waiting_material','revision_requested'], true) => 'warning',
@@ -51,7 +192,50 @@
     $assignmentDone = $assignedCount > 0 && $assignmentApproved;
     $executionStarted = $workSummary['total'] > 0 || in_array($schedule->status, ['in_progress','waiting_material','waiting_submission','pending_approval','approved','completed'], true);
     $executionDone = $roundCompleted || ($workSummary['total'] > 0 && $workSummary['completed'] === $workSummary['total']);
-    $roundStages = ['summary', 'plan', 'assignment', 'perform', 'incident', 'complete'];
+
+    // Workflow chuẩn 5 bước: 1. Tổng quan, 2. Kế hoạch, 3. Phân công, 4. Thực hiện, 5. Phát sinh (chỉ kích hoạt khi có phát sinh)
+    $workflowSteps = [
+        [
+            'number' => 1,
+            'label' => 'Tổng quan',
+            'actor' => $schedule->creator?->name ?: 'Hệ thống',
+            'time' => optional($schedule->created_at)->format('d/m/Y H:i'),
+            'state' => 'done',
+        ],
+        [
+            'number' => 2,
+            'label' => 'Kế hoạch',
+            'actor' => $schedule->creator?->name ?: 'Hệ thống',
+            'time' => optional($schedule->scheduled_date)->format('d/m/Y') ?: 'Chưa đặt',
+            'state' => $planDone ? 'done' : 'current',
+        ],
+        [
+            'number' => 3,
+            'label' => 'Phân công',
+            'actor' => $leaderName ?: 'Admin',
+            'time' => optional($schedule->assignees->first()?->assigned_at)->format('d/m/Y H:i') ?: 'Chờ phân công',
+            'state' => $assignmentDone ? 'done' : ($planDone ? 'current' : 'pending'),
+        ],
+        [
+            'number' => 4,
+            'label' => 'Thực hiện',
+            'actor' => $leaderName ?: 'Kỹ thuật',
+            'time' => optional($schedule->started_at)->format('d/m/Y H:i') ?: ($executionStarted ? 'Đang thực hiện' : 'Chưa bắt đầu'),
+            'state' => $executionDone ? 'done' : ($assignmentDone ? 'current' : 'pending'),
+        ],
+        [
+            'number' => 5,
+            'label' => 'Phát sinh',
+            'actor' => $hasIncident ? ($schedule->leader?->user?->name ?: 'Kỹ thuật') : 'Không có',
+            'time' => $hasIncident ? (optional($schedule->updated_at)->format('d/m/Y H:i')) : 'Chưa ghi nhận',
+            'state' => $hasIncident ? 'current' : 'pending',
+        ],
+    ];
+    $currentWorkflowStep = $hasIncident ? 5 : ($executionDone ? 4 : ($executionStarted ? 4 : ($assignmentDone ? 3 : ($planDone ? 2 : 1))));
+    $workflowPercent = (int) round(($currentWorkflowStep / 5) * 100);
+    $displayProgress = $workSummary['total'] > 0 ? $workSummary['progress'] : $workflowPercent;
+
+    $roundStages = ['summary', 'plan', 'assignment', 'perform', 'incident'];
     $activeStage = request('round_step', 'summary');
     $activeStage = in_array($activeStage, $roundStages, true) ? $activeStage : 'summary';
 
@@ -138,7 +322,7 @@
 @endif
 
 @if($permissions['reopen'] && in_array($schedule->status, ['approved','completed','pending_approval','revision_requested'], true))
-<button type="button" data-emp1-open="complete">Mở lại công việc</button>
+<button type="button" data-emp1-open="perform">Mở lại công việc</button>
 @endif
 
                 </div>
@@ -165,9 +349,8 @@
             <button class="emp1-step emx2-process-step" type="button" data-emp1-target="summary" data-emp1-tab="summary"><span>1</span><div><b>Tổng quan</b><small>Trạng thái cả đợt</small></div></button>
             <button class="emp1-step emx2-process-step {{ $planDone ? 'is-done' : '' }}" type="button" data-emp1-target="plan" data-emp1-tab="plan"><span>{{ $planDone ? '✓' : '2' }}</span><div><b>Kế hoạch</b><small>{{ $planDone ? 'Đã lập kế hoạch' : 'Chưa lập kế hoạch' }}</small></div></button>
             <button class="emp1-step emx2-process-step {{ $assignmentDone ? 'is-done' : '' }}" type="button" data-emp1-target="assignment" data-emp1-tab="assignment"><span>{{ $assignmentDone ? '✓' : '3' }}</span><div><b>Phân công</b><small>{{ $assignedCount === 0 ? 'Chưa chọn người' : ($assignmentApproved ? ($currentUserAccepted ? 'Đã nhận việc' : 'Chờ nhận việc') : 'Chờ Admin duyệt') }}</small></div></button>
-            <button class="emp1-step emx2-process-step {{ $executionDone ? 'is-done' : (!$assignmentDone ? 'is-locked' : '') }}" type="button" data-emp1-target="perform" data-emp1-tab="perform"><span>{{ $executionDone ? '✓' : '4' }}</span><div><b>Thực hiện</b><small>{{ !$assignmentDone ? 'Mở sau phân công' : ($executionStarted ? 'Đang cập nhật' : 'Chưa bắt đầu') }}</small></div></button>
+            <button class="emp1-step emx2-process-step {{ $executionDone ? 'is-done' : (!$assignmentDone ? 'is-locked' : '') }}" type="button" data-emp1-target="perform" data-emp1-tab="perform"><span>{{ $executionDone ? '✓' : '4' }}</span><div><b>Thực hiện</b><small>{{ $roundCompleted ? 'Đã hoàn tất' : (!$assignmentDone ? 'Mở sau phân công' : ($executionStarted ? 'Đang cập nhật' : 'Chưa bắt đầu')) }}</small></div></button>
             <button class="emp1-step emx2-process-step {{ $hasIncident ? 'is-done' : '' }}" type="button" data-emp1-target="incident" data-emp1-tab="incident"><span>{{ $hasIncident ? '✓' : '5' }}</span><div><b>Phát sinh</b><small>{{ $hasIncident ? 'Có phát sinh' : 'Chưa ghi nhận' }}</small></div></button>
-            <button class="emp1-step emx2-process-step {{ $roundCompleted ? 'is-done' : (!$executionStarted ? 'is-locked' : '') }}" type="button" data-emp1-target="complete" data-emp1-tab="complete"><span>{{ $roundCompleted ? '✓' : '6' }}</span><div><b>Hoàn tất</b><small>{{ $roundCompleted ? 'Đã đóng đợt' : 'Chờ hoàn thành' }}</small></div></button>
         </aside>
         <div class="emp1-content">
 
@@ -197,13 +380,12 @@
 
     <section class="emd9-panel active" data-emd9-panel="summary">
         <section class="emd9-card emp1-word-card">
-            <div class="emr8-summary-head"><div><span class="emp1-kicker">ĐỢT BẢO TRÌ {{ $roundNo }}/{{ $totalRounds }}</span><h2>Tổng quan hồ sơ từng đợt</h2><p>Một nơi duy nhất để theo dõi kế hoạch, nhân sự, thực hiện, phát sinh và hoàn tất.</p></div><div class="emr8-progress" style="--emr8-progress:{{ $displayProgress }}"><strong>{{ $displayProgress }}%</strong><small>Tiến độ</small></div></div>
+            <div class="emr8-summary-head"><div><span class="emp1-kicker">ĐỢT BẢO TRÌ {{ $roundNo }}/{{ $totalRounds }}</span><h2>Tổng quan hồ sơ từng đợt</h2><p>Một nơi duy nhất để theo dõi kế hoạch, phân công, thực hiện và các phát sinh của đợt bảo trì.</p></div><div class="emr8-progress" style="--emr8-progress:{{ $displayProgress }}"><strong>{{ $displayProgress }}%</strong><small>Tiến độ</small></div></div>
             <div class="emr8-state-grid">
                 <button type="button" data-emx2-stage="plan" class="{{ $planDone ? 'done' : 'pending' }}"><span>2</span><div><small>Kế hoạch</small><strong>{{ $planDone ? 'Đã xong' : 'Chưa xong' }}</strong></div><i class="bi bi-chevron-right"></i></button>
                 <button type="button" data-emx2-stage="assignment" class="{{ $assignmentDone ? 'done' : 'pending' }}"><span>3</span><div><small>Phân công</small><strong>{{ $assignmentDone ? ($currentUserAccepted ? 'Đã nhận việc' : 'Chờ nhận việc') : ($assignedCount ? 'Chờ duyệt' : 'Chưa chọn người') }}</strong></div><i class="bi bi-chevron-right"></i></button>
-                <button type="button" data-emx2-stage="perform" class="{{ $executionDone ? 'done' : ($executionStarted ? 'active' : 'pending') }}"><span>4</span><div><small>Thực hiện</small><strong>{{ $executionDone ? 'Đã xong' : ($executionStarted ? 'Đang thực hiện' : 'Chưa bắt đầu') }}</strong></div><i class="bi bi-chevron-right"></i></button>
-                <button type="button" data-emx2-stage="incident" class="{{ $hasIncident ? 'warning' : 'neutral' }}"><span>5</span><div><small>Phát sinh</small><strong>{{ $hasIncident ? 'Có phát sinh' : 'Chưa có' }}</strong></div><i class="bi bi-chevron-right"></i></button>
-                <button type="button" data-emx2-stage="complete" class="{{ $roundCompleted ? 'done' : 'pending' }}"><span>6</span><div><small>Hoàn tất</small><strong>{{ $roundCompleted ? 'Đã đóng đợt' : 'Chưa hoàn tất' }}</strong></div><i class="bi bi-chevron-right"></i></button>
+                <button type="button" data-emx2-stage="perform" class="{{ $executionDone ? 'done' : ($executionStarted ? 'active' : 'pending') }}"><span>4</span><div><small>Thực hiện</small><strong>{{ $roundCompleted ? 'Đã hoàn tất' : ($executionDone ? 'Đã xong' : ($executionStarted ? 'Đang thực hiện' : 'Chưa bắt đầu')) }}</strong></div><i class="bi bi-chevron-right"></i></button>
+                <button type="button" data-emx2-stage="incident" class="{{ $hasIncident ? 'warning' : 'neutral' }}"><span>5</span><div><small>Phát sinh</small><strong>{{ $hasIncident ? 'Có phát sinh' : 'Chưa ghi nhận' }}</strong></div><i class="bi bi-chevron-right"></i></button>
             </div>
             <dl class="emp1-summary-list emp1-summary-meta emr8-summary-meta">
                 <div><dt>Ngày dự kiến</dt><dd>{{ optional($schedule->scheduled_date)->format('d/m/Y') ?: 'Chưa đặt ngày' }}</dd></div>
@@ -327,26 +509,58 @@
         <section class="emd9-card emp1-step-card">
             <div class="emd9-card-head"><div><span class="emp1-kicker">KẾ HOẠCH - ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span><h2>Kế hoạch bảo trì / bảo hành</h2><p>Cập nhật trực tiếp tại bước Kế hoạch, không chuyển sang màn hình khác.</p></div></div>
 @if($permissions['update'])
-            <form class="emp1-form" method="POST" action="{{ route('projects-unified.maintenance.update', ['schedule'=>$schedule->id]) }}">
+            <form class="emp1-form emp1-plan-layout" method="POST" action="{{ route('projects-unified.maintenance.update', ['schedule'=>$schedule->id]) }}" id="planForm">
                 @csrf @method('PUT')
-                <label><span>Ngày thực hiện <b>*</b></span><input type="date" name="scheduled_date" value="{{ optional($schedule->scheduled_date)->format('Y-m-d') }}" required></label>
-                <label><span>Loại công việc</span><select name="type">@foreach($types as $key=>$label)<option value="{{ $key }}" @selected($schedule->type===$key)>{{ $label }}</option>@endforeach</select></label>
-                <label><span>Ưu tiên</span><select name="priority">@foreach($priorities as $key=>$label)<option value="{{ $key }}" @selected($schedule->priority===$key)>{{ $label }}</option>@endforeach</select></label>
-                <label><span>Công suất kWp</span><input type="number" step="0.01" min="0" name="system_kwp" value="{{ $schedule->system_kwp }}"></label>
-                <label class="wide"><span>Thông tin inverter / thiết bị</span><input name="inverter_info" value="{{ $schedule->inverter_info }}" placeholder="Model, công suất, serial nếu cần..."></label>
-                <label class="wide"><span>Nội dung / yêu cầu công việc</span><textarea name="issue_note" rows="4">{{ $schedule->issue_note }}</textarea></label>
-                <label class="wide"><span>Ghi chú kỹ thuật</span><textarea name="technical_note" rows="3">{{ $schedule->technical_note }}</textarea></label>
-                <fieldset class="wide emp1-checklist"><legend>CHECKLIST</legend>
-                    <?php $checkedPlan = collect($schedule->plan_checklist ?? []); ?>
-                    <label><input type="checkbox" name="plan_checklist[]" value="system" @checked($checkedPlan->contains('system'))> Kiểm tra hệ thống</label>
-                    <label><input type="checkbox" name="plan_checklist[]" value="inverter" @checked($checkedPlan->contains('inverter'))> Kiểm tra inverter</label>
-                    <label><input type="checkbox" name="plan_checklist[]" value="panels" @checked($checkedPlan->contains('panels'))> Vệ sinh tấm pin</label>
-                    <label><input type="checkbox" name="plan_checklist[]" value="electrical" @checked($checkedPlan->contains('electrical'))> Kiểm tra tủ điện</label>
-                </fieldset>
-                <div class="wide emp1-actions"><button class="emd9-btn primary" type="submit"><i class="bi bi-save"></i> Lưu kế hoạch</button></div>
+                
+                <div class="emp1-plan-purpose wide">
+                    <h3>Mục đích thực hiện / Đi để làm gì? <span>*</span></h3>
+                    <div class="emp1-radio-grid">
+                        @foreach($types as $key => $label)
+                            <label class="emp1-radio-card">
+                                <input type="radio" name="type" value="{{ $key }}" @checked($schedule->type === $key) required class="emp1-purpose-radio">
+                                <div class="emp1-radio-content">
+                                    <i class="bi bi-circle"></i>
+                                    <b>{{ $label }}</b>
+                                </div>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="emp1-plan-summary wide">
+                    <div><small>Dự án</small><strong>{{ $siteName }}</strong></div>
+                    <div><small>Ngày dự kiến</small><strong>{{ optional($schedule->scheduled_date)->format('d/m/Y') ?: 'Chưa đặt ngày' }}</strong></div>
+                    <div><small>Kỹ thuật viên</small><strong>{{ $schedule->assignee_names ?: 'Chưa phân công' }}</strong></div>
+                    <div><small>Mã lịch</small><strong>{{ $schedule->schedule_code ?: '#'.$schedule->id }}</strong></div>
+                </div>
+
+                <details class="emp1-advanced-opts wide">
+                    <summary>Tùy chọn nâng cao (Không bắt buộc)</summary>
+                    <div class="emp1-advanced-grid">
+                        <label><span>Ngày thực hiện</span><input type="date" name="scheduled_date" value="{{ optional($schedule->scheduled_date)->format('Y-m-d') }}"></label>
+                        <label><span>Ưu tiên</span><select name="priority">@foreach($priorities as $key=>$label)<option value="{{ $key }}" @selected($schedule->priority===$key)>{{ $label }}</option>@endforeach</select></label>
+                        <label><span>Công suất kWp</span><input type="number" step="0.01" min="0" name="system_kwp" value="{{ $schedule->system_kwp }}"></label>
+                        <label><span>Thông tin inverter / thiết bị</span><input name="inverter_info" value="{{ $schedule->inverter_info }}" placeholder="Model, công suất, serial nếu cần..."></label>
+                        <label class="wide"><span>Nội dung / yêu cầu công việc</span><textarea name="issue_note" rows="3">{{ $schedule->issue_note }}</textarea></label>
+                        <label class="wide"><span>Ghi chú kỹ thuật</span><textarea name="technical_note" rows="3">{{ $schedule->technical_note }}</textarea></label>
+                        <fieldset class="wide emp1-checklist"><legend>CHECKLIST DỰ KIẾN</legend>
+                            <?php $checkedPlan = collect($schedule->plan_checklist ?? []); ?>
+                            <label><input type="checkbox" name="plan_checklist[]" value="system" @checked($checkedPlan->contains('system'))> Kiểm tra hệ thống</label>
+                            <label><input type="checkbox" name="plan_checklist[]" value="inverter" @checked($checkedPlan->contains('inverter'))> Kiểm tra inverter</label>
+                            <label><input type="checkbox" name="plan_checklist[]" value="panels" @checked($checkedPlan->contains('panels'))> Vệ sinh tấm pin</label>
+                            <label><input type="checkbox" name="plan_checklist[]" value="electrical" @checked($checkedPlan->contains('electrical'))> Kiểm tra tủ điện</label>
+                        </fieldset>
+                    </div>
+                </details>
+                
+                <div class="wide emp1-actions"><button class="emd9-btn primary" type="submit" id="planSubmitBtn" {{ empty($schedule->type) ? 'disabled' : '' }}><i class="bi bi-save"></i> Lưu kế hoạch</button></div>
             </form>
 @else
-            <div class="emd9-info-grid"><div><small>Ngày thực hiện</small><strong>{{ optional($schedule->scheduled_date)->format('d/m/Y') ?: 'Chưa đặt ngày' }}</strong></div><div><small>Loại công việc</small><strong>{{ $types[$schedule->type] ?? $schedule->type }}</strong></div><div class="wide"><small>Nội dung</small><p>{{ $schedule->issue_note ?: 'Chưa cập nhật.' }}</p></div></div>
+            <div class="emd9-info-grid">
+                <div class="wide"><small>Mục đích thực hiện</small><strong>{{ $types[$schedule->type] ?? ($schedule->type ?: 'Chưa xác định') }}</strong></div>
+                <div><small>Ngày thực hiện</small><strong>{{ optional($schedule->scheduled_date)->format('d/m/Y') ?: 'Chưa đặt ngày' }}</strong></div>
+                <div class="wide"><small>Nội dung</small><p>{{ $schedule->issue_note ?: 'Chưa cập nhật.' }}</p></div>
+            </div>
 @endif
         </section>
     </section>
@@ -382,67 +596,430 @@
     <section class="emd9-panel" data-emd9-panel="perform">
         <section class="emd9-card eme11-card">
             {{-- LEGACY_CHECKLIST_COMPAT_V1: show migrated checklist rows when V11 work-items do not exist. --}}
-            <?php $legacyExecutionItems = ($legacyChecklistItems ?? collect()); ?>
-            <?php $useLegacyExecution = $workItems->isEmpty() && $legacyExecutionItems->isNotEmpty(); ?>
-            <?php $executionCompleted = $useLegacyExecution ? $legacyExecutionItems->where('is_done', true)->count() : $workItems->where('status','completed')->count(); ?>
-            <?php $executionTotal = $useLegacyExecution ? $legacyExecutionItems->count() : $workItems->count(); ?>
-            <?php $executionPercent = $executionTotal ? (int) round($executionCompleted / $executionTotal * 100) : 0; ?>
-            <header class="eme11-head"><div><span class="emp1-kicker">THỰC HIỆN · ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span><h2>Checklist hiện trường</h2><p>Mở từng hạng mục, ghi kết quả và tải minh chứng ngay tại đúng mục.</p></div><div class="eme11-counter"><strong>{{ $executionCompleted }}/{{ $executionTotal }}</strong><span>hạng mục hoàn thành</span>@if($permissions['assignment_admin'])<button class="emd9-btn light" type="button" data-eme11-settings-open><i class="bi bi-sliders"></i> Cài đặt hồ sơ</button>@endif</div></header>
+            @php
+                $legacyExecutionItems = ($legacyChecklistItems ?? collect());
+                $useLegacyExecution = $workItems->isEmpty() && $legacyExecutionItems->isNotEmpty();
+
+                // Build normalized checklist representation
+                $normalizedChecklist = collect();
+                if ($useLegacyExecution) {
+                    foreach ($legacyExecutionItems as $lItem) {
+                        $fCount = $lItem->attachments ? $lItem->attachments->count() : 0;
+                        $req = (bool)($lItem->is_required ?? true);
+                        $minF = max(0, (int)($lItem->min_evidence ?? 0));
+                        $isDone = (bool)$lItem->is_done;
+                        $hasF = !$lItem->requires_evidence || ($fCount >= $minF);
+                        $normalizedChecklist->push([
+                            'id' => 'checklist-legacy-'.$lItem->id,
+                            'title' => $lItem->label,
+                            'required' => $req,
+                            'min_files' => $minF,
+                            'files_count' => $fCount,
+                            'is_done' => $isDone,
+                            'has_files' => $hasF,
+                            'missing_files' => max(0, $minF - $fCount),
+                            'is_satisfied' => $isDone || $hasF,
+                        ]);
+                    }
+                } else {
+                    foreach ($workItems as $wItem) {
+                        $wConfig = str_starts_with((string)$wItem->description, '__ego_checklist__')
+                            ? (json_decode(substr((string)$wItem->description, 17), true) ?: [])
+                            : [];
+                        $fCount = $wItem->attachments ? $wItem->attachments->count() : 0;
+                        $req = (bool)($wConfig['required'] ?? true);
+                        $minF = (int)($wConfig['min'] ?? 1);
+                        $isDone = ($wItem->status === 'completed');
+                        $hasF = !$req || ($fCount >= $minF);
+                        $normalizedChecklist->push([
+                            'id' => 'checklist-work-'.$wItem->id,
+                            'title' => $wItem->title,
+                            'required' => $req,
+                            'min_files' => $minF,
+                            'files_count' => $fCount,
+                            'is_done' => $isDone,
+                            'has_files' => $hasF,
+                            'missing_files' => max(0, $minF - $fCount),
+                            'is_satisfied' => $isDone || $hasF,
+                        ]);
+                    }
+                }
+
+                $requiredItems = $normalizedChecklist->where('required', true);
+                $totalRequiredCount = $requiredItems->count();
+                $completedRequiredCount = $requiredItems->where('is_satisfied', true)->count();
+                $totalRequiredMinFiles = $requiredItems->sum('min_files');
+                $uploadedRequiredFiles = $requiredItems->sum(fn($i) => min($i['min_files'], $i['files_count']));
+                $missingChecklistItems = $requiredItems->filter(fn($i) => !$i['is_satisfied']);
+                $isChecklistReady = $totalRequiredCount > 0 ? $missingChecklistItems->isEmpty() : true;
+
+                $executionCompleted = $useLegacyExecution ? $legacyExecutionItems->where('is_done', true)->count() : $workItems->where('status','completed')->count();
+                $executionTotal = $useLegacyExecution ? $legacyExecutionItems->count() : $workItems->count();
+                $executionPercent = $executionTotal ? (int) round($executionCompleted / $executionTotal * 100) : 0;
+            @endphp
+
+            <header class="eme11-head">
+                <div>
+                    <span class="emp1-kicker">THỰC HIỆN · ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span>
+                    <h2>Checklist hiện trường</h2>
+                    <p>Mở từng hạng mục, ghi kết quả và tải minh chứng ngay tại đúng mục.</p>
+                </div>
+                <div class="eme11-counter">
+                    <strong>{{ $executionCompleted }}/{{ $executionTotal }}</strong>
+                    <span>hạng mục hoàn thành</span>
+                    @if($permissions['assignment_admin'])
+                        <button class="emd9-btn light" type="button" data-eme11-settings-open><i class="bi bi-sliders"></i> Cài đặt hồ sơ</button>
+                    @endif
+                </div>
+            </header>
             <div class="eme11-progress"><i style="width:{{ $executionPercent }}%"></i></div>
 
             <div class="eme11-list">
             @if($useLegacyExecution)
                 @foreach($legacyExecutionItems as $legacyItem)
-                    <?php $itemFiles = $legacyItem->attachments ?? collect(); ?>
-                    <?php $itemMinimum = max(0, (int)($legacyItem->min_evidence ?? 0)); ?>
-                    <?php $itemRequired = (bool)($legacyItem->is_required ?? true); ?>
-                    <?php $itemDone = (bool)$legacyItem->is_done; ?>
-                    <?php $itemHasFiles = !$legacyItem->requires_evidence || $itemFiles->count() >= $itemMinimum; ?>
-                    <details class="eme11-item {{ $itemDone ? 'is-done' : '' }}" @if($loop->first && !$itemDone) open @endif>
+                    @php
+                        $itemFiles = $legacyItem->attachments ?? collect();
+                        $itemMinimum = max(0, (int)($legacyItem->min_evidence ?? 0));
+                        $itemRequired = (bool)($legacyItem->is_required ?? true);
+                        $itemDone = (bool)$legacyItem->is_done;
+                        $itemHasFiles = !$legacyItem->requires_evidence || $itemFiles->count() >= $itemMinimum;
+                        $itemAnchorId = 'checklist-legacy-'.$legacyItem->id;
+                    @endphp
+                    <details class="eme11-item {{ $itemDone ? 'is-done' : '' }}" id="{{ $itemAnchorId }}" @if($loop->first && !$itemDone) open @endif>
                         <summary>
                             <span class="eme11-number">{{ str_pad((string)$loop->iteration,2,'0',STR_PAD_LEFT) }}</span>
-                            <span class="eme11-title"><strong>{{ $legacyItem->label }}</strong><small>{{ $itemRequired ? 'Bắt buộc' : 'Không bắt buộc' }} · {{ $itemFiles->count() }} file · tối thiểu {{ $itemMinimum }} · dữ liệu cũ</small></span>
-                            <span class="eme11-state {{ $itemDone ? 'done' : ($itemHasFiles ? 'ready' : 'pending') }}"><i class="bi {{ $itemDone ? 'bi-check-circle-fill' : 'bi-clock' }}"></i>{{ $itemDone ? 'Hoàn thành' : ($itemHasFiles ? 'Đủ minh chứng' : 'Chưa xong') }}</span>
+                            <span class="eme11-title">
+                                <div class="eme11-title-main">
+                                    <strong>{{ $legacyItem->label }}</strong>
+                                    <div class="eme11-title-tags">
+                                        @if($itemRequired)
+                                            <span class="eme11-tag req">Bắt buộc</span>
+                                        @else
+                                            <span class="eme11-tag opt">Không bắt buộc</span>
+                                        @endif
+                                        <span class="eme11-tag files"><i class="bi bi-paperclip"></i> {{ $itemFiles->count() }}/{{ $itemMinimum }} file tối thiểu</span>
+                                    </div>
+                                </div>
+                            </span>
+                            <span class="eme11-state {{ $itemDone ? 'done' : ($itemHasFiles ? 'ready' : 'pending') }}">
+                                <i class="bi {{ $itemDone ? 'bi-check-circle-fill' : ($itemHasFiles ? 'bi-check2' : 'bi-clock') }}"></i>
+                                {{ $itemDone ? 'Hoàn tất' : ($itemHasFiles ? 'Đủ minh chứng' : 'Chưa xong') }}
+                            </span>
                             <i class="bi bi-chevron-down eme11-chevron"></i>
                         </summary>
                         <div class="eme11-body">
-                            <span class="eme11-required">Hạng mục được khôi phục từ checklist cũ #{{ $legacyItem->id }}</span>
+                            @if(!$itemHasFiles)
+                                <div class="eme11-item-alert danger">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <div><strong>Chưa đủ file minh chứng:</strong> Hiện có {{ $itemFiles->count() }}/{{ $itemMinimum }} file yêu cầu. Cần thêm tối thiểu {{ max(1, $itemMinimum - $itemFiles->count()) }} file để đủ điều kiện hoàn tất.</div>
+                                </div>
+                            @elseif(!$itemDone)
+                                <div class="eme11-item-alert success">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <div><strong>Đã đủ minh chứng:</strong> Đã có {{ $itemFiles->count() }}/{{ $itemMinimum }} file yêu cầu.</div>
+                                </div>
+                            @endif
+
+                            <span class="eme11-required">Hạng mục hồ sơ #{{ $legacyItem->id }}</span>
                             @if($legacyItem->note)<p class="eme11-read-note">{{ $legacyItem->note }}</p>@endif
-                            <div class="eme11-evidence"><div><i class="bi bi-cloud-arrow-up"></i><span><strong>Minh chứng · {{ $itemFiles->count() }} file</strong><small>{{ $legacyItem->requires_evidence ? 'Yêu cầu tối thiểu '.$itemMinimum.' file' : 'Không bắt buộc file' }}</small></span></div>
+                            <div class="eme11-evidence">
+                                <div>
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                    <span>
+                                        <strong>Minh chứng · {{ $itemFiles->count() }} file</strong>
+                                        <small>{{ $legacyItem->requires_evidence ? 'Yêu cầu tối thiểu '.$itemMinimum.' file' : 'Không bắt buộc file' }}</small>
+                                    </span>
+                                </div>
                                 @if($permissions['upload'])
-                                <form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store',['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="checklist_item_id" value="{{ $legacyItem->id }}"><input type="hidden" name="category" value="during"><label class="emd9-btn light"><i class="bi bi-plus-circle"></i> Thêm ảnh hoặc file<input type="file" name="files[]" multiple required onchange="this.form.submit()"></label></form>
+                                <form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store',['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">
+                                    @csrf
+                                    <input type="hidden" name="checklist_item_id" value="{{ $legacyItem->id }}">
+                                    <input type="hidden" name="category" value="during">
+                                    <label class="emd9-btn primary eme11-btn-add-file">
+                                        <i class="bi bi-plus-circle"></i> Thêm file minh chứng
+                                        <input type="file" name="files[]" multiple required onchange="this.form.submit()">
+                                    </label>
+                                </form>
                                 @endif
                             </div>
-                            @if($itemFiles->isNotEmpty())<div class="eme11-files">@foreach($itemFiles as $attachment)<div><a href="{{ route('projects-unified.maintenance.schedule-files.preview',['attachment'=>$attachment->id]) }}" target="_blank"><i class="bi bi-paperclip"></i> {{ \Illuminate\Support\Str::limit($attachment->original_name,48) }}</a>@if($permissions['assignment_admin'] || (int)$attachment->uploaded_by === (int)auth()->id())<form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.destroy',['attachment'=>$attachment->id]) }}" onsubmit="return confirm('Xóa tệp minh chứng này?')">@csrf @method('DELETE')<button type="submit" title="Xóa tệp"><i class="bi bi-trash3"></i></button></form>@endif</div>@endforeach</div>@endif
+                            @if($itemFiles->isNotEmpty())
+                            <div class="eme11-files">
+                                @foreach($itemFiles as $attachment)
+                                    <div>
+                                        <a href="{{ route('projects-unified.maintenance.schedule-files.preview',['attachment'=>$attachment->id]) }}" target="_blank">
+                                            <i class="bi bi-paperclip"></i> {{ \Illuminate\Support\Str::limit($attachment->original_name,48) }}
+                                        </a>
+                                        @if($permissions['assignment_admin'] || (int)$attachment->uploaded_by === (int)auth()->id())
+                                        <form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.destroy',['attachment'=>$attachment->id]) }}" onsubmit="return confirm('Xóa tệp minh chứng này?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" title="Xóa tệp"><i class="bi bi-trash3"></i></button>
+                                        </form>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                            @endif
                         </div>
                     </details>
                 @endforeach
             @else
-            @forelse($workItems as $workItem)
-                <?php $itemConfig = str_starts_with((string)$workItem->description,'__ego_checklist__') ? (json_decode(substr((string)$workItem->description,17),true) ?: []) : []; ?>
-                <?php $itemRequired = (bool)($itemConfig['required'] ?? true); ?>
-                <?php $itemMinimum = (int)($itemConfig['min'] ?? 1); ?>
-                <?php $itemMaximum = (int)($itemConfig['max'] ?? 0); ?>
-                <?php $itemFiles = $workItem->attachments; ?>
-                <?php $itemHasFiles = !$itemRequired || $itemFiles->count() >= $itemMinimum; ?>
-                <?php $itemDone = $workItem->status === 'completed'; ?>
-                <details class="eme11-item {{ $itemDone ? 'is-done' : '' }}" @if($loop->first && !$itemDone) open @endif><summary><span class="eme11-number">{{ str_pad((string)$loop->iteration,2,'0',STR_PAD_LEFT) }}</span><span class="eme11-title"><strong>{{ $workItem->title }}</strong><small>{{ $itemRequired ? 'Bắt buộc' : 'Không bắt buộc' }} · {{ $itemFiles->count() }}{{ $itemMaximum ? '/'.$itemMaximum : '' }} file · tối thiểu {{ $itemMinimum }}</small></span><span class="eme11-state {{ $itemDone ? 'done' : ($itemHasFiles ? 'ready' : 'pending') }}"><i class="bi {{ $itemDone ? 'bi-check-circle-fill' : 'bi-clock' }}"></i>{{ $itemDone ? 'Hoàn thành' : ($itemHasFiles ? 'Đủ minh chứng' : 'Chưa xong') }}</span><i class="bi bi-chevron-down eme11-chevron"></i></summary><div class="eme11-body">
-                    @if($itemRequired)<span class="eme11-required">Bắt buộc</span>@endif
-                    @if($permissions['update'])<form class="eme11-result" method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">@csrf @method('PUT')<label>Kết quả / ghi chú kỹ thuật<textarea name="result_note" rows="3" placeholder="Nhập tình trạng, thông số hoặc nội dung đã xử lý...">{{ $workItem->result_note }}</textarea></label><input type="hidden" name="status" value="{{ $itemDone ? 'completed' : 'in_progress' }}"><input type="hidden" name="progress_percent" value="{{ $itemDone ? 100 : 50 }}"><button class="emd9-btn light" type="submit"><i class="bi bi-save"></i> Lưu ghi chú</button></form>@elseif($workItem->result_note)<p class="eme11-read-note">{{ $workItem->result_note }}</p>@endif
+                @forelse($workItems as $workItem)
+                    @php
+                        $itemConfig = str_starts_with((string)$workItem->description,'__ego_checklist__') ? (json_decode(substr((string)$workItem->description,17),true) ?: []) : [];
+                        $itemRequired = (bool)($itemConfig['required'] ?? true);
+                        $itemMinimum = (int)($itemConfig['min'] ?? 1);
+                        $itemMaximum = (int)($itemConfig['max'] ?? 0);
+                        $itemFiles = $workItem->attachments;
+                        $itemHasFiles = !$itemRequired || $itemFiles->count() >= $itemMinimum;
+                        $itemDone = $workItem->status === 'completed';
+                        $itemAnchorId = 'checklist-work-'.$workItem->id;
+                    @endphp
+                    <details class="eme11-item {{ $itemDone ? 'is-done' : '' }}" id="{{ $itemAnchorId }}" @if($loop->first && !$itemDone) open @endif>
+                        <summary>
+                            <span class="eme11-number">{{ str_pad((string)$loop->iteration,2,'0',STR_PAD_LEFT) }}</span>
+                            <span class="eme11-title">
+                                <div class="eme11-title-main">
+                                    <strong>{{ $workItem->title }}</strong>
+                                    <div class="eme11-title-tags">
+                                        @if($itemRequired)
+                                            <span class="eme11-tag req">Bắt buộc</span>
+                                        @else
+                                            <span class="eme11-tag opt">Không bắt buộc</span>
+                                        @endif
+                                        <span class="eme11-tag files"><i class="bi bi-paperclip"></i> {{ $itemFiles->count() }}{{ $itemMaximum ? '/'.$itemMaximum : '' }} file · tối thiểu {{ $itemMinimum }}</span>
+                                    </div>
+                                </div>
+                            </span>
+                            <span class="eme11-state {{ $itemDone ? 'done' : ($itemHasFiles ? 'ready' : 'pending') }}">
+                                <i class="bi {{ $itemDone ? 'bi-check-circle-fill' : ($itemHasFiles ? 'bi-check2' : 'bi-clock') }}"></i>
+                                {{ $itemDone ? 'Hoàn tất' : ($itemHasFiles ? 'Đủ minh chứng' : 'Chưa xong') }}
+                            </span>
+                            <i class="bi bi-chevron-down eme11-chevron"></i>
+                        </summary>
+                        <div class="eme11-body">
+                            @if(!$itemHasFiles)
+                                <div class="eme11-item-alert danger">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <div><strong>Chưa đủ file minh chứng:</strong> Hiện có {{ $itemFiles->count() }}/{{ $itemMinimum }} file yêu cầu. Cần thêm tối thiểu {{ max(1, $itemMinimum - $itemFiles->count()) }} file để đủ điều kiện hoàn tất.</div>
+                                </div>
+                            @elseif(!$itemDone)
+                                <div class="eme11-item-alert success">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <div><strong>Đã đủ minh chứng:</strong> Đã có {{ $itemFiles->count() }}/{{ $itemMinimum }} file yêu cầu.</div>
+                                </div>
+                            @endif
 
-                    <div class="eme11-evidence"><div><i class="bi bi-cloud-arrow-up"></i><span><strong>Minh chứng · {{ $itemFiles->count() }} file</strong><small>{{ $itemHasFiles ? 'Đã đủ số file yêu cầu' : 'Cần thêm '.max(0,$itemMinimum-$itemFiles->count()).' file' }}{{ !empty($itemConfig['extensions']) ? ' · '.strtoupper($itemConfig['extensions']) : '' }}</small></span></div>@if($permissions['upload'] && (!$itemMaximum || $itemFiles->count() < $itemMaximum))<form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store',['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="work_item_id" value="{{ $workItem->id }}"><input type="hidden" name="category" value="during"><label class="emd9-btn light"><i class="bi bi-plus-circle"></i> Thêm ảnh hoặc file<input type="file" name="files[]" multiple required @if(!empty($itemConfig['extensions'])) accept="{{ collect(explode(',',$itemConfig['extensions']))->map(fn($extension)=>'.'.trim($extension))->implode(',') }}" @endif onchange="this.form.submit()"></label></form>@endif</div>
+                            @if($permissions['update'])
+                            <form class="eme11-result" method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">
+                                @csrf @method('PUT')
+                                <label>Kết quả / ghi chú kỹ thuật
+                                    <textarea name="result_note" rows="3" placeholder="Nhập tình trạng, thông số hoặc nội dung đã xử lý...">{{ $workItem->result_note }}</textarea>
+                                </label>
+                                <input type="hidden" name="status" value="{{ $itemDone ? 'completed' : 'in_progress' }}">
+                                <input type="hidden" name="progress_percent" value="{{ $itemDone ? 100 : 50 }}">
+                                <button class="emd9-btn light" type="submit"><i class="bi bi-save"></i> Lưu ghi chú</button>
+                            </form>
+                            @elseif($workItem->result_note)
+                            <p class="eme11-read-note">{{ $workItem->result_note }}</p>
+                            @endif
 
-                    @if($itemFiles->isNotEmpty())<div class="eme11-files">@foreach($itemFiles as $attachment)<div><a href="{{ route('projects-unified.maintenance.schedule-files.preview',['attachment'=>$attachment->id]) }}" target="_blank"><i class="bi bi-paperclip"></i> {{ \Illuminate\Support\Str::limit($attachment->original_name,48) }}</a>@if($permissions['assignment_admin'] || (int)$attachment->uploaded_by === (int)auth()->id())<form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.destroy',['attachment'=>$attachment->id]) }}" onsubmit="return confirm('Xóa tệp minh chứng này?')">@csrf @method('DELETE')<button type="submit" title="Xóa tệp"><i class="bi bi-trash3"></i></button></form>@endif</div>@endforeach</div>@endif
+                            <div class="eme11-evidence">
+                                <div>
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                    <span>
+                                        <strong>Minh chứng · {{ $itemFiles->count() }} file</strong>
+                                        <small>{{ $itemHasFiles ? 'Đã đủ số file yêu cầu' : 'Cần thêm '.max(0,$itemMinimum-$itemFiles->count()).' file' }}{{ !empty($itemConfig['extensions']) ? ' · '.strtoupper($itemConfig['extensions']) : '' }}</small>
+                                    </span>
+                                </div>
+                                @if($permissions['upload'] && (!$itemMaximum || $itemFiles->count() < $itemMaximum))
+                                <form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store',['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">
+                                    @csrf
+                                    <input type="hidden" name="work_item_id" value="{{ $workItem->id }}">
+                                    <input type="hidden" name="category" value="during">
+                                    <label class="emd9-btn primary eme11-btn-add-file">
+                                        <i class="bi bi-plus-circle"></i> Thêm file minh chứng
+                                        <input type="file" name="files[]" multiple required @if(!empty($itemConfig['extensions'])) accept="{{ collect(explode(',',$itemConfig['extensions']))->map(fn($extension)=>'.'.trim($extension))->implode(',') }}" @endif onchange="this.form.submit()">
+                                    </label>
+                                </form>
+                                @endif
+                            </div>
 
-                    @if($permissions['update'] && !$itemDone)<form class="eme11-mark" method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">@csrf @method('PUT')<input type="hidden" name="status" value="completed"><input type="hidden" name="progress_percent" value="100"><button class="emd9-btn {{ $itemHasFiles ? 'success' : 'light' }}" type="submit" @disabled(!$itemHasFiles)><i class="bi bi-check2-circle"></i> Đánh dấu hoàn thành</button></form>@endif
-                </div></details>
-            @empty<div class="eme11-empty"><i class="bi bi-card-checklist"></i><strong>Chưa có hạng mục hồ sơ</strong><span>Admin thêm các mục cần thực hiện và quy định file minh chứng.</span>@if($permissions['assignment_admin'])<button class="emd9-btn primary" type="button" data-eme11-settings-open><i class="bi bi-plus-lg"></i> Cài đặt hạng mục</button>@endif</div>@endforelse
+                            @if($itemFiles->isNotEmpty())
+                            <div class="eme11-files">
+                                @foreach($itemFiles as $attachment)
+                                    <div>
+                                        <a href="{{ route('projects-unified.maintenance.schedule-files.preview',['attachment'=>$attachment->id]) }}" target="_blank">
+                                            <i class="bi bi-paperclip"></i> {{ \Illuminate\Support\Str::limit($attachment->original_name,48) }}
+                                        </a>
+                                        @if($permissions['assignment_admin'] || (int)$attachment->uploaded_by === (int)auth()->id())
+                                        <form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.destroy',['attachment'=>$attachment->id]) }}" onsubmit="return confirm('Xóa tệp minh chứng này?')">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" title="Xóa tệp"><i class="bi bi-trash3"></i></button>
+                                        </form>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                            @endif
+
+                            @if($permissions['update'] && !$itemDone)
+                            <form class="eme11-mark" method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">
+                                @csrf @method('PUT')
+                                <input type="hidden" name="status" value="completed">
+                                <input type="hidden" name="progress_percent" value="100">
+                                <button class="emd9-btn {{ $itemHasFiles ? 'success' : 'light' }}" type="submit" @disabled(!$itemHasFiles)>
+                                    <i class="bi bi-check2-circle"></i> Đánh dấu hoàn thành
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </details>
+                @empty
+                    <div class="eme11-empty">
+                        <i class="bi bi-card-checklist"></i>
+                        <strong>Chưa có hạng mục hồ sơ</strong>
+                        <span>Admin thêm các mục cần thực hiện và quy định file minh chứng.</span>
+                        @if($permissions['assignment_admin'])
+                            <button class="emd9-btn primary" type="button" data-eme11-settings-open><i class="bi bi-plus-lg"></i> Cài đặt hạng mục</button>
+                        @endif
+                    </div>
+                @endforelse
             @endif
             </div>
 
-            <footer class="eme11-foot"><div><i class="bi bi-info-circle"></i>{{ $executionTotal && $executionCompleted === $executionTotal ? 'Tất cả hạng mục đã hoàn thành.' : 'Hạng mục bắt buộc chỉ được hoàn thành khi đủ số file quy định.' }}</div><div>@if($permissions['update'])<button class="emd9-btn light" type="button" data-emx2-stage="incident"><i class="bi bi-exclamation-circle"></i> Ghi nhận phát sinh</button><button class="emd9-btn primary" type="button" data-emx2-stage="complete" @disabled(!$executionTotal || $executionCompleted !== $executionTotal)><i class="bi bi-check2-circle"></i> Hoàn tất đợt</button>@endif</div></footer>
+            {{-- Redesigned Action Area --}}
+            <div class="eme11-action-area" id="eme11-action-area">
+                @if(!$isChecklistReady)
+                    <div class="eme11-alert-box danger">
+                        <div class="eme11-alert-head">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div class="eme11-alert-title-wrap">
+                                <h4>Chưa thể hoàn tất: cần hoàn thành {{ $missingChecklistItems->count() }} hạng mục bắt buộc.</h4>
+                                <span class="eme11-alert-progress">{{ $completedRequiredCount }}/{{ $totalRequiredCount }} hạng mục · {{ $uploadedRequiredFiles }}/{{ $totalRequiredMinFiles }} file minh chứng</span>
+                            </div>
+                        </div>
+                        <div class="eme11-alert-list">
+                            <ul>
+                                @foreach($missingChecklistItems as $missing)
+                                    <li>
+                                        <div class="eme11-missing-info">
+                                            <i class="bi bi-x-circle-fill"></i>
+                                            <span><strong>{{ $missing['title'] }}</strong> — cần tối thiểu {{ $missing['min_files'] }} file (hiện có: {{ $missing['files_count'] }} file).</span>
+                                        </div>
+                                        <a href="#{{ $missing['id'] }}" data-jump-checklist="{{ $missing['id'] }}" class="eme11-jump-link">
+                                            <i class="bi bi-arrow-up-right"></i> Mở checklist
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @else
+                    <div class="eme11-alert-box success">
+                        <div class="eme11-alert-head">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <div class="eme11-alert-title-wrap">
+                                <h4>Đã đủ minh chứng bắt buộc. Bạn có thể hoàn tất đợt bảo trì.</h4>
+                                <span class="eme11-alert-progress">{{ $completedRequiredCount }}/{{ $totalRequiredCount }} hạng mục · {{ $uploadedRequiredFiles }}/{{ $totalRequiredMinFiles }} file minh chứng</span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
-            @if($permissions['assignment_admin'])<div class="eme11-modal" data-eme11-settings-modal hidden><div class="eme11-backdrop" data-eme11-settings-close></div><section class="eme11-dialog" role="dialog" aria-modal="true"><header><div><span class="emp1-kicker">CHỈ ADMIN</span><h2>Cài đặt hồ sơ thực hiện</h2><p>Thêm, sửa hoặc xóa hạng mục và quy định số lượng file cần tải.</p></div><button type="button" data-eme11-settings-close><i class="bi bi-x-lg"></i></button></header><div class="eme11-settings-list"><div class="eme11-settings-heading"><span>Tên hồ sơ</span><span>Bắt buộc</span><span>Tối thiểu</span><span>Tối đa</span><span>Định dạng</span><span></span></div>@foreach($workItems as $workItem)<?php $configuration = str_starts_with((string)$workItem->description,'__ego_checklist__') ? (json_decode(substr((string)$workItem->description,17),true) ?: []) : []; ?><div class="eme11-setting-row"><form method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">@csrf @method('PUT')<input type="hidden" name="checklist_setting" value="1"><input type="text" name="title" value="{{ $workItem->title }}" required><input type="hidden" name="setting_required" value="0"><input type="checkbox" name="setting_required" value="1" @checked((bool)($configuration['required'] ?? true))><input type="number" name="setting_min_files" min="0" max="100" value="{{ (int)($configuration['min'] ?? 1) }}" required><input type="number" name="setting_max_files" min="1" max="100" value="{{ !empty($configuration['max']) ? (int)$configuration['max'] : '' }}" placeholder="∞"><input type="text" name="setting_extensions" value="{{ $configuration['extensions'] ?? 'jpg,jpeg,png,pdf' }}"><button type="submit" title="Lưu"><i class="bi bi-check-lg"></i></button></form><form method="POST" action="{{ route('projects-unified.maintenance.work-items.destroy',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}" onsubmit="return confirm('Xóa hạng mục hồ sơ này?')">@csrf @method('DELETE')<button class="eme11-delete" type="submit" title="Xóa"><i class="bi bi-trash3"></i></button></form></div>@endforeach</div><form class="eme11-setting-new" method="POST" action="{{ route('projects-unified.maintenance.work-items.store',['schedule'=>$schedule->id]) }}">@csrf<input type="hidden" name="checklist_setting" value="1"><input type="hidden" name="status" value="pending"><input type="hidden" name="progress_percent" value="0">@if($leaderId)<input type="hidden" name="assignee_id" value="{{ $leaderId }}">@endif<input name="title" placeholder="Ví dụ: Hình ảnh bảo trì, biên bản công trình..." required><input type="hidden" name="setting_required" value="0"><input type="checkbox" name="setting_required" value="1" checked><input type="number" name="setting_min_files" value="1" min="0" max="100" required><input type="number" name="setting_max_files" min="1" max="100" placeholder="∞"><input name="setting_extensions" value="jpg,jpeg,png,pdf"><button class="emd9-btn primary" type="submit"><i class="bi bi-plus-lg"></i> Thêm</button></form><footer><button class="emd9-btn light" type="button" data-eme11-settings-close>Đóng</button></footer></section></div>@endif
+                @if(!$schedule->result_note && $permissions['update'])
+                    <div class="eme11-result-quick" id="eme11-quick-result-wrap">
+                        <label>
+                            <span><strong>Kết quả xử lý công việc</strong> <small>(Ghi nhận kết quả trước khi bấm Hoàn tất đợt)</small></span>
+                            <textarea class="eme11-quick-result-input" data-quick-result-note rows="2" placeholder="Ghi nhận tóm tắt kết quả kiểm tra, bảo trì hoặc xử lý tại hiện trường...">{{ $schedule->result_note }}</textarea>
+                        </label>
+                    </div>
+                @endif
+
+                <div class="eme11-action-buttons">
+                    <div class="eme11-action-sub">
+                        @if($permissions['update'])
+                            <button type="button" class="emd9-btn warning-outline eme11-btn-incident" data-open-incident-modal>
+                                <i class="bi bi-exclamation-triangle"></i> Ghi nhận phát sinh
+                            </button>
+                        @endif
+                    </div>
+                    <div class="eme11-action-main">
+                        @if($permissions['complete'] || $permissions['update'])
+                            <form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule' => $schedule->id]) }}" data-complete-round-form>
+                                @csrf
+                                <button class="emd9-btn primary eme11-btn-complete" type="submit" @disabled(!$isChecklistReady)>
+                                    <i class="bi bi-check2-circle"></i> Hoàn tất đợt
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            @if($permissions['assignment_admin'])
+            <div class="eme11-modal" data-eme11-settings-modal hidden>
+                <div class="eme11-backdrop" data-eme11-settings-close></div>
+                <section class="eme11-dialog" role="dialog" aria-modal="true">
+                    <header>
+                        <div>
+                            <span class="emp1-kicker">CHỈ ADMIN</span>
+                            <h2>Cài đặt hồ sơ thực hiện</h2>
+                            <p>Thêm, sửa hoặc xóa hạng mục và quy định số lượng file cần tải.</p>
+                        </div>
+                        <button type="button" data-eme11-settings-close><i class="bi bi-x-lg"></i></button>
+                    </header>
+                    <div class="eme11-settings-list">
+                        <div class="eme11-settings-heading">
+                            <span>Tên hồ sơ</span>
+                            <span>Bắt buộc</span>
+                            <span>Tối thiểu</span>
+                            <span>Tối đa</span>
+                            <span>Định dạng</span>
+                            <span></span>
+                        </div>
+                        @foreach($workItems as $workItem)
+                            @php
+                                $configuration = str_starts_with((string)$workItem->description,'__ego_checklist__') ? (json_decode(substr((string)$workItem->description,17),true) ?: []) : [];
+                            @endphp
+                            <div class="eme11-setting-row">
+                                <form method="POST" action="{{ route('projects-unified.maintenance.work-items.update',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}">
+                                    @csrf @method('PUT')
+                                    <input type="hidden" name="checklist_setting" value="1">
+                                    <input type="text" name="title" value="{{ $workItem->title }}" required>
+                                    <input type="hidden" name="setting_required" value="0">
+                                    <input type="checkbox" name="setting_required" value="1" @checked((bool)($configuration['required'] ?? true))>
+                                    <input type="number" name="setting_min_files" min="0" max="100" value="{{ (int)($configuration['min'] ?? 1) }}" required>
+                                    <input type="number" name="setting_max_files" min="1" max="100" value="{{ !empty($configuration['max']) ? (int)$configuration['max'] : '' }}" placeholder="∞">
+                                    <input type="text" name="setting_extensions" value="{{ $configuration['extensions'] ?? 'jpg,jpeg,png,pdf' }}">
+                                    <button type="submit" title="Lưu"><i class="bi bi-check-lg"></i></button>
+                                </form>
+                                <form method="POST" action="{{ route('projects-unified.maintenance.work-items.destroy',['schedule'=>$schedule->id,'workItem'=>$workItem->id]) }}" onsubmit="return confirm('Xóa hạng mục hồ sơ này?')">
+                                    @csrf @method('DELETE')
+                                    <button class="eme11-delete" type="submit" title="Xóa"><i class="bi bi-trash3"></i></button>
+                                </form>
+                            </div>
+                        @endforeach
+                    </div>
+                    <form class="eme11-setting-new" method="POST" action="{{ route('projects-unified.maintenance.work-items.store',['schedule'=>$schedule->id]) }}">
+                        @csrf
+                        <input type="hidden" name="checklist_setting" value="1">
+                        <input type="hidden" name="status" value="pending">
+                        <input type="hidden" name="progress_percent" value="0">
+                        @if($leaderId)<input type="hidden" name="assignee_id" value="{{ $leaderId }}">@endif
+                        <input name="title" placeholder="Ví dụ: Hình ảnh bảo trì, biên bản công trình..." required>
+                        <input type="hidden" name="setting_required" value="0">
+                        <input type="checkbox" name="setting_required" value="1" checked>
+                        <input type="number" name="setting_min_files" value="1" min="0" max="100" required>
+                        <input type="number" name="setting_max_files" min="1" max="100" placeholder="∞">
+                        <input name="setting_extensions" value="jpg,jpeg,png,pdf">
+                        <button class="emd9-btn primary" type="submit"><i class="bi bi-plus-lg"></i> Thêm</button>
+                    </form>
+                    <footer>
+                        <button class="emd9-btn light" type="button" data-eme11-settings-close>Đóng</button>
+                    </footer>
+                </section>
+            </div>
+            @endif
         </section>
     </section>
 
@@ -568,28 +1145,104 @@
                 default => 'success',
             };
             $maintenanceQty = fn ($quantity) => rtrim(rtrim(number_format((float) $quantity, 2, ',', '.'), '0'), ',');
+            $incidentKindLabels = [
+                'warranty_free' => 'Bảo hành miễn phí (lỗi thiết bị)',
+                'maintenance_free' => 'Bảo trì miễn phí (trong gói)',
+                'warranty_paid' => 'Bảo hành có tính phí',
+                'maintenance_paid' => 'Bảo trì có tính phí',
+            ];
+            $priorityLabels = [
+                'low' => 'Thấp',
+                'medium' => 'Bình thường',
+                'high' => 'Cao',
+                'urgent' => 'Khẩn cấp',
+            ];
         @endphp
-        <section class="emd9-card emp1-step-card emi12-card">
-            <div class="emi12-head"><div><span>PHÁT SINH · ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span><h2>Phát sinh &amp; đề xuất vật tư</h2></div><span class="emi12-state" data-emi12-state>{{ $hasIncident ? 'Có phát sinh' : 'Không phát sinh' }}</span></div>
-@if($permissions['update'])
-            <form class="emi12-form" method="POST" action="{{ route('projects-unified.maintenance.update', ['schedule'=>$schedule->id]) }}">@csrf @method('PUT')
-                <div class="emi12-toggle-row"><div><b>Có phát sinh?</b><small>Tắt nếu đợt này không có lỗi hoặc vật tư cần xử lý.</small></div><label class="emi12-switch"><input type="checkbox" value="1" @checked($hasIncident) data-emi12-incident-toggle><span></span></label></div>
-                <input type="hidden" name="incident_kind" value="none" data-emi12-incident-none @disabled($hasIncident)>
-                <div class="emi12-fields" data-emi12-incident-fields @if(! $hasIncident) hidden @endif>
-                    <label><span>Loại xử lý</span><select name="incident_kind" data-emi12-incident-kind @disabled(! $hasIncident)><option value="warranty_free" @selected($schedule->incident_kind==='warranty_free')>Bảo hành miễn phí</option><option value="maintenance_free" @selected($schedule->incident_kind==='maintenance_free')>Bảo trì miễn phí</option><option value="warranty_paid" @selected($schedule->incident_kind==='warranty_paid')>Bảo hành có tính phí</option><option value="maintenance_paid" @selected($schedule->incident_kind==='maintenance_paid')>Bảo trì có tính phí</option></select></label>
-                    @if($canViewCosts)<label><span>Chi phí dự kiến</span><div class="emi12-money"><input type="number" min="0" step="1000" name="incident_estimated_cost" value="{{ $schedule->incident_estimated_cost }}"><i>đ</i></div></label>@endif
-                    <label class="wide"><span>Mô tả hư hỏng / hướng xử lý</span><textarea name="incident_replacement_reason" rows="3" placeholder="Nêu hiện trạng, nguyên nhân và phương án xử lý...">{{ $schedule->incident_replacement_reason }}</textarea></label>
-                    <input type="hidden" name="incident_material_note" value="{{ $schedule->incident_material_note }}">
-                    <div class="wide emi12-tools">
-                        <div><i class="bi bi-paperclip"></i><b>{{ $incidentFiles->count() }} minh chứng</b><small>Ảnh lỗi, PDF</small></div>
-                        @if($permissions['upload'])<label class="emi12-file"><input type="file" name="emi12_unused" data-emi12-upload-picker accept=".jpg,.jpeg,.png,.webp,.pdf">+ Thêm file</label>@endif
-                        <div><i class="bi bi-box-seam"></i><b>{{ $maintenanceProposals->count() }} đề xuất vật tư</b><small>Admin duyệt trước khi chuyển Kho</small></div>
-                        @if($schedule->site_id)<button type="button" class="emd9-btn light" data-emi12-proposal-open><i class="bi bi-plus-lg"></i> Tạo đề xuất</button>@endif
+
+        @if(!$hasIncident)
+            <section class="emd9-card emp1-step-card emi12-empty-card">
+                <div class="emi12-empty-state">
+                    <div class="emi12-empty-icon">
+                        <i class="bi bi-shield-check"></i>
                     </div>
-                    <div class="wide emi12-actions"><button class="emd9-btn primary" type="submit"><i class="bi bi-save"></i> Lưu phát sinh</button></div>
+                    <h3>Chưa ghi nhận phát sinh</h3>
+                    <p>Đợt bảo trì này hiện diễn ra theo kế hoạch, chưa ghi nhận hư hỏng, sự cố hoặc vật tư phát sinh ngoài dự kiến.</p>
+                    @if($permissions['update'])
+                    <div class="emi12-empty-actions">
+                        <button type="button" class="emd9-btn warning-outline eme11-btn-incident" data-open-incident-modal>
+                            <i class="bi bi-exclamation-triangle"></i> Ghi nhận phát sinh
+                        </button>
+                    </div>
+                    @endif
                 </div>
-            </form>
-@endif
+            </section>
+        @else
+            <section class="emd9-card emp1-step-card emi12-card">
+                <div class="emi12-head">
+                    <div>
+                        <span class="emp1-kicker">PHÁT SINH · ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span>
+                        <h2>Hồ sơ sự cố &amp; Đề xuất phát sinh</h2>
+                    </div>
+                    <span class="emi12-state active" data-emi12-state>Có phát sinh</span>
+                </div>
+
+                <div class="emi12-info-summary">
+                    <div class="emi12-info-grid">
+                        <div>
+                            <small>Loại xử lý</small>
+                            <strong>{{ $incidentKindLabels[$schedule->incident_kind] ?? ($schedule->incident_kind ?: 'Chưa chọn') }}</strong>
+                        </div>
+                        <div>
+                            <small>Mức độ ưu tiên</small>
+                            <strong>{{ $priorityLabels[$schedule->priority] ?? ($schedule->priority ?: 'Bình thường') }}</strong>
+                        </div>
+                        <div>
+                            <small>Người phụ trách</small>
+                            <strong>{{ $leaderName }}</strong>
+                        </div>
+                        @if($canViewCosts)
+                        <div>
+                            <small>Chi phí dự kiến</small>
+                            <strong>{{ number_format((float)$schedule->incident_estimated_cost, 0, ',', '.') }} đ</strong>
+                        </div>
+                        @endif
+                        <div>
+                            <small>Minh chứng đính kèm</small>
+                            <strong>{{ $incidentFiles->count() }} file</strong>
+                        </div>
+                        <div class="wide">
+                            <small>Mô tả hiện tượng &amp; nguyên nhân</small>
+                            <p>{{ $schedule->incident_replacement_reason ?: 'Chưa cập nhật mô tả hiện tượng.' }}</p>
+                        </div>
+                        @if($schedule->incident_material_note)
+                        <div class="wide">
+                            <small>Ghi chú vật tư &amp; hướng xử lý</small>
+                            <p>{{ $schedule->incident_material_note }}</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    @if($permissions['update'])
+                    <div class="emi12-edit-action">
+                        <button type="button" class="emd9-btn light" data-open-incident-modal>
+                            <i class="bi bi-pencil-square"></i> Cập nhật phát sinh
+                        </button>
+                    </div>
+                    @endif
+                </div>
+
+                <div class="wide emi12-tools" style="margin-top: 14px; padding: 12px 18px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div><i class="bi bi-paperclip"></i> <b>{{ $incidentFiles->count() }} minh chứng</b> <small>(Ảnh lỗi, PDF)</small></div>
+                    @if($permissions['upload'])
+                        <label class="emi12-file" style="margin: 0; cursor: pointer;">
+                            <input type="file" name="emi12_unused" data-emi12-upload-picker accept=".jpg,.jpeg,.png,.webp,.pdf">+ Thêm file minh chứng
+                        </label>
+                    @endif
+                    <div><i class="bi bi-box-seam"></i> <b>{{ $maintenanceProposals->count() }} đề xuất vật tư</b> <small>(Chờ Admin duyệt)</small></div>
+                    @if($schedule->site_id && $permissions['update'])
+                        <button type="button" class="emd9-btn light" data-emi12-proposal-open><i class="bi bi-plus-lg"></i> Tạo đề xuất vật tư</button>
+                    @endif
+                </div>
 @if($permissions['upload'])<form hidden data-emi12-upload-form method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store', ['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="category" value="fault"><input type="file" name="files[]" data-emi12-upload-target accept=".jpg,.jpeg,.png,.webp,.pdf"><input type="hidden" name="description" value="Hình ảnh lỗi / phát sinh"></form>@endif
 @if($permissions['update'] && $schedule->site_id)
 <div class="emi12-modal emi13-modal" data-emi12-proposal-modal hidden>
@@ -837,37 +1490,32 @@
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
-        </section>
-    </section>
 
-    <section class="emd9-panel" data-emd9-panel="complete">
-        <section class="emd9-card emp1-step-card">
-            <div class="emd9-card-head"><div><span class="emp1-kicker">HOÀN TẤT - ĐỢT {{ $roundNo }}/{{ $totalRounds }}</span><h2>{{ $roundCompleted ? 'Đợt đã hoàn thành' : 'Hoàn tất đợt bảo trì' }}</h2><p>{{ $roundCompleted ? 'Checklist và minh chứng đã được lưu vào hồ sơ công trình.' : 'Chốt kết quả và gửi duyệt ngay tại bước hoàn tất.' }}</p></div><span class="emd9-badge {{ $statusTone }}">{{ $statusLabel }}</span></div>
-            <div class="emd9-info-grid">
-                <div><small>Trạng thái đợt</small><strong>{{ $statusLabel }}</strong></div>
-                <div><small>Trạng thái duyệt</small><strong>{{ $approvalLabel }}</strong></div>
-                <div><small>Tiến độ xử lý</small><strong>{{ $displayProgress }}%</strong></div>
-                <div><small>Hồ sơ đính kèm</small><strong>{{ $schedule->attachments->count() }} file</strong></div>
-                <div class="wide"><small>Kết quả cuối cùng</small><p>{{ $schedule->result_note ?: 'Chưa cập nhật kết quả cuối cùng.' }}</p></div>
-                <div class="wide"><small>Phản hồi duyệt</small><p>{{ $schedule->approval_note ?: 'Chưa có phản hồi.' }}</p></div>
-            </div>
-@if($permissions['update'])
+            <!-- Đóng đợt sau khi xử lý xong các phát sinh -->
+            <hr class="emi12-divider" style="margin: 2rem 0; border: 0; border-top: 1px solid var(--border);"/>
+            <div class="emd9-card-head" style="margin-bottom: 1rem;"><div><h2>Đóng đợt sau xử lý phát sinh</h2><p>Chốt kết quả xử lý phát sinh và gửi duyệt hoàn tất đợt.</p></div><span class="emd9-badge {{ $statusTone }}">{{ $statusLabel }}</span></div>
+            
+            @if($permissions['update'])
             <form class="emp1-form emp1-result-form" method="POST" action="{{ route('projects-unified.maintenance.update', ['schedule'=>$schedule->id]) }}">@csrf @method('PUT')
-                <label class="wide"><span>Kết quả cuối cùng</span><textarea name="result_note" rows="5">{{ $schedule->result_note }}</textarea></label>
+                <label class="wide"><span>Kết quả xử lý phát sinh</span><textarea name="result_note" rows="4" placeholder="Ghi nhận phương án và kết quả xử lý sự cố / phát sinh...">{{ $schedule->result_note }}</textarea></label>
                 @if($canViewCosts)<label><span>Chi phí thực tế (VNĐ)</span><input type="number" min="0" step="1000" name="completion_actual_cost" value="{{ $schedule->completion_actual_cost }}"></label>@endif
                 <fieldset class="wide emp1-radio-group"><legend>XÁC NHẬN</legend><label><input type="radio" name="completion_state" value="completed" @checked($schedule->completion_state==='completed')> Hoàn thành đợt</label><label><input type="radio" name="completion_state" value="needs_followup" @checked($schedule->completion_state==='needs_followup')> Chưa hoàn thành / cần xử lý tiếp</label></fieldset>
                 <div class="wide emp1-actions"><button class="emd9-btn light" type="submit"><i class="bi bi-save"></i> Lưu kết quả</button></div>
             </form>
-@endif
-@if($permissions['upload'])
-            <form class="emp1-upload" method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store', ['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="category" value="report"><input type="file" name="files[]" multiple required accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.mp4"><input name="description" placeholder="Ghi chú hồ sơ hoàn thành"><button class="emd9-btn light" type="submit"><i class="bi bi-cloud-arrow-up"></i> Tải hồ sơ</button></form>
-@endif
-            <div class="emp1-complete-actions" id="emp1-complete-actions">
-@if($permissions['submit'] && in_array($schedule->status,['in_progress','waiting_material','waiting_submission','revision_requested'],true))<form method="POST" action="{{ route('projects-unified.maintenance.approval.submit', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Ghi chú khi gửi duyệt"></textarea><button class="emd9-btn primary" type="submit"><i class="bi bi-send-check"></i> Gửi duyệt</button></form>@endif
-@if($permissions['approve'] && $schedule->status==='pending_approval')<form method="POST" action="{{ route('projects-unified.maintenance.approval.approve', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Nhận xét phê duyệt"></textarea><button class="emd9-btn success" type="submit"><i class="bi bi-patch-check"></i> Phê duyệt</button></form>@endif
-@if($permissions['approve'] && $schedule->status==='approved')<form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Ghi chú đóng hồ sơ"></textarea><button class="emd9-btn success" type="submit"><i class="bi bi-check2-circle"></i> Xác nhận hoàn thành đợt</button></form>@endif
+            @endif
+
+            @if($permissions['upload'])
+            <form class="emp1-upload" method="POST" action="{{ route('projects-unified.maintenance.schedule-files.store', ['schedule'=>$schedule->id]) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="category" value="report"><input type="file" name="files[]" multiple required accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.mp4"><input name="description" placeholder="Ghi chú hồ sơ đóng đợt"><button class="emd9-btn light" type="submit"><i class="bi bi-cloud-arrow-up"></i> Tải hồ sơ</button></form>
+            @endif
+
+            <div class="emp1-complete-actions" id="emp1-complete-actions" style="margin-top: 1.5rem; display: flex; gap: 10px;">
+                @if($permissions['submit'] && in_array($schedule->status,['in_progress','waiting_material','waiting_submission','revision_requested'],true))<form method="POST" action="{{ route('projects-unified.maintenance.approval.submit', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Ghi chú khi gửi duyệt"></textarea><button class="emd9-btn primary" type="submit"><i class="bi bi-send-check"></i> Gửi duyệt</button></form>@endif
+                @if($permissions['approve'] && $schedule->status==='pending_approval')<form method="POST" action="{{ route('projects-unified.maintenance.approval.approve', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Nhận xét phê duyệt"></textarea><button class="emd9-btn success" type="submit"><i class="bi bi-patch-check"></i> Phê duyệt</button></form>@endif
+                @if($permissions['complete'] && in_array($schedule->status, ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true))<form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule'=>$schedule->id]) }}">@csrf<textarea name="comment" rows="2" placeholder="Ghi chú đóng hồ sơ"></textarea><button class="emd9-btn success" type="submit"><i class="bi bi-check2-circle"></i> Xác nhận hoàn thành đợt</button></form>@endif
             </div>
+
         </section>
+        @endif
     </section>
 
     <section class="emd9-panel" data-emd9-panel="documents">
@@ -971,7 +1619,7 @@
 <form method="POST" action="{{ route('projects-unified.maintenance.approval.reject', ['schedule'=>$schedule->id]) }}" onsubmit="return confirm('Từ chối kết quả này?')">@csrf<textarea name="comment" rows="2" required placeholder="Lý do từ chối"></textarea><button class="emd9-btn danger" type="submit"><i class="bi bi-x-octagon"></i> Từ chối</button></form>
 @endif
 
-@if($permissions['approve'] && $schedule->status==='approved')
+@if($permissions['complete'] && in_array($schedule->status, ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true))
 <form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule'=>$schedule->id]) }}" onsubmit="return confirm('Hoàn thành và đóng hồ sơ?')">@csrf<textarea name="comment" rows="2" placeholder="Ghi chú đóng hồ sơ"></textarea><button class="emd9-btn success" type="submit"><i class="bi bi-check2-circle"></i> Hoàn thành &amp; đóng hồ sơ</button></form>
 @endif
 
@@ -1097,15 +1745,99 @@
             <button class="emd9-btn light" type="button" onclick="window.print()"><i class="bi bi-printer"></i> In phiếu</button>
             
 @if($permissions['submit'] && in_array($schedule->status,['in_progress','waiting_material','waiting_submission','revision_requested'],true))
-<button class="emd9-btn primary" type="button" data-emp1-open="complete"><i class="bi bi-send-check"></i> Gửi duyệt</button>
+<button class="emd9-btn primary" type="button" data-emp1-open="{{ $hasIncident ? 'incident' : 'perform' }}"><i class="bi bi-send-check"></i> Gửi duyệt</button>
 @endif
 
 @if($permissions['approve'] && $schedule->status==='pending_approval')
-<button class="emd9-btn success" type="button" data-emp1-open="complete"><i class="bi bi-patch-check"></i> Phê duyệt</button>
+<button class="emd9-btn success" type="button" data-emp1-open="{{ $hasIncident ? 'incident' : 'perform' }}"><i class="bi bi-patch-check"></i> Phê duyệt</button>
 @endif
 
         </div>
     </footer>
+
+    {{-- Incident Drawer / Modal --}}
+    @if($permissions['update'])
+    <div class="emi15-modal" data-incident-modal hidden>
+        <div class="emi15-backdrop" data-close-incident-modal></div>
+        <section class="emi15-dialog" role="dialog" aria-modal="true" aria-labelledby="emi15Title">
+            <header class="emi15-header">
+                <div>
+                    <span class="emp1-kicker">BƯỚC 5 · PHÁT SINH</span>
+                    <h3 id="emi15Title">Ghi nhận sự cố &amp; phát sinh ngoài kế hoạch</h3>
+                    <p>Ghi nhận lỗi thiết bị, phát sinh hiện trường hoặc nhu cầu vật tư thay thế.</p>
+                </div>
+                <button type="button" class="emi15-close" data-close-incident-modal aria-label="Đóng"><i class="bi bi-x-lg"></i></button>
+            </header>
+            <form class="emi15-form" method="POST" action="{{ route('projects-unified.maintenance.update', ['schedule'=>$schedule->id]) }}" data-incident-form enctype="multipart/form-data">
+                @csrf
+                @method('PUT')
+                <input type="hidden" name="completion_state" value="needs_followup">
+                <input type="hidden" name="round_step" value="incident">
+
+                <div class="emi15-grid">
+                    <label>
+                        <span>Loại phát sinh <strong style="color:#dc2626">*</strong></span>
+                        <select name="incident_kind" required>
+                            <option value="maintenance_free" @selected(($schedule->incident_kind ?? 'maintenance_free')==='maintenance_free')>Bảo trì miễn phí (trong gói)</option>
+                            <option value="warranty_free" @selected($schedule->incident_kind==='warranty_free')>Bảo hành miễn phí (lỗi thiết bị)</option>
+                            <option value="maintenance_paid" @selected($schedule->incident_kind==='maintenance_paid')>Bảo trì có tính phí</option>
+                            <option value="warranty_paid" @selected($schedule->incident_kind==='warranty_paid')>Bảo hành có tính phí</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Mức độ ưu tiên</span>
+                        <select name="priority">
+                            <option value="low" @selected($schedule->priority==='low')>Thấp</option>
+                            <option value="medium" @selected(($schedule->priority ?? 'medium')==='medium')>Bình thường</option>
+                            <option value="high" @selected($schedule->priority==='high')>Cao</option>
+                            <option value="urgent" @selected($schedule->priority==='urgent')>Khẩn cấp</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Người phụ trách xử lý</span>
+                        <select name="leader_user_id">
+                            @foreach($technicalUsers as $user)
+                                <option value="{{ $user->id }}" @selected((int)$leaderId === (int)$user->id)>{{ $user->name }} ({{ $user->department?->name ?: 'Kỹ thuật' }})</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    @if($canViewCosts)
+                    <label>
+                        <span>Chi phí dự kiến (VNĐ)</span>
+                        <input type="number" min="0" step="1000" name="incident_estimated_cost" value="{{ $schedule->incident_estimated_cost }}" placeholder="0">
+                    </label>
+                    @endif
+
+                    <label class="wide">
+                        <span>Mô tả hiện tượng &amp; nguyên nhân <strong style="color:#dc2626">*</strong></span>
+                        <textarea name="incident_replacement_reason" rows="3" required placeholder="Nêu chi tiết hiện trạng, nguyên nhân hư hỏng, linh kiện lỗi hoặc phương án xử lý...">{{ $schedule->incident_replacement_reason }}</textarea>
+                    </label>
+
+                    <label class="wide">
+                        <span>Ghi chú vật tư / đề xuất</span>
+                        <textarea name="incident_material_note" rows="2" placeholder="Ghi chú thêm về vật tư hoặc lưu ý cho đợt xử lý tiếp theo...">{{ $schedule->incident_material_note }}</textarea>
+                    </label>
+
+                    <div class="wide emi15-file-field">
+                        <label>
+                            <span>File / hình ảnh minh chứng phát sinh</span>
+                            <input type="file" name="incident_upload_files[]" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" data-incident-files>
+                        </label>
+                        <small>Hỗ trợ ảnh chụp hiện trường, biên bản sự cố (JPG, PNG, WEBP, PDF). File sẽ được đính kèm vào đợt bảo trì.</small>
+                    </div>
+                </div>
+
+                <div class="emi15-footer">
+                    <button type="button" class="emd9-btn light" data-close-incident-modal>Hủy bỏ</button>
+                    <button type="submit" class="emd9-btn primary"><i class="bi bi-save"></i> Lưu phát sinh</button>
+                </div>
+            </form>
+        </section>
+    </div>
+    @endif
 </div>
 @endsection
 
@@ -1116,7 +1848,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const root = document.querySelector('[data-emd9-root]');
     if (!root) return;
     const steps = [...root.querySelectorAll('[data-emp1-target]')];
-    const stageTitles = { summary:'Tổng quan', plan:'Kế hoạch', assignment:'Phân công', perform:'Thực hiện', incident:'Phát sinh', complete:'Hoàn tất', documents:'Hồ sơ đính kèm', history:'Lịch sử xử lý' };
+    const stageTitles = { summary:'Tổng quan', plan:'Kế hoạch', assignment:'Phân công', perform:'Thực hiện', incident:'Phát sinh', documents:'Hồ sơ đính kèm', history:'Lịch sử xử lý' };
     const openStage = (name, updateHash = false) => {
         root.querySelectorAll('[data-emd9-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.emd9Panel === name));
         root.querySelectorAll('.emx2-tabs [data-emd9-tab]').forEach(tab => tab.classList.toggle('active', !['documents', 'history'].includes(name) ? tab === root.querySelector('.emx2-tabs [data-emd9-tab]') : tab.dataset.emd9Tab === name));
@@ -1133,7 +1865,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
     root.querySelectorAll('.emx2-tabs [data-emd9-tab]').forEach(tab => tab.addEventListener('click', () => openStage(tab.dataset.emd9Tab, true)));
     root.querySelectorAll('[data-emp1-open]').forEach(button => button.addEventListener('click', () => {
-        openStage(button.dataset.emp1Open);
+        openStage(button.dataset.emp1Open, true);
     }));
     root.querySelectorAll('[data-emx2-stage]').forEach(button => button.addEventListener('click', () => openStage(button.dataset.emx2Stage, true)));
     root.querySelectorAll('[data-emx2-open-tab]').forEach(button => button.addEventListener('click', () => root.querySelector('[data-emd9-tab="' + button.dataset.emx2OpenTab + '"]')?.click()));
@@ -1146,23 +1878,106 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && !checklistSettings.hidden) closeChecklistSettings(); });
     }
 
-    const incidentToggle = root.querySelector('[data-emi12-incident-toggle]');
-    const syncIncident = () => {
-        const present = !!incidentToggle?.checked;
-        root.querySelectorAll('[data-emi12-incident-fields]').forEach(field => { field.hidden = !present; });
-        const none = root.querySelector('[data-emi12-incident-none]');
-        if (none) none.disabled = present;
-        const kind = root.querySelector('[data-emi12-incident-kind]');
-        if (kind) kind.disabled = !present;
-        const selected = kind?.value;
-        const scope = root.querySelector('[data-emi12-warranty-scope]');
-        if (scope) scope.value = ['warranty_paid', 'maintenance_paid'].includes(selected) ? 'out_of_scope' : (present ? 'in_scope' : 'pending_assessment');
-        const state = root.querySelector('[data-emi12-state]');
-        if (state) { state.textContent = present ? 'Có phát sinh' : 'Không phát sinh'; state.classList.toggle('active', present); }
-    };
-    incidentToggle?.addEventListener('change', syncIncident);
-    root.querySelector('[data-emi12-incident-kind]')?.addEventListener('change', syncIncident);
-    syncIncident();
+    // Modal Ghi nhận phát sinh
+    const incidentModal = root.querySelector('[data-incident-modal]');
+    if (incidentModal) {
+        const closeIncidentModal = () => {
+            incidentModal.hidden = true;
+            document.body.classList.remove('emi15-modal-open');
+        };
+        root.querySelectorAll('[data-open-incident-modal]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                incidentModal.hidden = false;
+                document.body.classList.add('emi15-modal-open');
+                incidentModal.querySelector('textarea[name="incident_replacement_reason"]')?.focus();
+            });
+        });
+        incidentModal.querySelectorAll('[data-close-incident-modal]').forEach(button => {
+            button.addEventListener('click', closeIncidentModal);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !incidentModal.hidden) closeIncidentModal();
+        });
+
+        const incidentForm = incidentModal.querySelector('[data-incident-form]');
+        if (incidentForm) {
+            incidentForm.addEventListener('submit', async event => {
+                event.preventDefault();
+                if (!confirm('Bạn có chắc chắn muốn lưu thông tin phát sinh cho đợt bảo trì này?')) {
+                    return;
+                }
+                const submitBtn = incidentForm.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Đang lưu...';
+                }
+                const fileInput = incidentForm.querySelector('[data-incident-files]');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    const fd = new FormData();
+                    const csrf = incidentForm.querySelector('input[name="_token"]')?.value;
+                    if (csrf) fd.append('_token', csrf);
+                    fd.append('category', 'fault');
+                    fd.append('description', 'Hình ảnh lỗi / phát sinh');
+                    for (let i = 0; i < fileInput.files.length; i++) {
+                        fd.append('files[]', fileInput.files[i]);
+                    }
+                    try {
+                        await fetch('{{ route('projects-unified.maintenance.schedule-files.store', ['schedule'=>$schedule->id]) }}', {
+                            method: 'POST',
+                            body: fd,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        });
+                    } catch (err) {
+                        console.warn('Lỗi tải file minh chứng phát sinh:', err);
+                    }
+                }
+                incidentForm.submit();
+            });
+        }
+    }
+
+    // Điều hướng cuộn đến checklist còn thiếu
+    root.querySelectorAll('[data-jump-checklist]').forEach(link => {
+        link.addEventListener('click', event => {
+            event.preventDefault();
+            const targetId = link.getAttribute('data-jump-checklist') || link.getAttribute('href').replace('#', '');
+            const targetEl = document.getElementById(targetId);
+            if (!targetEl) return;
+            if (targetEl.tagName === 'DETAILS') {
+                targetEl.open = true;
+            }
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetEl.classList.remove('eme11-highlight-pulse');
+            void targetEl.offsetWidth;
+            targetEl.classList.add('eme11-highlight-pulse');
+            setTimeout(() => targetEl.classList.remove('eme11-highlight-pulse'), 2500);
+        });
+    });
+
+    // Form Hoàn tất đợt bảo trì
+    const completeRoundForm = root.querySelector('[data-complete-round-form]');
+    if (completeRoundForm) {
+        completeRoundForm.addEventListener('submit', event => {
+            const quickNote = root.querySelector('[data-quick-result-note]');
+            if (quickNote && quickNote.value.trim() !== '') {
+                let noteInput = completeRoundForm.querySelector('input[name="result_note"]');
+                if (!noteInput) {
+                    noteInput = document.createElement('input');
+                    noteInput.type = 'hidden';
+                    noteInput.name = 'result_note';
+                    completeRoundForm.appendChild(noteInput);
+                }
+                noteInput.value = quickNote.value.trim();
+            }
+            if (!confirm('Xác nhận hoàn tất đợt bảo trì này?')) {
+                event.preventDefault();
+            }
+        });
+    }
 
     const proposalModal = root.querySelector('[data-emi12-proposal-modal]');
     const closeProposal = () => { if (!proposalModal) return; proposalModal.hidden = true; document.body.classList.remove('emi12-modal-open'); };
@@ -1423,6 +2238,28 @@ document.addEventListener('DOMContentLoaded', () => {
     externalToggle?.addEventListener('change', () => { modal.querySelector('[data-emx2-external-fields]').hidden = !externalToggle.checked; });
     modal.querySelector('[data-emx2-assignment-form]')?.addEventListener('submit', event => { const selected = rows.filter(row => row.querySelector('[data-emx2-user-check]').checked); let leader = modal.querySelector('[name="leader_user_id"]:checked'); if (selected.length > 0 && !leader) { leader = selected[0].querySelector('[name="leader_user_id"]'); leader.checked = true; } modal.querySelectorAll('[data-emx2-generated-member]').forEach(input => input.remove()); selected.forEach(row => { const value = row.querySelector('[data-emx2-user-check]').value; if (leader && value === leader.value) return; const input = document.createElement('input'); input.type = 'hidden'; input.name = 'member_user_ids[]'; input.value = value; input.dataset.emx2GeneratedMember = '1'; event.target.appendChild(input); }); });
     syncSelection();
+    // Handle Plan Submit Button logic
+    const planRadios = document.querySelectorAll('.emp1-purpose-radio');
+    const planSubmitBtn = document.getElementById('planSubmitBtn');
+    if (planRadios.length && planSubmitBtn) {
+        planRadios.forEach(r => r.addEventListener('change', function() {
+            if(this.checked) {
+                planSubmitBtn.disabled = false;
+                
+                // Simple logic to change icon of selected radio
+                document.querySelectorAll('.emp1-radio-content i').forEach(icon => {
+                    icon.className = 'bi bi-circle';
+                });
+                this.nextElementSibling.querySelector('i').className = 'bi bi-check-circle-fill';
+            }
+        }));
+        
+        // Initial check for pre-selected
+        const checkedRadio = document.querySelector('.emp1-purpose-radio:checked');
+        if(checkedRadio) {
+            checkedRadio.nextElementSibling.querySelector('i').className = 'bi bi-check-circle-fill';
+        }
+    }
 });
 </script>
 @endsection

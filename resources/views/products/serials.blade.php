@@ -23,46 +23,9 @@
     };
 @endphp
 
-<style>
-    .ego-serial-page{--ego-navy:#071735;--ego-cyan:#0fb6c9;--ego-mint:#e9fbff;--ego-soft:#f4fbff;--ego-line:#d9edf6;color:#102033}
-    .ego-serial-hero{background:radial-gradient(circle at top left, rgba(15,182,201,.26), transparent 34%),linear-gradient(135deg,#fff 0%,#eefcff 58%,#f8fbff 100%);border:1px solid #d7edf6;border-radius:24px;box-shadow:0 18px 45px rgba(7,23,53,.08);padding:22px;overflow:hidden;position:relative}
-    .ego-serial-hero:after{content:"";position:absolute;width:220px;height:220px;right:-70px;top:-80px;border-radius:999px;background:rgba(15,182,201,.14);filter:blur(3px)}
-    .ego-serial-title{font-weight:900;letter-spacing:-.03em;color:var(--ego-navy);margin:0;position:relative;z-index:1}
-    .ego-serial-sub{color:#607089;font-weight:600;position:relative;z-index:1}
-    .ego-stat-card{border:1px solid #d8edf6;border-radius:20px;background:#fff;box-shadow:0 12px 28px rgba(7,23,53,.055);padding:18px;height:100%;transition:.22s ease}
-    .ego-stat-card:hover{transform:translateY(-3px);box-shadow:0 18px 36px rgba(7,23,53,.09)}
-    .ego-stat-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6b7890;font-weight:900}
-    .ego-stat-value{font-size:28px;font-weight:950;color:#071735;line-height:1.05;margin-top:7px}
-    .ego-stat-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#e9fbff;color:#0397ac;font-size:18px}
-    .ego-filter-card,.ego-table-card{border:1px solid #dbeef7;border-radius:22px;background:#fff;box-shadow:0 16px 38px rgba(7,23,53,.06);overflow:hidden}
-    .ego-filter-card .form-label{font-size:12px;font-weight:900;color:#34445a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
-    .ego-control{border:1px solid #d4e6ef;border-radius:13px;font-weight:700;min-height:44px;color:#14253b;background:#fff}
-    .ego-control:focus{border-color:#0fb6c9;box-shadow:0 0 0 .2rem rgba(15,182,201,.12)}
-    .ego-btn-primary{border:0;border-radius:13px;background:linear-gradient(135deg,#0bb4c8,#068ea0);color:#fff;font-weight:900;box-shadow:0 12px 22px rgba(15,182,201,.22);min-height:44px;padding:0 18px}
-    .ego-btn-primary:hover{color:#fff;filter:brightness(.98);transform:translateY(-1px)}
-    .ego-btn-soft{border:1px solid #d4e6ef;border-radius:13px;background:#fff;color:#22304a;font-weight:900;min-height:44px;padding:0 16px;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
-    .ego-btn-soft:hover{background:#f3fbff;color:#071735}
-    .ego-table{margin:0;vertical-align:middle}
-    .ego-table thead th{background:#f5faff;color:#38506c;text-transform:uppercase;font-size:11px;letter-spacing:.06em;border-bottom:1px solid #dceaf2;padding:14px 12px;white-space:nowrap}
-    .ego-table tbody td{padding:16px 12px;border-bottom:1px solid #eef4f8;font-weight:700;color:#17243a}
-    .ego-table tbody tr:hover{background:#fbfeff}
-    .ego-serial-pill{display:inline-flex;align-items:center;gap:7px;background:#edf8ff;border:1px solid #d4ecff;color:#071735;border-radius:999px;padding:8px 11px;font-weight:950;font-size:13px;white-space:nowrap}
-    .ego-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;font-weight:950;font-size:12px;white-space:nowrap}
-    .ego-badge-success{background:#dcfce7;color:#166534}
-    .ego-badge-warning{background:#fff0c2;color:#9a5b00}
-    .ego-badge-purple{background:#ede9fe;color:#5b21b6}
-    .ego-badge-info{background:#dff7ff;color:#03657a}
-    .ego-badge-danger{background:#ffe4e6;color:#be123c}
-    .ego-badge-dark{background:#e5e7eb;color:#111827}
-    .ego-badge-muted{background:#f1f5f9;color:#64748b}
-    .ego-mini{font-size:12px;color:#65758d;font-weight:800}
-    .ego-link-action{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:11px;padding:8px 11px;font-weight:900;font-size:12px;text-decoration:none;border:1px solid #d8e8f0;background:#fff;color:#102033;margin:2px}
-    .ego-link-action:hover{background:#eafbff;color:#078ca0}
-    .ego-link-action.dark{background:#071735;color:#fff;border-color:#071735}
-    .ego-link-action.dark:hover{color:#fff;filter:brightness(1.08)}
-    .ego-link-action.green{background:#0aa892;color:#fff;border-color:#0aa892}
-    .ego-empty{padding:50px 15px;text-align:center;color:#6b7890;font-weight:800}
-</style>
+@push('styles')
+    @vite('resources/css/crm-product-serials.css')
+@endpush
 
 <div class="container-fluid px-3 px-lg-4 py-3 ego-serial-page">
     <div class="ego-serial-hero mb-3">
@@ -216,17 +179,7 @@
                     </select>
                 </div>
 
-                <div class="col-12 col-md-6 col-xl-2">
-                    <label class="form-label">Công ty</label>
-                    <select name="company_id" class="form-select ego-control">
-                        <option value="">-- Tất cả / kể cả chưa gán --</option>
-                        @foreach($companies as $c)
-                            <option value="{{ $c->id }}" {{ request()->has('company_id') && (int)($filters['company_id'] ?? 0) === (int)$c->id ? 'selected' : '' }}>
-                                {{ $c->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+
 
                 <div class="col-12 d-flex flex-wrap gap-2">
                     <button class="ego-btn-primary" type="submit"><i class="bi bi-funnel"></i> Lọc seri</button>

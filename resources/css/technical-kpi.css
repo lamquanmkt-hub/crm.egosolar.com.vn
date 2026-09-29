@@ -1,0 +1,103 @@
+/*
+ * Stylesheet chuyên biệt cho Bảng KPI và lương hiệu suất Kỹ thuật.
+ * Tái sử dụng toàn bộ token và layout từ ego-technical-work.css & ego-technical-plan.css.
+ */
+
+.tw-wrap .tw-kpi-flow {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+@media (max-width: 1200px) {
+    .tw-wrap .tw-kpi-flow {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .tw-wrap .tw-kpi-flow {
+        grid-template-columns: 1fr;
+    }
+}
+
+.tw-wrap .tw-kpi-step {
+    background: #fff;
+    border: 1px solid var(--tw-border);
+    border-radius: var(--tw-radius);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.tw-wrap .tw-kpi-step--total {
+    background: #f8fafc;
+    border-color: var(--tw-project);
+}
+
+.tw-wrap .tw-kpi-step__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+.tw-wrap .tw-kpi-step__num {
+    font-size: .74rem;
+    font-weight: 600;
+    color: var(--tw-muted);
+    text-transform: uppercase;
+}
+
+.tw-wrap .tw-kpi-step__badge {
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--tw-project);
+}
+
+.tw-wrap .tw-kpi-step__title {
+    font-size: .84rem;
+    font-weight: 600;
+    color: var(--tw-ink);
+}
+
+.tw-wrap .tw-kpi-step__val {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--tw-ink);
+    margin: 2px 0;
+    word-break: break-word;
+}
+
+.tw-wrap .tw-kpi-step__val--muted {
+    font-size: .85rem;
+    color: var(--tw-muted);
+    font-weight: 600;
+}
+
+.tw-wrap .tw-kpi-step__desc {
+    font-size: .75rem;
+    color: var(--tw-muted);
+    line-height: 1.35;
+    margin-top: auto;
+}
+
+/* Row selected state in standard table */
+.tw-wrap .tp-table tbody tr.is-selected {
+    background-color: #f0f7ff;
+}
+
+/* Criteria Modal Accordion */
+.tw-wrap .tw-kpi-accordion .accordion-button {
+    font-size: .84rem;
+    font-weight: 600;
+    padding: 10px 14px;
+}
+.tw-wrap .tw-kpi-accordion .accordion-body {
+    font-size: .82rem;
+    padding: 12px 14px;
+    background: #fcfdff;
+}

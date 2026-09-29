@@ -91,7 +91,9 @@ class OrderController extends Controller
         */
         $orderSummary = $this->orderService->getOrderIndexSummary(Auth::user(), $filters);
 
-        $warehouseQuery = Warehouse::query()->where('company_id', 2);
+        $companyId = \App\Support\EgoCompanyLock::id();
+
+        $warehouseQuery = Warehouse::query()->where('company_id', $companyId);
         if (Schema::hasColumn('crm_warehouses', 'is_sales_selectable')) {
             $warehouseQuery->where(function ($builder) {
                 $builder->where('is_sales_selectable', 1)->orWhereNull('is_sales_selectable');
@@ -102,7 +104,7 @@ class OrderController extends Controller
         $warehouses = $warehouseQuery->orderBy('name')->get();
 
         $creatorIds = DB::table('crm_orders')
-            ->where('company_id', 2)
+            ->where('company_id', $companyId)
             ->whereNotNull('created_by')
             ->distinct()
             ->pluck('created_by');

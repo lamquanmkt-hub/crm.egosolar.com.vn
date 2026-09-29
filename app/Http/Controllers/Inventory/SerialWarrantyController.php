@@ -34,6 +34,16 @@ class SerialWarrantyController extends Controller
             ->leftJoin('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
             ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'su.id')
             ->whereIn('st.state', ['sold', 'delivered'])
+            ->where(function ($q) {
+                $companyId = \App\Support\EgoCompanyLock::id();
+                if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
+                    $q->where('st.company_id', $companyId);
+                } elseif (Schema::hasColumn('crm_product_catalog', 'company_id')) {
+                    $q->where('p.company_id', $companyId);
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+            })
             ->leftJoin('crm_warehouses as w', 'w.id', '=', 'st.warehouse_id')
             ->leftJoin('crm_serial_warranties as wa', 'wa.serial_unit_id', '=', 'su.id')
             ->leftJoin('crm_customers as c', 'c.id', '=', 'wa.customer_id')
@@ -161,8 +171,14 @@ class SerialWarrantyController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $product = DB::table('crm_product_catalog')->where('id', $data['product_id'])->first();
-        $warehouse = DB::table('crm_warehouses')->where('id', $data['warehouse_id'])->first();
+        $product = DB::table('crm_product_catalog')
+            ->where('id', $data['product_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->first();
+        $warehouse = DB::table('crm_warehouses')
+            ->where('id', $data['warehouse_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->first();
 
         if (! $product || ! $warehouse) {
             return back()->withInput()->with('error', 'Sản phẩm hoặc kho không hợp lệ.');
@@ -217,7 +233,7 @@ class SerialWarrantyController extends Controller
                 ];
 
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
-                    $stateData['company_id'] = $warehouse->company_id ?? null;
+                    $stateData['company_id'] = \App\Support\EgoCompanyLock::id();
                 }
 
                 DB::table('crm_serial_unit_states')->updateOrInsert(
@@ -365,6 +381,14 @@ class SerialWarrantyController extends Controller
         $codes = $this->parseSerials($data['serials']);
         $rows = $this->serialRows($codes);
 
+        $validWarehouse = DB::table('crm_warehouses')
+            ->where('id', $data['to_warehouse_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->first();
+        if (!$validWarehouse) {
+            return back()->withInput()->with('error', 'Kho đích không hợp lệ hoặc không thuộc công ty hiện hành.');
+        }
+
         $missing = array_values(array_diff($codes, $rows->pluck('serial_code')->all()));
         if ($missing) {
             return back()->withInput()->with('error', 'Không tìm thấy serial: '.implode(', ', $missing));
@@ -414,6 +438,14 @@ class SerialWarrantyController extends Controller
 
         $codes = $this->parseSerials($data['serials']);
         $rows = $this->serialRows($codes);
+
+        $validWarehouse = DB::table('crm_warehouses')
+            ->where('id', $data['warehouse_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->first();
+        if (!$validWarehouse) {
+            return back()->withInput()->with('error', 'Kho đích không hợp lệ hoặc không thuộc công ty hiện hành.');
+        }
 
         $missing = array_values(array_diff($codes, $rows->pluck('serial_code')->all()));
         if ($missing) {
@@ -503,12 +535,21 @@ class SerialWarrantyController extends Controller
             ->where('sui.is_primary', 1)
             ->select('sui.serial_unit_id', 'si.code');
 
-        return DB::table('crm_serial_units as su')
+        $query = DB::table('crm_serial_units as su')
             ->joinSub($primaryCodes, 'pc', fn ($join) => $join->on('pc.serial_unit_id', '=', 'su.id'))
             ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'su.id')
             ->leftJoin('crm_serial_warranties as wa', 'wa.serial_unit_id', '=', 'su.id')
-            ->whereIn('pc.code', $codes)
-            ->select('su.id as serial_unit_id', 'su.product_id', 'pc.code as serial_code', 'st.state', 'st.warehouse_id', 'wa.customer_id', 'wa.order_id')
+            ->leftJoin('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
+            ->whereIn('pc.code', $codes);
+
+        $companyId = \App\Support\EgoCompanyLock::id();
+        if ($companyId <= 0 || !Schema::hasColumn('crm_product_catalog', 'company_id')) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->where('p.company_id', $companyId);
+        }
+
+        return $query->select('su.id as serial_unit_id', 'su.product_id', 'pc.code as serial_code', 'st.state', 'st.warehouse_id', 'wa.customer_id', 'wa.order_id')
             ->get();
     }
 
@@ -640,6 +681,24 @@ class SerialWarrantyController extends Controller
 
         $productId = (int) $product;
 
+        $validProduct = DB::table('crm_product_catalog')
+            ->where('id', $productId)
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->exists();
+
+        if (!$validProduct) {
+            return response()->json(['ok' => false, 'message' => 'Sản phẩm không hợp lệ.'], 422);
+        }
+
+        $validWarehouse = DB::table('crm_warehouses')
+            ->where('id', $data['warehouse_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->exists();
+
+        if (!$validWarehouse) {
+            return response()->json(['ok' => false, 'message' => 'Kho đích không hợp lệ.'], 422);
+        }
+
         $codes = collect(preg_split('/[\r\n,;]+/', (string) $data['serials']))
             ->map(fn ($x) => trim((string) $x))
             ->filter()
@@ -746,8 +805,11 @@ class SerialWarrantyController extends Controller
         $row = DB::table('crm_serial_unit_identifiers as sui')
             ->join('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
             ->leftJoin('crm_serial_unit_states as st', 'st.serial_unit_id', '=', 'sui.serial_unit_id')
+            ->join('crm_serial_units as su', 'su.id', '=', 'sui.serial_unit_id')
+            ->join('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
             ->where('sui.serial_unit_id', $unitId)
             ->where('sui.is_primary', 1)
+            ->where('p.company_id', \App\Support\EgoCompanyLock::id())
             ->select('sui.serial_identifier_id', 'si.code as old_code', 'st.state', 'st.warehouse_id')
             ->first();
 
@@ -777,6 +839,10 @@ class SerialWarrantyController extends Controller
 
             if (! $locked && ! empty($data['warehouse_id'])) {
                 $warehouseId = (int) $data['warehouse_id'];
+                $validWh = DB::table('crm_warehouses')->where('id', $warehouseId)->where('company_id', \App\Support\EgoCompanyLock::id())->exists();
+                if (!$validWh) {
+                    throw new \Exception('Kho đích không hợp lệ.');
+                }
 
                 DB::table('crm_serial_unit_states')->updateOrInsert(
                     ['serial_unit_id' => $unitId],
@@ -827,7 +893,9 @@ class SerialWarrantyController extends Controller
                 $join->on('sui.serial_unit_id', '=', 'su.id')->where('sui.is_primary', 1);
             })
             ->leftJoin('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
+            ->join('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
             ->where('su.id', $unitId)
+            ->where('p.company_id', \App\Support\EgoCompanyLock::id())
             ->select('su.id', 'st.state', 'si.code')
             ->first();
 
@@ -977,7 +1045,10 @@ class SerialWarrantyController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $product = DB::table('crm_product_catalog')->where('id', (int) $data['product_id'])->first();
+        $product = DB::table('crm_product_catalog')
+            ->where('id', (int) $data['product_id'])
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->first();
 
         if (! $product) {
             return back()->withInput()->with('error', 'Sản phẩm không hợp lệ.');
@@ -1086,7 +1157,7 @@ class SerialWarrantyController extends Controller
                 ];
 
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
-                    $stateData['company_id'] = null;
+                    $stateData['company_id'] = \App\Support\EgoCompanyLock::id();
                 }
 
                 DB::table('crm_serial_unit_states')->updateOrInsert(
@@ -1206,7 +1277,9 @@ class SerialWarrantyController extends Controller
             })
             ->leftJoin('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
             ->leftJoin('crm_serial_warranties as wa', 'wa.serial_unit_id', '=', 'su.id')
+            ->join('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
             ->where('su.id', $unitId)
+            ->where('p.company_id', \App\Support\EgoCompanyLock::id())
             ->select(
                 'su.id',
                 'su.product_id',
@@ -1225,7 +1298,10 @@ class SerialWarrantyController extends Controller
 
         $productId = (int) ($data['product_id'] ?? 0);
 
-        $productExists = DB::table('crm_product_catalog')->where('id', $productId)->exists();
+        $productExists = DB::table('crm_product_catalog')
+            ->where('id', $productId)
+            ->where('company_id', \App\Support\EgoCompanyLock::id())
+            ->exists();
 
         if (! $productExists) {
             return back()->withInput()->with('error', 'Sản phẩm không hợp lệ.');
@@ -1355,7 +1431,9 @@ class SerialWarrantyController extends Controller
                 $join->on('sui.serial_unit_id', '=', 'su.id')->where('sui.is_primary', 1);
             })
             ->leftJoin('crm_serial_identifiers as si', 'si.id', '=', 'sui.serial_identifier_id')
+            ->join('crm_product_catalog as p', 'p.id', '=', 'su.product_id')
             ->where('su.id', $unitId)
+            ->where('p.company_id', \App\Support\EgoCompanyLock::id())
             ->select('su.id', 'si.code')
             ->first();
 

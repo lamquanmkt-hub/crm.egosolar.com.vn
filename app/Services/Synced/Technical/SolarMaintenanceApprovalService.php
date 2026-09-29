@@ -75,27 +75,43 @@ class SolarMaintenanceApprovalService
     }
 
     /**
-     * Hoàn thành công việc sau khi đã được Trưởng phòng phê duyệt.
+     * Hoàn thành công việc (có thể được gọi bởi Quản lý sau khi duyệt hoặc Kỹ thuật viên hoàn tất trực tiếp).
      */
     public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
-            if ($schedule->status !== 'approved' || $schedule->approval_status !== 'approved') {
+            $allowedStatuses = ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'];
+            if (! in_array($schedule->status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([
-                    'approval' => 'Chỉ được hoàn thành sau khi kết quả kỹ thuật đã được phê duyệt.',
+                    'approval' => 'Trạng thái hiện tại không cho phép hoàn tất.',
                 ]);
+            }
+
+            if (! in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true)) {
+                throw ValidationException::withMessages([
+                    'approval' => 'Chỉ được hoàn tất khi phân công đã được phê duyệt.',
+                ]);
+            }
+
+            if (in_array($schedule->status, ['in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true)) {
+                if (! trim((string) $schedule->result_note)) {
+                    throw ValidationException::withMessages([
+                        'result_note' => 'Phải nhập kết quả xử lý trước khi hoàn tất.',
+                    ]);
+                }
             }
 
             $oldStatus = $schedule->status;
             $schedule->forceFill([
                 'status' => 'completed',
+                'approval_status' => 'approved',
                 'completed_date' => now()->toDateString(),
                 'completed_at' => now(),
                 'approval_note' => $comment ?: $schedule->approval_note,
             ])->save();
 
             $this->approval($schedule, $actor, 'complete', 'approved', $comment, $actor->id);
-            $this->history($schedule, $actor, $oldStatus, 'completed', $comment ?: 'Đóng hồ sơ sau phê duyệt');
+            $this->history($schedule, $actor, $oldStatus, 'completed', $comment ?: 'Đóng hồ sơ hoàn tất đợt bảo trì');
             $this->audit($schedule, $actor, 'approval_completed');
         });
     }

@@ -157,9 +157,18 @@ class WarrantyExchangeWorkflowController extends Controller
         abort_unless($claim->claim_type === WarrantyFlow::TYPE_EXCHANGE, 404);
         $user = request()->user();
         abort_unless(SolarMaintenanceAccess::canViewAny($user), 403);
+        
         $current = \App\Support\Synced\EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        
         $cc = (int) $claim->company_id;
-        if ($current > 0 && $cc > 0 && $current !== $cc && ! SolarMaintenanceAccess::isAdmin($user)) {
+        if ($cc <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        
+        if ($current !== $cc) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
         try {

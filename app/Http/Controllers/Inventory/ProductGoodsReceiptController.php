@@ -466,9 +466,7 @@ class ProductGoodsReceiptController extends Controller
             }
 
             if (Schema::hasColumn('crm_product_catalog', 'company_id')) {
-                $q->where(function ($query) {
-                    $query->where('p.company_id', EgoCompanyLock::id())->orWhereNull('p.company_id');
-                });
+                $q->where('p.company_id', EgoCompanyLock::id());
             }
 
             $products = $q->get();
@@ -575,8 +573,10 @@ class ProductGoodsReceiptController extends Controller
         if (Schema::hasTable('crm_product_catalog') && Schema::hasColumn('crm_product_catalog', 'company_id')) {
             $bad = DB::table('crm_product_catalog')
                 ->whereIn('id', $productIds)
-                ->whereNotNull('company_id')
-                ->where('company_id', '<>', $companyId)
+                ->where(function ($q) use ($companyId) {
+                    $q->whereNull('company_id')
+                      ->orWhere('company_id', '<>', $companyId);
+                })
                 ->exists();
 
             if ($bad) {

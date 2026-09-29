@@ -45,7 +45,7 @@ class SolarMaintenanceApprovalController extends Controller
      */
     public function complete(SolarMaintenanceApprovalRequest $request, SolarMaintenanceSchedule $schedule): RedirectResponse
     {
-        $this->authorize('approve', $schedule);
+        $this->authorize('completeDirectly', $schedule);
         $this->service->complete($schedule, $request->user(), $request->validated('comment'));
 
         return back()->with('success', 'Đã hoàn thành và đóng hồ sơ đợt bảo trì.');

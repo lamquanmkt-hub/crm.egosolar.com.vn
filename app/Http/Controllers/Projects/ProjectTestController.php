@@ -495,7 +495,7 @@ class ProjectTestController extends Controller
 
         return view('sales.projects.create', array_merge($this->formOptions(), [
             'defaultSalesId' => $user->id,
-            'activeCompanyId' => (int) session('active_company_id', 0),
+            'activeCompanyId' => \App\Support\EgoCompanyLock::id(),
             'salesProjectTypes' => Arr::only(self::PROJECT_TYPES, ['commercial', 'survey']),
         ]));
     }
@@ -507,7 +507,7 @@ class ProjectTestController extends Controller
 
         return view('technical.projects.create', array_merge($this->formOptions(), [
             'defaultTechnicalManagerId' => $user->hasAnyRole(['technical_manager', 'technical_leader']) ? $user->id : null,
-            'activeCompanyId' => (int) session('active_company_id', 0),
+            'activeCompanyId' => \App\Support\EgoCompanyLock::id(),
             'technicalRequestSources' => Arr::except(self::REQUEST_SOURCES, ['sales']),
             'technicalProjectTypes' => self::PROJECT_TYPES,
         ]));
@@ -545,7 +545,7 @@ class ProjectTestController extends Controller
         $this->authorizeCreateProject();
 
         $data = $request->validate([
-            'company_id' => ['nullable', 'integer'],
+
             'customer_id' => ['nullable', 'integer'],
             'sales_order_id' => ['nullable', 'integer'],
             'contract_reference' => ['nullable', 'string', 'max:180'],
@@ -677,7 +677,7 @@ class ProjectTestController extends Controller
 
             $project = Project::create(array_merge(Arr::except($data, ['customer_confirmation_required', 'technician_ids']), [
                 'code' => $this->nextProjectCode(),
-                'company_id' => ($data['company_id'] ?? null) ?: EgoCompanyLock::id(),
+                'company_id' => \App\Support\EgoCompanyLock::id(),
                 'created_by' => $user->id,
                 'sales_user_id' => ($data['sales_user_id'] ?? null) ?: ($intakeMode === 'sales' ? $user->id : null),
                 'technical_manager_id' => ($data['technical_manager_id'] ?? null) ?: ($isTechnicalManager ? $user->id : null),
@@ -1918,7 +1918,7 @@ class ProjectTestController extends Controller
         $this->authorizeProject($request, $project);
 
         $data = $request->validate([
-            'company_id' => ['nullable', 'integer'],
+
             'customer_id' => ['nullable', 'integer'],
             'sales_order_id' => ['nullable', 'integer'],
             'contract_reference' => ['nullable', 'string', 'max:180'],
@@ -1954,6 +1954,8 @@ class ProjectTestController extends Controller
         $data['customer_confirmation_status'] = $data['customer_confirmation_required']
             ? ($project->customer_confirmation_status === 'confirmed' ? 'confirmed' : 'pending')
             : 'not_required';
+
+        $data['company_id'] = \App\Support\EgoCompanyLock::id();
 
         DB::transaction(function () use ($project, $data) {
             $project->fill($data)->save();
@@ -2492,7 +2494,7 @@ class ProjectTestController extends Controller
     private function formOptions(bool $compactShow = false, array $selectedProductIds = [], int $selectedCustomerId = 0): array
     {
         // EGO_MATERIAL_WORKFLOW_V4_PRODUCT_CATALOG
-        $activeCompanyId = (int) session('active_company_id', 0);
+        $activeCompanyId = \App\Support\EgoCompanyLock::id();
         $companies = collect();
         $customers = collect();
         $products = collect();

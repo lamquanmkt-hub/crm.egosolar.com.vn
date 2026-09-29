@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\User;
+use App\Services\Finance\OrderReceivableQuery;
 use App\Support\EgoCompanyScope;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -21,18 +22,36 @@ final class ExecutiveDashboardService
 {
     private const CACHE_SECONDS = 300;
 
+    /** Trạng thái giao hàng coi là đã xong — không cảnh báo giao trễ. */
+    private const SHIPPING_DONE_STATUSES = ['shipped', 'delivered', 'completed', 'returned', 'cancelled'];
+
+    /** Các bước Pipeline đơn hàng theo current_department. */
+    private const PIPELINE_STEPS = [
+        'sales' => 'Sales',
+        'sales_manager' => 'Sales Manager',
+        'accounting' => 'Kế toán',
+        'management' => 'Ban Giám đốc',
+        'warehouse' => 'Kho',
+        'completed' => 'Hoàn thành',
+    ];
+
     /** @var array<string, bool> */
     private array $tableCache = [];
 
     /** @var array<string, bool> */
     private array $columnCache = [];
 
+    public function __construct(
+        private readonly OrderReceivableQuery $receivableQuery
+    ) {}
+
     /**
      * Build one consistent executive dashboard payload.
      *
-     * Revenue is recognised from order total_amount and site contract_amount
-     * inside the selected period. Collected cash is recognised by the actual
-     * payment/receipt date. Receivables are current outstanding balances.
+     * Doanh thu thương mại ghi nhận khi xuất kho (inventory_issued_at trong kỳ);
+     * doanh thu công trình theo contract_amount của công trình trong kỳ.
+     * Tiền đã thu theo ngày thanh toán/phiếu thu thực tế. Công nợ là số dư
+     * hiện tại tính từ tổng đơn trừ thanh toán (OrderReceivableQuery).
      */
     public function build(User $user, array $rawFilters = []): array
     {
@@ -41,7 +60,7 @@ final class ExecutiveDashboardService
         $filters = $this->normaliseFilters($rawFilters, $access, $user);
         $companyId = EgoCompanyScope::currentId();
 
-        $cacheKey = 'executive-dashboard:v3:'.sha1(json_encode([
+        $cacheKey = 'executive-dashboard:v4:'.sha1(json_encode([
             'company_id' => $companyId,
             'scope_user_id' => $access['own_only'] ? (int) $user->id : 0,
             'roles' => $access['roles'],
@@ -126,11 +145,15 @@ final class ExecutiveDashboardService
                         'project' => $current['project_revenue'],
                     ],
                     'collected' => [
+                        // Tiền đã thu trong kỳ: mọi thanh toán/phiếu thu có ngày trong kỳ.
                         'value' => $current['collected'],
                         'previous' => $previous['collected'],
                         'change' => $collectedChange,
+                        // Tỷ lệ thu của doanh thu ghi nhận: tiền đã trả của CHÍNH các đơn/công trình
+                        // ghi nhận doanh thu trong kỳ ÷ doanh thu của chúng.
+                        'recognized_paid' => $current['recognized_paid'],
                         'rate' => $current['total_revenue'] > 0
-                            ? min(100.0, $current['collected'] / $current['total_revenue'] * 100)
+                            ? min(100.0, $current['recognized_paid'] / $current['total_revenue'] * 100)
                             : 0.0,
                         'commercial' => $current['commercial_collected'],
                         'project' => $current['project_collected'],
@@ -139,11 +162,9 @@ final class ExecutiveDashboardService
                     'operations' => [
                         'orders' => $current['orders'],
                         'sites' => $current['sites'],
-                        'at_risk' => $alerts['risk_count'],
-                        'at_risk_value' => $alerts['risk_value'],
                     ],
                 ],
-                'alerts' => $alerts['items'],
+                'alerts' => $alerts,
                 'chart' => $trend,
                 'composition' => [
                     'labels' => ['Đơn hàng thương mại', 'Công trình'],
@@ -303,15 +324,23 @@ final class ExecutiveDashboardService
         $includeSites = $filters['source'] !== 'orders';
 
         $commercialRevenue = 0.0;
+        $commercialRecognizedPaid = 0.0;
         $commercialCollected = 0.0;
         $orders = 0;
 
         if ($includeOrders && $this->hasTable('crm_orders')) {
             $orderQuery = $this->orderQuery($user, $access, $filters, $from, $to);
             $orders = (int) (clone $orderQuery)->count('o.id');
-            $commercialRevenue = $this->hasColumn('crm_orders', 'total_amount')
-                ? (float) (clone $orderQuery)->sum('o.total_amount')
-                : 0.0;
+
+            $recognized = $this->recognizedOrderQuery($user, $access, $filters, $from, $to);
+            if ($recognized) {
+                $row = $recognized
+                    ->selectRaw('COALESCE(SUM(o.total_amount), 0) AS revenue')
+                    ->selectRaw('COALESCE(SUM('.OrderReceivableQuery::PAID_CAPPED_EXPR.'), 0) AS paid')
+                    ->first();
+                $commercialRevenue = (float) ($row->revenue ?? 0);
+                $commercialRecognizedPaid = (float) ($row->paid ?? 0);
+            }
 
             if (
                 $this->hasTable('crm_payments')
@@ -332,6 +361,7 @@ final class ExecutiveDashboardService
         }
 
         $projectRevenue = 0.0;
+        $projectRecognizedPaid = 0.0;
         $projectCollected = 0.0;
         $sites = 0;
 
@@ -341,6 +371,25 @@ final class ExecutiveDashboardService
             $projectRevenue = $this->hasColumn('sites', 'contract_amount')
                 ? (float) (clone $siteQuery)->sum('s.contract_amount')
                 : 0.0;
+
+            if (
+                $projectRevenue > 0
+                && $this->hasTable('receipts')
+                && $this->hasColumn('receipts', 'amount')
+                && $this->hasColumn('receipts', 'site_id')
+            ) {
+                // Tiền đã thu (mọi thời điểm) của chính các công trình ghi nhận trong kỳ, không vượt giá trị HĐ.
+                $receiptsBySite = DB::table('receipts')
+                    ->select('site_id')
+                    ->selectRaw('SUM(amount) AS paid_amount')
+                    ->whereNotNull('site_id')
+                    ->groupBy('site_id');
+
+                $projectRecognizedPaid = (float) (clone $siteQuery)
+                    ->leftJoinSub($receiptsBySite, 'rs', 'rs.site_id', '=', 's.id')
+                    ->selectRaw('COALESCE(SUM(LEAST(COALESCE(rs.paid_amount, 0), COALESCE(s.contract_amount, 0))), 0) AS paid')
+                    ->value('paid');
+            }
 
             if (
                 $this->hasTable('receipts')
@@ -373,6 +422,7 @@ final class ExecutiveDashboardService
             'commercial_collected' => $commercialCollected,
             'project_collected' => $projectCollected,
             'collected' => $commercialCollected + $projectCollected,
+            'recognized_paid' => $commercialRecognizedPaid + $projectRecognizedPaid,
             'orders' => $orders,
             'sites' => $sites,
         ];
@@ -415,139 +465,87 @@ final class ExecutiveDashboardService
     }
 
     /**
-     * Tính công nợ đơn thương mại từ bảng công nợ khách, kèm tuổi nợ và dự báo thu.
+     * Công nợ đơn thương mại từ số dư chuẩn (tổng đơn − tổng thanh toán), kèm tuổi nợ và dự báo thu.
+     *
+     * Tổng, tuổi nợ, dự báo và Top con nợ cùng xuất phát từ một tập số dư (OrderReceivableQuery),
+     * mỗi đơn đúng 1 dòng. crm_customer_debts chỉ cung cấp hạn thanh toán; đơn không có hạn
+     * được xếp vào "chưa đến hạn".
      */
     private function commercialReceivables(User $user, array $access, array $filters): array
     {
         $empty = $this->emptyDebtPayload();
 
         if (
-            ! $this->hasTable('crm_customer_debts')
-            || ! $this->hasColumn('crm_customer_debts', 'debt_amount')
+            ! $this->hasTable('crm_orders')
+            || ! $this->hasTable('crm_payments')
+            || ! $this->hasColumn('crm_orders', 'inventory_issued')
         ) {
-            return $this->derivedOrderReceivables($user, $access, $filters);
+            return $empty;
         }
 
         try {
-            $query = DB::table('crm_customer_debts as d')
-                ->leftJoin('crm_orders as o', 'o.id', '=', 'd.order_id')
-                ->leftJoin('crm_customers as c', 'c.id', '=', 'd.customer_id')
-                ->where('d.debt_amount', '>', 0);
-
+            $query = $this->receivableQuery->outstanding();
             $this->scopeOrderCompanyAndUser($query, $user, $access, $filters, 'o');
-            $this->excludeCancelledOrders($query, 'o');
 
-            $total = (float) (clone $query)->sum('d.debt_amount');
+            $balance = OrderReceivableQuery::BALANCE_EXPR;
             $today = now()->toDateString();
             $day7 = now()->addDays(7)->toDateString();
             $day30 = now()->addDays(30)->toDateString();
+            $ago7 = now()->subDays(7)->toDateString();
+            $ago30 = now()->subDays(30)->toDateString();
 
-            $agingRow = (clone $query)->selectRaw(
-                'SUM(CASE WHEN d.due_date IS NULL OR d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS current_amount,
-                 SUM(CASE WHEN d.due_date < ? AND d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS d1_7,
-                 SUM(CASE WHEN d.due_date < ? AND d.due_date >= ? THEN d.debt_amount ELSE 0 END) AS d8_30,
-                 SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS over_30',
-                [
-                    $today,
-                    $today, now()->subDays(7)->toDateString(),
-                    now()->subDays(7)->toDateString(), now()->subDays(30)->toDateString(),
-                    now()->subDays(30)->toDateString(),
-                ]
-            )->first();
-
-            $forecastRow = (clone $query)->selectRaw(
-                'SUM(CASE WHEN d.due_date = ? THEN d.debt_amount ELSE 0 END) AS today_amount,
-                 SUM(CASE WHEN d.due_date > ? AND d.due_date <= ? THEN d.debt_amount ELSE 0 END) AS next_7,
-                 SUM(CASE WHEN d.due_date > ? AND d.due_date <= ? THEN d.debt_amount ELSE 0 END) AS next_30',
-                [$today, $today, $day7, $today, $day30]
+            $row = (clone $query)->selectRaw(
+                "COALESCE(SUM({$balance}), 0) AS total_amount,
+                 COALESCE(SUM(CASE WHEN due.due_date IS NULL OR due.due_date >= ? THEN {$balance} ELSE 0 END), 0) AS current_amount,
+                 COALESCE(SUM(CASE WHEN due.due_date < ? AND due.due_date >= ? THEN {$balance} ELSE 0 END), 0) AS d1_7,
+                 COALESCE(SUM(CASE WHEN due.due_date < ? AND due.due_date >= ? THEN {$balance} ELSE 0 END), 0) AS d8_30,
+                 COALESCE(SUM(CASE WHEN due.due_date < ? THEN {$balance} ELSE 0 END), 0) AS over_30,
+                 COALESCE(SUM(CASE WHEN due.due_date = ? THEN {$balance} ELSE 0 END), 0) AS today_amount,
+                 COALESCE(SUM(CASE WHEN due.due_date > ? AND due.due_date <= ? THEN {$balance} ELSE 0 END), 0) AS next_7,
+                 COALESCE(SUM(CASE WHEN due.due_date > ? AND due.due_date <= ? THEN {$balance} ELSE 0 END), 0) AS next_30",
+                [$today, $today, $ago7, $ago7, $ago30, $ago30, $today, $today, $day7, $today, $day30]
             )->first();
 
             $topDebtors = (clone $query)
-                ->selectRaw("COALESCE(c.name, CONCAT('Khách #', d.customer_id)) AS customer_name")
-                ->selectRaw('SUM(d.debt_amount) AS debt_amount')
-                ->selectRaw('SUM(CASE WHEN d.due_date < ? THEN d.debt_amount ELSE 0 END) AS overdue_amount', [$today])
-                ->selectRaw('MIN(d.due_date) AS nearest_due_date')
-                ->groupBy('d.customer_id', 'c.name')
+                ->selectRaw("COALESCE(c.name, CONCAT('Đơn ', o.order_code)) AS customer_name")
+                ->selectRaw("COALESCE(CONCAT('c', c.id), CONCAT('o', o.id)) AS debtor_key")
+                ->selectRaw("SUM({$balance}) AS debt_amount")
+                ->selectRaw("SUM(CASE WHEN due.due_date < ? THEN {$balance} ELSE 0 END) AS overdue_amount", [$today])
+                ->selectRaw('MIN(due.due_date) AS nearest_due_date')
+                ->groupBy('debtor_key', 'customer_name')
                 ->orderByDesc('debt_amount')
                 ->limit(6)
                 ->get()
-                ->map(fn ($row) => [
-                    'name' => (string) $row->customer_name,
-                    'debt' => (float) $row->debt_amount,
-                    'overdue' => (float) $row->overdue_amount,
-                    'due_date' => $row->nearest_due_date,
+                ->map(fn ($item) => [
+                    'name' => (string) $item->customer_name,
+                    'debt' => (float) $item->debt_amount,
+                    'overdue' => (float) $item->overdue_amount,
+                    'due_date' => $item->nearest_due_date,
                 ])
                 ->values()
                 ->all();
 
             $aging = [
-                'current' => (float) ($agingRow->current_amount ?? 0),
-                '1_7' => (float) ($agingRow->d1_7 ?? 0),
-                '8_30' => (float) ($agingRow->d8_30 ?? 0),
-                'over_30' => (float) ($agingRow->over_30 ?? 0),
+                'current' => (float) $row->current_amount,
+                '1_7' => (float) $row->d1_7,
+                '8_30' => (float) $row->d8_30,
+                'over_30' => (float) $row->over_30,
             ];
 
             return [
-                'total' => $total,
+                'total' => (float) $row->total_amount,
                 'overdue' => $aging['1_7'] + $aging['8_30'] + $aging['over_30'],
                 'aging' => $aging,
                 'forecast' => [
-                    'today' => (float) ($forecastRow->today_amount ?? 0),
-                    'next_7_days' => (float) ($forecastRow->next_7 ?? 0),
-                    'next_30_days' => (float) ($forecastRow->next_30 ?? 0),
+                    'today' => (float) $row->today_amount,
+                    'next_7_days' => (float) $row->next_7,
+                    'next_30_days' => (float) $row->next_30,
                 ],
                 'top_debtors' => $topDebtors,
             ];
-        } catch (\Throwable) {
-            return $empty;
-        }
-    }
+        } catch (\Throwable $e) {
+            report($e);
 
-    /**
-     * Suy ra công nợ từ chênh lệch tổng đơn và tiền đã thanh toán khi thiếu bảng công nợ.
-     */
-    private function derivedOrderReceivables(User $user, array $access, array $filters): array
-    {
-        $empty = $this->emptyDebtPayload();
-        if (! $this->hasTable('crm_orders') || ! $this->hasTable('crm_payments')) {
-            return $empty;
-        }
-
-        try {
-            $payments = DB::table('crm_payments')
-                ->select('order_id')
-                ->selectRaw('SUM(amount) AS paid_amount')
-                ->groupBy('order_id');
-
-            $query = DB::table('crm_orders as o')
-                ->leftJoinSub($payments, 'pay', 'pay.order_id', '=', 'o.id')
-                ->whereRaw('GREATEST(o.total_amount - COALESCE(pay.paid_amount, 0), 0) > 0');
-
-            $this->scopeOrderCompanyAndUser($query, $user, $access, $filters, 'o');
-            $this->excludeCancelledOrders($query, 'o');
-
-            $total = (float) (clone $query)->selectRaw(
-                'SUM(GREATEST(o.total_amount - COALESCE(pay.paid_amount, 0), 0)) AS amount'
-            )->value('amount');
-
-            $over30 = (float) (clone $query)
-                ->whereDate('o.order_date', '<', now()->subDays(30)->toDateString())
-                ->selectRaw('SUM(GREATEST(o.total_amount - COALESCE(pay.paid_amount, 0), 0)) AS amount')
-                ->value('amount');
-
-            return [
-                'total' => $total,
-                'overdue' => $over30,
-                'aging' => [
-                    'current' => max(0, $total - $over30),
-                    '1_7' => 0.0,
-                    '8_30' => 0.0,
-                    'over_30' => $over30,
-                ],
-                'forecast' => $empty['forecast'],
-                'top_debtors' => [],
-            ];
-        } catch (\Throwable) {
             return $empty;
         }
     }
@@ -638,12 +636,12 @@ final class ExecutiveDashboardService
 
     /**
      * Tổng hợp cảnh báo vận hành (chờ duyệt, chờ xuất kho, nợ quá hạn, đổi trả...).
+     *
+     * Mỗi cảnh báo giữ đơn vị riêng (đơn, SKU, phiếu...); không cộng dồn giữa các loại.
      */
     private function alerts(User $user, array $access, array $filters, array $range, array $debt): array
     {
         $items = [];
-        $riskCount = 0;
-        $riskValue = 0.0;
 
         $push = function (
             string $key,
@@ -653,7 +651,7 @@ final class ExecutiveDashboardService
             float $value,
             string $severity,
             ?string $url
-        ) use (&$items, &$riskCount, &$riskValue): void {
+        ) use (&$items): void {
             if ($count <= 0 && $value <= 0) {
                 return;
             }
@@ -661,8 +659,6 @@ final class ExecutiveDashboardService
             $items[] = compact(
                 'key', 'title', 'description', 'count', 'value', 'severity', 'url'
             );
-            $riskCount += $count;
-            $riskValue += $value;
         };
 
         if ($this->hasTable('crm_orders')) {
@@ -706,10 +702,9 @@ final class ExecutiveDashboardService
                     ->where('o.inventory_issued', 1)
                     ->whereDate('o.estimated_delivery', '<', now()->toDateString())
                     ->where(function (Builder $query): void {
+                        // `shipped` là trạng thái giao/xuất hoàn tất mà các module khác coi là thành công.
                         $query->whereNull('o.shipping_status')
-                            ->orWhereNotIn('o.shipping_status', [
-                                'delivered', 'completed', 'returned', 'cancelled',
-                            ]);
+                            ->orWhereNotIn('o.shipping_status', self::SHIPPING_DONE_STATUSES);
                     });
                 $push(
                     'late_shipping',
@@ -821,11 +816,7 @@ final class ExecutiveDashboardService
             return ($priority[$a['severity']] ?? 9) <=> ($priority[$b['severity']] ?? 9);
         });
 
-        return [
-            'items' => array_slice($items, 0, 8),
-            'risk_count' => $riskCount,
-            'risk_value' => $riskValue,
-        ];
+        return array_slice($items, 0, 8);
     }
 
     /**
@@ -860,16 +851,17 @@ final class ExecutiveDashboardService
         $collected = collect();
 
         if ($filters['source'] !== 'sites' && $this->hasTable('crm_orders')) {
-            $dateColumn = $this->firstColumn('crm_orders', ['order_date', 'created_at']);
-            if ($dateColumn && $this->hasColumn('crm_orders', 'total_amount')) {
+            // Cùng định nghĩa với KPI doanh thu: ghi nhận theo ngày xuất kho.
+            $query = $this->recognizedOrderQuery($user, $access, $filters, $range['from'], $range['to']);
+            if ($query) {
                 try {
-                    $query = $this->orderQuery($user, $access, $filters, $range['from'], $range['to']);
                     $orderRevenue = $query
-                        ->selectRaw("DATE_FORMAT(o.{$dateColumn}, '{$dbFormat}') AS period_key")
+                        ->selectRaw("DATE_FORMAT(o.inventory_issued_at, '{$dbFormat}') AS period_key")
                         ->selectRaw('SUM(o.total_amount) AS amount')
                         ->groupBy('period_key')
                         ->pluck('amount', 'period_key');
-                } catch (\Throwable) {
+                } catch (\Throwable $e) {
+                    report($e);
                     $orderRevenue = collect();
                 }
             }
@@ -956,60 +948,52 @@ final class ExecutiveDashboardService
 
     /**
      * Thống kê số lượng và giá trị đơn hàng theo từng bộ phận xử lý.
+     *
+     * Pipeline lọc theo ngày đặt đơn (orderQuery), KHÔNG theo ngày xuất kho như doanh thu.
+     * Luôn trả đủ các bước; khi truy vấn lỗi thì báo lỗi và trả số 0 để view không mất khối.
      */
     private function pipeline(User $user, array $access, array $filters, array $range): array
     {
-        $definitions = [
-            'sales' => 'Sales',
-            'sales_manager' => 'Sales Manager',
-            'accounting' => 'Kế toán',
-            'management' => 'Ban Giám đốc',
-            'warehouse' => 'Kho',
-            'completed' => 'Hoàn thành',
-        ];
+        $rows = collect();
 
-        if (! $this->hasTable('crm_orders')) {
-            return collect($definitions)->map(fn ($label, $key) => [
-                'key' => $key, 'label' => $label, 'count' => 0, 'value' => 0, 'overdue' => 0,
-            ])->values()->all();
+        if ($this->hasTable('crm_orders')) {
+            try {
+                $rows = $this->orderQuery($user, $access, $filters, $range['from'], $range['to'])
+                    ->selectRaw("COALESCE(o.current_department, 'sales') AS department")
+                    ->selectRaw('COUNT(o.id) AS total_count')
+                    ->selectRaw('COALESCE(SUM(o.total_amount), 0) AS total_value')
+                    ->selectRaw("SUM(CASE WHEN o.estimated_delivery IS NOT NULL AND DATE(o.estimated_delivery) < ? AND COALESCE(o.current_department, '') NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS overdue_count", [now()->toDateString()])
+                    ->groupBy('department')
+                    ->get()
+                    ->keyBy('department');
+            } catch (\Throwable $e) {
+                report($e);
+                $rows = collect();
+            }
         }
 
-        try {
-            $query = $this->orderQuery($user, $access, $filters, $range['from'], $range['to']);
-            $rows = $query
-                ->selectRaw("COALESCE(o.current_department, 'sales') AS department")
-                ->selectRaw('COUNT(o.id) AS total_count')
-                ->selectRaw('COALESCE(SUM(o.total_amount), 0) AS total_value')
-                ->selectRaw("SUM(CASE WHEN o.estimated_delivery IS NOT NULL AND DATE(o.estimated_delivery) < ? AND COALESCE(o.current_department, '') NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS overdue_count", [now()->toDateString()])
-                ->groupBy('department')
-                ->get()
-                ->keyBy('department');
+        return collect(self::PIPELINE_STEPS)->map(function (string $label, string $key) use ($rows, $range): array {
+            $row = $rows->get($key);
 
-            return collect($definitions)->map(function (string $label, string $key) use ($rows): array {
-                $row = $rows->get($key);
-
-                return [
-                    'key' => $key,
-                    'label' => $label,
-                    'count' => (int) ($row->total_count ?? 0),
-                    'value' => (float) ($row->total_value ?? 0),
-                    'overdue' => (int) ($row->overdue_count ?? 0),
-                    'url' => $this->routeUrl('orders.index', [
-                        'status' => match ($key) {
-                            'sales_manager' => 'duyet1',
-                            'accounting' => 'ketoan',
-                            'management' => 'duyet2',
-                            'warehouse' => 'kho',
-                            default => $key,
-                        },
-                        'from_date' => $range['from']->toDateString(),
-                        'to_date' => $range['to']->toDateString(),
-                    ]),
-                ];
-            })->values()->all();
-        } catch (\Throwable) {
-            return [];
-        }
+            return [
+                'key' => $key,
+                'label' => $label,
+                'count' => (int) ($row->total_count ?? 0),
+                'value' => (float) ($row->total_value ?? 0),
+                'overdue' => (int) ($row->overdue_count ?? 0),
+                'url' => $this->routeUrl('orders.index', [
+                    'status' => match ($key) {
+                        'sales_manager' => 'duyet1',
+                        'accounting' => 'ketoan',
+                        'management' => 'duyet2',
+                        'warehouse' => 'kho',
+                        default => $key,
+                    },
+                    'from_date' => $range['from']->toDateString(),
+                    'to_date' => $range['to']->toDateString(),
+                ]),
+            ];
+        })->values()->all();
     }
 
     /**
@@ -1141,55 +1125,76 @@ final class ExecutiveDashboardService
     }
 
     /**
-     * Thống kê hiệu suất từng sales: số đơn, doanh thu, đã thu, công nợ.
+     * Thống kê hiệu suất từng sales.
+     *
+     * - Đơn / Doanh thu / Đã thu / Tỷ lệ thu: các đơn ghi nhận doanh thu trong kỳ (xuất kho trong kỳ),
+     *   "Đã thu" là tiền đã trả của chính các đơn đó (không vượt tổng đơn).
+     * - Công nợ: số dư thực tế hiện tại sau thanh toán (OrderReceivableQuery), cùng nguồn với thẻ Công nợ.
      */
     private function teamPerformance(User $user, array $access, array $filters, array $range): array
     {
-        if (! $this->hasTable('crm_orders') || ! $this->hasTable('users')) {
+        if (! $this->hasTable('crm_orders') || ! $this->hasTable('users') || $filters['source'] === 'sites') {
             return [];
         }
 
         try {
-            $paymentsAll = $this->hasTable('crm_payments')
-                ? DB::table('crm_payments')
-                    ->select('order_id')
-                    ->selectRaw('SUM(amount) AS paid_amount')
-                    ->groupBy('order_id')
-                : null;
+            $members = [];
+            $blank = static fn (int $id, string $name): array => [
+                'user_id' => $id, 'name' => $name, 'orders' => 0, 'revenue' => 0.0, 'collected' => 0.0, 'debt' => 0.0,
+            ];
 
-            $query = $this->orderQuery($user, $access, $filters, $range['from'], $range['to'])
-                ->leftJoin('users as u', 'u.id', '=', 'o.created_by');
+            $recognized = $this->recognizedOrderQuery($user, $access, $filters, $range['from'], $range['to']);
+            if ($recognized) {
+                $rows = $recognized
+                    ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
+                    ->selectRaw("COALESCE(u.name, CONCAT('User #', o.created_by)) AS name")
+                    ->selectRaw('o.created_by AS user_id')
+                    ->selectRaw('COUNT(o.id) AS orders_count')
+                    ->selectRaw('SUM(o.total_amount) AS revenue')
+                    ->selectRaw('SUM('.OrderReceivableQuery::PAID_CAPPED_EXPR.') AS collected')
+                    ->groupBy('o.created_by', 'u.name')
+                    ->get();
 
-            if ($paymentsAll) {
-                $query->leftJoinSub($paymentsAll, 'pay', 'pay.order_id', '=', 'o.id');
+                foreach ($rows as $row) {
+                    $members[(int) $row->user_id] = array_merge($blank((int) $row->user_id, (string) $row->name), [
+                        'orders' => (int) $row->orders_count,
+                        'revenue' => (float) $row->revenue,
+                        'collected' => (float) $row->collected,
+                    ]);
+                }
             }
 
-            $paidExpr = $paymentsAll ? 'COALESCE(pay.paid_amount, 0)' : '0';
+            if ($this->hasTable('crm_payments') && $this->hasColumn('crm_orders', 'inventory_issued')) {
+                $debtQuery = $this->receivableQuery->outstanding();
+                $this->scopeOrderCompanyAndUser($debtQuery, $user, $access, $filters, 'o');
+                $debtRows = $debtQuery
+                    ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
+                    ->selectRaw("COALESCE(u.name, CONCAT('User #', o.created_by)) AS name")
+                    ->selectRaw('o.created_by AS user_id')
+                    ->selectRaw('SUM('.OrderReceivableQuery::BALANCE_EXPR.') AS debt')
+                    ->groupBy('o.created_by', 'u.name')
+                    ->get();
 
-            return $query
-                ->selectRaw("COALESCE(u.name, CONCAT('User #', o.created_by)) AS name")
-                ->selectRaw('o.created_by AS user_id')
-                ->selectRaw('COUNT(o.id) AS orders_count')
-                ->selectRaw('SUM(o.total_amount) AS revenue')
-                ->selectRaw("SUM(LEAST({$paidExpr}, o.total_amount)) AS collected")
-                ->selectRaw("SUM(GREATEST(o.total_amount - {$paidExpr}, 0)) AS debt")
-                ->groupBy('o.created_by', 'u.name')
-                ->orderByDesc('revenue')
-                ->limit(8)
-                ->get()
-                ->map(fn ($row) => [
-                    'user_id' => (int) $row->user_id,
-                    'name' => (string) $row->name,
-                    'orders' => (int) $row->orders_count,
-                    'revenue' => (float) $row->revenue,
-                    'collected' => (float) $row->collected,
-                    'debt' => (float) $row->debt,
-                    'collection_rate' => (float) $row->revenue > 0
-                        ? min(100.0, (float) $row->collected / (float) $row->revenue * 100)
+                foreach ($debtRows as $row) {
+                    $id = (int) $row->user_id;
+                    $members[$id] ??= $blank($id, (string) $row->name);
+                    $members[$id]['debt'] = (float) $row->debt;
+                }
+            }
+
+            return collect($members)
+                ->map(fn (array $member): array => $member + [
+                    'collection_rate' => $member['revenue'] > 0
+                        ? min(100.0, $member['collected'] / $member['revenue'] * 100)
                         : 0.0,
                 ])
+                ->sortBy([['revenue', 'desc'], ['debt', 'desc']])
+                ->take(8)
+                ->values()
                 ->all();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return [];
         }
     }
@@ -1343,6 +1348,42 @@ final class ExecutiveDashboardService
     }
 
     /**
+     * Đơn ghi nhận doanh thu thương mại trong kỳ: đã xuất kho và inventory_issued_at nằm trong kỳ.
+     *
+     * Đơn import cũ có inventory_issued = 1 nhưng thiếu inventory_issued_at không thuộc kỳ nào
+     * (không suy đoán ngày). Kèm alias `pay` (tổng thanh toán theo đơn) để tính tỷ lệ thu.
+     * Trả null khi schema thiếu cột ghi nhận — không quay về lọc theo order_date.
+     */
+    private function recognizedOrderQuery(
+        User $user,
+        array $access,
+        array $filters,
+        Carbon $from,
+        Carbon $to
+    ): ?Builder {
+        if (
+            ! $this->hasColumn('crm_orders', 'inventory_issued')
+            || ! $this->hasColumn('crm_orders', 'inventory_issued_at')
+            || ! $this->hasColumn('crm_orders', 'total_amount')
+            || ! $this->hasTable('crm_payments')
+        ) {
+            return null;
+        }
+
+        $query = $this->receivableQuery->orders()
+            ->where('o.inventory_issued', 1)
+            ->whereNotNull('o.inventory_issued_at')
+            ->whereBetween('o.inventory_issued_at', [
+                $from->toDateTimeString(),
+                $to->toDateTimeString(),
+            ]);
+
+        $this->scopeOrderCompanyAndUser($query, $user, $access, $filters, 'o');
+
+        return $query;
+    }
+
+    /**
      * Tạo query công trình đã áp scope công ty/user, loại trừ đơn hủy, theo thời gian.
      */
     private function siteQuery(
@@ -1419,9 +1460,7 @@ final class ExecutiveDashboardService
         if ($this->hasColumn('crm_orders', 'current_department')) {
             $query->where(function (Builder $sub) use ($alias): void {
                 $sub->whereNull($alias.'.current_department')
-                    ->orWhereNotIn($alias.'.current_department', [
-                        'cancelled', 'canceled', 'da_huy', 'huy',
-                    ]);
+                    ->orWhereNotIn($alias.'.current_department', OrderReceivableQuery::CANCELLED_DEPARTMENTS);
             });
         }
     }

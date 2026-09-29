@@ -95,15 +95,7 @@ use App\Http\Controllers\System\UserController;
 use App\Http\Controllers\Inventory\WarehouseController;
 use Illuminate\Support\Facades\Schema;
 
-/* EGO_COMPANY_CONTEXT_ROUTES_START */
-Route::middleware(['auth'])->group(function () {
-    Route::get('/chon-cong-ty', \App\Http\Controllers\System\AutoCompanyContextController::class)
-        ->name('company-context.select');
-    Route::post('/chon-cong-ty', [\App\Http\Controllers\System\AutoCompanyContextController::class, 'store'])
-        ->name('company-context.store');
-    Route::post('/doi-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');
-});
-/* EGO_COMPANY_CONTEXT_ROUTES_END */
+
 
 
 /* EGO_WORKSPACE_APP_CENTER_ROUTES_START */

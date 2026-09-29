@@ -10,7 +10,6 @@
             : ($selectedCustomer['lead_id'] ?? '');
     }
 
-    $companyHidden = old('company_id', $isEdit ? ($order->company_id ?? '') : '');
 
     $orderDateValue = old('order_date');
     if (!$orderDateValue) {
@@ -92,7 +91,6 @@
                 </select>
 
                 <input type="hidden" id="leadIdInput" name="lead_id" value="{{ $selectedLeadId }}">
-                <input type="hidden" id="orderCompanyId" name="company_id" value="{{ $companyHidden }}">
 
                 <div class="oc-field-feedback" id="customerSearchStatus">Gõ tên hoặc số điện thoại để tìm khách hàng.</div>
                 @error('customer_id')

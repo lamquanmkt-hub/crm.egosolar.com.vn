@@ -125,6 +125,7 @@ class SolarMaintenanceDetailController extends Controller
         $schedule->loadMissing([
             'site',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
+            'assignees.user.department:id,name,code',
         ]);
 
         if (! $request->user()->can('view', $schedule)) {
@@ -137,6 +138,7 @@ class SolarMaintenanceDetailController extends Controller
             'submitter:id,name',
             'approver:id,name',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
+            'assignees.user.department:id,name,code',
             'approvals.approver:id,name',
             'approvals.submitter:id,name',
             'attachments.uploader:id,name',
@@ -322,6 +324,7 @@ class SolarMaintenanceDetailController extends Controller
                 'upload' => $request->user()->can('uploadAttachment', $schedule),
                 'submit' => $request->user()->can('submitForApproval', $schedule),
                 'approve' => $request->user()->can('approve', $schedule),
+                'complete' => $request->user()->can('completeDirectly', $schedule),
                 'revision' => $request->user()->can('requestRevision', $schedule),
                 'reject' => $request->user()->can('reject', $schedule),
                 'reopen' => $request->user()->can('reopen', $schedule),

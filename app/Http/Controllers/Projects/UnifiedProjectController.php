@@ -208,7 +208,7 @@ class UnifiedProjectController extends Controller
         $salesScope = app(UnifiedProjectAccess::class)->isSalesScoped($user);
 
         $data = $request->validate([
-            'company_id' => ['nullable', 'integer'],
+
             'name' => ['required', 'string', 'max:255'],
             'project_type' => ['required', Rule::in(['solar_farm', 'factory', 'industrial', 'large_residential', 'other'])],
             'address' => ['required', 'string', 'max:700'],
@@ -232,9 +232,11 @@ class UnifiedProjectController extends Controller
             $data['lead_engineer_id'] = null;
         }
 
+        $data['company_id'] = \App\Support\EgoCompanyLock::id();
+
         $site = DB::transaction(function () use ($data, $user, $salesScope): Site {
             $row = [
-                'company_id' => ($data['company_id'] ?? 0) > 0 ? (int) $data['company_id'] : null,
+                'company_id' => $data['company_id'],
                 'created_by' => (int) $user->id,
                 'request_source' => $salesScope ? 'sales' : 'technical',
                 'sales_user_id' => $salesScope ? (int) $user->id : null,
@@ -2045,10 +2047,7 @@ class UnifiedProjectController extends Controller
             return;
         }
 
-        $companyId = (int) $request->input('company_id', 0);
-        if ($companyId <= 0) {
-            $companyId = $this->activeCompanyId($request);
-        }
+        $companyId = \App\Support\EgoCompanyLock::id();
 
         if ($companyId > 0) {
             $query->where('company_id', $companyId);
@@ -2816,16 +2815,7 @@ class UnifiedProjectController extends Controller
 
     private function activeCompanyId(Request $request): int
     {
-        foreach (['company_id', 'ego_company_id', 'active_company_id', 'selected_company_id'] as $key) {
-            $value = $key === 'company_id'
-                ? (int) $request->input($key, 0)
-                : (int) session($key, 0);
-            if ($value > 0) {
-                return $value;
-            }
-        }
-
-        return 0;
+        return \App\Support\EgoCompanyLock::id();
     }
 
     private function roles($user): array

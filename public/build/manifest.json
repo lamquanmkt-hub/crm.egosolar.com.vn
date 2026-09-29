@@ -1,0 +1,53 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-BxzUduvb.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/core/theme.css": {
+    "file": "assets/theme-CTyD4ciz.css",
+    "src": "resources/css/core/theme.css",
+    "isEntry": true
+  },
+  "resources/css/crm-layout.css": {
+    "file": "assets/crm-layout-CUD_5ZXU.css",
+    "src": "resources/css/crm-layout.css",
+    "isEntry": true
+  },
+  "resources/css/crm-marketing-plans.css": {
+    "file": "assets/crm-marketing-plans-XKwcP3yP.css",
+    "src": "resources/css/crm-marketing-plans.css",
+    "isEntry": true
+  },
+  "resources/css/crm-material-requests.css": {
+    "file": "assets/crm-material-requests-D8SXbTFo.css",
+    "src": "resources/css/crm-material-requests.css",
+    "isEntry": true
+  },
+  "resources/css/crm-navigation-pro.css": {
+    "file": "assets/crm-navigation-pro-DxGCeBK3.css",
+    "src": "resources/css/crm-navigation-pro.css",
+    "isEntry": true
+  },
+  "resources/css/crm-product-serials.css": {
+    "file": "assets/crm-product-serials-Bw1pq60Y.css",
+    "src": "resources/css/crm-product-serials.css",
+    "isEntry": true
+  },
+  "resources/css/crm-topbar.css": {
+    "file": "assets/crm-topbar-BXs16Yqm.css",
+    "src": "resources/css/crm-topbar.css",
+    "isEntry": true
+  },
+  "resources/css/main.css": {
+    "file": "assets/main-BhLDcAQw.css",
+    "src": "resources/css/main.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-DMsN-rLE.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}

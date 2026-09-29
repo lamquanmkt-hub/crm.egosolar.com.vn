@@ -1,0 +1,95 @@
+:root{
+    --app-font: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --bg:#f6f8fc;
+    --card:#ffffff;
+    --border: rgba(15,23,42,.08);
+    --radius: 16px;
+}
+
+html, body{
+    font-family: var(--app-font) !important;
+    background: var(--bg);
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+body, button, input, select, textarea, .btn, .form-control, .form-select, table{
+    font-family: var(--app-font) !important;
+}
+
+/* SHELL: sidebar full top + page bên phải */
+.ego-shell{
+    min-height: 100dvh;
+    display: flex;
+    width: 100%;
+}
+
+/* PAGE: navbar + content theo cột */
+.ego-page{
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Navbar “dính” trên cùng của khu vực page */
+.ego-topbar{
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+/* Content body */
+.ego-page__body{
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+
+.card{
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--card);
+}
+
+/* helper padding nếu trang nào cần */
+.ego-container{ padding: 18px 18px 22px; }
+@media (max-width: 991.98px){
+    .ego-container{ padding: 12px 12px 18px; }
+}
+
+.table-responsive{ overflow-x:auto !important; -webkit-overflow-scrolling: touch; }
+table{ max-width:100%; }
+
+/* Mobile: sidebar là offcanvas nên shell vẫn ok */
+@media (max-width: 991.98px){
+    .ego-shell{ display:block; }
+    .ego-page{ display:block; }
+    .ego-page__body{ display:block; }
+}
+
+/* Only Ads report page: full width */
+.mr-ads-page{ max-width:none !important; width:100%; }
+
+
+/* ===== Desktop layout: sidebar dính + content full ===== */
+@media (min-width: 992px){
+  main.ego-main{
+    display: flex !important;
+    align-items: stretch;
+    min-height: 100vh;
+  }
+
+
+  /* Content là cột còn lại */
+  .main-content{
+    flex: 1 1 auto;
+    width: auto !important;
+    max-width: 100% !important;
+    margin-left: 0 !important; /* bỏ margin-left kiểu cũ */
+    min-width: 0; /* tránh table đẩy bung layout */
+  }
+
+
+}

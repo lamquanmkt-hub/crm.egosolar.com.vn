@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Synced\TechnicalKpi;
 
 use App\Http\Controllers\Controller;
+use App\Services\TechnicalKpi\KpiStandardEvaluator;
 use App\Services\TechnicalKpi\ProjectKpiLinkService;
 use App\Support\SchemaCache;
 use Illuminate\Http\Request;
@@ -202,7 +203,7 @@ class TechnicalPayrollController extends Controller
      * Đồng thời nhận diện theo phòng ban/chức vụ để nhân sự HR đã xếp vào
      * phòng Kỹ thuật vẫn xuất hiện dù role chưa được chuẩn hoá.
      */
-    private function employees()
+    private function employees(?int $departmentId = null)
     {
         if (! $this->tableExists('users')) {
             return collect();
@@ -241,6 +242,22 @@ class TechnicalPayrollController extends Controller
             $positionSelect = DB::raw('COALESCE(positions.name, "Kỹ thuật") as position_name');
         } else {
             $positionSelect = DB::raw('"Kỹ thuật" as position_name');
+        }
+
+        $departmentSelect = DB::raw('"Phòng Kỹ thuật" as department_name');
+        if ($hasDepartmentClassifier) {
+            $query->leftJoin('departments', 'departments.id', '=', 'users.department_id');
+            $departmentSelect = DB::raw('COALESCE(departments.name, "Phòng Kỹ thuật") as department_name');
+        }
+
+        $codeSelect = DB::raw('CONCAT("KT-", LPAD(users.id, 3, "0")) as employee_code');
+        if ($this->tableExists('hr_employee_profiles') && $this->hasColumn('hr_employee_profiles', 'employee_code')) {
+            $query->leftJoin('hr_employee_profiles', 'hr_employee_profiles.employee_id', '=', 'users.id');
+            $codeSelect = DB::raw('COALESCE(NULLIF(hr_employee_profiles.employee_code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
+        } elseif ($this->hasColumn('users', 'employee_code')) {
+            $codeSelect = DB::raw('COALESCE(NULLIF(users.employee_code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
+        } elseif ($this->hasColumn('users', 'code')) {
+            $codeSelect = DB::raw('COALESCE(NULLIF(users.code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
         }
 
         $query->where(function ($scope) use (
@@ -293,6 +310,10 @@ class TechnicalPayrollController extends Controller
             }
         });
 
+        if ($departmentId && $this->hasColumn('users', 'department_id')) {
+            $query->where('users.department_id', $departmentId);
+        }
+
         if ($this->hasColumn('users', 'is_active')) {
             $query->where('users.is_active', 1);
         }
@@ -302,7 +323,10 @@ class TechnicalPayrollController extends Controller
                 'users.id',
                 'users.name',
                 'users.email',
-                $positionSelect
+                'users.department_id',
+                $positionSelect,
+                $departmentSelect,
+                $codeSelect
             )
             ->distinct()
             ->orderBy('users.name')
@@ -311,7 +335,7 @@ class TechnicalPayrollController extends Controller
 
 
     /**
-     * Lấy thông tin một nhân viên kỹ thuật theo id kèm tên chức vụ.
+     * Lấy thông tin một nhân viên kỹ thuật theo id kèm tên chức vụ, phòng ban và mã nhân viên.
      */
     private function employeeById($userId)
     {
@@ -321,16 +345,35 @@ class TechnicalPayrollController extends Controller
 
         $query = DB::table('users');
 
-        if (
-            $this->tableExists('positions')
+        $hasPositionClassifier = $this->tableExists('positions')
             && $this->hasColumn('users', 'position_id')
-            && $this->hasColumn('positions', 'id')
-        ) {
-            $query->leftJoin('positions', 'positions.id', '=', 'users.position_id');
+            && $this->hasColumn('positions', 'id');
 
+        $hasDepartmentClassifier = $this->tableExists('departments')
+            && $this->hasColumn('users', 'department_id')
+            && $this->hasColumn('departments', 'id');
+
+        if ($hasPositionClassifier) {
+            $query->leftJoin('positions', 'positions.id', '=', 'users.position_id');
             $positionSelect = DB::raw('COALESCE(positions.name, "Kỹ thuật") as position_name');
         } else {
             $positionSelect = DB::raw('"Kỹ thuật" as position_name');
+        }
+
+        $departmentSelect = DB::raw('"Phòng Kỹ thuật" as department_name');
+        if ($hasDepartmentClassifier) {
+            $query->leftJoin('departments', 'departments.id', '=', 'users.department_id');
+            $departmentSelect = DB::raw('COALESCE(departments.name, "Phòng Kỹ thuật") as department_name');
+        }
+
+        $codeSelect = DB::raw('CONCAT("KT-", LPAD(users.id, 3, "0")) as employee_code');
+        if ($this->tableExists('hr_employee_profiles') && $this->hasColumn('hr_employee_profiles', 'employee_code')) {
+            $query->leftJoin('hr_employee_profiles', 'hr_employee_profiles.employee_id', '=', 'users.id');
+            $codeSelect = DB::raw('COALESCE(NULLIF(hr_employee_profiles.employee_code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
+        } elseif ($this->hasColumn('users', 'employee_code')) {
+            $codeSelect = DB::raw('COALESCE(NULLIF(users.employee_code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
+        } elseif ($this->hasColumn('users', 'code')) {
+            $codeSelect = DB::raw('COALESCE(NULLIF(users.code, ""), CONCAT("KT-", LPAD(users.id, 3, "0"))) as employee_code');
         }
 
         return $query
@@ -339,7 +382,10 @@ class TechnicalPayrollController extends Controller
                 'users.id',
                 'users.name',
                 'users.email',
-                $positionSelect
+                'users.department_id',
+                $positionSelect,
+                $departmentSelect,
+                $codeSelect
             )
             ->first();
     }
@@ -838,230 +884,491 @@ class TechnicalPayrollController extends Controller
     }
 
     /**
-     * Trang KPIs kỹ thuật riêng: dashboard theo tháng, xếp hạng và 5 nhóm KPI Solar.
+     * Trang KPIs kỹ thuật (/ky-thuat/kpis) theo tài liệu chuẩn của Ban lãnh đạo
+     * (config/technical_kpi_standard.php — 6 tiêu chí, tiêu chí 6 chờ xác nhận).
      *
-     * Trang dashboard dùng chung bộ 5 KPI với màn hình chấm KPI và trang cấu hình.
+     * CHỈ ĐỌC: không seed cài đặt, không ghi điểm. Mọi điểm được tính trực tiếp
+     * từ dữ liệu CRM đã xác minh; tiêu chí thiếu nguồn hiển thị "Chưa đủ dữ liệu".
      */
-    public function kpis(Request $request)
+    public function kpis(Request $request, KpiStandardEvaluator $evaluator)
     {
-        $this->ensureDefaultSettings();
+        [$periodType, $periodValue, $months, $periodLabel] = $evaluator->resolvePeriod(
+            (string) $request->query('period', 'month'),
+            $request->query('month'),
+            $request->query('quarter')
+        );
 
-        $selectedMonth = (string) $request->query('month', now()->format('Y-m'));
-        if (! preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
-            $selectedMonth = now()->format('Y-m');
+        $currentUser = $request->user();
+        $isAdmin = false;
+        $isManager = false;
+        $isTechnician = false;
+
+        if ($currentUser) {
+            $isAdmin = (method_exists($currentUser, 'isAdmin') && $currentUser->isAdmin())
+                || (method_exists($currentUser, 'hasAnyRole') && $currentUser->hasAnyRole(config('role_permissions.admin_roles', ['admin'])))
+                || (method_exists($currentUser, 'hasAnyRole') && $currentUser->hasAnyRole(['director', 'ceo', 'management', 'super_admin']));
+
+            if (! $isAdmin) {
+                $isManager = (method_exists($currentUser, 'hasAnyRole') && $currentUser->hasAnyRole([
+                    'technical_manager',
+                    'technical_leader',
+                    'truong_phong_ky_thuat',
+                    'manager',
+                    'management',
+                ])) || (class_exists(\App\Services\Workspace\WorkspaceLevelService::class)
+                    && app(\App\Services\Workspace\WorkspaceLevelService::class)->isAtLeast($currentUser, 'team_lead'));
+            }
+
+            if (! $isAdmin && ! $isManager) {
+                $isTechnician = true;
+            }
         }
 
-        $selectedUserId = $request->filled('user_id') ? (int) $request->query('user_id') : null;
-        $selectedStatus = trim((string) $request->query('status', ''));
-        $employees = $this->employees();
-        $template = $this->kpiTemplate();
-        $kpiConfigWeight = $this->kpiWeightTotal($template);
-        $kpiConfigValid = ! empty($template) && abs($kpiConfigWeight - 1.0) <= 0.0001;
+        // Quyền xem:
+        // - Admin: xem toàn bộ nhân viên
+        // - Quản lý/trưởng nhóm: xem nhân viên thuộc phạm vi phụ trách
+        // - Kỹ thuật viên: chỉ thấy hồ sơ KPI của chính mình, không thấy danh sách toàn bộ nhân viên
+        $canViewList = ! $isTechnician;
 
-        $icons = ['bi-stopwatch', 'bi-gem', 'bi-box-seam', 'bi-shield-check', 'bi-phone', 'bi-clipboard2-check', 'bi-graph-up-arrow', 'bi-stars', 'bi-tools'];
-        $kpiCriteria = collect($template)->values()->map(function ($kpi, $idx) use ($icons) {
-            $type = (string) ($kpi['type'] ?? 'actual_div_plan');
-            $icon = match ($type) {
-                'material_waste' => 'bi-box-seam',
-                'minus_safety' => 'bi-shield-check',
-                'minus_quality' => 'bi-patch-check',
-                default => $icons[$idx % count($icons)],
-            };
+        $departmentFilter = ($isManager && ! $isAdmin && $currentUser && ! empty($currentUser->department_id))
+            ? (int) $currentUser->department_id
+            : null;
 
-            return [
-                'key' => (string) ($kpi['key'] ?? ('kpi_'.$idx)),
-                'definition_id' => $kpi['definition_id'] ?? null,
-                'name' => (string) ($kpi['name'] ?? 'KPI '.($idx + 1)),
-                'subject' => (string) ($kpi['subject'] ?? $kpi['name'] ?? 'KPI '.($idx + 1)),
-                'weight' => (float) ($kpi['weight'] ?? 0) * 100,
-                'icon' => $icon,
-                'standard' => (string) ($kpi['rule'] ?? ''),
-                'type' => $type,
-                'sort_order' => (int) ($kpi['sort_order'] ?? ($idx + 1)),
-            ];
-        })->all();
-
-        $payrolls = collect();
-
-        if ($this->tableExists('technical_kpi_payrolls')) {
-            $query = DB::table('technical_kpi_payrolls');
-
-            if ($this->hasColumn('technical_kpi_payrolls', 'payroll_month')) {
-                $query->where('payroll_month', $selectedMonth);
-            }
-            if ($selectedUserId && $this->hasColumn('technical_kpi_payrolls', 'user_id')) {
-                $query->where('user_id', $selectedUserId);
-            }
-            if (
-                in_array($selectedStatus, ['draft', 'approved'], true)
-                && $this->hasColumn('technical_kpi_payrolls', 'status')
-            ) {
-                $query->where('status', $selectedStatus);
-            }
-
-            $query->orderByDesc($this->hasColumn('technical_kpi_payrolls', 'total_kpi_percent') ? 'total_kpi_percent' : 'id');
-            $payrolls = $query->limit(200)->get();
+        $employees = $this->employees($departmentFilter);
+        if ($employees->isEmpty()) {
+            $employees = $this->employees();
         }
 
-        $itemsByPayroll = collect();
-        if ($payrolls->isNotEmpty() && $this->tableExists('technical_kpi_payroll_items')) {
-            $itemsByPayroll = DB::table('technical_kpi_payroll_items')
-                ->whereIn('payroll_id', $payrolls->pluck('id')->all())
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get()
-                ->groupBy('payroll_id');
-        }
-
-        $projectDashboard = app(ProjectKpiLinkService::class)->dashboardForPayrolls($payrolls, $selectedMonth);
-
-        foreach ($payrolls as $row) {
-            $savedItems = $itemsByPayroll->get($row->id, collect());
-            $breakdown = [];
-
-            foreach ($kpiCriteria as $criterion) {
-                $match = null;
-                $definitionId = (int) ($criterion['definition_id'] ?? 0);
-
-                if ($definitionId > 0 && $this->hasColumn('technical_kpi_payroll_items', 'kpi_definition_id')) {
-                    $match = $savedItems->first(fn ($item) => (int) ($item->kpi_definition_id ?? 0) === $definitionId);
-                }
-
-                if (! $match) {
-                    $criterionName = Str::lower(Str::ascii(trim((string) ($criterion['name'] ?? ''))));
-                    $match = $savedItems->first(function ($item) use ($criterionName) {
-                        return Str::lower(Str::ascii(trim((string) ($item->kpi_name ?? '')))) === $criterionName;
-                    });
-                }
-
-                if (! $match) {
-                    $sortOrder = (int) ($criterion['sort_order'] ?? 0);
-                    $match = $savedItems->first(fn ($item) => (int) ($item->sort_order ?? 0) === $sortOrder);
-                }
-
-                $breakdown[$criterion['key']] = $match ? [
-                    'name' => (string) ($match->kpi_name ?? $criterion['name']),
-                    'score' => (float) ($match->kpi_score ?? 0) * 100,
-                    'weight' => (float) ($match->weight ?? 0) * 100,
-                    'rate' => (float) ($match->achievement_rate ?? 0) * 100,
-                ] : null;
-            }
-
-            $row->kpi_breakdown = $breakdown;
-            $row->penalty_points = $this->hasColumn('technical_kpi_payrolls', 'penalty_points')
-                ? (float) ($row->penalty_points ?? 0)
-                : null;
-
-            $projectLink = $projectDashboard[(int) ($row->user_id ?? 0)] ?? [];
-            $row->kpi_project_count = (int) ($projectLink['project_count'] ?? 0);
-            $row->kpi_project_issue_count = (int) ($projectLink['issue_count'] ?? 0);
-            $row->kpi_projects = collect($projectLink['projects'] ?? [])->values();
-        }
-
-        /*
-         * Dashboard KPI phải hiển thị toàn bộ nhân sự Kỹ thuật, kể cả người chưa
-         * có technical_kpi_payrolls trong tháng. Trước đây bảng render trực tiếp
-         * từ $payrolls nên tháng mới luôn trống dù HR đã có nhân sự Kỹ thuật.
-         */
-        $payrollByUser = $payrolls
-            ->filter(fn ($row) => (int) ($row->user_id ?? 0) > 0)
-            ->keyBy(fn ($row) => (int) $row->user_id);
-
-        $displayRows = collect();
-
-        if ($selectedStatus === '' || $selectedStatus === 'not_scored') {
-            foreach ($employees as $employee) {
-                $employeeId = (int) ($employee->id ?? 0);
-
-                if ($selectedUserId && $employeeId !== $selectedUserId) {
-                    continue;
-                }
-
-                $existing = $payrollByUser->get($employeeId);
-
-                if ($existing) {
-                    if ($selectedStatus === '') {
-                        $displayRows->push($existing);
-                    }
-                    continue;
-                }
-
-                $displayRows->push((object) [
-                    'id' => null,
-                    'user_id' => $employeeId,
-                    'employee_name' => (string) ($employee->name ?? ('Kỹ sư #'.$employeeId)),
-                    'position_name' => (string) ($employee->position_name ?? 'Kỹ thuật'),
-                    'payroll_month' => $selectedMonth,
-                    'status' => 'not_scored',
-                    'total_kpi_percent' => null,
-                    'kpi_breakdown' => [],
-                    'kpi_project_count' => 0,
-                    'kpi_project_issue_count' => 0,
-                    'kpi_projects' => collect(),
-                    'penalty_points' => null,
-                ]);
-            }
-
-            // Không làm mất hồ sơ KPI lịch sử nếu user đã đổi role/phòng ban.
-            if ($selectedStatus === '') {
-                foreach ($payrolls as $row) {
-                    $userId = (int) ($row->user_id ?? 0);
-                    if (! $displayRows->contains(fn ($item) => (int) ($item->user_id ?? 0) === $userId)) {
-                        $displayRows->push($row);
-                    }
-                }
+        // Kỹ thuật viên: ép buộc user_id là chính mình
+        if ($isTechnician && $currentUser) {
+            $selectedUserId = (int) $currentUser->id;
+            $employees = $employees->where('id', $currentUser->id)->values();
+            if ($employees->isEmpty() && ($picked = $this->employeeById($currentUser->id))) {
+                $employees = collect([$picked]);
             }
         } else {
-            $displayRows = $payrolls->values();
+            $selectedUserId = $request->filled('user_id') ? (int) $request->query('user_id') : null;
         }
 
-        $displayRows = $displayRows
-            ->sortBy(function ($row) {
-                $hasKpi = $row->id !== null ? 0 : 1;
-                $name = Str::lower(Str::ascii((string) ($row->employee_name ?? '')));
+        $selectedDepartmentId = $request->filled('department_id') ? (int) $request->query('department_id') : null;
+        $selectedApprovalStatus = (string) $request->query('approval_status', '');
+        $selectedSiteId = $request->filled('site_id') ? (int) $request->query('site_id') : null;
+        $selectedDataStatus = (string) $request->query('data_status', '');
+        if (! array_key_exists($selectedDataStatus, KpiStandardEvaluator::DATA_LABELS)) {
+            $selectedDataStatus = '';
+        }
 
-                return sprintf('%d-%s', $hasKpi, $name);
-            })
+        $settings = $this->settingsMap();
+
+        $departments = $this->tableExists('departments')
+            ? DB::table('departments')->select('id', 'name')->orderBy('name')->get()
+            : collect();
+
+        $sites = $this->tableExists('sites')
+            ? DB::table('sites')->select('id', 'project_code', 'name')->orderBy('name')->limit(1000)->get()
+            : collect();
+
+        // Scope đánh giá
+        $scope = $employees;
+        if ($selectedUserId && $scope->where('id', $selectedUserId)->isEmpty() && ($picked = $this->employeeById($selectedUserId))) {
+            $scope = $scope->concat([$picked]);
+        }
+
+        $periodDate = !empty($months[0]) ? $months[0] . '-01' : now()->toDateString();
+        $activeConfig = \App\Models\TechnicalKpiConfig::getActiveForDate($periodDate);
+        $hasConfig = !empty($activeConfig);
+
+        $canConfigureKpi = $currentUser && (
+            (method_exists($currentUser, 'isAdmin') && $currentUser->isAdmin())
+            || (method_exists($currentUser, 'hasAnyRole') && $currentUser->hasAnyRole(['admin', 'super_admin', 'director', 'ceo', 'management', 'hr', 'accounting', 'technical_manager']))
+        );
+
+        // Đánh giá từng kỹ sư trong kỳ và gắn với số liệu lương
+        $engineers = collect();
+        foreach ($scope as $employee) {
+            $data = $this->kpiCollectFor($evaluator, $employee, $months, $selectedSiteId);
+            $result = $evaluator->score($data['projects'], $data['evidence'], $data['warranty']);
+
+            // Tra cứu bảng lương hiện hành trong kỳ nếu có
+            $existingPayroll = null;
+            if ($this->tableExists('technical_kpi_payrolls')) {
+                $existingPayroll = DB::table('technical_kpi_payrolls')
+                    ->where('user_id', $employee->id)
+                    ->whereIn('payroll_month', $months)
+                    ->orderByDesc('id')
+                    ->first();
+            }
+
+            // Tra cứu bảng lương gần nhất để lấy mức lương cơ sở thỏa thuận nếu chưa có kỳ này
+            $latestPayroll = null;
+            if ($this->tableExists('technical_kpi_payrolls')) {
+                $latestPayroll = DB::table('technical_kpi_payrolls')
+                    ->where('user_id', $employee->id)
+                    ->orderByDesc('id')
+                    ->first();
+            }
+
+            // Mức lương thỏa thuận: từ kỳ hiện hành -> kỳ gần nhất -> users.official_salary -> null (KHÔNG dùng 15.000.000 đ mặc định)
+            $agreedSalary = null;
+            if ($existingPayroll && !empty($existingPayroll->gross_salary) && (float) $existingPayroll->gross_salary > 0) {
+                $agreedSalary = (float) $existingPayroll->gross_salary;
+            } elseif ($latestPayroll && !empty($latestPayroll->gross_salary) && (float) $latestPayroll->gross_salary > 0) {
+                $agreedSalary = (float) $latestPayroll->gross_salary;
+            } elseif (!empty($employee->official_salary) && (float) $employee->official_salary > 0) {
+                $agreedSalary = (float) $employee->official_salary;
+            }
+
+            if ($existingPayroll && $existingPayroll->status === 'approved') {
+                $payrollStatus = 'approved';
+            } elseif ($existingPayroll && $existingPayroll->status === 'draft') {
+                $payrollStatus = 'draft';
+            } else {
+                $payrollStatus = 'pending_calc';
+            }
+
+            // Tỷ lệ KPI đạt được (%)
+            $kpiPercent = null;
+            if ($existingPayroll && $existingPayroll->total_kpi_percent !== null) {
+                $kpiPercent = (float) $existingPayroll->total_kpi_percent;
+            } elseif ($result['total'] !== null) {
+                $kpiPercent = (float) $result['total'];
+            }
+
+            // Tính toán chi tiết các cấu phần theo cấu hình KPI hiệu lực (KHÔNG hardcode 70/30)
+            if ($hasConfig && $activeConfig) {
+                $payout = $activeConfig->computePayout($agreedSalary, $kpiPercent);
+                $baseRate = $payout['base_rate'];
+                $kpiRate = $payout['kpi_rate'];
+                $baseSalary = $payout['base_salary'];
+                $kpiBaseSalary = $payout['kpi_base_salary'];
+                $realKpiSalary = $payout['real_kpi_salary'];
+                $totalIncome = $payout['total_income'];
+                $tierLabel = $payout['tier_label'];
+            } else {
+                $baseRate = null;
+                $kpiRate = null;
+                $baseSalary = null;
+                $kpiBaseSalary = null;
+                $realKpiSalary = null;
+                $totalIncome = null;
+                $tierLabel = null;
+            }
+
+            // Nếu kỳ lương đã duyệt (approved) trong quá khứ thì bảo toàn số liệu đã chốt
+            if ($existingPayroll && $existingPayroll->status === 'approved') {
+                if ($existingPayroll->base_salary !== null) {
+                    $baseSalary = (float) $existingPayroll->base_salary;
+                }
+                if ($existingPayroll->real_kpi_salary !== null) {
+                    $realKpiSalary = (float) $existingPayroll->real_kpi_salary;
+                }
+                if ($existingPayroll->total_income !== null) {
+                    $totalIncome = (float) $existingPayroll->total_income;
+                }
+            }
+
+            $engineers->push([
+                'id' => (int) $employee->id,
+                'name' => (string) ($employee->name ?? ('Kỹ sư #'.$employee->id)),
+                'code' => (string) ($employee->employee_code ?? ('KT-'.str_pad((string) $employee->id, 3, '0', STR_PAD_LEFT))),
+                'position' => (string) ($employee->position_name ?? 'Kỹ thuật'),
+                'department' => (string) ($employee->department_name ?? 'Phòng Kỹ thuật'),
+                'department_id' => (int) ($employee->department_id ?? 0),
+                'agreed_salary' => $agreedSalary,
+                'gross_salary' => $agreedSalary,
+                'base_rate' => $baseRate,
+                'kpi_rate' => $kpiRate,
+                'base_salary' => $baseSalary,
+                'kpi_base_salary' => $kpiBaseSalary,
+                'kpi_percent' => $kpiPercent,
+                'real_kpi_salary' => $realKpiSalary,
+                'total_income' => $totalIncome,
+                'tier_label' => $tierLabel,
+                'payroll_status' => $payrollStatus,
+                'payroll_record' => $existingPayroll,
+                'result' => $result,
+                'data' => $data,
+            ]);
+        }
+
+        $selectedEngineer = $selectedUserId ? $engineers->firstWhere('id', $selectedUserId) : null;
+        $allEngineers = $engineers;
+
+        if ($selectedDepartmentId) {
+            $engineers = $engineers->filter(fn ($e) => (int) $e['department_id'] === $selectedDepartmentId)->values();
+        }
+
+        if ($selectedApprovalStatus !== '') {
+            $engineers = $engineers->filter(fn ($e) => $e['payroll_status'] === $selectedApprovalStatus)->values();
+        }
+
+        if ($selectedDataStatus !== '') {
+            $engineers = $engineers->filter(fn ($e) => $e['result']['data_status'] === $selectedDataStatus)->values();
+        }
+
+        // Kết quả hiển thị ở thẻ/bảng tiêu chí: một kỹ sư, hoặc gộp số liệu toàn phòng.
+        $isTeam = ! $selectedUserId;
+        $focus = $isTeam ? $engineers : collect([$selectedEngineer])->filter()->values();
+        $pooled = $this->kpiPool($focus->pluck('data'));
+        $detail = $evaluator->score($pooled['projects'], $pooled['evidence'], $pooled['warranty']);
+
+        // So sánh giữa kỹ sư: người đủ dữ liệu xếp theo điểm, người thiếu dữ liệu đứng sau.
+        $ranking = $engineers
+            ->sortBy(fn ($e) => [$e['result']['total'] === null ? 1 : 0, -1 * (float) ($e['result']['total'] ?? 0), Str::ascii($e['name'])])
             ->values();
 
-        $summaryPayrolls = $selectedStatus === 'not_scored' ? collect() : $payrolls;
+        $hasAnyBaseSalary = $engineers->whereNotNull('base_salary')->isNotEmpty();
+        $totalBaseSalary = $hasAnyBaseSalary ? (float) $engineers->whereNotNull('base_salary')->sum('base_salary') : null;
 
-        $avgKpi = $summaryPayrolls->isNotEmpty()
-            ? (float) $summaryPayrolls->avg(fn ($row) => (float) ($row->total_kpi_percent ?? 0))
-            : 0;
+        $hasAnyKpiMoney = $engineers->whereNotNull('real_kpi_salary')->isNotEmpty();
+        $totalKpiSalary = $hasAnyKpiMoney ? (float) $engineers->whereNotNull('real_kpi_salary')->sum('real_kpi_salary') : null;
 
-        $summary = [
-            'avg_kpi' => $avgKpi,
-            'achieved' => $summaryPayrolls->filter(fn ($row) => (float) ($row->total_kpi_percent ?? 0) >= 0.90)->count(),
-            'excellent' => $summaryPayrolls->filter(fn ($row) => (float) ($row->total_kpi_percent ?? 0) >= 1.00)->count(),
-            'needs_improvement' => $summaryPayrolls->filter(fn ($row) => (float) ($row->total_kpi_percent ?? 0) < 0.75)->count(),
-            'pending' => $this->hasColumn('technical_kpi_payrolls', 'status')
-                ? $summaryPayrolls->filter(fn ($row) => (string) ($row->status ?? 'draft') !== 'approved')->count()
-                : 0,
-            'total_kpi_salary' => $summaryPayrolls->sum(fn ($row) => (float) ($row->real_kpi_salary ?? 0)),
-            'total_records' => $summaryPayrolls->count(),
-            'project_total' => $summaryPayrolls->sum(fn ($row) => (int) ($row->kpi_project_count ?? 0)),
-            'project_issues' => $summaryPayrolls->sum(fn ($row) => (int) ($row->kpi_project_issue_count ?? 0)),
-            'technical_people' => $employees->count(),
-            'not_scored' => $displayRows->filter(fn ($row) => ($row->status ?? '') === 'not_scored')->count(),
+        $hasAnyTotalIncome = $engineers->whereNotNull('total_income')->isNotEmpty();
+        $totalProjectedIncome = $hasAnyTotalIncome ? (float) $engineers->whereNotNull('total_income')->sum('total_income') : null;
+        $pendingApprovalCount = (int) $engineers->where('payroll_status', 'draft')->count();
+
+        $payrollSummary = [
+            'total_engineers' => $engineers->count(),
+            'total_base_salary' => $totalBaseSalary,
+            'total_kpi_salary' => $totalKpiSalary,
+            'total_projected_income' => $totalProjectedIncome,
+            'pending_approval_count' => $pendingApprovalCount,
         ];
 
-        [$year, $month] = explode('-', $selectedMonth);
-        $monthLabel = 'Tháng '.ltrim($month, '0').'/'.$year;
+        $teamSummary = [
+            'engineers' => $engineers->count(),
+            'full' => $engineers->where('result.data_status', KpiStandardEvaluator::DATA_FULL)->count(),
+            'partial' => $engineers->where('result.data_status', KpiStandardEvaluator::DATA_PARTIAL)->count(),
+            'none' => $engineers->where('result.data_status', KpiStandardEvaluator::DATA_NONE)->count(),
+            'avg_total' => null,
+            'tiers' => [],
+        ];
+        $scored = $engineers->filter(fn ($e) => $e['result']['total'] !== null);
+        if ($scored->isNotEmpty()) {
+            $teamSummary['avg_total'] = (float) $scored->avg(fn ($e) => $e['result']['total']);
+        }
+        foreach ($evaluator->bonusTiers() as $tier) {
+            $teamSummary['tiers'][$tier['label']] = $scored->filter(fn ($e) => ($e['result']['tier']['label'] ?? null) === $tier['label'])->count();
+        }
 
-        return view('synced.kythuat.kpis', compact(
-            'employees',
-            'payrolls',
-            'displayRows',
-            'summary',
-            'selectedMonth',
-            'selectedUserId',
-            'selectedStatus',
-            'monthLabel',
-            'kpiCriteria',
-            'kpiConfigWeight',
-            'kpiConfigValid'
-        ));
+        // Xu hướng 6 tháng (kết thúc ở tháng cuối của kỳ) cho đúng phạm vi đang xem.
+        $trend = [];
+        foreach ($evaluator->trailingMonths(end($months), 6) as $month) {
+            $monthData = in_array($month, $months, true) && count($months) === 1
+                ? $pooled
+                : $this->kpiPool($focus->map(fn ($e) => $this->kpiCollectFor(
+                    $evaluator,
+                    (object) ['id' => $e['id'], 'name' => $e['name']],
+                    [$month],
+                    $selectedSiteId
+                )));
+            $monthResult = $evaluator->score($monthData['projects'], $monthData['evidence'], null);
+            [$y, $m] = explode('-', $month);
+            $trend[] = [
+                'month' => $month,
+                'label' => 'T'.ltrim($m, '0').'/'.substr($y, 2),
+                'total' => $monthResult['total'],
+                'with_data' => $monthResult['with_data'],
+                'weighted_count' => $monthResult['weighted_count'],
+            ];
+        }
+
+        // Phiếu lương KPI đã chấm ở hệ hiện hành — chỉ để tham chiếu, không trộn vào điểm chuẩn.
+        $legacyPayrolls = collect();
+        if ($this->tableExists('technical_kpi_payrolls') && $this->hasColumn('technical_kpi_payrolls', 'payroll_month')) {
+            $legacyPayrolls = DB::table('technical_kpi_payrolls')
+                ->whereIn('payroll_month', $months)
+                ->when($selectedUserId, fn ($q) => $q->where('user_id', $selectedUserId))
+                ->orderBy('employee_name')
+                ->limit(100)
+                ->get(['id', 'user_id', 'employee_name', 'payroll_month', 'total_kpi_percent', 'status']);
+        }
+
+        return view('synced.kythuat.kpis', [
+            'hasConfig' => $hasConfig,
+            'activeConfig' => $activeConfig,
+            'canConfigureKpi' => $canConfigureKpi,
+            'criteriaStandard' => $activeConfig ? ($activeConfig->criteria_config ?? $evaluator->criteria()) : $evaluator->criteria(),
+            'weightTotal' => $evaluator->weightTotal(),
+            'bonusTiers' => $evaluator->bonusTiers(),
+            'materialScale' => (array) config('technical_kpi_standard.material_scale', []),
+            'violationNote' => (string) config('technical_kpi_standard.serious_violation_note', ''),
+            'standardSource' => (array) config('technical_kpi_standard.source', []),
+            'statusLabels' => KpiStandardEvaluator::STATUS_LABELS,
+            'dataLabels' => KpiStandardEvaluator::DATA_LABELS,
+            'departments' => $departments,
+            'selectedDepartmentId' => $selectedDepartmentId,
+            'selectedApprovalStatus' => $selectedApprovalStatus,
+            'payrollSummary' => $payrollSummary,
+            'employees' => $employees,
+            'allEngineers' => $allEngineers,
+            'engineers' => $engineers,
+            'sites' => $sites,
+            'periodType' => $periodType,
+            'periodValue' => $periodValue,
+            'periodLabel' => $periodLabel,
+            'months' => $months,
+            'selectedMonth' => $periodType === 'month' ? $periodValue : end($months),
+            'selectedQuarter' => $periodType === 'quarter' ? $periodValue : sprintf('%s-Q%d', substr($periodValue, 0, 4), (int) ceil(((int) substr($periodValue, 5, 2)) / 3)),
+            'selectedUserId' => $selectedUserId,
+            'selectedSiteId' => $selectedSiteId,
+            'selectedDataStatus' => $selectedDataStatus,
+            'isTeam' => $isTeam,
+            'selectedEngineer' => $selectedEngineer,
+            'detail' => $detail,
+            'ranking' => $ranking,
+            'teamSummary' => $teamSummary,
+            'trend' => $trend,
+            'sources' => $this->kpiSourceStatus($months),
+            'legacyPayrolls' => $legacyPayrolls,
+            'canViewList' => $canViewList,
+            'isAdmin' => $isAdmin,
+            'isManager' => $isManager,
+            'isTechnician' => $isTechnician,
+        ]);
+    }
+
+    /** Gom dữ liệu nguồn của một kỹ sư, gắn tên kỹ sư vào từng công trình để hiển thị minh chứng. */
+    private function kpiCollectFor(KpiStandardEvaluator $evaluator, object $employee, array $months, ?int $siteId): array
+    {
+        $data = $evaluator->collect((int) $employee->id, $months, $siteId);
+        $name = (string) ($employee->name ?? '');
+        $data['projects'] = $data['projects']->map(fn ($p) => $p + ['user_name' => $name])->values();
+
+        return $data;
+    }
+
+    /** Gộp dữ liệu nhiều kỹ sư để chấm "toàn phòng" (cộng tử số / mẫu số, không lấy trung bình điểm). */
+    private function kpiPool($collections): array
+    {
+        $projects = collect();
+        $evidence = collect();
+        $warranty = null;
+
+        foreach ($collections as $data) {
+            $projects = $projects->concat($data['projects'] ?? []);
+            $evidence = $evidence->concat($data['evidence'] ?? []);
+            if (! empty($data['warranty'])) {
+                $warranty ??= ['total' => 0, 'resolved' => 0, 'rows' => collect()];
+                $warranty['total'] += (int) $data['warranty']['total'];
+                $warranty['resolved'] += (int) $data['warranty']['resolved'];
+                $warranty['rows'] = $warranty['rows']->concat($data['warranty']['rows']);
+            }
+        }
+
+        return ['projects' => $projects->values(), 'evidence' => $evidence->values(), 'warranty' => $warranty];
+    }
+
+    /**
+     * Trạng thái các điểm liên kết dữ liệu CRM của bộ KPI (chỉ đọc).
+     * status: connected (đã liên kết, có dữ liệu kỳ này) | empty (đã liên kết, kỳ này chưa có dữ liệu)
+     *         | missing (chưa có nguồn / chưa liên kết với công trình–kỹ sư).
+     */
+    private function kpiSourceStatus(array $months): array
+    {
+        $evidenceCount = function (string $column) use ($months): ?int {
+            if (! $this->hasColumn('technical_kpi_project_evidence', $column)) {
+                return null;
+            }
+
+            return (int) DB::table('technical_kpi_project_evidence')
+                ->whereIn('payroll_month', $months)
+                ->whereNotNull('approved_at')
+                ->whereNotNull($column)
+                ->count();
+        };
+        $state = fn (?int $count) => $count === null ? 'missing' : ($count > 0 ? 'connected' : 'empty');
+
+        $assignments = 0;
+        if ($this->hasColumn('project_workflow_assignments', 'user_id')) {
+            $assignments += (int) DB::table('project_workflow_assignments')
+                ->when($this->hasColumn('project_workflow_assignments', 'is_active'), fn ($q) => $q->where('is_active', 1))
+                ->count();
+        }
+        if ($this->hasColumn('sites', 'lead_engineer_id')) {
+            $assignments += (int) DB::table('sites')->whereNotNull('lead_engineer_id')->count();
+        }
+        $hasAssignmentSource = $this->tableExists('project_workflow_assignments') || $this->hasColumn('sites', 'lead_engineer_id');
+
+        $datesCount = $this->hasColumn('sites', 'target_completion_at') && $this->hasColumn('sites', 'completed_at')
+            ? (int) DB::table('sites')->whereNotNull('target_completion_at')->whereNotNull('completed_at')->count()
+            : null;
+
+        $acceptanceCount = $this->hasColumn('project_workflow_steps', 'step_code')
+            ? (int) DB::table('project_workflow_steps')->where('step_code', 'acceptance')->count()
+            : null;
+
+        $warrantyCount = $this->hasColumn('crm_serial_warranty_claims', 'assigned_to') && $this->hasColumn('crm_serial_warranty_claims', 'resolved_at')
+            ? (int) DB::table('crm_serial_warranty_claims')->whereNotNull('assigned_to')->count()
+            : null;
+
+        return [
+            [
+                'label' => 'Phân công kỹ sư – công trình',
+                'criteria' => 'Điều kiện chung',
+                'where' => 'Phân công workflow công trình / kỹ sư phụ trách chính',
+                'status' => $hasAssignmentSource ? ($assignments > 0 ? 'connected' : 'empty') : 'missing',
+                'note' => $assignments > 0 ? $assignments.' lượt phân công' : 'Chưa có công trình nào gán kỹ sư — mọi tiêu chí sẽ thiếu dữ liệu',
+            ],
+            [
+                'label' => 'Ngày kế hoạch và ngày hoàn thành',
+                'criteria' => 'Tiêu chí 1',
+                'where' => 'Hạn bước workflow / hạn hoàn thành & ngày hoàn thành công trình',
+                'status' => $state($datesCount),
+                'note' => $datesCount === null ? 'Chưa có cột ngày' : $datesCount.' công trình có đủ hai ngày',
+            ],
+            [
+                'label' => 'Trạng thái nghiệm thu',
+                'criteria' => 'Tiêu chí 1, 2',
+                'where' => 'Bước nghiệm thu (workflow) + minh chứng "nghiệm thu lần đầu"',
+                'status' => $state($evidenceCount('quality_first_pass')),
+                'note' => ($acceptanceCount ?? 0).' bước nghiệm thu · '.((int) $evidenceCount('quality_first_pass')).' minh chứng đã duyệt trong kỳ',
+            ],
+            [
+                'label' => 'Số lần sửa / rework',
+                'criteria' => 'Tiêu chí 2',
+                'where' => '—',
+                'status' => 'missing',
+                'note' => 'Chưa có nguồn dữ liệu đếm số lần sửa theo công trình',
+            ],
+            [
+                'label' => 'Phản ánh khách hàng',
+                'criteria' => 'Tiêu chí 2',
+                'where' => $this->tableExists('crm_customer_ratings') ? 'Đánh giá khách hàng (CRM)' : '—',
+                'status' => 'missing',
+                'note' => $this->tableExists('crm_customer_ratings')
+                    ? 'Có bảng đánh giá khách hàng nhưng chưa gắn với công trình/kỹ sư'
+                    : 'Chưa có nguồn dữ liệu phản ánh',
+            ],
+            [
+                'label' => 'Dữ liệu khảo sát và vật tư',
+                'criteria' => 'Tiêu chí 3',
+                'where' => 'Minh chứng KPI công trình · % sai lệch/hao hụt vật tư',
+                'status' => $state($evidenceCount('material_waste_percent')),
+                'note' => ((int) $evidenceCount('material_waste_percent')).' minh chứng đã duyệt trong kỳ',
+            ],
+            [
+                'label' => 'Checklist an toàn / HSE',
+                'criteria' => 'Tiêu chí 4',
+                'where' => 'Minh chứng KPI công trình · checklist HSE',
+                'status' => $state($evidenceCount('hse_pass')),
+                'note' => ((int) $evidenceCount('hse_pass')).' minh chứng đã duyệt trong kỳ',
+            ],
+            [
+                'label' => 'Trạng thái EVN và cài App',
+                'criteria' => 'Tiêu chí 5',
+                'where' => 'Minh chứng KPI công trình · EVN/App',
+                'status' => $state($evidenceCount('evn_app_required')),
+                'note' => ((int) $evidenceCount('evn_app_required')).' minh chứng đã duyệt trong kỳ',
+            ],
+            [
+                'label' => 'Phiếu bảo hành và thời gian xử lý',
+                'criteria' => 'Tiêu chí 6 (chờ xác nhận)',
+                'where' => $warrantyCount === null ? '—' : 'Phiếu bảo hành serial (người xử lý, ngày tiếp nhận, ngày xử lý)',
+                'status' => $warrantyCount === null ? 'missing' : ($warrantyCount > 0 ? 'connected' : 'empty'),
+                'note' => $warrantyCount === null ? 'Chưa có nguồn' : $warrantyCount.' phiếu đã gán kỹ sư · chưa dùng để tính điểm',
+            ],
+        ];
     }
 
     /**

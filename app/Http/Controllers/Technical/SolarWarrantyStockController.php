@@ -241,19 +241,35 @@ class SolarWarrantyStockController extends Controller
     private function assertCompany(int $companyId, Request $request): void
     {
         $current = EgoCompanyScope::currentId();
-        if ($current > 0 && $companyId > 0 && $current !== $companyId && ! SolarMaintenanceAccess::isAdmin($request->user())) {
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        if ($companyId <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        if ($current !== $companyId) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
     }
 
     private function assertSerialCompany(object $serial, int $companyId, Request $request): void
     {
-        if ($companyId <= 0 || SolarMaintenanceAccess::isAdmin($request->user())) {
-            return;
+        $current = EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            throw ValidationException::withMessages(['serial_code' => 'Phiên làm việc không có công ty.']);
+        }
+        if ($companyId <= 0) {
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không xác định công ty.']);
+        }
+        if ($current !== $companyId) {
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không thuộc công ty đang làm việc.']);
         }
 
         $serialCompanyId = (int) ($serial->state_company_id ?? 0);
-        if ($serialCompanyId > 0 && $serialCompanyId !== $companyId) {
+        if ($serialCompanyId <= 0) {
+            throw ValidationException::withMessages(['serial_code' => 'Serial đã chọn không xác định công ty.']);
+        }
+        if ($serialCompanyId !== $companyId) {
             throw ValidationException::withMessages([
                 'serial_code' => 'Serial đã chọn đang thuộc công ty khác.',
             ]);
@@ -262,8 +278,15 @@ class SolarWarrantyStockController extends Controller
 
     private function assertWarehouseCompany(Warehouse $warehouse, int $companyId): void
     {
+        $current = EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Phiên làm việc không có công ty.']);
+        }
         if ($companyId <= 0) {
-            return;
+            throw ValidationException::withMessages(['warehouse_id' => 'Yêu cầu không xác định công ty.']);
+        }
+        if ($current !== $companyId) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Yêu cầu không thuộc công ty đang làm việc.']);
         }
 
         $directCompanyId = (int) ($warehouse->company_id ?? 0);
@@ -276,9 +299,12 @@ class SolarWarrantyStockController extends Controller
         }
 
         $hasExplicitOwnership = $directCompanyId > 0 || $pivotCompanyIds->isNotEmpty();
-        $belongsToCompany = $directCompanyId === $companyId || $pivotCompanyIds->contains($companyId);
+        if (!$hasExplicitOwnership) {
+            throw ValidationException::withMessages(['warehouse_id' => 'Kho đã chọn không xác định công ty.']);
+        }
 
-        if ($hasExplicitOwnership && ! $belongsToCompany) {
+        $belongsToCompany = $directCompanyId === $companyId || $pivotCompanyIds->contains($companyId);
+        if (! $belongsToCompany) {
             throw ValidationException::withMessages([
                 'warehouse_id' => 'Kho đã chọn không thuộc công ty của công trình.',
             ]);

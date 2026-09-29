@@ -67,6 +67,11 @@ class EnforcePageAccess
                 'hr.attendance.checkin',
                 'hr.attendance.checkout',
                 'hr.attendance.guide.*',
+                // Sửa chấm công tự phục vụ: KHÔNG dùng wildcard để không mở approve/reject (chỉ role hr).
+                'hr.attendance-corrections.index',
+                'hr.attendance-corrections.store',
+                'hr.attendance-corrections.cancel',
+                'hr.attendance-corrections.attachments.download',
                 'hr.leave.index',
                 'hr.leave.create',
                 'hr.leave.store',

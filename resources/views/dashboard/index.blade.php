@@ -140,7 +140,7 @@
         <section class="exec-kpis" aria-label="Chỉ số điều hành chính">
             <article class="exec-kpi exec-kpi--revenue">
                 <div class="exec-kpi__top">
-                    <span class="exec-kpi__label">Doanh thu</span>
+                    <span class="exec-kpi__label" title="Thương mại: đơn đã xuất kho trong kỳ (theo ngày xuất kho). Công trình: giá trị HĐ trong kỳ.">Doanh thu</span>
                     <span class="exec-change {{ $changeClass($data['kpis']['revenue']['change']) }}">
                         <i class="bi {{ ($data['kpis']['revenue']['change'] ?? 0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
                         {{ $changeLabel($data['kpis']['revenue']['change']) }}
@@ -156,18 +156,18 @@
 
             <article class="exec-kpi exec-kpi--collected">
                 <div class="exec-kpi__top">
-                    <span class="exec-kpi__label">Tiền đã thu</span>
+                    <span class="exec-kpi__label">Tiền đã thu trong kỳ</span>
                     <span class="exec-change {{ $changeClass($data['kpis']['collected']['change']) }}">
                         <i class="bi {{ ($data['kpis']['collected']['change'] ?? 0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
                         {{ $changeLabel($data['kpis']['collected']['change']) }}
                     </span>
                 </div>
                 <strong class="exec-kpi__value">{{ $money($data['kpis']['collected']['value']) }}</strong>
-                <div class="exec-kpi__progress" aria-label="Tỷ lệ thu tiền">
+                <div class="exec-kpi__progress" aria-label="Tỷ lệ thu của doanh thu ghi nhận">
                     <span style="width: {{ min(100, $data['kpis']['collected']['rate']) }}%"></span>
                 </div>
                 <div class="exec-kpi__meta">
-                    <span>Tỷ lệ thu {{ $percent($data['kpis']['collected']['rate']) }}</span>
+                    <span title="Tiền đã trả của chính các đơn/công trình ghi nhận doanh thu trong kỳ ÷ doanh thu ghi nhận">Tỷ lệ thu của doanh thu ghi nhận {{ $percent($data['kpis']['collected']['rate']) }}</span>
                     <span>Kỳ trước {{ $money($data['kpis']['collected']['previous']) }}</span>
                 </div>
             </article>
@@ -195,10 +195,6 @@
             <article class="exec-kpi exec-kpi--operations">
                 <div class="exec-kpi__top">
                     <span class="exec-kpi__label">Đơn hàng & công trình</span>
-                    <span class="exec-change {{ $data['kpis']['operations']['at_risk'] > 0 ? 'negative' : 'positive' }}">
-                        <i class="bi {{ $data['kpis']['operations']['at_risk'] > 0 ? 'bi-exclamation-triangle' : 'bi-check2-circle' }}"></i>
-                        {{ $number($data['kpis']['operations']['at_risk']) }} cần xử lý
-                    </span>
                 </div>
                 <strong class="exec-kpi__value exec-kpi__value--count">
                     {{ $number($data['kpis']['operations']['orders']) }} đơn · {{ $number($data['kpis']['operations']['sites']) }} CT
@@ -207,7 +203,6 @@
                     <span>Đơn hàng <b>{{ $number($data['kpis']['operations']['orders']) }}</b></span>
                     <span>Công trình <b>{{ $number($data['kpis']['operations']['sites']) }}</b></span>
                 </div>
-                <small>Giá trị liên quan rủi ro: {{ $money($data['kpis']['operations']['at_risk_value']) }}</small>
             </article>
         </section>
 
@@ -457,7 +452,7 @@
                 <div class="exec-section__header exec-section__header--compact">
                     <div>
                         <h2>Hiệu quả đội ngũ</h2>
-                        <p>So sánh doanh thu, thu tiền và công nợ phát sinh.</p>
+                        <p>Doanh thu ghi nhận (xuất kho) trong kỳ, tiền đã trả của các đơn đó và công nợ hiện tại.</p>
                     </div>
                 </div>
                 @if(count($data['team']))

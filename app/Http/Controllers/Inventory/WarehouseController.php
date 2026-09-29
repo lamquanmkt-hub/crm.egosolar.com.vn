@@ -29,16 +29,11 @@ class WarehouseController extends Controller
         $companies = Company::query()->orderBy('name')->get();
         $query = Warehouse::query()->with(['companies', 'manager'])->orderByDesc('id');
 
-        $selectedCompanyIds = request()->input('company_ids', []);
-        if (is_string($selectedCompanyIds)) {
-            $selectedCompanyIds = array_filter(explode(',', $selectedCompanyIds));
-        }
+        $selectedCompanyIds = [\App\Support\EgoCompanyLock::id()];
 
-        if (! empty($selectedCompanyIds) && is_array($selectedCompanyIds)) {
-            $query->whereHas('companies', function ($q) use ($selectedCompanyIds) {
-                $q->whereIn('companies.id', $selectedCompanyIds);
-            });
-        }
+        $query->whereHas('companies', function ($q) use ($selectedCompanyIds) {
+            $q->whereIn('companies.id', $selectedCompanyIds);
+        });
 
         $warehouses = $query->paginate(20)->withQueryString();
 
@@ -55,10 +50,7 @@ class WarehouseController extends Controller
     public function store(WarehouseRequest $request)
     {
         $data = $request->validated();
-        $companyIds = $request->input('company_ids', []);
-        if (is_string($companyIds)) {
-            $companyIds = array_filter(explode(',', $companyIds));
-        }
+        $companyIds = [\App\Support\EgoCompanyLock::id()];
 
         $warehouse = $this->service->create($data);
         $warehouse->companies()->sync($companyIds);
@@ -77,10 +69,7 @@ class WarehouseController extends Controller
     public function update(WarehouseRequest $request, Warehouse $warehouse)
     {
         $data = $request->validated();
-        $companyIds = $request->input('company_ids', []);
-        if (is_string($companyIds)) {
-            $companyIds = array_filter(explode(',', $companyIds));
-        }
+        $companyIds = [\App\Support\EgoCompanyLock::id()];
 
         $this->service->update($warehouse, $data);
         $warehouse->companies()->sync($companyIds);
@@ -107,6 +96,10 @@ class WarehouseController extends Controller
 
         $query = Product::query();
 
+        if (Schema::hasColumn($productTable, 'company_id')) {
+            $query->where($productTable.'.company_id', \App\Support\EgoCompanyLock::id());
+        }
+
         if (Schema::hasColumn($productTable, 'is_active')) {
             $query->where(function ($q) {
                 $q->where('is_active', 1)->orWhereNull('is_active');
@@ -130,6 +123,7 @@ class WarehouseController extends Controller
                 $sub->from('crm_product_stock as s')
                     ->selectRaw('COALESCE(SUM(s.qty), 0)')
                     ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.company_id', \App\Support\EgoCompanyLock::id())
                     ->where('s.warehouse_id', $warehouse->id);
             }, 'warehouse_qty');
 
@@ -138,6 +132,7 @@ class WarehouseController extends Controller
                 $sub->from('crm_product_stock as s')
                     ->selectRaw('MAX(s.updated_at)')
                     ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.company_id', \App\Support\EgoCompanyLock::id())
                     ->where('s.warehouse_id', $warehouse->id);
             }, 'last_stock_updated');
         } elseif (Schema::hasColumn('crm_product_stock', 'last_updated')) {
@@ -145,6 +140,7 @@ class WarehouseController extends Controller
                 $sub->from('crm_product_stock as s')
                     ->selectRaw('MAX(s.last_updated)')
                     ->whereColumn('s.product_id', $productTable.'.id')
+                    ->where('s.company_id', \App\Support\EgoCompanyLock::id())
                     ->where('s.warehouse_id', $warehouse->id);
             }, 'last_stock_updated');
         } else {

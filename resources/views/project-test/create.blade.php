@@ -65,10 +65,7 @@
                         <option value="low" @selected(old('priority')==='low')>Thấp</option>
                     </select>
                 </div>
-                <div>
-                    <label class="pt-label">Công ty</label>
-                    <select class="pt-select" name="company_id"><option value="">-- Công ty hiện tại --</option>@foreach($companies as $company)<option value="{{ $company->id }}" @selected((int)old('company_id',$activeCompanyId)===(int)$company->id)>{{ $company->name }}</option>@endforeach</select>
-                </div>
+
                 <div>
                     <label class="pt-label">Người phụ trách khách hàng</label>
                     <select class="pt-select" name="sales_user_id"><option value="">-- Không bắt buộc --</option>@foreach($salesUsers as $user)<option value="{{ $user->id }}" @selected((int)old('sales_user_id',$defaultSalesId)===(int)$user->id)>{{ $user->name }}</option>@endforeach</select>

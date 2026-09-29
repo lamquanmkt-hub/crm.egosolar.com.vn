@@ -7,19 +7,21 @@ badges, workspace filtering and submenu markup.
 */
 
 :root {
-    --misa-sb-width: 184px;
-    --misa-sb-collapsed: 58px;
-    --misa-sb-border: #e6e9ef;
-    --misa-sb-text: #39475a;
-    --misa-sb-muted: #7d899a;
-    --misa-sb-hover: #f5f6fa;
-    --misa-sb-active: #eef0ff;
-    --misa-sb-active-text: #4d56d7;
-    --misa-sb-purple: #5b63df;
+    --misa-sb-width: var(--app-sidebar-width, 184px);
+    --misa-sb-collapsed: var(--app-sidebar-collapsed, 58px);
+    --misa-sb-border: var(--color-slate-200, #e2e8f0);
+    --misa-sb-text: var(--color-slate-700, #334155);
+    --misa-sb-muted: var(--color-slate-500, #64748b);
+    --misa-sb-hover: var(--color-slate-50, #f8fafc);
+    --misa-sb-active: var(--color-blue-50, #eff6ff);
+    --misa-sb-active-text: var(--color-blue-700, #1d4ed8);
+    --misa-sb-purple: var(--color-blue-600, #2563eb);
     --ego-sb: var(--misa-sb-width);
     --ego-sb-collapsed: var(--misa-sb-collapsed);
     --ego-w: var(--misa-sb-width);
     --ego-wc: var(--misa-sb-collapsed);
+    
+    font-family: var(--font-primary, system-ui, sans-serif);
 }
 
 /* ==========================================================================
@@ -427,12 +429,14 @@ html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
    ========================================================================== */
 
 @media (max-width: 991.98px) {
+    #sidebar.ego-sidebar,
     html.crm-misa-sidebar-ready body #sidebar.ego-sidebar {
         position: fixed !important;
         top: 0 !important;
         bottom: 0 !important;
-        left: 0 !important;
-        z-index: 4500 !important;
+        left: -110% !important;
+        z-index: 1030 !important;
+        pointer-events: auto !important;
         width: min(86vw, 300px) !important;
         min-width: 0 !important;
         max-width: 300px !important;
@@ -441,6 +445,32 @@ html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
         max-height: 100dvh !important;
         flex-basis: auto !important;
         box-shadow: 18px 0 42px rgba(25, 39, 64, .18) !important;
+        transition: left .25s ease !important;
+    }
+
+    #sidebar.ego-sidebar.show,
+    html.crm-misa-sidebar-ready body #sidebar.ego-sidebar.show {
+        left: 0 !important;
+        pointer-events: auto !important;
+    }
+
+    .ego-sidebar-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(0, 0, 0, .45) !important;
+        z-index: 1029 !important;
+        pointer-events: none !important;
+        display: none !important;
+    }
+
+    .ego-sidebar-overlay.show {
+        display: block !important;
+        pointer-events: auto !important;
+    }
+
+    .crm-topbar__backdrop,
+    .crm-topbar__backdrop.is-open {
+        z-index: 1028 !important;
     }
 
     html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__header {
@@ -528,7 +558,7 @@ html.crm-misa-sidebar-ready body #sidebar.ego-sidebar .ego-sidebar__footer {
 
 .crm-misa-flyout {
     position: fixed;
-    z-index: 5000;
+    z-index: var(--z-popover, 1060);
     display: none;
     width: 238px;
     max-height: min(72vh, 590px);
