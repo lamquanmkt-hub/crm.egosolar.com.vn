@@ -17,6 +17,11 @@ Route::middleware(['auth', 'permission:ai.use'])
         Route::post('/messages', 'send')->middleware('throttle:30,1')->name('messages.send');
     });
 
+// Trợ lý hướng dẫn sử dụng (chatbox nổi): mọi tài khoản đăng nhập, chỉ hướng dẫn thao tác, không đọc dữ liệu kinh doanh.
+Route::middleware(['auth', 'throttle:20,1'])
+    ->post('/ai/tro-giup', [\App\Http\Controllers\AI\AiHelpController::class, 'ask'])
+    ->name('ai.help.ask');
+
 Route::middleware(['auth', 'role:admin'])
     ->prefix('cai-dat/ai-api')
     ->name('admin.settings.ai.')

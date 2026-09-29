@@ -101,6 +101,8 @@
 <script src="{{ asset('js/ego-smart-search.js') }}?v={{ file_exists(public_path('js/ego-smart-search.js')) ? filemtime(public_path('js/ego-smart-search.js')) : '1.0.0' }}" defer></script>
 {{-- EGO_SMART_SEARCH_JS_END --}}
 @include('partials.mobile-ui-v5')
+{{-- EGO_AI_HELP_WIDGET: trợ lý hướng dẫn sử dụng (nút nổi góc phải) --}}
+@include('partials.ai-help-widget')
 
 </body>
 </html>
