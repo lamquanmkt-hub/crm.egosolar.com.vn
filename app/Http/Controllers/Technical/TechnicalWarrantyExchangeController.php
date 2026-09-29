@@ -294,6 +294,8 @@ class TechnicalWarrantyExchangeController extends Controller
             'defer_return' => $isLead && $status === 'waiting_faulty_return' && $claim->faulty_return_status !== 'deferred' && $claim->faulty_return_status !== 'returned',
             'complete' => $isLead && in_array($status, ['faulty_returned', 'waiting_faulty_return'], true),
             'evidence' => (SolarMaintenanceAccess::isManager($user) || $isAssigned) && \App\Support\Warranty\WarrantyFlow::isOpen($status),
+            // Phân công / đổi người phụ trách: chỉ Trưởng phòng KT/Giám đốc/Admin, khi phiếu còn mở.
+            'assign' => $isLead && \App\Support\Warranty\WarrantyFlow::isOpen($status),
         ];
 
         return view('technical.warranty-exchange.show', [
@@ -315,6 +317,8 @@ class TechnicalWarrantyExchangeController extends Controller
             'priorClaims' => DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $claim->serial_unit_id)->where('id', '<>', $claim->id)->whereNull('deleted_at')
                 ->orderByDesc('id')->limit(10)->get(['id', 'claim_code', 'claim_type', 'status', 'created_at']),
             'can' => $can,
+            // Danh sách để phân công (khi duyệt phiếu chưa có người phụ trách, hoặc đổi người phụ trách).
+            'technicians' => $can['assign'] ? app(SolarMaintenanceQueryService::class)->technicalUsers() : collect(),
             'canViewCosts' => SolarMaintenanceAccess::canViewMaintenanceCosts($user),
             'canViewInternal' => SolarMaintenanceAccess::canViewTechnicalInternal($user),
             'faultyConditions' => \App\Support\Warranty\WarrantyFlow::FAULTY_CONDITIONS,
@@ -484,7 +488,8 @@ class TechnicalWarrantyExchangeController extends Controller
         $this->assertCompany((int) ($claim->company_id ?: $claim->site?->company_id), $request);
 
         if (SolarMaintenanceAccess::isTechnicianOnly($request->user())) {
-            abort_unless((int) $claim->assigned_to === (int) $request->user()->id, 403);
+            // Kỹ thuật viên xem phiếu mình phụ trách hoặc phiếu mình tạo (kể cả khi đã được chuyển cho người khác).
+            abort_unless(in_array((int) $request->user()->id, [(int) $claim->assigned_to, (int) $claim->created_by], true), 403);
         }
     }
 
@@ -527,7 +532,7 @@ class TechnicalWarrantyExchangeController extends Controller
         }
 
         if (SolarMaintenanceAccess::isTechnicianOnly($user)) {
-            $query->where('assigned_to', $user->id);
+            $query->where(fn (Builder $mine) => $mine->where('assigned_to', $user->id)->orWhere('created_by', $user->id));
         }
 
         return $query;

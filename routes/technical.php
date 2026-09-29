@@ -65,6 +65,7 @@ Route::middleware(['auth'])
                 Route::controller(\App\Http\Controllers\Technical\WarrantyExchangeWorkflowController::class)
                     ->prefix('/{claim}')->whereNumber('claim')->group(function (): void {
                         Route::post('/duyet', 'approve')->name('approve');
+                        Route::post('/phan-cong', 'assign')->name('assign');
                         Route::post('/yeu-cau-bo-sung', 'requestInfo')->name('request-info');
                         Route::post('/tu-choi', 'reject')->name('reject');
                         Route::post('/gui-lai', 'resubmit')->name('resubmit');

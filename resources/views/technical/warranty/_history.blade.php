@@ -1,7 +1,7 @@
 @php
     $wxActionLabels = [
         'received' => 'Tiếp nhận', 'eligibility_check' => 'Kiểm tra serial & bảo hành', 'create' => 'Tạo đề xuất', 'exception_requested' => 'Đề nghị ngoại lệ',
-        'approve' => 'Duyệt', 'approve_override' => 'Duyệt (override)', 'to_warehouse' => 'Chuyển Kho', 'request_info' => 'Yêu cầu bổ sung', 'reject' => 'Từ chối',
+        'approve' => 'Duyệt', 'approve_override' => 'Duyệt (override)', 'assign' => 'Phân công phụ trách', 'reassign' => 'Đổi người phụ trách', 'to_warehouse' => 'Chuyển Kho', 'request_info' => 'Yêu cầu bổ sung', 'reject' => 'Từ chối',
         'resubmit' => 'Gửi duyệt lại', 'reopen' => 'Mở lại', 'cancel' => 'Hủy phiếu', 'reserve' => 'Kho giữ hàng', 'swap_reservation' => 'Đổi serial giữ hàng',
         'release_reservation' => 'Nhả hàng', 'release_reservation_detail' => 'Nhả giữ hàng (chi tiết)', 'issue' => 'Kho xuất kho', 'tech_receive' => 'Kỹ thuật nhận hàng',
         'start_replacing' => 'Bắt đầu thay', 'confirm_replaced' => 'Xác nhận đã thay', 'faulty_return' => 'Thu hồi thiết bị lỗi', 'faulty_return_late' => 'Thu hồi muộn',

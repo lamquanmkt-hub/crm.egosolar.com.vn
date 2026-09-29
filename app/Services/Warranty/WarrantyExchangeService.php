@@ -156,15 +156,24 @@ final class WarrantyExchangeService
     }
     // ------------------------------------------------------------------ duyệt
 
-    public function approve(int $claimId, User $actor, ?string $note = null, ?string $overrideReason = null): SolarWarrantyClaim
+    /**
+     * Duyệt đề xuất. Phiếu chưa có người phụ trách thì BẮT BUỘC chọn $assigneeId ngay khi duyệt,
+     * để phiếu không đi tiếp sang Kho/Kỹ thuật mà không ai nhận việc.
+     */
+    public function approve(int $claimId, User $actor, ?string $note = null, ?string $overrideReason = null, ?int $assigneeId = null): SolarWarrantyClaim
     {
-        return DB::transaction(function () use ($claimId, $actor, $note, $overrideReason) {
+        return DB::transaction(function () use ($claimId, $actor, $note, $overrideReason, $assigneeId) {
             $c = $this->lock($claimId);
             $this->requireLead($actor);
             $this->requireStatus($c, ['pending_approval']);
 
+            // Người phụ trách sau khi duyệt: giữ người hiện tại, hoặc người được chọn nếu phiếu chưa phân công.
+            $needsAssignee = ! (int) $c->assigned_to;
+            $assignee = $needsAssignee ? (int) $assigneeId : (int) $c->assigned_to;
+
+            // Kiểm tra tự duyệt TRƯỚC (tính cả người phụ trách dự kiến) để lỗi thẩm quyền luôn được báo đúng.
             $self = in_array((int) $actor->id, array_filter([
-                (int) $c->created_by, (int) $c->assigned_to, (int) $c->exception_requested_by,
+                (int) $c->created_by, $assignee, (int) $c->exception_requested_by,
             ]), true);
             $override = false;
             if ($self) {
@@ -176,6 +185,13 @@ final class WarrantyExchangeService
                     throw new WarrantyException('Tự duyệt (emergency override) bắt buộc nhập lý do.');
                 }
                 $override = true;
+            }
+
+            if ($needsAssignee) {
+                if ($assignee <= 0) {
+                    throw new WarrantyException('Phiếu chưa có người phụ trách. Vui lòng chọn kỹ thuật viên phụ trách khi duyệt.');
+                }
+                $this->applyAssignment($c, $actor, $assignee, null);
             }
 
             $before = ['status' => $c->status, 'approved_by' => $c->approved_by];
@@ -206,6 +222,75 @@ final class WarrantyExchangeService
 
             return $c;
         });
+    }
+
+    // ------------------------------------------------------------------ phân công
+
+    /**
+     * Phân công / đổi kỹ thuật viên phụ trách. Chỉ Trưởng phòng Kỹ thuật/Giám đốc/Admin, khi phiếu còn mở.
+     * Đổi từ người đang phụ trách sang người khác bắt buộc có lý do. Không đổi trạng thái phiếu.
+     */
+    public function assign(int $claimId, User $actor, int $assigneeId, ?string $reason = null): SolarWarrantyClaim
+    {
+        return DB::transaction(function () use ($claimId, $actor, $assigneeId, $reason) {
+            $c = $this->lock($claimId);
+            $this->requireLead($actor);
+            if (! WarrantyFlow::isOpen((string) $c->status)) {
+                throw new WarrantyException('Phiếu đã đóng, không thể phân công.');
+            }
+            $this->applyAssignment($c, $actor, $assigneeId, $reason);
+
+            return $c;
+        });
+    }
+
+    /** Ghi người phụ trách + audit + thông báo. Gọi bên trong transaction đã khóa phiếu. */
+    private function applyAssignment(SolarWarrantyClaim $c, User $actor, int $assigneeId, ?string $reason): void
+    {
+        $assignee = $this->assignableTechnician($c, $assigneeId);
+        $oldId = (int) $c->assigned_to;
+        if ($oldId === (int) $assignee->id) {
+            throw new WarrantyException('Kỹ thuật viên này đang là người phụ trách phiếu.');
+        }
+
+        $reason = trim((string) $reason);
+        if ($oldId > 0 && mb_strlen($reason) < $this->minReason()) {
+            throw new WarrantyException('Đổi người phụ trách bắt buộc nhập lý do (tối thiểu '.$this->minReason().' ký tự).');
+        }
+
+        $before = ['assigned_to' => $c->assigned_to, 'assigned_name' => $c->assigned_name];
+        DB::table('crm_serial_warranty_claims')->where('id', $c->id)->update([
+            'assigned_to' => $assignee->id,
+            'assigned_name' => $assignee->name,
+            'updated_at' => now(),
+        ]);
+        $c->refresh();
+
+        $status = (string) $c->status;
+        WarrantyAudit::log((int) $c->id, $oldId > 0 ? 'reassign' : 'assign', $status, $status, $before,
+            ['assigned_to' => $c->assigned_to, 'assigned_name' => $c->assigned_name], $reason ?: null, (int) $actor->id);
+
+        $this->notifyUser($c, (int) $assignee->id, 'assigned', 'Bạn được phân công phụ trách phiếu đổi hàng', $c->claim_code.' — serial '.$c->serial_code);
+        if ($oldId > 0) {
+            $this->notifyUser($c, $oldId, 'unassigned', 'Phiếu đã chuyển cho kỹ thuật viên khác', $c->claim_code.' → '.$assignee->name.($reason !== '' ? ': '.$reason : ''));
+        }
+    }
+
+    /** Người được phân công phải là kỹ thuật viên đang hoạt động và cùng công ty với phiếu. */
+    private function assignableTechnician(SolarWarrantyClaim $c, int $assigneeId): User
+    {
+        $assignee = User::query()->find($assigneeId);
+        if (! $assignee || ! SolarMaintenanceAccess::isSelectableTechnician($assignee)) {
+            throw new WarrantyException('Người phụ trách phải là nhân sự kỹ thuật đang hoạt động.');
+        }
+
+        $companyId = (int) $c->company_id;
+        if ($companyId > 0 && SchemaCache::hasColumn('users', 'company_id')
+            && (int) ($assignee->company_id ?? 0) > 0 && (int) $assignee->company_id !== $companyId) {
+            throw new WarrantyException('Người phụ trách không thuộc công ty của phiếu.');
+        }
+
+        return $assignee;
     }
 
     public function requestInfo(int $claimId, User $actor, string $reason): SolarWarrantyClaim

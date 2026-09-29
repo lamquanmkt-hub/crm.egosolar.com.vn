@@ -26,9 +26,30 @@ class WarrantyExchangeWorkflowController extends Controller
 
     public function approve(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
-        $d = $r->validate(['approval_note' => ['nullable', 'string', 'max:5000'], 'override_reason' => ['nullable', 'string', 'max:2000']]);
+        $d = $r->validate([
+            'approval_note' => ['nullable', 'string', 'max:5000'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
+            'assigned_to' => ['nullable', 'integer'],
+        ]);
 
-        return $this->run($claim, 'Đã duyệt và chuyển Kho xử lý.', fn () => $this->service->approve($claim->id, $r->user(), $d['approval_note'] ?? null, $d['override_reason'] ?? null));
+        return $this->run($claim, 'Đã duyệt và chuyển Kho xử lý.', fn () => $this->service->approve(
+            $claim->id,
+            $r->user(),
+            $d['approval_note'] ?? null,
+            $d['override_reason'] ?? null,
+            isset($d['assigned_to']) ? (int) $d['assigned_to'] : null
+        ));
+    }
+
+    /** Phân công / đổi kỹ thuật viên phụ trách — chỉ Trưởng phòng Kỹ thuật/Giám đốc/Admin (kiểm tra lại trong service). */
+    public function assign(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
+    {
+        $d = $r->validate([
+            'assigned_to' => ['required', 'integer'],
+            'reason' => ['nullable', 'string', 'max:2000'],
+        ], ['assigned_to.required' => 'Vui lòng chọn kỹ thuật viên phụ trách.']);
+
+        return $this->run($claim, 'Đã cập nhật người phụ trách.', fn () => $this->service->assign($claim->id, $r->user(), (int) $d['assigned_to'], $d['reason'] ?? null));
     }
 
     public function requestInfo(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
