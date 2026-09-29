@@ -167,7 +167,28 @@ final class TechnicalKpiMonthlyInputTest extends TestCase
 
     // ------------------------------------------------------------------ tiền lương
 
-    public function test_salary_comes_from_kpi_settings_and_draft_payroll_is_ignored(): void
+    public function test_salary_falls_back_to_previously_entered_payroll_then_official_salary(): void
+    {
+        $this->config();
+        $this->inputs($this->allPerfect());
+
+        // Lương chính thức trong hồ sơ nhân viên (nguồn cũ).
+        DB::table('users')->where('id', $this->engineer->id)->update(['official_salary' => 9_000_000]);
+        $this->assertEqualsWithDelta(9_000_000, $this->kpiRow()['agreed_salary'], 0.01);
+
+        // Lương đã nhập ở phiếu lương KPI trước khi có Cài đặt KPI → vẫn được dùng, không bị mất.
+        DB::table('technical_kpi_payrolls')->insert([
+            'user_id' => $this->engineer->id, 'employee_name' => $this->engineer->name, 'payroll_month' => self::MONTH, 'gross_salary' => 12_000_000, 'status' => 'draft',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->assertEqualsWithDelta(12_000_000, $this->kpiRow()['agreed_salary'], 0.01);
+
+        // Nhập ở Cài đặt KPI thì số mới được ưu tiên.
+        $this->salary(14_000_000, '2026-09');
+        $this->assertEqualsWithDelta(14_000_000, $this->kpiRow()['agreed_salary'], 0.01);
+    }
+
+    public function test_salary_from_kpi_settings_takes_priority_over_draft_payroll(): void
     {
         $this->config();
         $this->salary(15_000_000, '2026-01');

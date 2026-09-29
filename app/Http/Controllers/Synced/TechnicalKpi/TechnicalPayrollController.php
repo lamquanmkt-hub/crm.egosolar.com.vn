@@ -210,21 +210,48 @@ class TechnicalPayrollController extends Controller
     }
 
     /**
-     * Lương thoả thuận nhập ở Cài đặt KPI: bản ghi có tháng hiệu lực gần nhất, không sau tháng đang xét.
+     * Lương thoả thuận của kỹ sư cho tháng đang xét, theo thứ tự ưu tiên:
+     * 1. Cài đặt KPI (technical_kpi_salaries): bản ghi có tháng hiệu lực gần nhất, không sau tháng đang xét.
+     * 2. Nguồn cũ vẫn giữ nguyên để lương đã nhập trước đây không bị "mất":
+     *    phiếu lương KPI của tháng → phiếu lương KPI gần nhất → lương chính thức trong hồ sơ nhân viên.
      */
     public static function kpiAgreedSalary(int $userId, string $month): ?float
     {
-        if (! SchemaCache::hasTable('technical_kpi_salaries')) {
-            return null;
+        $positive = fn ($value) => $value !== null && (float) $value > 0 ? (float) $value : null;
+
+        if (SchemaCache::hasTable('technical_kpi_salaries')) {
+            $value = $positive(DB::table('technical_kpi_salaries')
+                ->where('user_id', $userId)
+                ->where('effective_month', '<=', $month)
+                ->orderByDesc('effective_month')
+                ->value('agreed_salary'));
+            if ($value !== null) {
+                return $value;
+            }
         }
 
-        $value = DB::table('technical_kpi_salaries')
-            ->where('user_id', $userId)
-            ->where('effective_month', '<=', $month)
-            ->orderByDesc('effective_month')
-            ->value('agreed_salary');
+        if (SchemaCache::hasTable('technical_kpi_payrolls') && SchemaCache::hasColumn('technical_kpi_payrolls', 'gross_salary')) {
+            $value = $positive(DB::table('technical_kpi_payrolls')
+                ->where('user_id', $userId)
+                ->where('payroll_month', $month)
+                ->where('gross_salary', '>', 0)
+                ->orderByDesc('id')
+                ->value('gross_salary'))
+                ?? $positive(DB::table('technical_kpi_payrolls')
+                    ->where('user_id', $userId)
+                    ->where('gross_salary', '>', 0)
+                    ->orderByDesc('id')
+                    ->value('gross_salary'));
+            if ($value !== null) {
+                return $value;
+            }
+        }
 
-        return $value !== null && (float) $value > 0 ? (float) $value : null;
+        if (SchemaCache::hasColumn('users', 'official_salary')) {
+            return $positive(DB::table('users')->where('id', $userId)->value('official_salary'));
+        }
+
+        return null;
     }
 
     private function employees(?int $departmentId = null)
