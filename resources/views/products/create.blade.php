@@ -130,6 +130,7 @@
 
 <script>
 (function(){
+    const COMPANY_ID = 2;
     const warehouses = @json($warehouseOptions);
     const oldLines = @json($oldLines);
     const container = document.getElementById('linesContainer');
@@ -147,6 +148,7 @@
         return `<div class="pc-line" data-index="${index}">
             <div class="pc-line-head"><div class="pc-line-name"><span class="pc-line-no">${index+1}</span><span>SKU / Dòng nhập ${index+1}</span></div><button type="button" class="pc-btn pc-btn-danger js-remove"><i class="bi bi-trash3"></i> Xóa</button></div>
             <div class="pc-line-body">
+                <input type="hidden" name="v2_lines[${index}][company_id]" value="${COMPANY_ID}">
                 <div class="pc-line-primary">
                     <div class="pc-field"><label>Mã SKU <span class="pc-required">*</span></label><input class="pc-control js-sku" name="v2_lines[${index}][sku]" value="${esc(data.sku)}" required placeholder="VD: PBSC-001-A"></div>
                     <div class="pc-field"><label>Kho nhập <span class="pc-required">*</span></label><select class="pc-control js-warehouse" name="v2_lines[${index}][warehouse_id]" required>${warehouseOptions(data.warehouse_id)}</select></div>

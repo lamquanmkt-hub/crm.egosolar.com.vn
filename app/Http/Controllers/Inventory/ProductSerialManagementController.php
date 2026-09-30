@@ -51,7 +51,6 @@ class ProductSerialManagementController extends Controller
         $products = Schema::hasTable('crm_product_catalog')
             ? DB::table('crm_product_catalog')
                 ->select('id', 'name', 'sku')
-                ->where('company_id', EgoCompanyLock::id())
                 ->orderBy('name')
                 ->limit(2500)
                 ->get()
@@ -167,7 +166,7 @@ class ProductSerialManagementController extends Controller
             'status' => trim((string) $request->query('status', '')),
             'product_id' => (int) $request->query('product_id', 0),
             'warehouse_id' => (int) $request->query('warehouse_id', 0),
-            'company_id' => \App\Support\EgoCompanyLock::id(),
+            'company_id' => $request->query('company_id', '') === '' ? 0 : (int) $request->query('company_id', 0),
             'warranty' => trim((string) $request->query('warranty', '')),
         ];
     }
@@ -346,28 +345,32 @@ class ProductSerialManagementController extends Controller
 
                 if (Schema::hasColumn('crm_serial_unit_states', 'company_id')) {
                     $hasAnyCompanyColumn = true;
-                    $x->orWhere('st.company_id', $companyId);
+                    $x->orWhere('st.company_id', $companyId)
+                        ->orWhereNull('st.company_id');
                 }
 
                 if (Schema::hasColumn('crm_product_catalog', 'company_id')) {
                     $hasAnyCompanyColumn = true;
-                    $x->orWhere('p.company_id', $companyId);
+                    $x->orWhere('p.company_id', $companyId)
+                        ->orWhereNull('p.company_id');
                 }
 
                 if (Schema::hasColumn('crm_warehouses', 'company_id')) {
                     $hasAnyCompanyColumn = true;
-                    $x->orWhere('w.company_id', $companyId);
+                    $x->orWhere('w.company_id', $companyId)
+                        ->orWhereNull('w.company_id');
                 }
 
                 if (Schema::hasColumn('crm_orders', 'company_id')) {
                     $hasAnyCompanyColumn = true;
-                    $x->orWhere('o.company_id', $companyId);
+                    $x->orWhere('o.company_id', $companyId)
+                        ->orWhereNull('o.company_id');
                 }
 
-                // Fail-closed: Nếu không có cột company_id nào tồn tại,
-                // tuyệt đối không hiển thị toàn bộ data để tránh rò rỉ.
+                // Nếu serial cũ chưa có cột/cấu trúc công ty thì cho hiện toàn bộ,
+                // vì đây là dữ liệu nhập kho cũ.
                 if (! $hasAnyCompanyColumn) {
-                    $x->whereRaw('1 = 0');
+                    $x->whereRaw('1 = 1');
                 }
             });
         }

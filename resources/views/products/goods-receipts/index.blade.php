@@ -954,6 +954,7 @@
 
         <form method="POST" action="{{ route('product-goods-receipts.store') }}" id="goodsReceiptForm">
             @csrf
+            <input type="hidden" name="company_id" value="2">
 
             <div class="gi-form-layout">
                 <div class="gi-form-main">

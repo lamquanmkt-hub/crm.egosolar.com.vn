@@ -1251,10 +1251,16 @@
         });
     }
 
-    function warehouseOptionsHtml(selected){
+    function companyOptionsHtml(selected){
+        return '<option value="">Chọn công ty</option>' + companies.map(c => `<option value="${esc(c.id)}" ${String(selected) === String(c.id) ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+    }
+
+    function warehouseOptionsHtml(companyId, selected){
         let html = '<option value="">Chọn kho</option>';
         warehouses.forEach(w => {
-            html += `<option value="${esc(w.id)}" ${String(selected) === String(w.id) ? 'selected' : ''}>${esc(w.name)}</option>`;
+            if (!companyId || String(w.company_id) === String(companyId)) {
+                html += `<option value="${esc(w.id)}" ${String(selected) === String(w.id) ? 'selected' : ''}>${esc(w.name)}</option>`;
+            }
         });
         return html;
     }
@@ -1383,7 +1389,7 @@
 
         const productId = Number(card.querySelector('[name^="v2_lines"][name$="[product_id]"]')?.value || 0);
         const warehouseId = Number(card.querySelector('.line-warehouse')?.value || 0);
-
+        const companyId = Number(card.querySelector('.line-company')?.value || 0);
         const serials = (card.querySelector('.serial-add-text')?.value || '').trim();
 
         if (!productId) {
@@ -1406,7 +1412,7 @@
         egoSerialPost(url, {
             serials,
             warehouse_id: warehouseId,
-
+            company_id: companyId,
             note: 'Thêm từ màn sửa sản phẩm'
         }, btn)
             .then(json => {
@@ -1429,7 +1435,7 @@
             date: '{{ date('Y-m-d') }}',
             extra: 0,
             note: '',
-
+            company_id: '',
             warehouse_id: ''
         };
 
@@ -1471,7 +1477,8 @@
                     </div>
 
                     <div class="line-grid-3">
-                        <div><label class="ego-label">Chọn kho <b>*</b></label><select class="ego-select line-warehouse" name="v2_lines[${index}][warehouse_id]" required>${warehouseOptionsHtml(val.warehouse_id || '')}</select></div>
+                        <div><label class="ego-label">Chọn công ty <b>*</b></label><select class="ego-select line-company" name="v2_lines[${index}][company_id]" required>${companyOptionsHtml(val.company_id || '')}</select></div>
+                        <div><label class="ego-label">Chọn kho <b>*</b></label><select class="ego-select line-warehouse" name="v2_lines[${index}][warehouse_id]" required>${warehouseOptionsHtml(val.company_id || '', val.warehouse_id || '')}</select></div>
                     </div>
 
                     <div class="line-foot">
@@ -1548,7 +1555,7 @@
                     <td><span class="tag">${idx + 1}</span></td>
                     <td>${esc(item.product_name || productName || '-')}</td>
                     <td><b>${esc(item.sku || '-')}</b></td>
-
+                    <td>${esc(item.company_name || '-')}</td>
                     <td>${esc(item.warehouse_name || '-')}</td>
                     <td>${esc(item.date || '-')}</td>
                     <td class="text-end">${Number(item.cost || 0).toLocaleString('vi-VN')}</td>
@@ -1569,7 +1576,9 @@
         } else {
             rows.forEach((row, idx) => {
                 const sku = row.querySelector('.line-sku').value || '';
+                const companySelect = row.querySelector('.line-company');
                 const warehouseSelect = row.querySelector('.line-warehouse');
+                const companyName = companySelect.options[companySelect.selectedIndex]?.text || '-';
                 const warehouseName = warehouseSelect.options[warehouseSelect.selectedIndex]?.text || '-';
                 const date = row.querySelector('.line-date').value || '-';
                 const cost = n(row.querySelector('.line-cost').value);
@@ -1589,7 +1598,7 @@
                     <td><span class="tag">${idx + 1}</span></td>
                     <td>${esc(productName || '-')}</td>
                     <td><b>${esc(sku || '-')}</b></td>
-
+                    <td>${esc(companyName)}</td>
                     <td>${esc(warehouseName)}</td>
                     <td>${esc(date)}</td>
                     <td class="text-end">${cost.toLocaleString('vi-VN')}</td>
@@ -1619,7 +1628,10 @@
             el.addEventListener('change', updateHistory);
         });
 
-
+        row.querySelector('.line-company').addEventListener('change', function(){
+            row.querySelector('.line-warehouse').innerHTML = warehouseOptionsHtml(this.value || '', '');
+            updateHistory();
+        });
 
         row.querySelector('.btn-remove-line').addEventListener('click', function(){
             if (document.querySelectorAll('.line-card').length <= 1) {
@@ -1650,9 +1662,9 @@
 
     document.getElementById('productEditForm').addEventListener('submit', function(e){
         for (const row of document.querySelectorAll('.line-card')) {
-            if (!row.querySelector('.line-sku').value.trim() || !row.querySelector('.line-warehouse').value) {
+            if (!row.querySelector('.line-sku').value.trim() || !row.querySelector('.line-company').value || !row.querySelector('.line-warehouse').value) {
                 e.preventDefault();
-                alert('Mỗi dòng SKU phải nhập đủ Mã SKU và Kho.');
+                alert('Mỗi dòng SKU phải nhập đủ Mã SKU, Công ty và Kho.');
                 return false;
             }
         }

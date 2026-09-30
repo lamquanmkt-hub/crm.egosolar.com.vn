@@ -7,7 +7,28 @@
         <a href="{{ route('warehouses.create') }}" class="btn btn-primary">+ Thêm kho</a>
     </div>
 
+    {{-- ✅ Filter multi company --}}
+    <form class="card mb-3" method="GET">
+        <div class="card-body d-flex flex-wrap gap-2 align-items-end">
+            <div>
+                <label class="form-label mb-1">Lọc theo công ty</label>
+                <select name="company_ids[]" class="form-select" multiple size="4" style="min-width:320px">
+                    @foreach($companies as $c)
+                        <option value="{{ $c->id }}"
+                            {{ in_array($c->id, $selectedCompanyIds ?? []) ? 'selected' : '' }}>
+                            {{ $c->name }} @if(!empty($c->code)) ({{ $c->code }}) @endif
+                        </option>
+                    @endforeach
+                </select>
+                <div class="small text-muted">Giữ Ctrl/Cmd để chọn nhiều.</div>
+            </div>
 
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-primary" type="submit">Lọc</button>
+                <a class="btn btn-outline-secondary" href="{{ route('warehouses.index') }}">Xóa lọc</a>
+            </div>
+        </div>
+    </form>
 
     <div class="card">
         <div class="card-body p-0">

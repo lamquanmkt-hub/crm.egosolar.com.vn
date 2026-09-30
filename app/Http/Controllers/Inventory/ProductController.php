@@ -243,11 +243,7 @@ class ProductController extends Controller
         | so users can import stock again later.
         */
 
-        if ($companyId <= 0) {
-            abort(403, 'Unauthorized company scope.');
-        }
-
-        $q = Product::query()->where('company_id', $companyId);
+        $q = Product::query();
 
         if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
@@ -288,8 +284,15 @@ class ProductController extends Controller
 
             if ($warehouseId) {
                 $sub->where('s.warehouse_id', $warehouseId);
+            } else {
+                if ($companyId) {
+                    $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
+                        $qq->from('company_warehouse')
+                            ->select('warehouse_id')
+                            ->where('company_id', $companyId);
+                    });
+                }
             }
-            $sub->where('s.company_id', $companyId);
         }, 'stocks_sum_qty');
 
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
@@ -613,11 +616,11 @@ class ProductController extends Controller
         $brandId = $request->filled('brand_id') ? (int) $request->get('brand_id') : null;
         $priceTierId = $request->filled('price_tier_id') ? (int) $request->get('price_tier_id') : null;
 
-        $companyId = \App\Support\EgoCompanyLock::id();
-        $companyMode = (string) $companyId;
-
-        if ($companyId <= 0) {
-            abort(403, 'Unauthorized company scope.');
+        $companyId = null;
+        $companyMode = 'all';
+        if ($companyRaw === '1' || $companyRaw === 1 || $companyRaw === '2' || $companyRaw === 2) {
+            $companyId = (int) $companyRaw;
+            $companyMode = (string) $companyId;
         }
 
         if (Schema::hasTable('crm_product_stock_lots')) {
@@ -659,7 +662,7 @@ class ProductController extends Controller
             ));
         }
 
-        $q = Product::query()->where('company_id', $companyId);
+        $q = Product::query();
 
         if (Schema::hasColumn((new Product)->getTable(), 'is_active')) {
             $q->where(function ($activeQuery) {
@@ -699,8 +702,15 @@ class ProductController extends Controller
 
             if ($warehouseId) {
                 $sub->where('s.warehouse_id', $warehouseId);
+            } else {
+                if ($companyId) {
+                    $sub->whereIn('s.warehouse_id', function ($qq) use ($companyId) {
+                        $qq->from('company_warehouse')
+                            ->select('warehouse_id')
+                            ->where('company_id', $companyId);
+                    });
+                }
             }
-            $sub->where('s.company_id', $companyId);
         }, 'stocks_sum_qty');
 
         $products = $q->orderByDesc('id')->paginate(20)->withQueryString();
@@ -769,37 +779,12 @@ class ProductController extends Controller
             }
         }
 
-        $companyId = \App\Support\EgoCompanyLock::id();
-        if ($companyId <= 0) {
-            abort(403, 'Unauthorized company scope.');
-        }
-
         $q = DB::table('crm_stock_movements as m')
-            ->where(function ($query) use ($companyId) {
-                if (Schema::hasColumn('crm_stock_movements', 'company_id')) {
-                    $query->where('m.company_id', $companyId);
-                } else {
-                    $query->whereRaw('1 = 0');
-                }
-            })
-            ->leftJoin('crm_product_catalog as p', function ($join) use ($companyId) {
-                $join->on('p.id', '=', 'm.product_id');
-                if (Schema::hasColumn('crm_product_catalog', 'company_id')) {
-                    $join->where('p.company_id', '=', $companyId);
-                }
-            })
-            ->leftJoin('crm_warehouses as w', function ($join) use ($companyId) {
-                $join->on('w.id', '=', 'm.warehouse_id');
-                if (Schema::hasColumn('crm_warehouses', 'company_id')) {
-                    $join->where('w.company_id', '=', $companyId);
-                }
-            })
+            ->leftJoin('crm_product_catalog as p', 'p.id', '=', 'm.product_id')
+            ->leftJoin('crm_warehouses as w', 'w.id', '=', 'm.warehouse_id')
             ->leftJoin('users as u', 'u.id', '=', 'm.created_by')
-            ->leftJoin('material_requests as mr', function ($join) use ($hasReferenceType, $companyId) {
+            ->leftJoin('material_requests as mr', function ($join) use ($hasReferenceType) {
                 $join->on('mr.id', '=', 'm.reference_id');
-                if (Schema::hasColumn('material_requests', 'company_id')) {
-                    $join->where('mr.company_id', '=', $companyId);
-                }
 
                 if ($hasReferenceType) {
                     $join->where(function ($j) {
@@ -816,26 +801,15 @@ class ProductController extends Controller
                     });
                 }
             })
-            ->leftJoin('sites as s', function ($join) use ($companyId) {
-                $join->on('s.id', '=', 'mr.site_id');
-                if (Schema::hasColumn('sites', 'company_id')) {
-                    $join->where('s.company_id', '=', $companyId);
-                }
-            })
-            ->leftJoin('crm_product_stock as ps', function ($join) use ($companyId) {
+            ->leftJoin('sites as s', 's.id', '=', 'mr.site_id')
+            ->leftJoin('crm_product_stock as ps', function ($join) {
                 $join->on('ps.product_id', '=', 'm.product_id')
                     ->on('ps.warehouse_id', '=', 'm.warehouse_id');
-                if (Schema::hasColumn('crm_product_stock', 'company_id')) {
-                    $join->where('ps.company_id', '=', $companyId);
-                }
             });
 
         if ($orderTable) {
-            $q->leftJoin($orderTable.' as o', function ($join) use ($hasReferenceType, $companyId, $orderTable) {
+            $q->leftJoin($orderTable.' as o', function ($join) use ($hasReferenceType) {
                 $join->on('o.id', '=', 'm.reference_id');
-                if (Schema::hasColumn($orderTable, 'company_id')) {
-                    $join->where('o.company_id', '=', $companyId);
-                }
 
                 if ($hasReferenceType) {
                     $join->where(function ($j) {
@@ -1196,26 +1170,22 @@ class ProductController extends Controller
 
             if (! empty($serialCodes)) {
                 $warehouseId = (int) $request->input('warehouse_id', 0);
-                $companyId = \App\Support\EgoCompanyLock::id();
+                $companyId = (int) $request->input('company_id', 0);
 
                 if ($warehouseId <= 0) {
                     $firstLot = (array) $request->input('initial_lots.0', []);
                     $warehouseId = (int) ($firstLot['warehouse_id'] ?? 0);
+                    $companyId = (int) ($firstLot['company_id'] ?? $companyId);
                 }
 
                 if ($warehouseId <= 0) {
                     throw new \Exception('Vui lòng chọn kho trước khi nhập serial.');
                 }
 
-                $warehouse = DB::table('crm_warehouses')->where('id', $warehouseId)->where('company_id', $companyId)->first();
-                if (!$warehouse) {
-                    throw new \Exception('Kho không thuộc công ty hiện hành hoặc không tồn tại.');
-                }
-
                 $this->egoCreateSerialsForProduct(
                     (int) $product->id,
                     $warehouseId,
-                    $companyId,
+                    $companyId > 0 ? $companyId : null,
                     $serialCodes,
                     $request->input('note')
                 );
@@ -1384,16 +1354,11 @@ class ProductController extends Controller
                         throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
                     }
 
-                    $companyId = \App\Support\EgoCompanyLock::id();
+                    $companyId = (int) ($line['company_id'] ?? 0);
                     $warehouseId = (int) ($line['warehouse_id'] ?? 0);
 
-                    if ($warehouseId <= 0) {
-                        throw new \Exception('Vui lòng chọn kho cho SKU '.$baseSku);
-                    }
-
-                    $warehouse = DB::table('crm_warehouses')->where('id', $warehouseId)->where('company_id', $companyId)->first();
-                    if (!$warehouse) {
-                        throw new \Exception('Kho không thuộc công ty hiện hành hoặc không tồn tại (SKU '.$baseSku.').');
+                    if ($companyId <= 0 || $warehouseId <= 0) {
+                        throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$baseSku);
                     }
 
                     $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
@@ -1500,14 +1465,8 @@ class ProductController extends Controller
                         if ($lineLotId > 0) {
                             $lot = DB::table('crm_product_stock_lots')
                                 ->where('id', $lineLotId)
-                                ->where('product_id', (int) $lineProduct->id)
-                                ->where('company_id', $companyId)
                                 ->lockForUpdate()
                                 ->first();
-
-                            if (!$lot) {
-                                throw new \Exception('Lô tồn không hợp lệ hoặc không thuộc công ty hiện hành.');
-                            }
                         }
 
                         $lotData = [
@@ -1536,7 +1495,7 @@ class ProductController extends Controller
                         $oldLotQty = $lot ? (int) ($lot->qty_remaining ?? 0) : 0;
 
                         if ($lot) {
-                            DB::table('crm_product_stock_lots')->where('id', (int) $lot->id)->where('company_id', $companyId)->update($lotData);
+                            DB::table('crm_product_stock_lots')->where('id', (int) $lot->id)->update($lotData);
                             $savedLotId = (int) $lot->id;
                         } else {
                             $lotData['created_at'] = now();
@@ -1592,14 +1551,10 @@ class ProductController extends Controller
 
                     if ($qtyColumn) {
                         foreach ($affectedProductIds as $pid) {
-                            DB::table('crm_product_stock')
-                                ->where('product_id', $pid)
-                                ->where('company_id', \App\Support\EgoCompanyLock::id())
-                                ->delete();
+                            DB::table('crm_product_stock')->where('product_id', $pid)->delete();
 
                             $stockRows = DB::table('crm_product_stock_lots')
                                 ->where('product_id', $pid)
-                                ->where('company_id', \App\Support\EgoCompanyLock::id())
                                 ->where('qty_remaining', '>', 0)
                                 ->selectRaw('product_id, company_id, warehouse_id, SUM(qty_remaining) as total_qty')
                                 ->groupBy('product_id', 'company_id', 'warehouse_id')
@@ -1608,7 +1563,7 @@ class ProductController extends Controller
                             foreach ($stockRows as $stockRow) {
                                 $insert = [
                                     'product_id' => (int) $stockRow->product_id,
-                                    'company_id' => \App\Support\EgoCompanyLock::id(),
+                                    'company_id' => (int) $stockRow->company_id,
                                     'warehouse_id' => (int) $stockRow->warehouse_id,
                                     $qtyColumn => (float) $stockRow->total_qty,
                                     'created_at' => now(),
@@ -1639,9 +1594,6 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             $product = Product::findOrFail($id);
-            if (array_key_exists('company_id', $product->getAttributes()) && (int) $product->company_id > 0 && (int) $product->company_id !== \App\Support\EgoCompanyLock::id()) {
-                throw new \Exception('Sản phẩm không thuộc công ty hiện hành.');
-            }
 
             if ($request->filled('fifo_action')) {
                 $message = $this->handleFifoLotAction($product, $request);
@@ -1678,7 +1630,7 @@ class ProductController extends Controller
                 if (! empty($v2Lines)) {
                     foreach ($v2Lines as $lineIndex => $line) {
                         $lineSku = trim((string) ($line['sku'] ?? ''));
-                        $companyId = \App\Support\EgoCompanyLock::id();
+                        $companyId = (int) ($line['company_id'] ?? 0);
                         $warehouseId = (int) ($line['warehouse_id'] ?? 0);
                         $qtyIn = max(0, (int) ($line['qty_in'] ?? 0));
 
@@ -1686,8 +1638,8 @@ class ProductController extends Controller
                             throw new \Exception('Vui lòng nhập SKU cho dòng số '.($lineIndex + 1));
                         }
 
-                        if ($warehouseId <= 0) {
-                            throw new \Exception('Vui lòng chọn kho cho SKU '.$lineSku);
+                        if ($companyId <= 0 || $warehouseId <= 0) {
+                            throw new \Exception('Vui lòng chọn công ty và kho cho SKU '.$lineSku);
                         }
 
                         $finalSku = $this->egoBaseSkuFromLotSku($lineSku);
@@ -1996,7 +1948,7 @@ class ProductController extends Controller
         $action = (string) $request->input('fifo_action');
 
         if ($action === 'add_lot') {
-            $companyId = \App\Support\EgoCompanyLock::id();
+            $companyId = (int) $request->input('company_id');
             $warehouseId = (int) $request->input('warehouse_id');
             $qtyIn = max(0, (int) $request->input('qty_in'));
             $costBeforeVat = max(0, (float) $request->input('cost_before_vat'));
@@ -2007,13 +1959,8 @@ class ProductController extends Controller
             $lotName = trim((string) $request->input('lot_name'));
             $note = trim((string) $request->input('note'));
 
-            if ($warehouseId <= 0) {
-                throw new \Exception('Vui lòng chọn kho cho lô nhập.');
-            }
-
-            $warehouse = DB::table('crm_warehouses')->where('id', $warehouseId)->where('company_id', $companyId)->first();
-            if (!$warehouse) {
-                throw new \Exception('Kho không thuộc công ty hiện hành hoặc không tồn tại.');
+            if ($companyId <= 0 || $warehouseId <= 0) {
+                throw new \Exception('Vui lòng chọn công ty và kho cho lô nhập.');
             }
 
             if ($qtyIn <= 0) {
@@ -2080,7 +2027,6 @@ class ProductController extends Controller
         if ($action === 'adjust_lot_qty') {
             $lotId = (int) $request->input('lot_id');
             $changeQty = (int) $request->input('change_qty');
-            $companyId = \App\Support\EgoCompanyLock::id();
 
             if ($lotId <= 0) {
                 throw new \Exception('Thiếu ID lô.');
@@ -2093,12 +2039,11 @@ class ProductController extends Controller
             $lot = DB::table('crm_product_stock_lots')
                 ->where('id', $lotId)
                 ->where('product_id', $product->id)
-                ->where('company_id', $companyId)
                 ->lockForUpdate()
                 ->first();
 
             if (! $lot) {
-                throw new \Exception('Không tìm thấy lô cần điều chỉnh hoặc lô không thuộc công ty hiện hành.');
+                throw new \Exception('Không tìm thấy lô cần điều chỉnh.');
             }
 
             $oldRemain = (int) ($lot->qty_remaining ?? 0);
@@ -2120,7 +2065,6 @@ class ProductController extends Controller
 
             DB::table('crm_product_stock_lots')
                 ->where('id', $lotId)
-                ->where('company_id', $companyId)
                 ->update([
                     'qty_in' => $newIn,
                     'qty_remaining' => $newRemain,
@@ -2141,7 +2085,7 @@ class ProductController extends Controller
 
         if ($action === 'update_lot_cost') {
             $lotId = (int) $request->input('lot_id');
-            $newCompanyId = \App\Support\EgoCompanyLock::id();
+            $newCompanyId = (int) $request->input('company_id');
             $newWarehouseId = (int) $request->input('warehouse_id');
 
             $costBeforeVat = max(0, (float) $request->input('cost_before_vat'));
@@ -2156,24 +2100,18 @@ class ProductController extends Controller
                 throw new \Exception('Thiếu ID lô.');
             }
 
-            if ($newWarehouseId <= 0) {
-                throw new \Exception('Vui lòng chọn kho cho lô.');
-            }
-
-            $warehouse = DB::table('crm_warehouses')->where('id', $newWarehouseId)->where('company_id', $newCompanyId)->first();
-            if (!$warehouse) {
-                throw new \Exception('Kho không thuộc công ty hiện hành hoặc không tồn tại.');
+            if ($newCompanyId <= 0 || $newWarehouseId <= 0) {
+                throw new \Exception('Vui lòng chọn công ty và kho cho lô.');
             }
 
             $lot = DB::table('crm_product_stock_lots')
                 ->where('id', $lotId)
                 ->where('product_id', $product->id)
-                ->where('company_id', $newCompanyId)
                 ->lockForUpdate()
                 ->first();
 
             if (! $lot) {
-                throw new \Exception('Không tìm thấy lô cần sửa hoặc lô thuộc công ty khác.');
+                throw new \Exception('Không tìm thấy lô cần sửa.');
             }
 
             $oldCompanyId = (int) $lot->company_id;
@@ -2186,6 +2124,7 @@ class ProductController extends Controller
             $actualCostAfterVat = $costAfterVat + $extraCostPerUnit;
 
             $update = [
+                'company_id' => $newCompanyId,
                 'warehouse_id' => $newWarehouseId,
                 'cost_before_vat' => $costBeforeVat,
                 'cost_vat_percent' => $vatPercent,
@@ -2217,7 +2156,7 @@ class ProductController extends Controller
                 $update['actual_cost_after_vat'] = $actualCostAfterVat;
             }
 
-            $movedWarehouse = $oldWarehouseId !== $newWarehouseId;
+            $movedWarehouse = $oldCompanyId !== $newCompanyId || $oldWarehouseId !== $newWarehouseId;
 
             if ($movedWarehouse && $qtyRemain > 0) {
                 $this->changeProductStockFromLot(
@@ -2225,7 +2164,7 @@ class ProductController extends Controller
                     $oldCompanyId,
                     $oldWarehouseId,
                     -$qtyRemain,
-                    'Chuyển lô FIFO sang kho khác',
+                    'Chuyển lô FIFO sang công ty/kho khác',
                     $lotId
                 );
 
@@ -2234,20 +2173,14 @@ class ProductController extends Controller
                     $newCompanyId,
                     $newWarehouseId,
                     $qtyRemain,
-                    'Nhận lô FIFO chuyển từ kho khác',
+                    'Nhận lô FIFO chuyển từ công ty/kho khác',
                     $lotId
                 );
             }
 
-            $affected = DB::table('crm_product_stock_lots')
+            DB::table('crm_product_stock_lots')
                 ->where('id', $lotId)
-                ->where('product_id', $product->id)
-                ->where('company_id', $newCompanyId)
                 ->update($update);
-
-            if ($affected === 0) {
-                throw new \Exception('Không thể cập nhật lô: không tìm thấy lô của sản phẩm này thuộc công ty hiện hành hoặc dữ liệu không đổi.');
-            }
 
             $this->logStockLotAudit(
                 (int) $product->id,
@@ -2260,13 +2193,12 @@ class ProductController extends Controller
             );
 
             return $movedWarehouse
-                ? 'Đã cập nhật lô và chuyển tồn sang kho mới.'
+                ? 'Đã cập nhật lô và chuyển tồn sang công ty/kho mới.'
                 : 'Đã cập nhật thông tin lô FIFO.';
         }
 
         if ($action === 'delete_lot') {
             $lotId = (int) $request->input('lot_id');
-            $companyId = \App\Support\EgoCompanyLock::id();
 
             if ($lotId <= 0) {
                 throw new \Exception('Thiếu ID lô cần xóa.');
@@ -2275,12 +2207,11 @@ class ProductController extends Controller
             $lot = DB::table('crm_product_stock_lots')
                 ->where('id', $lotId)
                 ->where('product_id', $product->id)
-                ->where('company_id', $companyId)
                 ->lockForUpdate()
                 ->first();
 
             if (! $lot) {
-                throw new \Exception('Không tìm thấy lô cần xóa hoặc lô không thuộc công ty hiện hành.');
+                throw new \Exception('Không tìm thấy lô cần xóa.');
             }
 
             if (Schema::hasTable('crm_order_item_stock_allocations')
@@ -2305,7 +2236,7 @@ class ProductController extends Controller
                 );
             }
 
-            DB::table('crm_product_stock_lots')->where('id', $lotId)->where('company_id', $companyId)->delete();
+            DB::table('crm_product_stock_lots')->where('id', $lotId)->delete();
 
             return 'Đã xóa lô FIFO chưa phát sinh xuất kho.';
         }
@@ -2338,9 +2269,6 @@ class ProductController extends Controller
             && Schema::hasTable('crm_product_stock_lots');
 
         $product = Product::findOrFail($productId);
-        if (array_key_exists('company_id', $product->getAttributes()) && (int) $product->company_id > 0 && (int) $product->company_id !== \App\Support\EgoCompanyLock::id()) {
-            throw new \Exception('Sản phẩm không thuộc công ty hiện hành.');
-        }
 
         $costBeforeVat = (float) $request->input('price_agent', $product->price_agent ?? 0);
 
@@ -2624,9 +2552,6 @@ class ProductController extends Controller
 
         try {
             $product = Product::findOrFail($id);
-            if (array_key_exists('company_id', $product->getAttributes()) && (int) $product->company_id > 0 && (int) $product->company_id !== \App\Support\EgoCompanyLock::id()) {
-                throw new \Exception('Sản phẩm không thuộc công ty hiện hành.');
-            }
             $productId = (int) $product->id;
 
             /*
@@ -2679,11 +2604,7 @@ class ProductController extends Controller
 
             foreach ($tablesByProductId as $table) {
                 if (Schema::hasTable($table) && Schema::hasColumn($table, 'product_id')) {
-                    $q = DB::table($table)->where('product_id', $productId);
-                    if (Schema::hasColumn($table, 'company_id')) {
-                        $q->where('company_id', \App\Support\EgoCompanyLock::id());
-                    }
-                    $q->delete();
+                    DB::table($table)->where('product_id', $productId)->delete();
                 }
             }
 
@@ -2829,21 +2750,16 @@ class ProductController extends Controller
                 continue;
             }
 
-            $companyId = \App\Support\EgoCompanyLock::id();
+            $companyId = (int) ($row['company_id'] ?? 0);
             $warehouseId = (int) ($row['warehouse_id'] ?? 0);
             $qtyIn = max(0, (int) ($row['qty_in'] ?? 0));
 
-            if ($warehouseId <= 0 && $qtyIn <= 0) {
+            if ($companyId <= 0 && $warehouseId <= 0 && $qtyIn <= 0) {
                 continue;
             }
 
-            if ($warehouseId <= 0) {
-                throw new \Exception('Vui lòng chọn kho cho lô nhập ban đầu.');
-            }
-
-            $warehouse = DB::table('crm_warehouses')->where('id', $warehouseId)->where('company_id', $companyId)->first();
-            if (!$warehouse) {
-                throw new \Exception('Kho không thuộc công ty hiện hành hoặc không tồn tại.');
+            if ($companyId <= 0 || $warehouseId <= 0) {
+                throw new \Exception('Vui lòng chọn công ty và kho cho lô nhập ban đầu.');
             }
 
             if ($qtyIn <= 0) {
@@ -2988,11 +2904,8 @@ class ProductController extends Controller
      */
     public function show($id)
     {
+        $product = Product::query()->findOrFail((int) $id);
         $companyId = EgoCompanyLock::id();
-        if ($companyId <= 0) {
-            abort(403, 'Unauthorized company scope.');
-        }
-        $product = Product::query()->where('company_id', $companyId)->findOrFail((int) $id);
 
         // Từng relation được nạp riêng để một relation phụ lỗi không làm sập cả trang.
         foreach ([
@@ -3085,11 +2998,7 @@ class ProductController extends Controller
      */
     public function edit($id)
     {
-        $companyId = \App\Support\EgoCompanyLock::id();
-        if ($companyId <= 0) {
-            abort(403, 'Unauthorized company scope.');
-        }
-        $product = Product::where('company_id', $companyId)->findOrFail($id);
+        $product = Product::findOrFail($id);
 
         $companies = DB::table('companies')->select('id', 'name')->where('id', EgoCompanyLock::id())->get();
         $categories = ProductCategory::query()->orderBy('name')->get();
@@ -3100,7 +3009,6 @@ class ProductController extends Controller
 
         $rows = DB::table('crm_product_stock')
             ->where('product_id', $product->id)
-            ->where('company_id', \App\Support\EgoCompanyLock::id())
             ->get();
 
         $warehouseQty = [];
@@ -3181,8 +3089,7 @@ class ProductController extends Controller
                     }
                 })
                 ->leftJoin('sites as st', 'st.id', '=', 'mr.site_id')
-                ->where('m.product_id', $product->id)
-                ->where('m.company_id', \App\Support\EgoCompanyLock::id());
+                ->where('m.product_id', $product->id);
 
             if ($orderTable) {
                 $productStockLogsQuery->leftJoin($orderTable.' as o', function ($join) use ($hasReferenceType) {
@@ -3234,7 +3141,6 @@ class ProductController extends Controller
             $productStockLots = DB::table('crm_product_stock_lots as l')
                 ->leftJoin('crm_warehouses as w', 'w.id', '=', 'l.warehouse_id')
                 ->where('l.product_id', $product->id)
-                ->where('l.company_id', \App\Support\EgoCompanyLock::id())
                 ->select([
                     'l.*',
                     DB::raw('COALESCE(w.name, CONCAT("Kho #", l.warehouse_id)) as warehouse_name'),
