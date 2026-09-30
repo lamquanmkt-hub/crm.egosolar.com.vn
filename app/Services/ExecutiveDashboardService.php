@@ -48,7 +48,7 @@ final class ExecutiveDashboardService
     /**
      * Build one consistent executive dashboard payload.
      *
-     * Doanh thu thương mại ghi nhận khi xuất kho (inventory_issued_at trong kỳ);
+     * Doanh thu thương mại = tổng tiền đơn đặt trong kỳ (order_date, kể cả đơn chưa xuất kho);
      * doanh thu công trình theo contract_amount của công trình trong kỳ.
      * Tiền đã thu theo ngày thanh toán/phiếu thu thực tế. Công nợ là số dư
      * hiện tại tính từ tổng đơn trừ thanh toán (OrderReceivableQuery).
@@ -60,7 +60,7 @@ final class ExecutiveDashboardService
         $filters = $this->normaliseFilters($rawFilters, $access, $user);
         $companyId = EgoCompanyScope::currentId();
 
-        $cacheKey = 'executive-dashboard:v4:'.sha1(json_encode([
+        $cacheKey = 'executive-dashboard:v5:'.sha1(json_encode([
             'company_id' => $companyId,
             'scope_user_id' => $access['own_only'] ? (int) $user->id : 0,
             'roles' => $access['roles'],
@@ -851,12 +851,12 @@ final class ExecutiveDashboardService
         $collected = collect();
 
         if ($filters['source'] !== 'sites' && $this->hasTable('crm_orders')) {
-            // Cùng định nghĩa với KPI doanh thu: ghi nhận theo ngày xuất kho.
+            // Cùng định nghĩa với KPI doanh thu: theo ngày đặt đơn.
             $query = $this->recognizedOrderQuery($user, $access, $filters, $range['from'], $range['to']);
             if ($query) {
                 try {
                     $orderRevenue = $query
-                        ->selectRaw("DATE_FORMAT(o.inventory_issued_at, '{$dbFormat}') AS period_key")
+                        ->selectRaw("DATE_FORMAT(o.{$this->orderRevenueDateColumn()}, '{$dbFormat}') AS period_key")
                         ->selectRaw('SUM(o.total_amount) AS amount')
                         ->groupBy('period_key')
                         ->pluck('amount', 'period_key');
@@ -1127,7 +1127,7 @@ final class ExecutiveDashboardService
     /**
      * Thống kê hiệu suất từng sales.
      *
-     * - Đơn / Doanh thu / Đã thu / Tỷ lệ thu: các đơn ghi nhận doanh thu trong kỳ (xuất kho trong kỳ),
+     * - Đơn / Doanh thu / Đã thu / Tỷ lệ thu: các đơn đặt trong kỳ (theo ngày đặt đơn),
      *   "Đã thu" là tiền đã trả của chính các đơn đó (không vượt tổng đơn).
      * - Công nợ: số dư thực tế hiện tại sau thanh toán (OrderReceivableQuery), cùng nguồn với thẻ Công nợ.
      */
@@ -1348,11 +1348,9 @@ final class ExecutiveDashboardService
     }
 
     /**
-     * Đơn ghi nhận doanh thu thương mại trong kỳ: đã xuất kho và inventory_issued_at nằm trong kỳ.
-     *
-     * Đơn import cũ có inventory_issued = 1 nhưng thiếu inventory_issued_at không thuộc kỳ nào
-     * (không suy đoán ngày). Kèm alias `pay` (tổng thanh toán theo đơn) để tính tỷ lệ thu.
-     * Trả null khi schema thiếu cột ghi nhận — không quay về lọc theo order_date.
+     * Đơn tính doanh thu thương mại trong kỳ: đơn ĐẶT trong kỳ (theo ngày đặt đơn order_date,
+     * thiếu cột thì created_at), kể cả đơn chưa xuất kho; loại đơn huỷ / đã xoá.
+     * Kèm alias `pay` (tổng thanh toán theo đơn) để tính tỷ lệ thu.
      */
     private function recognizedOrderQuery(
         User $user,
@@ -1361,9 +1359,9 @@ final class ExecutiveDashboardService
         Carbon $from,
         Carbon $to
     ): ?Builder {
+        $dateColumn = $this->orderRevenueDateColumn();
         if (
-            ! $this->hasColumn('crm_orders', 'inventory_issued')
-            || ! $this->hasColumn('crm_orders', 'inventory_issued_at')
+            ! $dateColumn
             || ! $this->hasColumn('crm_orders', 'total_amount')
             || ! $this->hasTable('crm_payments')
         ) {
@@ -1371,9 +1369,7 @@ final class ExecutiveDashboardService
         }
 
         $query = $this->receivableQuery->orders()
-            ->where('o.inventory_issued', 1)
-            ->whereNotNull('o.inventory_issued_at')
-            ->whereBetween('o.inventory_issued_at', [
+            ->whereBetween('o.'.$dateColumn, [
                 $from->toDateTimeString(),
                 $to->toDateTimeString(),
             ]);
@@ -1381,6 +1377,12 @@ final class ExecutiveDashboardService
         $this->scopeOrderCompanyAndUser($query, $user, $access, $filters, 'o');
 
         return $query;
+    }
+
+    /** Cột ngày dùng để tính doanh thu thương mại: ngày đặt đơn (order_date), thiếu thì created_at. */
+    private function orderRevenueDateColumn(): ?string
+    {
+        return $this->firstColumn('crm_orders', ['order_date', 'created_at']);
     }
 
     /**

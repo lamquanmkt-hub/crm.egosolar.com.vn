@@ -13,7 +13,7 @@ Dashboard Giám đốc ([/dashboard](/dashboard)) dành cho Admin và Ban Giám 
 - Bấm **Áp dụng** để xem; nút **X** để xóa bộ lọc.
 
 ## Ý nghĩa các chỉ số
-- **Doanh thu**: Thương mại tính theo **ngày xuất kho** của đơn (chỉ đơn đã xuất kho trong kỳ, không tính đơn đang chờ duyệt); Công trình tính theo giá trị hợp đồng của công trình trong kỳ. Có so sánh với kỳ trước liền kề.
+- **Doanh thu**: Thương mại là **tổng tiền các đơn đặt trong kỳ** (theo **ngày đặt đơn**, kể cả đơn chưa xuất kho; không tính đơn huỷ / đã xoá); Công trình tính theo giá trị hợp đồng của công trình trong kỳ. Có so sánh với kỳ trước liền kề.
 - **Tiền đã thu trong kỳ**: tổng các khoản khách thanh toán có ngày thanh toán nằm trong kỳ (kể cả tiền của đơn cũ).
 - **Tỷ lệ thu của doanh thu ghi nhận**: tiền khách đã trả cho chính các đơn/công trình ghi nhận doanh thu trong kỳ ÷ doanh thu của chúng.
 - **Công nợ hiện tại**: số dư khách còn nợ = tổng đơn − tổng đã thanh toán (đơn đã xuất kho, chưa hủy), cộng công nợ công trình theo đợt thanh toán. Chia **Chưa đến hạn / Quá hạn / Trên 30 ngày** theo hạn thanh toán.

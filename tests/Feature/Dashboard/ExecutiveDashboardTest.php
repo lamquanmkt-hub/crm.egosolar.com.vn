@@ -20,7 +20,7 @@ use Tests\TestCase;
  * Hồi quy Dashboard Giám đốc (/dashboard, ExecutiveDashboardService).
  *
  * Kiểm chứng: gỡ route tự đăng nhập, Pipeline, công nợ thương mại từ số dư chuẩn,
- * cảnh báo giao trễ, bỏ KPI "Rủi ro" tổng hợp và doanh thu ghi nhận theo ngày xuất kho.
+ * cảnh báo giao trễ, bỏ KPI "Rủi ro" tổng hợp và doanh thu theo đơn đặt trong kỳ (ngày đặt đơn).
  *
  * Chạy trên DB egosolar_test, chỉ ghi dữ liệu và rollback nhờ DatabaseTransactions
  * (không migrate/truncate/drop). Thời gian cố định 29/09/2026 để tuổi nợ/quá hạn ổn định.
@@ -405,36 +405,36 @@ final class ExecutiveDashboardTest extends TestCase
     }
 
     /* =====================================================================
-     * 6. Doanh thu thương mại ghi nhận theo ngày xuất kho
+     * 6. Doanh thu thương mại = tổng tiền đơn ĐẶT trong kỳ (theo ngày đặt đơn)
      * ===================================================================== */
 
-    public function test_revenue_is_recognized_by_inventory_issued_at(): void
+    public function test_revenue_counts_orders_placed_in_period_by_order_date(): void
     {
-        $this->makePendingOrder('accounting', 626_000_000);                          // 1. chưa xuất kho
-        $this->makeOrder(['total_amount' => 1_000_000]);                             // 2. xuất kho trong kỳ
-        $this->makeOrder([                                                           // 3. tạo trong kỳ, xuất ngoài kỳ
+        $this->makePendingOrder('accounting', 626_000_000);                          // 1. đặt trong kỳ, chưa xuất kho → tính
+        $this->makeOrder(['total_amount' => 1_000_000]);                             // 2. đặt và xuất kho trong kỳ → tính
+        $this->makeOrder([                                                           // 3. đặt trong kỳ, xuất ngoài kỳ → tính
             'total_amount' => 50_000_000,
             'inventory_issued_at' => '2026-10-02 08:00:00',
         ]);
-        $this->makeOrder([                                                           // 4. tạo kỳ trước, xuất trong kỳ
+        $this->makeOrder([                                                           // 4. đặt kỳ trước, xuất trong kỳ → không tính
             'total_amount' => 10_000_000,
             'order_date' => '2026-08-25',
             'inventory_issued_at' => '2026-09-03 08:00:00',
         ]);
-        $this->makeOrder([                                                           // 5. import thiếu ngày xuất
+        $this->makeOrder([                                                           // 5. thiếu ngày xuất kho → vẫn tính theo ngày đặt
             'total_amount' => 70_000_000,
             'inventory_issued_at' => null,
         ]);
-        $this->makeOrder(['total_amount' => 9_000_000, 'current_department' => 'cancelled']);
-        $this->makeOrder(['total_amount' => 9_000_000, 'deleted_at' => now()]);
+        $this->makeOrder(['total_amount' => 9_000_000, 'current_department' => 'cancelled']); // huỷ → không tính
+        $this->makeOrder(['total_amount' => 9_000_000, 'deleted_at' => now()]);               // đã xoá → không tính
 
         $revenue = $this->dashboard(['source' => 'orders'])['kpis']['revenue'];
 
-        $this->assertEqualsWithDelta(11_000_000.0, $revenue['commercial'], 0.01);
-        $this->assertEqualsWithDelta(11_000_000.0, $revenue['value'], 0.01);
+        $this->assertEqualsWithDelta(747_000_000.0, $revenue['commercial'], 0.01);
+        $this->assertEqualsWithDelta(747_000_000.0, $revenue['value'], 0.01);
     }
 
-    public function test_trend_chart_uses_same_recognition_date_as_revenue(): void
+    public function test_trend_chart_uses_same_order_date_as_revenue(): void
     {
         // Kỳ ≤ 18 ngày để biểu đồ (giữ tối đa 18 điểm) chứa trọn kỳ.
         $filters = ['from' => '2026-09-15', 'to' => '2026-09-30', 'source' => 'orders'];
@@ -445,8 +445,8 @@ final class ExecutiveDashboardTest extends TestCase
         $dashboard = $this->dashboard($filters);
         $byLabel = array_combine($dashboard['chart']['labels'], $dashboard['chart']['commercial']);
 
-        $this->assertEqualsWithDelta(4_000_000.0, $byLabel['20/09'], 0.01);
-        $this->assertEqualsWithDelta(0.0, $byLabel['16/09'], 0.01);
+        $this->assertEqualsWithDelta(17_000_000.0, $byLabel['16/09'], 0.01); // 2 đơn đặt ngày 16/09, kể cả đơn chưa xuất kho
+        $this->assertEqualsWithDelta(0.0, $byLabel['20/09'], 0.01);           // ngày xuất kho không còn quyết định doanh thu
         $this->assertEqualsWithDelta($dashboard['kpis']['revenue']['commercial'], array_sum($dashboard['chart']['commercial']), 0.01);
     }
 
@@ -456,7 +456,7 @@ final class ExecutiveDashboardTest extends TestCase
         $this->pay($recognized, 4_000_000, '2026-09-15');
         $this->pay($recognized, 1_000_000, '2026-10-01'); // trả sau kỳ vẫn là tiền của đơn ghi nhận
 
-        // Đơn cũ (xuất kho tháng 8) được trả trong tháng 9: là "tiền đã thu trong kỳ" nhưng không vào tỷ lệ.
+        // Đơn cũ (đặt tháng 8) được trả trong tháng 9: là "tiền đã thu trong kỳ" nhưng không vào tỷ lệ.
         $old = $this->makeOrder(['total_amount' => 20_000_000, 'order_date' => '2026-08-01', 'inventory_issued_at' => '2026-08-05 08:00:00']);
         $this->pay($old, 20_000_000, '2026-09-10');
 
@@ -500,11 +500,13 @@ final class ExecutiveDashboardTest extends TestCase
         $member = $team->get($this->sales->id);
 
         $this->assertNotNull($member);
-        $this->assertSame(1, $member['orders']);
-        $this->assertEqualsWithDelta(10_000_000.0, $member['revenue'], 0.01);
+        // Doanh thu / số đơn tính theo đơn đặt trong kỳ (kể cả đơn 626tr chưa xuất kho)…
+        $this->assertSame(2, $member['orders']);
+        $this->assertEqualsWithDelta(636_000_000.0, $member['revenue'], 0.01);
         $this->assertEqualsWithDelta(7_000_000.0, $member['collected'], 0.01);
+        // …nhưng công nợ vẫn chỉ là số dư thực của đơn đã xuất kho, không cộng giá trị đơn chưa duyệt.
         $this->assertEqualsWithDelta(3_000_000.0, $member['debt'], 0.01);
-        $this->assertEqualsWithDelta(70.0, $member['collection_rate'], 0.001);
+        $this->assertEqualsWithDelta(7_000_000 / 636_000_000 * 100, $member['collection_rate'], 0.001);
     }
 
     public function test_dashboard_page_renders_for_admin(): void

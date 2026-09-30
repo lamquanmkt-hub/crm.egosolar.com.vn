@@ -140,7 +140,7 @@
         <section class="exec-kpis" aria-label="Chỉ số điều hành chính">
             <article class="exec-kpi exec-kpi--revenue">
                 <div class="exec-kpi__top">
-                    <span class="exec-kpi__label" title="Thương mại: đơn đã xuất kho trong kỳ (theo ngày xuất kho). Công trình: giá trị HĐ trong kỳ.">Doanh thu</span>
+                    <span class="exec-kpi__label" title="Thương mại: tổng tiền đơn đặt trong kỳ (theo ngày đặt đơn, kể cả đơn chưa xuất kho). Công trình: giá trị HĐ trong kỳ.">Doanh thu</span>
                     <span class="exec-change {{ $changeClass($data['kpis']['revenue']['change']) }}">
                         <i class="bi {{ ($data['kpis']['revenue']['change'] ?? 0) >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
                         {{ $changeLabel($data['kpis']['revenue']['change']) }}
@@ -452,7 +452,7 @@
                 <div class="exec-section__header exec-section__header--compact">
                     <div>
                         <h2>Hiệu quả đội ngũ</h2>
-                        <p>Doanh thu ghi nhận (xuất kho) trong kỳ, tiền đã trả của các đơn đó và công nợ hiện tại.</p>
+                        <p>Doanh thu đơn đặt trong kỳ, tiền đã trả của các đơn đó và công nợ hiện tại.</p>
                     </div>
                 </div>
                 @if(count($data['team']))
