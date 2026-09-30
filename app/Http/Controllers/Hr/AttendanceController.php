@@ -90,6 +90,21 @@ class AttendanceController extends Controller
             ? AttendanceCorrectionRequest::query()->where('status', 'pending')->count()
             : 0;
 
+        // Tăng ca: giờ đã duyệt trong tháng (cộng vào Tổng giờ công), đơn chờ của tôi, đơn chờ tôi duyệt.
+        $overtimeAccess = app(\App\Services\Hr\OvertimeAccessService::class);
+        $overtimeInMonth = \App\Models\OvertimeRequest::query()
+            ->where('user_id', $user->id)
+            ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['id', 'overtime_date', 'start_at', 'end_at', 'hours', 'status']);
+        $overtimeApproved = $overtimeInMonth->where('status', 'approved');
+        $overtimeHours = round((float) $overtimeApproved->sum('hours'), 2);
+        $overtimeByDate = $overtimeApproved->groupBy(fn ($ot) => $ot->overtime_date->toDateString());
+        $myPendingOvertimeCount = \App\Models\OvertimeRequest::query()->where('user_id', $user->id)->where('status', 'pending')->count();
+        $canReviewOvertime = $overtimeAccess->canReview($user);
+        $pendingOvertimeApprovalCount = $canReviewOvertime
+            ? $overtimeAccess->scopePendingForReviewer(\App\Models\OvertimeRequest::query(), $user)->count()
+            : 0;
+
         return view('hr.attendance.my', compact(
             'records',
             'todayRecord',
@@ -103,7 +118,12 @@ class AttendanceController extends Controller
             'myPendingLeaveCount',
             'canReviewCorrections',
             'myPendingCorrectionCount',
-            'pendingCorrectionApprovalCount'
+            'pendingCorrectionApprovalCount',
+            'overtimeHours',
+            'overtimeByDate',
+            'myPendingOvertimeCount',
+            'canReviewOvertime',
+            'pendingOvertimeApprovalCount'
         ));
     }
 

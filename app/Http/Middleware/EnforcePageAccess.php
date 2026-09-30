@@ -81,6 +81,12 @@ class EnforcePageAccess
                 'hr.leave.cancel',
                 'hr.leave.attachments.*',
                 'hr.online-work.create',
+                // Tăng ca tự phục vụ: duyệt / từ chối vẫn do OvertimeAccessService kiểm tra trong Controller.
+                'hr.overtime.index',
+                'hr.overtime.create',
+                'hr.overtime.store',
+                'hr.overtime.approve',
+                'hr.overtime.reject',
             ], $routeName)
         ) {
             return $next($request);

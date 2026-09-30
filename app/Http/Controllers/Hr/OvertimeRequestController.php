@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\OvertimeRequest;
 use App\Models\User;
+use App\Services\Hr\OvertimeAccessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,11 +14,14 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Controller quản lý đơn đăng ký tăng ca của nhân viên.
+ * Phân quyền nằm ở OvertimeAccessService (không ai tự duyệt đơn của chính mình).
  */
 class OvertimeRequestController extends Controller
 {
+    public function __construct(private readonly OvertimeAccessService $access) {}
+
     /**
-     * Hiển thị danh sách đơn tăng ca theo tháng / trạng thái / nhân viên kèm số liệu tổng hợp.
+     * Danh sách đơn tăng ca theo tháng, 2 tab: "Của tôi" và "Cần duyệt" (người duyệt / HR).
      */
     public function index(Request $request)
     {
@@ -25,6 +29,9 @@ class OvertimeRequestController extends Controller
         $month = $request->input('month', now()->format('Y-m'));
         $status = $request->input('status');
         $userId = $request->input('user_id');
+        $canReview = $this->access->canReview($user);
+        $canManage = $this->access->canManageAll($user);
+        $tab = $request->input('tab') === 'approval' && $canReview ? 'approval' : 'mine';
 
         try {
             $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
@@ -34,52 +41,47 @@ class OvertimeRequestController extends Controller
         }
 
         $end = (clone $start)->endOfMonth();
-        $canManage = $this->canManageHr($user);
 
-        $query = OvertimeRequest::query()
-            ->with(['user.department', 'approver', 'approvedBy'])
+        $base = OvertimeRequest::query()
             ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()]);
 
-        if (! $canManage) {
-            $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhere('approver_id', $user->id);
-            });
+        if ($tab === 'mine') {
+            $base->where('user_id', $user->id);
+        } else {
+            // Cần duyệt: đơn của người khác giao cho mình; HR / Admin / Kế toán thấy mọi đơn của người khác.
+            $base->where('user_id', '!=', $user->id);
+            if (! $canManage) {
+                $base->where('approver_id', $user->id);
+            }
+            if ($userId && $canManage) {
+                $base->where('user_id', $userId);
+            }
         }
 
-        if ($status) {
-            $query->where('status', $status);
-        }
+        $summary = [
+            'total' => (clone $base)->count(),
+            'pending' => (clone $base)->where('status', 'pending')->count(),
+            'approved' => (clone $base)->where('status', 'approved')->count(),
+            'rejected' => (clone $base)->where('status', 'rejected')->count(),
+            'hours' => (float) (clone $base)->where('status', 'approved')->sum('hours'),
+        ];
 
-        if ($userId && $canManage) {
-            $query->where('user_id', $userId);
-        }
-
-        $requests = $query
+        $requests = (clone $base)
+            ->with(['user.department', 'approver', 'approvedBy'])
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
             ->orderByDesc('overtime_date')
             ->orderByDesc('id')
             ->paginate(30)
             ->withQueryString();
 
-        $summaryBase = OvertimeRequest::query()
-            ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()]);
+        $pendingReviewCount = $canReview
+            ? $this->access->scopePendingForReviewer(OvertimeRequest::query(), $user)->count()
+            : 0;
+        $myPendingCount = OvertimeRequest::query()->where('user_id', $user->id)->where('status', 'pending')->count();
 
-        if (! $canManage) {
-            $summaryBase->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhere('approver_id', $user->id);
-            });
-        }
-
-        $summary = [
-            'total' => (clone $summaryBase)->count(),
-            'pending' => (clone $summaryBase)->where('status', 'pending')->count(),
-            'approved' => (clone $summaryBase)->where('status', 'approved')->count(),
-            'rejected' => (clone $summaryBase)->where('status', 'rejected')->count(),
-            'hours' => (float) (clone $summaryBase)->where('status', 'approved')->sum('hours'),
-        ];
-
-        $employees = $canManage ? $this->employeeOptions() : collect();
+        $employees = $canManage && $tab === 'approval' ? $this->employeeOptions() : collect();
+        $access = $this->access;
 
         return view('hr.overtime.index', compact(
             'requests',
@@ -88,32 +90,51 @@ class OvertimeRequestController extends Controller
             'month',
             'status',
             'userId',
-            'canManage'
+            'canManage',
+            'canReview',
+            'tab',
+            'pendingReviewCount',
+            'myPendingCount',
+            'access'
         ));
     }
 
     /**
-     * Hiển thị form đăng ký tăng ca kèm danh sách người duyệt.
+     * Form đăng ký tăng ca kèm danh sách người duyệt (nhóm quản lý, không gồm chính mình).
      */
     public function create()
     {
-        $approvers = $this->approverOptions();
+        $approvers = $this->access->approverOptions(auth()->id());
 
         return view('hr.overtime.create', compact('approvers'));
     }
 
     /**
-     * Tạo đơn tăng ca mới; tự cộng thêm 1 ngày nếu giờ kết thúc qua đêm, giới hạn tối đa 16 giờ/lần.
+     * Tạo đơn tăng ca: bắt buộc người duyệt hợp lệ, qua đêm tự cộng 1 ngày, tối đa 16 giờ/lần,
+     * không trùng khung giờ với đơn đang chờ / đã duyệt của chính mình.
      */
     public function store(Request $request)
     {
+        $user = auth()->user();
+
         $data = $request->validate([
             'overtime_date' => ['required', 'date'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i'],
-            'approver_id' => ['nullable', 'integer'],
-            'reason' => ['nullable', 'string', 'max:5000'],
+            'approver_id' => ['required', 'integer'],
+            'reason' => ['required', 'string', 'min:5', 'max:5000'],
+        ], [
+            'approver_id.required' => 'Vui lòng chọn người duyệt.',
+            'reason.required' => 'Vui lòng nhập lý do tăng ca.',
+            'reason.min' => 'Lý do tăng ca cần ít nhất 5 ký tự.',
         ]);
+
+        $approverId = (int) $data['approver_id'];
+        if (! $this->access->approverOptions((int) $user->id)->contains('id', $approverId)) {
+            return back()
+                ->withInput()
+                ->withErrors(['approver_id' => 'Người duyệt không hợp lệ: chọn quản lý / trưởng phòng / HR / admin, không chọn chính mình.']);
+        }
 
         $date = Carbon::parse($data['overtime_date'])->toDateString();
         $startAt = Carbon::parse($date.' '.$data['start_time']);
@@ -131,70 +152,95 @@ class OvertimeRequestController extends Controller
                 ->with('error', 'Thời gian tăng ca không hợp lệ, tối đa 16 giờ/lần.');
         }
 
+        $overlap = OvertimeRequest::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['pending', 'approved'])
+            ->where('start_at', '<', $endAt)
+            ->where('end_at', '>', $startAt)
+            ->first();
+
+        if ($overlap) {
+            return back()
+                ->withInput()
+                ->with('error', 'Khung giờ này trùng với đơn tăng ca ngày '.$overlap->overtime_date->format('d/m/Y')
+                    .' ('.$overlap->start_at->format('H:i').' - '.$overlap->end_at->format('H:i').', '.$overlap->status_label.').');
+        }
+
         OvertimeRequest::create([
-            'user_id' => auth()->id(),
-            'approver_id' => $data['approver_id'] ?: null,
+            'user_id' => $user->id,
+            'approver_id' => $approverId,
             'overtime_date' => $date,
             'start_at' => $startAt,
             'end_at' => $endAt,
             'hours' => round($minutes / 60, 2),
-            'reason' => $data['reason'] ?? null,
+            'reason' => trim($data['reason']),
             'status' => 'pending',
         ]);
 
         return redirect()
-            ->route('hr.overtime.index')
-            ->with('success', 'Đã gửi đơn đăng ký tăng ca.');
+            ->route('hr.overtime.index', ['month' => Carbon::parse($date)->format('Y-m')])
+            ->with('success', 'Đã gửi đơn đăng ký tăng ca, chờ người duyệt xử lý.');
     }
 
     /**
-     * Duyệt đơn tăng ca và đồng bộ ghi chú vào bản ghi chấm công.
+     * Duyệt đơn tăng ca (chỉ đơn đang chờ) và đồng bộ ghi chú vào bản ghi chấm công.
      */
     public function approve(Request $request, OvertimeRequest $overtime)
     {
-        $user = auth()->user();
-
-        abort_unless($this->canApprove($user, $overtime), 403);
-
         $request->validate([
             'approval_note' => ['nullable', 'string', 'max:3000'],
         ]);
 
-        $overtime->update([
-            'status' => 'approved',
-            'approved_by' => $user->id,
-            'approved_at' => now(),
-            'rejected_at' => null,
-            'approval_note' => $request->approval_note,
-        ]);
-
-        $this->syncAttendanceNote($overtime->fresh(['user', 'approver', 'approvedBy']));
-
-        return back()->with('success', 'Đã duyệt đơn tăng ca và note vào chấm công.');
+        return $this->decide($request, $overtime, 'approved');
     }
 
     /**
-     * Từ chối đơn tăng ca.
+     * Từ chối đơn tăng ca (chỉ đơn đang chờ).
      */
     public function reject(Request $request, OvertimeRequest $overtime)
     {
-        $user = auth()->user();
-
-        abort_unless($this->canApprove($user, $overtime), 403);
-
         $request->validate([
             'approval_note' => ['nullable', 'string', 'max:3000'],
         ]);
 
-        $overtime->update([
-            'status' => 'rejected',
-            'approved_by' => $user->id,
-            'approved_at' => null,
-            'rejected_at' => now(),
-            'approval_note' => $request->approval_note,
-        ]);
+        return $this->decide($request, $overtime, 'rejected');
+    }
 
-        return back()->with('success', 'Đã từ chối đơn tăng ca.');
+    private function decide(Request $request, OvertimeRequest $overtime, string $decision)
+    {
+        $user = auth()->user();
+
+        abort_unless($this->access->canApprove($user, $overtime), 403, 'Bạn không có quyền duyệt đơn tăng ca này.');
+
+        $done = DB::transaction(function () use ($request, $overtime, $decision, $user) {
+            $locked = OvertimeRequest::query()->lockForUpdate()->find($overtime->id);
+
+            if (! $locked || $locked->status !== 'pending') {
+                return false;
+            }
+
+            $locked->update([
+                'status' => $decision,
+                'approved_by' => $user->id,
+                'approved_at' => $decision === 'approved' ? now() : null,
+                'rejected_at' => $decision === 'rejected' ? now() : null,
+                'approval_note' => $request->approval_note,
+            ]);
+
+            if ($decision === 'approved') {
+                $this->syncAttendanceNote($locked->fresh(['user', 'approver', 'approvedBy']));
+            }
+
+            return true;
+        });
+
+        if (! $done) {
+            return back()->with('error', 'Đơn tăng ca này đã được xử lý trước đó.');
+        }
+
+        return back()->with('success', $decision === 'approved'
+            ? 'Đã duyệt đơn tăng ca và ghi vào chấm công.'
+            : 'Đã từ chối đơn tăng ca.');
     }
 
     /**
@@ -204,94 +250,38 @@ class OvertimeRequestController extends Controller
     {
         $date = Carbon::parse($overtime->overtime_date)->toDateString();
 
-        DB::transaction(function () use ($overtime, $date) {
-            $record = AttendanceRecord::firstOrNew([
-                'user_id' => $overtime->user_id,
-                'work_date' => $date,
-            ]);
+        $record = AttendanceRecord::firstOrNew([
+            'user_id' => $overtime->user_id,
+            'work_date' => $date,
+        ]);
 
-            if (! $record->exists) {
-                $record->status = 'absent';
-                $record->late_minutes = 0;
-                $record->early_leave_minutes = 0;
-                $record->work_minutes = 0;
-            }
-
-            $tagStart = '[Tăng ca #'.$overtime->id.']';
-            $tagEnd = '[/Tăng ca #'.$overtime->id.']';
-
-            $current = (string) ($record->note ?? '');
-            $pattern = '/\s*'.preg_quote($tagStart, '/').'.*?'.preg_quote($tagEnd, '/').'\s*/su';
-            $clean = trim((string) preg_replace($pattern, "\n", $current));
-
-            $noteText = implode(' | ', array_filter([
-                'Tăng ca đã duyệt',
-                'Ngày: '.Carbon::parse($overtime->overtime_date)->format('d/m/Y'),
-                'Giờ: '.Carbon::parse($overtime->start_at)->format('H:i').' - '.Carbon::parse($overtime->end_at)->format('H:i'),
-                'Số giờ: '.rtrim(rtrim(number_format((float) $overtime->hours, 2, '.', ''), '0'), '.'),
-                $overtime->reason ? 'Lý do: '.trim($overtime->reason) : null,
-                $overtime->approvedBy?->name ? 'Người duyệt: '.$overtime->approvedBy->name : null,
-                $overtime->approval_note ? 'Ghi chú duyệt: '.trim($overtime->approval_note) : null,
-            ]));
-
-            $newTaggedNote = $tagStart.' '.$noteText.' '.$tagEnd;
-            $record->note = trim($clean === '' ? $newTaggedNote : ($clean."\n".$newTaggedNote));
-            $record->save();
-        });
-    }
-
-    /**
-     * Kiểm tra user có quyền duyệt đơn tăng ca (quản lý HR hoặc đúng người duyệt).
-     */
-    private function canApprove($user, OvertimeRequest $overtime): bool
-    {
-        if (! $user) {
-            return false;
+        if (! $record->exists) {
+            $record->status = 'absent';
+            $record->late_minutes = 0;
+            $record->early_leave_minutes = 0;
+            $record->work_minutes = 0;
         }
 
-        return $this->canManageHr($user) || (int) $overtime->approver_id === (int) $user->id;
-    }
+        $tagStart = '[Tăng ca #'.$overtime->id.']';
+        $tagEnd = '[/Tăng ca #'.$overtime->id.']';
 
-    /**
-     * Kiểm tra user thuộc nhóm quản lý HR (admin / accounting / hr).
-     */
-    private function canManageHr($user): bool
-    {
-        if (! $user) {
-            return false;
-        }
+        $current = (string) ($record->note ?? '');
+        $pattern = '/\s*'.preg_quote($tagStart, '/').'.*?'.preg_quote($tagEnd, '/').'\s*/su';
+        $clean = trim((string) preg_replace($pattern, "\n", $current));
 
-        $roles = ['admin', 'accounting', 'hr'];
+        $noteText = implode(' | ', array_filter([
+            'Tăng ca đã duyệt',
+            'Ngày: '.Carbon::parse($overtime->overtime_date)->format('d/m/Y'),
+            'Giờ: '.Carbon::parse($overtime->start_at)->format('H:i').' - '.Carbon::parse($overtime->end_at)->format('H:i'),
+            'Số giờ: '.rtrim(rtrim(number_format((float) $overtime->hours, 2, '.', ''), '0'), '.'),
+            $overtime->reason ? 'Lý do: '.trim($overtime->reason) : null,
+            $overtime->approvedBy?->name ? 'Người duyệt: '.$overtime->approvedBy->name : null,
+            $overtime->approval_note ? 'Ghi chú duyệt: '.trim($overtime->approval_note) : null,
+        ]));
 
-        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole($roles)) {
-            return true;
-        }
-
-        if (method_exists($user, 'hasRole')) {
-            foreach ($roles as $role) {
-                if ($user->hasRole($role)) {
-                    return true;
-                }
-            }
-        }
-
-        $rawRole = strtolower((string) ($user->role ?? ''));
-
-        return in_array($rawRole, $roles, true);
-    }
-
-    /**
-     * Lấy danh sách người duyệt khả dụng (tối đa 100 user đang hoạt động).
-     */
-    private function approverOptions()
-    {
-        $query = User::query()->orderBy('name');
-
-        if (Schema::hasColumn('users', 'is_active')) {
-            $query->where('is_active', 1);
-        }
-
-        return $query->limit(100)->get(['id', 'name', 'email']);
+        $newTaggedNote = $tagStart.' '.$noteText.' '.$tagEnd;
+        $record->note = trim($clean === '' ? $newTaggedNote : ($clean."\n".$newTaggedNote));
+        $record->save();
     }
 
     /**

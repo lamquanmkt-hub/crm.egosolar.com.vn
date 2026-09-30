@@ -1,78 +1,121 @@
 @extends('layouts.app')
 
+@section('title', 'Đăng ký tăng ca')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/ego-attendance-promax.css') }}?v={{ filemtime(public_path('css/ego-attendance-promax.css')) }}">
+    <style>
+        #egoAttendancePromax .ot-form{padding:18px 20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+        #egoAttendancePromax .ot-field{display:flex;flex-direction:column;gap:5px}
+        #egoAttendancePromax .ot-field--full{grid-column:1/-1}
+        #egoAttendancePromax .ot-field label{color:#607b89;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+        #egoAttendancePromax .ot-field input,#egoAttendancePromax .ot-field select,#egoAttendancePromax .ot-field textarea{width:100%;border:1px solid #d2e2e8;border-radius:12px;padding:11px 12px;outline:0;font-size:13px;background:#fff}
+        #egoAttendancePromax .ot-field input:focus,#egoAttendancePromax .ot-field select:focus,#egoAttendancePromax .ot-field textarea:focus{border-color:#09a7b2;box-shadow:0 0 0 3px rgba(9,167,178,.12)}
+        #egoAttendancePromax .ot-field small{color:#78909c;font-size:11px;line-height:1.45}
+        #egoAttendancePromax .ot-field .is-invalid{border-color:#e05266}
+        #egoAttendancePromax .ot-hours{padding:12px 14px;border:1px dashed #b9d7df;border-radius:12px;background:#f7fbfc;color:#1f4a5e;font-weight:800;font-size:13px}
+        #egoAttendancePromax .ot-form-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px}
+        @media(max-width:700px){#egoAttendancePromax .ot-form{grid-template-columns:1fr}}
+    </style>
+@endpush
+
 @section('content')
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
-        <div>
-            <h3 class="mb-1 fw-bold">Đăng ký tăng ca</h3>
-            <div class="text-muted">Tạo đơn tăng ca để HR / quản lý duyệt và ghi nhận vào bảng chấm công</div>
-        </div>
+<div id="egoAttendancePromax">
+    <div class="at-shell" style="max-width:980px">
+        @if(session('error'))
+            <div class="at-alert at-alert--danger"><i class="bi bi-exclamation-circle"></i>{{ session('error') }}</div>
+        @endif
+        @if($errors->any())
+            <div class="at-alert at-alert--danger">
+                <i class="bi bi-exclamation-circle"></i>
+                <div>@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
+            </div>
+        @endif
 
-        <a href="{{ route('hr.overtime.index') }}" class="btn btn-outline-primary rounded-pill px-4">
-            <i class="bi bi-list-ul me-1"></i> Danh sách tăng ca
-        </a>
-    </div>
+        <header class="at-hero at-panel">
+            <div class="at-heading">
+                <div class="at-heading__icon"><i class="bi bi-moon-stars"></i></div>
+                <div>
+                    <span>CHẤM CÔNG · TĂNG CA</span>
+                    <h1>Đăng ký tăng ca</h1>
+                    <p>Gửi đơn để quản lý / trưởng phòng / HR duyệt. Đơn được duyệt sẽ ghi vào chấm công và cộng vào tổng giờ công.</p>
+                </div>
+            </div>
+            <div class="at-actions">
+                <a class="at-btn at-btn--glass" href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}"><i class="bi bi-list-ul"></i>Đơn tăng ca của tôi</a>
+                <a class="at-btn at-btn--glass" href="{{ route('hr.attendance.my') }}"><i class="bi bi-fingerprint"></i>Chấm công của tôi</a>
+            </div>
+        </header>
 
-    @if(session('error'))
-        <div class="alert alert-danger border-0 shadow-sm">{{ session('error') }}</div>
-    @endif
-
-    @if ($errors->any())
-        <div class="alert alert-danger border-0 shadow-sm">
-            <div class="fw-bold mb-2">Có lỗi xảy ra:</div>
-            <ul class="mb-0 ps-3">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-body p-4">
-            <form method="POST" action="{{ route('hr.overtime.store') }}" class="row g-4">
+        <section class="at-panel">
+            <form method="POST" action="{{ route('hr.overtime.store') }}" class="ot-form" data-overtime-form>
                 @csrf
 
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Ngày tăng ca</label>
-                    <input type="date" name="overtime_date" value="{{ old('overtime_date', now()->toDateString()) }}" class="form-control rounded-4" required>
+                <div class="ot-field">
+                    <label for="ot-date">Ngày tăng ca *</label>
+                    <input id="ot-date" type="date" name="overtime_date" value="{{ old('overtime_date', now()->toDateString()) }}" required>
+                </div>
+                <div class="ot-field">
+                    <label for="ot-start">Từ giờ *</label>
+                    <input id="ot-start" type="time" name="start_time" value="{{ old('start_time', '18:00') }}" required data-ot-start>
+                </div>
+                <div class="ot-field">
+                    <label for="ot-end">Đến giờ *</label>
+                    <input id="ot-end" type="time" name="end_time" value="{{ old('end_time', '20:00') }}" required data-ot-end>
+                    <small>Giờ kết thúc nhỏ hơn giờ bắt đầu = tăng ca qua đêm. Tối đa 16 giờ/lần.</small>
                 </div>
 
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Từ giờ</label>
-                    <input type="time" name="start_time" value="{{ old('start_time', '18:00') }}" class="form-control rounded-4" required>
+                <div class="ot-field ot-field--full">
+                    <div class="ot-hours" data-ot-hours>Số giờ tăng ca: 2 giờ</div>
                 </div>
 
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Đến giờ</label>
-                    <input type="time" name="end_time" value="{{ old('end_time', '20:00') }}" class="form-control rounded-4" required>
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold">Người duyệt</label>
-                    <select name="approver_id" class="form-select rounded-4">
-                        <option value="">-- HR / Admin duyệt --</option>
+                <div class="ot-field ot-field--full">
+                    <label for="ot-approver">Người duyệt *</label>
+                    <select id="ot-approver" name="approver_id" required class="@error('approver_id') is-invalid @enderror">
+                        <option value="">— Chọn quản lý / trưởng phòng / HR —</option>
                         @foreach($approvers as $approver)
-                            <option value="{{ $approver->id }}" {{ old('approver_id') == $approver->id ? 'selected' : '' }}>
-                                {{ $approver->name }} @if($approver->email) - {{ $approver->email }} @endif
+                            <option value="{{ $approver->id }}" @selected((int) old('approver_id') === (int) $approver->id)>
+                                {{ $approver->name }}@if($approver->email) · {{ $approver->email }}@endif
                             </option>
                         @endforeach
                     </select>
+                    <small>Không thể chọn chính mình. HR / Admin vẫn xem và duyệt được mọi đơn.</small>
                 </div>
 
-                <div class="col-12">
-                    <label class="form-label fw-semibold">Lý do tăng ca</label>
-                    <textarea name="reason" rows="4" class="form-control rounded-4" placeholder="VD: xử lý đơn hàng gấp, hỗ trợ dự án, trực kho...">{{ old('reason') }}</textarea>
+                <div class="ot-field ot-field--full">
+                    <label for="ot-reason">Lý do tăng ca *</label>
+                    <textarea id="ot-reason" name="reason" rows="4" required minlength="5" maxlength="5000" placeholder="VD: xử lý đơn hàng gấp, hỗ trợ công trình, trực kho...">{{ old('reason') }}</textarea>
                 </div>
 
-                <div class="col-12 d-flex gap-2 justify-content-end">
-                    <a href="{{ route('hr.overtime.index') }}" class="btn btn-light rounded-4 px-4">Huỷ</a>
-                    <button type="submit" class="btn btn-primary rounded-4 px-4">
-                        <i class="bi bi-send me-1"></i> Gửi đơn tăng ca
-                    </button>
+                <div class="ot-form-actions">
+                    <a class="at-btn at-btn--light" href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}">Huỷ</a>
+                    <button type="submit" class="at-btn at-btn--primary"><i class="bi bi-send"></i>Gửi đơn tăng ca</button>
                 </div>
             </form>
-        </div>
+        </section>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    (function () {
+        var form = document.querySelector('[data-overtime-form]');
+        if (!form) { return; }
+        var start = form.querySelector('[data-ot-start]');
+        var end = form.querySelector('[data-ot-end]');
+        var out = form.querySelector('[data-ot-hours]');
+        function minutes(v) { var p = (v || '').split(':'); return p.length === 2 ? (+p[0]) * 60 + (+p[1]) : null; }
+        function update() {
+            var s = minutes(start.value), e = minutes(end.value);
+            if (s === null || e === null) { out.textContent = 'Số giờ tăng ca: —'; return; }
+            var diff = e > s ? e - s : e + 1440 - s;
+            var h = Math.round(diff / 60 * 100) / 100;
+            out.textContent = 'Số giờ tăng ca: ' + String(h).replace('.', ',') + ' giờ' + (e <= s ? ' (qua đêm)' : '') + (diff > 960 ? ' — vượt 16 giờ, không hợp lệ' : '');
+        }
+        start.addEventListener('input', update);
+        end.addEventListener('input', update);
+        update();
+    })();
+</script>
+@endpush

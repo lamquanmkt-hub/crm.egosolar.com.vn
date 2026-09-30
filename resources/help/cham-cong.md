@@ -1,8 +1,8 @@
 ---
-title: Chấm công & sửa chấm công
+title: Chấm công, sửa chấm công & tăng ca
 url: /nhan-su/cham-cong-cua-toi
-routes: hr.attendance.*, hr.attendance-corrections.*
-keywords: chấm công, check in, check out, vào ca, ra ca, gps, vị trí, đi muộn, về sớm, quên chấm công, sửa chấm công, yêu cầu sửa, giải trình, hr duyệt, bảng công
+routes: hr.attendance.*, hr.attendance-corrections.*, hr.overtime.*
+keywords: chấm công, check in, check out, vào ca, ra ca, gps, vị trí, đi muộn, về sớm, quên chấm công, sửa chấm công, yêu cầu sửa, giải trình, hr duyệt, bảng công, tăng ca, đăng ký tăng ca, làm thêm giờ, ngoài giờ, overtime, duyệt tăng ca, giờ công
 ---
 Mỗi nhân viên tự chấm công hằng ngày tại [Chấm công của tôi](/nhan-su/cham-cong-cua-toi) (hoặc nút **Chấm công** trên thanh công cụ).
 
@@ -31,3 +31,16 @@ Lưu ý:
 - HR có thể giữ giờ nhân viên đề nghị hoặc chốt giờ khác khi duyệt. Khi duyệt, bảng công ngày đó được **tính lại** (đi muộn, về sớm, giờ làm).
 - **Từ chối** bắt buộc nhập lý do.
 - HR không được tự duyệt yêu cầu của chính mình.
+
+## Đăng ký tăng ca
+Mọi nhân viên đều đăng ký được. Mở [Chấm công của tôi](/nhan-su/cham-cong-cua-toi) → nút **"Tăng ca"** → **"Đăng ký tăng ca"** (hoặc vào thẳng [Đăng ký tăng ca](/nhan-su/tang-ca/create)).
+1. Chọn **ngày**, **từ giờ**, **đến giờ**. Giờ kết thúc nhỏ hơn giờ bắt đầu nghĩa là tăng ca **qua đêm**. Tối đa 16 giờ mỗi lần. Ô "Số giờ tăng ca" tự tính ngay trên form.
+2. Chọn **người duyệt** (bắt buộc): chỉ gồm quản lý / trưởng phòng / HR / admin, không chọn được chính mình.
+3. Nhập **lý do** (ít nhất 5 ký tự) rồi bấm **"Gửi đơn tăng ca"**.
+- Không gửi được nếu trùng khung giờ với một đơn tăng ca khác của bạn đang chờ hoặc đã duyệt.
+- Theo dõi đơn ở [Tăng ca](/nhan-su/tang-ca), tab **"Của tôi"**; đơn chờ duyệt nằm trên cùng.
+
+## Duyệt tăng ca và giờ công
+- Người được chọn duyệt, và HR / Admin / Kế toán, thấy nút **"Duyệt tăng ca"** ở Chấm công của tôi, hoặc tab **"Cần duyệt"** ở trang Tăng ca. Bấm **Duyệt** hoặc **Từ chối**, có thể ghi chú.
+- **Không ai tự duyệt được đơn của chính mình**, kể cả HR / Admin. Chỉ xử lý được đơn đang **chờ duyệt**; đơn đã duyệt hoặc đã từ chối không đổi lại được.
+- Đơn **đã duyệt** được ghi vào bảng chấm công ngày đó và **cộng vào "Tổng giờ công"** ở Chấm công của tôi. Trong bảng Lịch sử chấm công, ngày có tăng ca hiện nhãn **"Tăng ca …h"**.
