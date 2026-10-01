@@ -29,6 +29,33 @@ class SolarMaintenanceAccess
         return in_array($email, $allowed, true);
     }
 
+    /**
+     * Đợt này có BẮT BUỘC đủ file minh chứng mới cho kỹ thuật viên hoàn tất không?
+     * Chỉ áp cho đợt tạo từ ngày technical.maintenance_evidence_required_from trở đi.
+     */
+    public static function evidenceRequired(?object $schedule): bool
+    {
+        $from = (string) config('technical.maintenance_evidence_required_from', '');
+        if ($from === '' || ! $schedule || empty($schedule->created_at)) {
+            return false;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($schedule->created_at)
+                ->greaterThanOrEqualTo(\Illuminate\Support\Carbon::parse($from)->startOfDay());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Người này có phải đủ file minh chứng mới được hoàn tất đợt này không (manager luôn được bỏ qua).
+     */
+    public static function mustHaveEvidenceToComplete(?User $user, ?object $schedule): bool
+    {
+        return ! self::canCompleteAnyRound($user) && self::evidenceRequired($schedule);
+    }
+
     public static function roles(?User $user): array
     {
         if (! $user) {

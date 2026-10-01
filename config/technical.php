@@ -78,6 +78,13 @@ return [
      * cũng được bấm "Hoàn tất đợt" bảo trì cho MỌI đợt dù không phải người được
      * phân công. Cấu hình bằng MAINTENANCE_COMPLETE_ANY_EMAILS (cách nhau bằng dấu phẩy).
      */
+    /*
+     * Các đợt bảo trì/bảo hành TẠO TỪ ngày này trở đi: kỹ thuật viên phải đủ file minh chứng bắt buộc
+     * mới được bấm "Hoàn tất đợt". Đợt tạo trước ngày này không bắt buộc. Manager kỹ thuật luôn được
+     * hoàn tất dù thiếu file. Đổi bằng MAINTENANCE_EVIDENCE_REQUIRED_FROM (Y-m-d).
+     */
+    'maintenance_evidence_required_from' => env('MAINTENANCE_EVIDENCE_REQUIRED_FROM', '2026-10-01'),
+
     'maintenance_complete_any_emails' => array_values(array_filter(array_map(
         'trim',
         explode(',', (string) env('MAINTENANCE_COMPLETE_ANY_EMAILS', 'anhthu@egosolar.vn'))

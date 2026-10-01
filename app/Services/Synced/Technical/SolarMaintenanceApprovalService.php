@@ -124,8 +124,15 @@ class SolarMaintenanceApprovalService
                 $comment = trim((string) $comment) === '' ? $bypassNote : trim((string) $comment).' | '.$bypassNote;
             }
 
-            // Cho phép hoàn tất dù thiếu file minh chứng, nhưng PHẢI ghi chú rõ vào hồ sơ.
+            // Đợt tạo từ ngày áp dụng trở đi: kỹ thuật viên phải đủ file; manager thì không bị chặn.
             $shortfall = $this->evidenceShortfall($schedule);
+            if ($shortfall !== [] && SolarMaintenanceAccess::mustHaveEvidenceToComplete($actor, $schedule)) {
+                throw ValidationException::withMessages([
+                    'evidence' => 'Đợt này cần đủ file minh chứng bắt buộc mới hoàn tất được. '.self::missingList($shortfall),
+                ]);
+            }
+
+            // Các trường hợp còn lại cho phép hoàn tất dù thiếu file, nhưng PHẢI ghi chú rõ vào hồ sơ.
             $shortfallNote = $shortfall === [] ? null : self::shortfallNote($shortfall);
             if ($shortfallNote !== null) {
                 $comment = trim((string) $comment) === '' ? $shortfallNote : trim((string) $comment).' | '.$shortfallNote;
@@ -194,6 +201,15 @@ class SolarMaintenanceApprovalService
         }
 
         return $rows;
+    }
+
+    /** Danh sách hạng mục thiếu file, dạng "Tên (0/1 file); ..." */
+    public static function missingList(array $shortfall): string
+    {
+        return implode('; ', array_map(
+            fn (array $row) => $row['title'].' ('.$row['files_count'].'/'.$row['min_files'].' file)',
+            $shortfall
+        )).'.';
     }
 
     /** Dòng ghi chú ghi vào hồ sơ khi hoàn tất mà chưa đủ file. */

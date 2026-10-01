@@ -23,7 +23,7 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         return $this->userWithRole('ky_thuat');
     }
 
-    private function makeSchedule(User $assignee, bool $itemDone = false, ?string $resultNote = 'Đã kiểm tra tại hiện trường'): int
+    private function makeSchedule(User $assignee, bool $itemDone = false, ?string $resultNote = 'Đã kiểm tra tại hiện trường', string $createdAt = '2026-09-15 08:00:00'): int
     {
         $id = DB::table('solar_maintenance_schedules')->insertGetId([
             'type' => 'periodic',
@@ -34,7 +34,7 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
             'assignment_approval_status' => 'approved',
             'assigned_to' => $assignee->id,
             'result_note' => $resultNote,
-            'created_at' => now(),
+            'created_at' => $createdAt,
             'updated_at' => now(),
         ]);
         DB::table('solar_maintenance_assignees')->insert([
@@ -141,7 +141,7 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         $id = $this->makeSchedule($owner);
 
         $html = $this->actingAs($manager)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit">/', $html);
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit"\s*>/', $html);
 
         $this->actingAs($manager)
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
@@ -260,7 +260,7 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         ]);
 
         $html = $this->actingAs($tech)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit">/', $html);
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit"\s*>/', $html);
 
         $this->actingAs($tech)
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
@@ -293,6 +293,69 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
             ->assertSessionHasErrors('result_note');
     }
+    public function test_staff_needs_full_evidence_for_rounds_created_from_the_cutoff_date(): void
+    {
+        $tech = $this->technician();
+        $id = $this->makeSchedule($tech, createdAt: '2026-10-02 09:00:00');
+
+        $html = $this->actingAs($tech)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit" disabled>/', $html);
+        $this->assertStringContainsString('Chưa thể hoàn tất: cần đủ file minh chứng', $html);
+
+        $this->actingAs($tech)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertSessionHasErrors('evidence');
+
+        $this->assertSame('in_progress', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
+    }
+
+    public function test_staff_can_complete_a_new_round_when_evidence_is_complete(): void
+    {
+        $tech = $this->technician();
+        $id = $this->makeSchedule($tech, itemDone: true, createdAt: '2026-10-02 09:00:00');
+
+        $this->actingAs($tech)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('completed', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
+    }
+
+    public function test_manager_can_complete_a_new_round_even_without_enough_files(): void
+    {
+        $owner = $this->technician();
+        $manager = $this->userWithRole('technical_manager', ['email' => 'quanly.cutoff@egosolar.test']);
+        $id = $this->makeSchedule($owner, createdAt: '2026-10-02 09:00:00');
+
+        $html = $this->actingAs($manager)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit"\s*>/', $html);
+
+        $this->actingAs($manager)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $schedule = SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id);
+        $this->assertSame('completed', $schedule->status);
+        $this->assertStringContainsString('chưa đủ file minh chứng', (string) $schedule->result_note);
+    }
+
+    public function test_cutoff_boundary_is_start_of_the_configured_day(): void
+    {
+        $tech = $this->technician();
+        config(['technical.maintenance_evidence_required_from' => '2026-10-01']);
+
+        $before = new SolarMaintenanceSchedule(['created_at' => '2026-09-30 23:59:59']);
+        $before->created_at = '2026-09-30 23:59:59';
+        $from = new SolarMaintenanceSchedule();
+        $from->created_at = '2026-10-01 00:00:00';
+
+        $this->assertFalse(\App\Support\SolarMaintenanceAccess::evidenceRequired($before));
+        $this->assertTrue(\App\Support\SolarMaintenanceAccess::evidenceRequired($from));
+        $this->assertTrue(\App\Support\SolarMaintenanceAccess::mustHaveEvidenceToComplete($tech, $from));
+        $this->assertFalse(\App\Support\SolarMaintenanceAccess::mustHaveEvidenceToComplete($tech, $before));
+    }
     public function test_default_config_lists_anh_thu(): void
     {
         $this->assertContains('anhthu@egosolar.vn', (array) config('technical.maintenance_complete_any_emails'));
@@ -305,7 +368,7 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
 
         $html = $this->actingAs($tech)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
 
-        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit">/', $html);
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit"\s*>/', $html);
         $this->assertStringContainsString('data-missing-evidence="1"', $html);
         $this->assertStringContainsString('chưa đủ file', $html);
     }

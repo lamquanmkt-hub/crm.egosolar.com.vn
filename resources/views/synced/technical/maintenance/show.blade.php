@@ -652,6 +652,8 @@ body.emi15-modal-open { overflow: hidden; }
                 $uploadedRequiredFiles = $requiredItems->sum(fn($i) => min($i['min_files'], $i['files_count']));
                 $missingChecklistItems = $requiredItems->filter(fn($i) => !$i['is_satisfied']);
                 $isChecklistReady = $totalRequiredCount > 0 ? $missingChecklistItems->isEmpty() : true;
+                // Đợt tạo từ ngày áp dụng: kỹ thuật viên phải đủ file mới hoàn tất; manager luôn được.
+                $mustHaveEvidence = \App\Support\SolarMaintenanceAccess::mustHaveEvidenceToComplete(auth()->user(), $schedule);
 
                 $executionCompleted = $useLegacyExecution ? $legacyExecutionItems->where('is_done', true)->count() : $workItems->where('status','completed')->count();
                 $executionTotal = $useLegacyExecution ? $legacyExecutionItems->count() : $workItems->count();
@@ -894,7 +896,11 @@ body.emi15-modal-open { overflow: hidden; }
                         <div class="eme11-alert-head">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <div class="eme11-alert-title-wrap">
-                                <h4>Chưa đủ file minh chứng: còn {{ $missingChecklistItems->count() }} hạng mục bắt buộc. Vẫn có thể hoàn tất đợt — hệ thống sẽ ghi chú "chưa đủ file" vào hồ sơ.</h4>
+                                @if($mustHaveEvidence)
+                                    <h4>Chưa thể hoàn tất: cần đủ file minh chứng cho {{ $missingChecklistItems->count() }} hạng mục bắt buộc.</h4>
+                                @else
+                                    <h4>Chưa đủ file minh chứng: còn {{ $missingChecklistItems->count() }} hạng mục bắt buộc. Vẫn có thể hoàn tất đợt — hệ thống sẽ ghi chú "chưa đủ file" vào hồ sơ.</h4>
+                                @endif
                                 <span class="eme11-alert-progress">{{ $completedRequiredCount }}/{{ $totalRequiredCount }} hạng mục · {{ $uploadedRequiredFiles }}/{{ $totalRequiredMinFiles }} file minh chứng</span>
                             </div>
                         </div>
@@ -947,7 +953,7 @@ body.emi15-modal-open { overflow: hidden; }
                         @if($permissions['complete'] || $permissions['update'])
                             <form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule' => $schedule->id]) }}" data-complete-round-form @if(!$isChecklistReady) data-missing-evidence="1" @endif>
                                 @csrf
-                                <button class="emd9-btn primary eme11-btn-complete" type="submit">
+                                <button class="emd9-btn primary eme11-btn-complete" type="submit" @disabled($mustHaveEvidence && !$isChecklistReady)>
                                     <i class="bi bi-check2-circle"></i> Hoàn tất đợt
                                 </button>
                             </form>
