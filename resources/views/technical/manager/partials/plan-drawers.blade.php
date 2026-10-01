@@ -197,16 +197,8 @@
                 ])
             </div>
 
-            <div class="tp-plandrawer__reason">
-                <label class="form-label small" for="tp-assign-reason">Lý do giao việc <span class="tp-req">*</span></label>
-                <input type="text" class="form-control form-control-sm {{ $openDrawer === 'assign' && $errors->has('reason') ? 'is-invalid' : '' }}"
-                       id="tp-assign-reason" name="reason" minlength="5" maxlength="2000" required
-                       value="{{ $openDrawer === 'assign' ? old('reason') : '' }}"
-                       placeholder="Ví dụ: bổ sung nhân lực cho công trình đang gấp">
-                @if($openDrawer === 'assign' && $errors->has('reason'))
-                    <div class="invalid-feedback d-block">{{ $errors->first('reason') }}</div>
-                @endif
-            </div>
+            {{-- Không hỏi lý do giao việc: lý do mặc định được ghi vào nhật ký kế hoạch. --}}
+            <input type="hidden" id="tp-assign-reason" name="reason" value="Trưởng phòng giao việc">
         </div>
 
         <div class="tp-plandrawer__footer">

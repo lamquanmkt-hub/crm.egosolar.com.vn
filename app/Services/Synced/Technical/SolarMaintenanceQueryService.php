@@ -257,7 +257,7 @@ class SolarMaintenanceQueryService
     public function technicalUsers()
     {
         $technicalRoles = [
-            'technical', 'technician', 'technical_staff', 'technical_leader',
+            'ky_thuat', 'technical', 'technician', 'technical_staff', 'technical_leader',
             'technical_manager', 'maintenance_manager', 'ky_thuat_manager',
             'quan_ly_ky_thuat', 'bao_hanh', 'maintenance',
         ];

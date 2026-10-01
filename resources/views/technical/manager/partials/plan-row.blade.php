@@ -169,6 +169,7 @@
             @if($tpErr('title'))<div class="invalid-feedback d-block">{{ $tpErr('title') }}</div>@endif
         </div>
 
+        @unless($tpCompact)
         <div class="tp-rowcard__full">
             <label class="form-label small">Mục tiêu cần đạt</label>
             <textarea class="form-control form-control-sm {{ $tpErr('objective') ? 'is-invalid' : '' }}"
@@ -182,5 +183,6 @@
                       name="{{ $tpName('note') }}" data-tp-field="note" rows="2">{{ $tpVal('note') }}</textarea>
             @if($tpErr('note'))<div class="invalid-feedback d-block">{{ $tpErr('note') }}</div>@endif
         </div>
+        @endunless
     </div>
 </article>

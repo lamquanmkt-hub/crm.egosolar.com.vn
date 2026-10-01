@@ -95,7 +95,8 @@ class TechnicalPlanCreateFlowTest extends TestCase
 
         $this->assertStringContainsString('id="tpAssignDrawer"', $html);
         $this->assertStringContainsString('id="tp-assign-user"', $html);
-        $this->assertStringContainsString('Lý do giao việc', $html);
+        // Không hỏi lý do giao việc: lý do mặc định được gửi ngầm để vẫn ghi nhật ký.
+        $this->assertStringContainsString('id="tp-assign-reason" name="reason" value="Trưởng phòng giao việc"', $html);
     }
 
     public function test_deep_links_render_the_matching_drawer_already_open(): void

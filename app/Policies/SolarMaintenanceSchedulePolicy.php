@@ -176,7 +176,8 @@ class SolarMaintenanceSchedulePolicy
      */
     private function sameCompany(User $user, SolarMaintenanceSchedule $schedule): bool
     {
-        if (SolarMaintenanceAccess::isAdmin($user)) {
+        // Admin và quản lý kỹ thuật (Trưởng phòng / Giám đốc) thao tác được mọi đợt, kể cả đợt gắn nhãn công ty khác.
+        if (SolarMaintenanceAccess::isAdmin($user) || SolarMaintenanceAccess::isTechnicalLead($user)) {
             return true;
         }
 

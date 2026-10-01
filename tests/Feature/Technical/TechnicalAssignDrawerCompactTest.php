@@ -41,7 +41,7 @@ final class TechnicalAssignDrawerCompactTest extends TestCase
         $html = $this->actingAs($this->technicalManager())->get(route('technical.manager.board'))->assertOk()->getContent();
         $drawer = $this->assignDrawerHtml($html);
 
-        foreach (['Ngày thực hiện', 'Buổi <', 'Giờ bắt đầu', 'Giờ kết thúc', 'Thời gian dự kiến', 'Mức độ ưu tiên', 'Công trình liên quan'] as $gone) {
+        foreach (['Ngày thực hiện', 'Buổi <', 'Giờ bắt đầu', 'Giờ kết thúc', 'Thời gian dự kiến', 'Mức độ ưu tiên', 'Công trình liên quan', 'Mục tiêu cần đạt', 'Ghi chú', 'Lý do giao việc'] as $gone) {
             $this->assertStringNotContainsString($gone, $drawer, 'Drawer Giao việc không còn ô "'.$gone.'".');
         }
 
@@ -59,7 +59,7 @@ final class TechnicalAssignDrawerCompactTest extends TestCase
         $this->assertMatchesRegularExpression('/<input type="text"[^>]*name="items\[0\]\[source_text\]"/', $drawer);
         $this->assertStringNotContainsString('name="items[0][source_id]"', $drawer);
         $this->assertStringContainsString('Nội dung công việc', $drawer);
-        $this->assertStringContainsString('Lý do giao việc', $drawer);
+        $this->assertMatchesRegularExpression('/<input type="hidden" id="tp-assign-reason" name="reason" value="[^"]{5,}"/', $drawer);
     }
 
     public function test_create_plan_drawer_is_unchanged(): void
@@ -67,7 +67,7 @@ final class TechnicalAssignDrawerCompactTest extends TestCase
         $html = $this->actingAs($this->technicalManager())->get(route('technical.manager.board'))->assertOk()->getContent();
         $drawer = $this->createDrawerHtml($html);
 
-        foreach (['Ngày thực hiện', 'Giờ bắt đầu', 'Mức độ ưu tiên', 'Đầu việc'] as $kept) {
+        foreach (['Ngày thực hiện', 'Giờ bắt đầu', 'Mức độ ưu tiên', 'Đầu việc', 'Mục tiêu cần đạt', 'Ghi chú'] as $kept) {
             $this->assertStringContainsString($kept, $drawer);
         }
         $this->assertStringContainsString('name="items[0][source_id]"', $drawer);
