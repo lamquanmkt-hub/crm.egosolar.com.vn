@@ -57,6 +57,7 @@ final class MaintenanceCreateForExistingSiteTest extends TestCase
     {
         $siteId = $this->makeSite('ZZ Cong trinh cu tao lich', 1);
         $manager = $this->userWithRole('technical_manager', ['email' => 'ql.congtrinhcu@egosolar.test']);
+        $sitesBefore = DB::table('sites')->count();
 
         $this->actingAs($manager)->post(route('projects-unified.maintenance.store'), [
             'site_id' => $siteId,
@@ -68,6 +69,9 @@ final class MaintenanceCreateForExistingSiteTest extends TestCase
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertSame(2, SolarMaintenanceSchedule::withoutGlobalScopes()->where('site_id', $siteId)->count());
+        // Tạo lịch bảo trì KHÔNG tạo thêm công trình mới: các đợt gắn vào đúng công trình cũ.
+        $this->assertSame($sitesBefore, DB::table('sites')->count());
+        $this->assertSame([$siteId], SolarMaintenanceSchedule::withoutGlobalScopes()->where('site_id', $siteId)->pluck('site_id')->unique()->map(fn ($v) => (int) $v)->all());
     }
 
     public function test_staff_cannot_create_a_series_at_all(): void
