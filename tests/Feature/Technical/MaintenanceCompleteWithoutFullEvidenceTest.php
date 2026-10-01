@@ -169,10 +169,9 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         $this->assertSame('completed', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
     }
 
-    public function test_other_managers_and_listed_user_with_unapproved_assignment_are_still_limited(): void
+    public function test_other_managers_are_still_forbidden(): void
     {
         $owner = $this->technician();
-        $listed = $this->userWithRole('technical_manager', ['email' => 'lead.hoanthanh.test@egosolar.test']);
         $notListed = $this->userWithRole('technical_manager', ['email' => 'khac.khong.duoc@egosolar.test']);
         config(['technical.maintenance_complete_any_emails' => ['lead.hoanthanh.test@egosolar.test']]);
 
@@ -180,15 +179,58 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         $this->actingAs($notListed)
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
             ->assertForbidden();
-
-        // Người được chỉ định vẫn bị chặn nếu phân công chưa được duyệt (service kiểm tra).
-        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['assignment_approval_status' => 'pending']);
-        $this->actingAs($listed)
-            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
-            ->assertSessionHasErrors('approval');
         $this->assertSame('in_progress', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
     }
 
+    public function test_designated_manager_completes_without_any_condition(): void
+    {
+        $owner = $this->technician();
+        $listed = $this->userWithRole('technical_manager', ['email' => 'lead.hoanthanh.test@egosolar.test']);
+        config(['technical.maintenance_complete_any_emails' => ['lead.hoanthanh.test@egosolar.test']]);
+
+        // Phân công chưa duyệt + đợt mới chỉ "đã giao" + chưa có kết quả xử lý.
+        $id = $this->makeSchedule($owner, resultNote: null);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update([
+            'assignment_approval_status' => 'pending',
+            'status' => 'assigned',
+        ]);
+
+        $this->actingAs($listed)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $schedule = SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id);
+        $this->assertSame('completed', $schedule->status);
+        $this->assertStringContainsString('Hoàn tất trực tiếp bởi', (string) $schedule->approval_note);
+        $this->assertStringContainsString('phân công chưa được duyệt', (string) $schedule->approval_note);
+        $reason = DB::table('solar_maintenance_status_histories')->where('maintenance_schedule_id', $id)->where('to_status', 'completed')->value('reason');
+        $this->assertStringContainsString('Hoàn tất trực tiếp bởi', (string) $reason);
+    }
+
+    public function test_designated_manager_cannot_complete_an_already_completed_round(): void
+    {
+        $owner = $this->technician();
+        $listed = $this->userWithRole('technical_manager', ['email' => 'lead.hoanthanh.test@egosolar.test']);
+        config(['technical.maintenance_complete_any_emails' => ['lead.hoanthanh.test@egosolar.test']]);
+        $id = $this->makeSchedule($owner);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['status' => 'completed']);
+
+        $this->actingAs($listed)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertSessionHasErrors('approval');
+    }
+
+    public function test_unassigned_regular_technician_still_needs_approved_assignment_and_note(): void
+    {
+        $tech = $this->technician();
+        $id = $this->makeSchedule($tech);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['assignment_approval_status' => 'pending']);
+
+        $this->actingAs($tech)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertForbidden();
+    }
     public function test_default_config_lists_anh_thu(): void
     {
         $this->assertContains('anhthu@egosolar.vn', (array) config('technical.maintenance_complete_any_emails'));

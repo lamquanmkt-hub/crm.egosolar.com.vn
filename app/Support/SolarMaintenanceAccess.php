@@ -7,6 +7,22 @@ use Illuminate\Support\Str;
 
 class SolarMaintenanceAccess
 {
+    /**
+     * Người được chỉ định (config technical.maintenance_complete_any_emails) hoàn tất MỌI đợt bảo trì,
+     * không phụ thuộc phân công, công ty, trạng thái hay việc phê duyệt phân công.
+     */
+    public static function canCompleteAnyRound(?User $user): bool
+    {
+        $email = mb_strtolower(trim((string) ($user?->email ?? '')));
+        if ($email === '') {
+            return false;
+        }
+
+        $allowed = array_map('mb_strtolower', (array) config('technical.maintenance_complete_any_emails', []));
+
+        return in_array($email, $allowed, true);
+    }
+
     public static function roles(?User $user): array
     {
         if (! $user) {

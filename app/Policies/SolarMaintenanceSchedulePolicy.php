@@ -119,8 +119,7 @@ class SolarMaintenanceSchedulePolicy
     public function completeDirectly(User $user, SolarMaintenanceSchedule $schedule): bool
     {
         // Người được chỉ định (config technical.maintenance_complete_any_emails) hoàn tất được mọi đợt.
-        // Service vẫn kiểm trạng thái đợt và phân công đã duyệt, nên đợt chưa đủ điều kiện sẽ báo lỗi rõ ràng.
-        if ($this->canCompleteAnyRound($user)) {
+        if (SolarMaintenanceAccess::canCompleteAnyRound($user)) {
             return true;
         }
 
@@ -135,20 +134,6 @@ class SolarMaintenanceSchedulePolicy
         return in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true);
     }
 
-    /**
-     * Người dùng có email nằm trong danh sách được hoàn tất mọi đợt bảo trì hay không.
-     */
-    private function canCompleteAnyRound(User $user): bool
-    {
-        $email = mb_strtolower(trim((string) $user->email));
-        if ($email === '') {
-            return false;
-        }
-
-        $allowed = array_map('mb_strtolower', (array) config('technical.maintenance_complete_any_emails', []));
-
-        return in_array($email, $allowed, true);
-    }
 
     /**
      * Cho phép yêu cầu chỉnh sửa lại (cùng điều kiện với quyền duyệt).

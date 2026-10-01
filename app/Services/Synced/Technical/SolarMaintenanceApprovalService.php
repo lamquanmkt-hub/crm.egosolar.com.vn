@@ -5,6 +5,7 @@ namespace App\Services\Synced\Technical;
 use App\Models\SolarMaintenanceApproval;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
+use App\Support\SolarMaintenanceAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -81,25 +82,50 @@ class SolarMaintenanceApprovalService
     public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): array
     {
         return DB::transaction(function () use ($schedule, $actor, $comment) {
-            $allowedStatuses = ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'];
-            if (! in_array($schedule->status, $allowedStatuses, true)) {
+            // Người được chỉ định (technical.maintenance_complete_any_emails) hoàn tất mọi đợt, không cần điều kiện;
+            // chỉ chặn đợt đã hoàn tất / đã hủy để không đóng hồ sơ hai lần.
+            $force = SolarMaintenanceAccess::canCompleteAnyRound($actor);
+            $bypassed = [];
+
+            if (in_array($schedule->status, ['completed', 'cancelled'], true)) {
                 throw ValidationException::withMessages([
-                    'approval' => 'Trạng thái hiện tại không cho phép hoàn tất.',
+                    'approval' => 'Đợt này đã hoàn tất hoặc đã hủy.',
                 ]);
             }
 
+            $allowedStatuses = ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'];
+            if (! in_array($schedule->status, $allowedStatuses, true)) {
+                if (! $force) {
+                    throw ValidationException::withMessages([
+                        'approval' => 'Trạng thái hiện tại không cho phép hoàn tất.',
+                    ]);
+                }
+                $bypassed[] = 'chưa ở bước thực hiện';
+            }
+
             if (! in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true)) {
-                throw ValidationException::withMessages([
-                    'approval' => 'Chỉ được hoàn tất khi phân công đã được phê duyệt.',
-                ]);
+                if (! $force) {
+                    throw ValidationException::withMessages([
+                        'approval' => 'Chỉ được hoàn tất khi phân công đã được phê duyệt.',
+                    ]);
+                }
+                $bypassed[] = 'phân công chưa được duyệt';
             }
 
             if (in_array($schedule->status, ['in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true)) {
                 if (! trim((string) $schedule->result_note)) {
-                    throw ValidationException::withMessages([
-                        'result_note' => 'Phải nhập kết quả xử lý trước khi hoàn tất.',
-                    ]);
+                    if (! $force) {
+                        throw ValidationException::withMessages([
+                            'result_note' => 'Phải nhập kết quả xử lý trước khi hoàn tất.',
+                        ]);
+                    }
+                    $bypassed[] = 'chưa nhập kết quả xử lý';
                 }
+            }
+
+            if ($bypassed !== []) {
+                $bypassNote = 'Hoàn tất trực tiếp bởi '.$actor->name.' ('.implode(', ', $bypassed).').';
+                $comment = trim((string) $comment) === '' ? $bypassNote : trim((string) $comment).' | '.$bypassNote;
             }
 
             // Cho phép hoàn tất dù thiếu file minh chứng, nhưng PHẢI ghi chú rõ vào hồ sơ.
