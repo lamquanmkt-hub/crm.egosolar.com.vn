@@ -8,11 +8,17 @@ use Illuminate\Support\Str;
 class SolarMaintenanceAccess
 {
     /**
-     * Người được chỉ định (config technical.maintenance_complete_any_emails) hoàn tất MỌI đợt bảo trì,
-     * không phụ thuộc phân công, công ty, trạng thái hay việc phê duyệt phân công.
+     * Quản lý kỹ thuật (Trưởng phòng / Giám đốc / Admin / quyền maintenance.approve) và các email được chỉ định
+     * (config technical.maintenance_complete_any_emails) hoàn tất MỌI đợt bảo trì, không phụ thuộc phân công,
+     * công ty, trạng thái, phê duyệt phân công hay việc đã đủ file minh chứng hay chưa.
+     * Kỹ thuật viên thường chỉ hoàn tất đợt mình được phân công.
      */
     public static function canCompleteAnyRound(?User $user): bool
     {
+        if (self::isTechnicalLead($user)) {
+            return true;
+        }
+
         $email = mb_strtolower(trim((string) ($user?->email ?? '')));
         if ($email === '') {
             return false;

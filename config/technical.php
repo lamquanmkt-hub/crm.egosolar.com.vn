@@ -74,9 +74,9 @@ return [
     'department_keywords' => ['ky_thuat', 'technical'],
 
     /*
-     * Email được bấm "Hoàn tất đợt" bảo trì cho MỌI đợt, không cần là người được
-     * phân công (dùng khi Trưởng phòng hoàn tất thay kỹ thuật). Cấu hình bằng
-     * MAINTENANCE_COMPLETE_ANY_EMAILS (nhiều email cách nhau bằng dấu phẩy).
+     * Ngoài Trưởng phòng/Giám đốc/Admin (luôn được hoàn tất mọi đợt), các email này
+     * cũng được bấm "Hoàn tất đợt" bảo trì cho MỌI đợt dù không phải người được
+     * phân công. Cấu hình bằng MAINTENANCE_COMPLETE_ANY_EMAILS (cách nhau bằng dấu phẩy).
      */
     'maintenance_complete_any_emails' => array_values(array_filter(array_map(
         'trim',

@@ -169,14 +169,43 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
         $this->assertSame('completed', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
     }
 
-    public function test_other_managers_are_still_forbidden(): void
+    public function test_any_technical_manager_can_complete_any_round_without_being_listed(): void
     {
         $owner = $this->technician();
-        $notListed = $this->userWithRole('technical_manager', ['email' => 'khac.khong.duoc@egosolar.test']);
+        $manager = $this->userWithRole('technical_manager', ['email' => 'quanly.bat.ky@egosolar.test']);
+        config(['technical.maintenance_complete_any_emails' => []]);
+
+        $id = $this->makeSchedule($owner);
+        $this->actingAs($manager)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('completed', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
+    }
+
+    public function test_admin_can_complete_any_round(): void
+    {
+        $owner = $this->technician();
+        $admin = $this->userWithRole('admin');
+        config(['technical.maintenance_complete_any_emails' => []]);
+
+        $id = $this->makeSchedule($owner);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['company_id' => 1]);
+        $this->actingAs($admin)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+        $this->assertSame('completed', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
+    }
+
+    public function test_non_manager_user_who_is_not_assigned_is_forbidden(): void
+    {
+        $owner = $this->technician();
+        $sales = $this->userWithRole('sales', ['email' => 'kinhdoanh.khong.duoc@egosolar.test']);
         config(['technical.maintenance_complete_any_emails' => ['lead.hoanthanh.test@egosolar.test']]);
 
         $id = $this->makeSchedule($owner);
-        $this->actingAs($notListed)
+        $this->actingAs($sales)
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
             ->assertForbidden();
         $this->assertSame('in_progress', SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id)->status);
