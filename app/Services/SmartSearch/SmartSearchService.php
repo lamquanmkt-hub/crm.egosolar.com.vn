@@ -192,7 +192,8 @@ final class SmartSearchService
         $paid = $paidSub
             ? (float) (clone $orderQuery)->sum(DB::raw('COALESCE(pay.paid_amount, 0)'))
             : 0.0;
-        $debt = max(0.0, $total - $paid);
+        $returned = (float) (clone $orderQuery)->sum(DB::raw(\App\Services\OrderReturnFinancialService::returnCreditSql('o.id')));
+        $debt = max(0.0, $total - $returned - $paid);
 
         $items = (clone $orderQuery)
             ->select([

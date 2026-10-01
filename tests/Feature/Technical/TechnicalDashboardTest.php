@@ -30,11 +30,11 @@ final class TechnicalDashboardTest extends TestCase
             ->assertSee('Dashboard kết quả Kỹ thuật');
     }
 
-    public function test_plain_technician_cannot_open_the_dashboard(): void
+    public function test_technician_can_open_but_outsider_cannot_open_the_dashboard(): void
     {
         $this->actingAs($this->technician())
             ->get(route('technical.dashboard'))
-            ->assertForbidden();
+            ->assertOk();
 
         $this->actingAs($this->outsider())
             ->get(route('technical.dashboard'))

@@ -51,6 +51,8 @@ class OrderController extends Controller
         $filters = $request->all();
 
         $orders = $this->orderService->getOrdersByUserRole(Auth::user(), $filters);
+        // Nạp một lần giá trị hàng đã trả lại của các đơn trong trang để tính công nợ thực.
+        \App\Models\CRM\Orders\Order::preloadReturnCredits($orders->getCollection());
 
         /*
         |--------------------------------------------------------------------------
@@ -1103,6 +1105,7 @@ class OrderController extends Controller
         }
 
         $orders = $query->get();
+        \App\Models\CRM\Orders\Order::preloadReturnCredits($orders);
 
         if (!empty($filters['payment_filter'])) {
             $paymentFilter = (string) $filters['payment_filter'];
@@ -1110,7 +1113,7 @@ class OrderController extends Controller
             $orders = $orders->filter(function ($order) use ($paymentFilter) {
                 $total = (float) ($order->total_amount ?? 0);
                 $paid = (float) collect($order->payments ?? [])->sum('amount');
-                $debt = max($total - $paid, 0);
+                $debt = $order->remain_amount;
 
                 if ($paymentFilter === 'paid') {
                     return $total > 0 && $debt <= 0;
@@ -1368,7 +1371,7 @@ class OrderController extends Controller
             $customer = optional(optional($order->lead)->customer);
             $paid = (float) collect($order->payments ?? [])->sum('amount');
             $total = (float) ($order->total_amount ?? 0);
-            $remain = max($total - $paid, 0);
+            $remain = $order->remain_amount;
             $taxTotals = $calculateTaxTotals($order);
             $sheetTitle = $detailSheetTitles[(int) $order->id] ?? null;
 
@@ -1445,7 +1448,7 @@ class OrderController extends Controller
             $customer = optional(optional($order->lead)->customer);
             $paid = (float) collect($order->payments ?? [])->sum('amount');
             $total = (float) ($order->total_amount ?? 0);
-            $remain = max($total - $paid, 0);
+            $remain = $order->remain_amount;
             $taxTotals = $calculateTaxTotals($order);
 
             $sheetTitle = $detailSheetTitles[(int) $order->id] ?? $cleanSheetTitle($order->order_code ?: ('Don ' . $order->id), []);
@@ -2348,7 +2351,7 @@ class OrderController extends Controller
         ]);
 
         $paid   = $order->payments->sum('amount');
-        $remain = $order->total_amount - $paid;
+        $remain = $order->remain_amount;
 
         $company = $order->company
             ?? $order->warehouse?->company

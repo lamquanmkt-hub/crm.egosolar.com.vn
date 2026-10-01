@@ -72,4 +72,14 @@ return [
 
     /* Từ khoá nhận diện phòng Kỹ thuật trong bảng departments. */
     'department_keywords' => ['ky_thuat', 'technical'],
+
+    /*
+     * Email được bấm "Hoàn tất đợt" bảo trì cho MỌI đợt, không cần là người được
+     * phân công (dùng khi Trưởng phòng hoàn tất thay kỹ thuật). Cấu hình bằng
+     * MAINTENANCE_COMPLETE_ANY_EMAILS (nhiều email cách nhau bằng dấu phẩy).
+     */
+    'maintenance_complete_any_emails' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('MAINTENANCE_COMPLETE_ANY_EMAILS', 'anhthu@egosolar.vn'))
+    ))),
 ];

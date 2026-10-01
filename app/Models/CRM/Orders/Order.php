@@ -60,6 +60,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Customer|null      $customer
  * @property-read float              $paid_amount
  * @property-read float              $remain_amount
+ * @property-read float              $return_credit_amount
+ * @property-read float              $net_total_amount
  * @property-read string             $display_status_name
  * @property-read string             $display_status_color
  * @property-read Lead|null          $lead
@@ -264,15 +266,64 @@ class Order extends Model
      */
     public function getPaidAmountAttribute(): float
     {
+        if ($this->relationLoaded('payments')) {
+            return (float) $this->payments->sum('amount');
+        }
+
         return (float) $this->payments()->sum('amount');
     }
 
+    /** Tín dụng hàng hoàn đã tính sẵn (xem `preloadReturnCredits`); null = chưa nạp. */
+    private ?float $returnCreditCache = null;
+
     /**
-     * Số tiền còn phải trả (công nợ).
+     * Nạp sẵn tín dụng hàng hoàn cho cả danh sách đơn bằng MỘT truy vấn
+     * (tránh mỗi dòng hỏi database một lần ở trang danh sách / xuất Excel).
+     *
+     * @param  iterable<int, self>  $orders
+     */
+    public static function preloadReturnCredits(iterable $orders): void
+    {
+        $list = [];
+        foreach ($orders as $order) {
+            $list[(int) $order->id] = $order;
+        }
+        if ($list === []) {
+            return;
+        }
+
+        $credits = \App\Services\OrderReturnFinancialService::returnCreditsForOrders(array_keys($list));
+        foreach ($list as $id => $order) {
+            $order->returnCreditCache = (float) ($credits[$id] ?? 0.0);
+        }
+    }
+
+    /**
+     * Giá trị hàng khách đã trả lại (phiếu đã nhập kho, trừ phí xử lý / vận chuyển).
+     */
+    public function getReturnCreditAmountAttribute(): float
+    {
+        if ($this->returnCreditCache === null) {
+            $this->returnCreditCache = (float) (\App\Services\OrderReturnFinancialService::returnCreditsForOrders([$this->id])[(int) $this->id] ?? 0.0);
+        }
+
+        return $this->returnCreditCache;
+    }
+
+    /**
+     * Tổng khách thực phải trả = tổng đơn − giá trị hàng đã trả lại.
+     */
+    public function getNetTotalAmountAttribute(): float
+    {
+        return max(0, (float) ($this->total_amount ?? 0) - $this->return_credit_amount);
+    }
+
+    /**
+     * Số tiền còn phải trả (công nợ) — đã trừ hàng khách trả lại.
      */
     public function getRemainAmountAttribute(): float
     {
-        return max(0, (float) ($this->total_amount ?? 0) - $this->paid_amount);
+        return max(0, $this->net_total_amount - $this->paid_amount);
     }
 
     /**

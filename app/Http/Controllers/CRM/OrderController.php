@@ -1417,7 +1417,7 @@ class OrderController extends Controller
         ]);
 
         $paid = $order->payments->sum('amount');
-        $remain = $order->total_amount - $paid;
+        $remain = $order->remain_amount;
 
         $company = $order->company
             ?? $order->warehouse?->company

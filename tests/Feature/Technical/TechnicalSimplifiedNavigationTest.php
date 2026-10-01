@@ -94,13 +94,13 @@ class TechnicalSimplifiedNavigationTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_technician_sidebar_shows_exactly_three_technical_entries(): void
+    public function test_technician_sidebar_shows_the_technical_entries_and_dashboard(): void
     {
         $labels = $this->technicalMenuLabels(
             $this->sidebarHtml($this->technician(), route('ky-thuat.tong-quan')),
         );
 
-        $this->assertSame(['Tổng quan', 'Kế hoạch', 'Báo cáo'], $labels);
+        $this->assertSame(['Tổng quan', 'Kế hoạch', 'Báo cáo', 'Dashboard kết quả'], $labels);
     }
 
     public function test_technician_sidebar_hides_the_legacy_and_secondary_entries(): void
@@ -190,13 +190,24 @@ class TechnicalSimplifiedNavigationTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_technician_is_blocked_from_manager_and_dashboard_pages(): void
+    public function test_technician_is_blocked_from_manager_pages_but_can_view_the_dashboard(): void
     {
         $tech = $this->technician();
 
         $this->actingAs($tech)->get(route('technical.manager.overview'))->assertForbidden();
         $this->actingAs($tech)->get(route('technical.manager.board'))->assertForbidden();
-        $this->actingAs($tech)->get(route('technical.dashboard'))->assertForbidden();
+        $this->actingAs($tech)->get(route('technical.dashboard'))->assertOk();
+    }
+
+    public function test_technician_sidebar_has_projects_and_warranty_entries(): void
+    {
+        $html = $this->sidebarHtml($this->technician(), route('ky-thuat.tong-quan'));
+
+        $this->assertStringContainsString('CÔNG TRÌNH &amp; BẢO HÀNH', $html);
+        $this->assertStringContainsString('/du-an', $html);
+        $this->assertStringContainsString('/du-an/bao-tri-bao-hanh', $html);
+        $this->assertStringContainsString('/ky-thuat/de-xuat-doi-hang-bao-hanh', $html);
+        $this->assertStringContainsString('Bảo hành &amp; O&amp;M', $html);
     }
 
     public function test_technical_root_never_loops_for_the_three_roles(): void

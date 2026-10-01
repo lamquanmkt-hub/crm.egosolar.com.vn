@@ -110,7 +110,8 @@ final class AiToolExecutor
         $total = (float) (clone $builder)->sum('o.total_amount');
         $count = (int) (clone $builder)->distinct()->count('o.id');
         $paid = $paidSub ? (float) (clone $builder)->sum(DB::raw('COALESCE(pay.paid_amount, 0)')) : 0.0;
-        $debt = max(0, $total - $paid);
+        $returned = (float) (clone $builder)->sum(DB::raw(\App\Services\OrderReturnFinancialService::returnCreditSql('o.id')));
+        $debt = max(0, $total - $returned - $paid);
 
         $rows = (clone $builder)
             ->select([

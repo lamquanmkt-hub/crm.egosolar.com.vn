@@ -270,13 +270,15 @@ class TechnicalPlanCtaTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_staff_and_manager_cannot_open_the_admin_plan_page(): void
+    public function test_staff_and_manager_can_view_the_admin_plan_page_but_outsider_cannot(): void
     {
         foreach ([$this->technician(), $this->technicalManager()] as $user) {
-            $response = $this->actingAs($user)->get(route('technical.dashboard.plans'));
-            $response->assertForbidden();
-            $this->assertFalse($response->isRedirect());
+            $this->actingAs($user)->get(route('technical.dashboard.plans'))->assertOk();
         }
+
+        $response = $this->actingAs($this->outsider())->get(route('technical.dashboard.plans'));
+        $response->assertForbidden();
+        $this->assertFalse($response->isRedirect());
     }
 
     private function seedPlan(): \App\Models\User

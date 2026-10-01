@@ -10,8 +10,11 @@
     $customer = $order->lead?->customer ?? $order->customer ?? null;
     $paid = (float) collect($order->payments ?? [])->sum('amount');
     $total = (float) ($order->total_amount ?? 0);
-    $remaining = max(0, $total - $paid);
-    $paymentPercent = $total > 0 ? min(100, round(($paid / $total) * 100)) : 0;
+    // Hàng khách đã trả lại (phiếu đã nhập kho) được trừ khỏi nghĩa vụ phải thu.
+    $returnCredit = (float) $order->return_credit_amount;
+    $netTotal = max(0, $total - $returnCredit);
+    $remaining = max(0, $netTotal - $paid);
+    $paymentPercent = $netTotal > 0 ? min(100, round(($paid / $netTotal) * 100)) : ($paid > 0 ? 100 : 0);
     $returns = collect($order->returns ?? []);
     $activeReturns = $returns->whereNotIn('status', ['completed', 'rejected', 'cancelled']);
     $refunds = $returns->flatMap(fn ($return) => $return->refunds ?? []);
@@ -142,7 +145,13 @@
                         {{ number_format($total, 0, ',', '.') }} đ
                     </strong>
 
-                    <small>Sau VAT và chiết khấu</small>
+                    <small>
+                        @if($returnCredit > 0)
+                            Sau VAT · đã trả lại −{{ number_format($returnCredit, 0, ',', '.') }} đ · cần thu {{ number_format($netTotal, 0, ',', '.') }} đ
+                        @else
+                            Sau VAT và chiết khấu
+                        @endif
+                    </small>
                 </div>
             </article>
 
@@ -686,6 +695,7 @@
                         <div class="op-card-body">
                             <div class="op-mini-finance">
                                 <div><span>Tổng đơn</span><strong>{{ number_format($total, 0, ',', '.') }} đ</strong></div>
+                                @if($returnCredit > 0)<div><span>Đã trả lại</span><strong class="text-warning">−{{ number_format($returnCredit, 0, ',', '.') }} đ</strong></div>@endif
                                 <div><span>Đã thu</span><strong class="text-success">{{ number_format($paid, 0, ',', '.') }} đ</strong></div>
                                 <div><span>Còn nợ</span><strong class="{{ $remaining > 0 ? 'text-danger' : 'text-success' }}">{{ number_format($remaining, 0, ',', '.') }} đ</strong></div>
                             </div>
@@ -877,7 +887,7 @@
                             <header class="op-card-head"><h2>Tổng quan công nợ</h2></header>
                             <div class="op-card-body">
                                 <div class="op-progress"><span style="width:{{ $paymentPercent }}%"></span></div>
-                                <div class="op-kv-list"><div><span>Tổng đơn</span><strong>{{ number_format($total,0,',','.') }} đ</strong></div><div><span>Đã thu</span><strong class="text-success">{{ number_format($paid,0,',','.') }} đ</strong></div><div><span>Còn nợ</span><strong class="{{ $remaining > 0 ? 'text-danger' : 'text-success' }}">{{ number_format($remaining,0,',','.') }} đ</strong></div><div><span>Đã hoàn tiền</span><strong>{{ number_format($refundPaid,0,',','.') }} đ</strong></div></div>
+                                <div class="op-kv-list"><div><span>Tổng đơn</span><strong>{{ number_format($total,0,',','.') }} đ</strong></div>@if($returnCredit > 0)<div><span>Đã trả lại</span><strong class="text-warning">−{{ number_format($returnCredit,0,',','.') }} đ</strong></div>@endif<div><span>Đã thu</span><strong class="text-success">{{ number_format($paid,0,',','.') }} đ</strong></div><div><span>Còn nợ</span><strong class="{{ $remaining > 0 ? 'text-danger' : 'text-success' }}">{{ number_format($remaining,0,',','.') }} đ</strong></div><div><span>Đã hoàn tiền</span><strong>{{ number_format($refundPaid,0,',','.') }} đ</strong></div></div>
                             </div>
                         </article>
                     </div>

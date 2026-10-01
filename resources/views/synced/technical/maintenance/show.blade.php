@@ -894,7 +894,7 @@ body.emi15-modal-open { overflow: hidden; }
                         <div class="eme11-alert-head">
                             <i class="bi bi-exclamation-triangle-fill"></i>
                             <div class="eme11-alert-title-wrap">
-                                <h4>Chưa thể hoàn tất: cần hoàn thành {{ $missingChecklistItems->count() }} hạng mục bắt buộc.</h4>
+                                <h4>Chưa đủ file minh chứng: còn {{ $missingChecklistItems->count() }} hạng mục bắt buộc. Vẫn có thể hoàn tất đợt — hệ thống sẽ ghi chú "chưa đủ file" vào hồ sơ.</h4>
                                 <span class="eme11-alert-progress">{{ $completedRequiredCount }}/{{ $totalRequiredCount }} hạng mục · {{ $uploadedRequiredFiles }}/{{ $totalRequiredMinFiles }} file minh chứng</span>
                             </div>
                         </div>
@@ -926,7 +926,7 @@ body.emi15-modal-open { overflow: hidden; }
                     </div>
                 @endif
 
-                @if(!$schedule->result_note && $permissions['update'])
+                @if(!$schedule->result_note && ($permissions['update'] || $permissions['complete']))
                     <div class="eme11-result-quick" id="eme11-quick-result-wrap">
                         <label>
                             <span><strong>Kết quả xử lý công việc</strong> <small>(Ghi nhận kết quả trước khi bấm Hoàn tất đợt)</small></span>
@@ -945,9 +945,9 @@ body.emi15-modal-open { overflow: hidden; }
                     </div>
                     <div class="eme11-action-main">
                         @if($permissions['complete'] || $permissions['update'])
-                            <form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule' => $schedule->id]) }}" data-complete-round-form>
+                            <form method="POST" action="{{ route('projects-unified.maintenance.approval.complete', ['schedule' => $schedule->id]) }}" data-complete-round-form @if(!$isChecklistReady) data-missing-evidence="1" @endif>
                                 @csrf
-                                <button class="emd9-btn primary eme11-btn-complete" type="submit" @disabled(!$isChecklistReady)>
+                                <button class="emd9-btn primary eme11-btn-complete" type="submit">
                                     <i class="bi bi-check2-circle"></i> Hoàn tất đợt
                                 </button>
                             </form>
@@ -1973,7 +1973,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 noteInput.value = quickNote.value.trim();
             }
-            if (!confirm('Xác nhận hoàn tất đợt bảo trì này?')) {
+            const missingEvidence = completeRoundForm.hasAttribute('data-missing-evidence');
+            const confirmText = missingEvidence
+                ? 'Đợt này CHƯA ĐỦ file minh chứng bắt buộc. Vẫn hoàn tất đợt và ghi chú "chưa đủ file" vào hồ sơ?'
+                : 'Xác nhận hoàn tất đợt bảo trì này?';
+            if (!confirm(confirmText)) {
                 event.preventDefault();
             }
         });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Finance;
 
+use App\Services\OrderReturnFinancialService;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +12,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Nguồn số dư công nợ thương mại chuẩn, dùng chung cho Dashboard và báo cáo Tài chính.
  *
- * Số dư đơn = max(crm_orders.total_amount − tổng crm_payments.amount của đơn, 0).
+ * Số dư đơn = max(crm_orders.total_amount − giá trị hàng khách đã trả lại − tổng crm_payments.amount của đơn, 0).
+ * Hàng trả lại = phiếu return/recall đã nhập kho (xem OrderReturnFinancialService::returnCreditSql).
  * Bảng crm_customer_debts CHỈ được dùng làm metadata (hạn thanh toán), không dùng
  * debt_amount/paid_amount vì bảng này có thể lệch so với thanh toán thực tế.
  *
@@ -29,11 +31,23 @@ final class OrderReceivableQuery
     /** Biểu thức tổng đã trả của đơn (chưa chặn trần). */
     public const PAID_EXPR = 'COALESCE(pay.paid_amount, 0)';
 
-    /** Biểu thức số tiền đã trả được tính vào đơn (không vượt tổng đơn). */
-    public const PAID_CAPPED_EXPR = 'LEAST(COALESCE(pay.paid_amount, 0), o.total_amount)';
+    /** Tổng đơn phải thu = tổng đơn − hàng khách đã trả lại (không âm). */
+    public static function netTotalExpr(): string
+    {
+        return 'GREATEST(o.total_amount - '.OrderReturnFinancialService::returnCreditSql('o.id').', 0)';
+    }
 
-    /** Biểu thức số dư chuẩn của đơn. */
-    public const BALANCE_EXPR = 'GREATEST(o.total_amount - COALESCE(pay.paid_amount, 0), 0)';
+    /** Biểu thức số tiền đã trả được tính vào đơn (không vượt tổng đơn phải thu). */
+    public static function paidCappedExpr(): string
+    {
+        return 'LEAST(COALESCE(pay.paid_amount, 0), '.self::netTotalExpr().')';
+    }
+
+    /** Biểu thức số dư chuẩn của đơn (đã trừ hàng trả lại). */
+    public static function balanceExpr(): string
+    {
+        return 'GREATEST('.self::netTotalExpr().' - COALESCE(pay.paid_amount, 0), 0)';
+    }
 
     /**
      * Tổng thanh toán gom theo order_id (gom trước khi join để không nhân bản đơn).
@@ -79,7 +93,7 @@ final class OrderReceivableQuery
     {
         $query = $this->orders()
             ->where('o.inventory_issued', 1)
-            ->whereRaw(self::BALANCE_EXPR.' > 0');
+            ->whereRaw(self::balanceExpr().' > 0');
 
         if (Schema::hasTable('crm_customer_debts') && Schema::hasColumn('crm_customer_debts', 'due_date')) {
             // Một đơn có thể có nhiều dòng công nợ: gom về 1 dòng/đơn, lấy hạn sớm nhất.

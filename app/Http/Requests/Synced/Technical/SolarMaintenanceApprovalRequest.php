@@ -24,6 +24,7 @@ class SolarMaintenanceApprovalRequest extends FormRequest
     {
         return [
             'comment' => ['nullable', 'string', 'max:5000'],
+            'result_note' => ['nullable', 'string', 'max:5000'],
         ];
     }
 }

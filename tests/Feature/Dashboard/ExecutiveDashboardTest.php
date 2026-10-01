@@ -346,7 +346,7 @@ final class ExecutiveDashboardTest extends TestCase
 
         $rows = app(OrderReceivableQuery::class)->outstanding()
             ->where('o.id', $order)
-            ->selectRaw('o.id, '.OrderReceivableQuery::BALANCE_EXPR.' AS balance')
+            ->selectRaw('o.id, '.OrderReceivableQuery::balanceExpr().' AS balance')
             ->get();
 
         $this->assertCount(1, $rows);

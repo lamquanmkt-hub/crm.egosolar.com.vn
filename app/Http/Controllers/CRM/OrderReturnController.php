@@ -40,7 +40,7 @@ class OrderReturnController extends Controller
     public function dashboard(Request $request): View
     {
         $this->ensureAny(['orders.return.view'], ['admin', 'management', 'accounting', 'warehouse', 'kho', 'sales_manager', 'sales']);
-        $query = OrderReturn::query()->with(['order.creator', 'requester', 'receivingWarehouse'])->latest('id');
+        $query = OrderReturn::query()->with(['order.creator', 'order.lead.customer', 'requester', 'receivingWarehouse'])->latest('id');
         $this->scopeForUser($query, $request->user());
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));

@@ -46,9 +46,21 @@ class SolarMaintenanceApprovalController extends Controller
     public function complete(SolarMaintenanceApprovalRequest $request, SolarMaintenanceSchedule $schedule): RedirectResponse
     {
         $this->authorize('completeDirectly', $schedule);
-        $this->service->complete($schedule, $request->user(), $request->validated('comment'));
 
-        return back()->with('success', 'Đã hoàn thành và đóng hồ sơ đợt bảo trì.');
+        // Ô "Kết quả xử lý" nhập nhanh cạnh nút Hoàn tất: lưu lại nếu đợt chưa có kết quả.
+        $quickNote = trim((string) $request->validated('result_note'));
+        if ($quickNote !== '' && ! trim((string) $schedule->result_note)) {
+            $schedule->forceFill(['result_note' => $quickNote])->save();
+        }
+
+        $shortfall = $this->service->complete($schedule, $request->user(), $request->validated('comment'));
+
+        return back()->with(
+            'success',
+            $shortfall === []
+                ? 'Đã hoàn thành và đóng hồ sơ đợt bảo trì.'
+                : 'Đã hoàn thành đợt bảo trì. Hồ sơ được ghi chú: chưa đủ file minh chứng.'
+        );
     }
 
     /**

@@ -110,7 +110,9 @@ class OrderService implements OrderServiceInterface
             )
         ";
 
-        $debtSql = "GREATEST(crm_orders.total_amount - {$paidSql}, 0)";
+        // Công nợ thực = tổng đơn − giá trị hàng khách đã trả lại − đã thu.
+        $creditSql = \App\Services\OrderReturnFinancialService::returnCreditSql('crm_orders.id');
+        $debtSql = "GREATEST(crm_orders.total_amount - {$creditSql} - {$paidSql}, 0)";
 
         $debt30Date = now()->subDays(30)->toDateString();
 
@@ -270,22 +272,24 @@ class OrderService implements OrderServiceInterface
             )
         ";
 
+        $creditSql = \App\Services\OrderReturnFinancialService::returnCreditSql('crm_orders.id');
+
         if ($paymentFilter === 'paid') {
-            $query->whereRaw("{$paidSql} >= crm_orders.total_amount")
+            $query->whereRaw("{$paidSql} >= (crm_orders.total_amount - {$creditSql})")
                 ->where('crm_orders.total_amount', '>', 0);
 
             return;
         }
 
         if ($paymentFilter === 'debt') {
-            $query->whereRaw("{$paidSql} < crm_orders.total_amount")
+            $query->whereRaw("{$paidSql} < (crm_orders.total_amount - {$creditSql})")
                 ->where('crm_orders.total_amount', '>', 0);
 
             return;
         }
 
         if ($paymentFilter === 'debt_30') {
-            $query->whereRaw("{$paidSql} < crm_orders.total_amount")
+            $query->whereRaw("{$paidSql} < (crm_orders.total_amount - {$creditSql})")
                 ->where('crm_orders.total_amount', '>', 0)
                 ->whereDate('crm_orders.order_date', '<=', now()->subDays(30)->toDateString());
 

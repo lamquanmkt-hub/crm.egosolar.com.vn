@@ -134,6 +134,15 @@ return [
             ['label' => 'Tổng quan', 'icon' => 'bi-speedometer2', 'route' => 'ky-thuat.tong-quan', 'fallback' => '/ky-thuat', 'patterns' => ['ky-thuat.tong-quan', 'technical.work.my', 'technical.work.calendar', 'technical.today']],
             ['label' => 'Kế hoạch', 'icon' => 'bi-calendar-week', 'route' => 'technical.week-plan.index', 'fallback' => '/ky-thuat/ke-hoach-tuan', 'patterns' => ['technical.week-plan.*']],
             ['label' => 'Báo cáo', 'icon' => 'bi-journal-text', 'route' => 'technical.daily-reports.index', 'fallback' => '/ky-thuat/bao-cao-ngay', 'patterns' => ['technical.daily-reports.*']],
+            ['label' => 'Dashboard kết quả', 'icon' => 'bi-speedometer', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard', 'technical.dashboard.*']],
+
+            /*
+             * BỔ SUNG 2026-10: nhân viên kỹ thuật cần vào thẳng Công trình (/du-an)
+             * và Bảo hành & O&M — hai trang này vốn đã mở được nhưng không có lối vào.
+             */
+            $section('CÔNG TRÌNH & BẢO HÀNH'),
+            ['label' => 'Công trình', 'icon' => 'bi-buildings', 'route' => 'projects-unified.index', 'fallback' => '/du-an', 'patterns' => ['projects-unified.index', 'projects-unified.create', 'projects-unified.show', 'projects-unified.edit', 'projects-unified.workflow.*', 'projects-unified.phase.*', 'projects-unified.engineer.*', 'projects-unified.materials.*', 'projects-unified.finance.*']],
+            ['label' => 'Bảo hành & O&M', 'icon' => 'bi-shield-check', 'route' => 'projects-unified.maintenance.index', 'fallback' => '/du-an/bao-tri-bao-hanh', 'patterns' => ['projects-unified.maintenance.*']],
 
             /*
              * "Đề xuất đổi hàng BH" là bước của quy trình Bảo trì / Bảo hành,
@@ -141,7 +150,6 @@ return [
              * KỸ THUẬT nhưng KHÔNG để mồ côi: giữ đúng MỘT lối vào tối thiểu ở
              * nhóm riêng bên dưới.
              */
-            $section('BẢO TRÌ / BẢO HÀNH'),
             ['label' => 'Đề xuất đổi hàng BH', 'icon' => 'bi-arrow-left-right', 'route' => 'ky-thuat.warranty-exchange.index', 'fallback' => '/ky-thuat/de-xuat-doi-hang-bao-hanh', 'patterns' => ['ky-thuat.warranty-exchange.*']],
         ],
 

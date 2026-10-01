@@ -6,6 +6,7 @@ use App\Models\SolarMaintenanceApproval;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -77,9 +78,9 @@ class SolarMaintenanceApprovalService
     /**
      * Hoàn thành công việc (có thể được gọi bởi Quản lý sau khi duyệt hoặc Kỹ thuật viên hoàn tất trực tiếp).
      */
-    public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
+    public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): array
     {
-        DB::transaction(function () use ($schedule, $actor, $comment) {
+        return DB::transaction(function () use ($schedule, $actor, $comment) {
             $allowedStatuses = ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'];
             if (! in_array($schedule->status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([
@@ -101,6 +102,13 @@ class SolarMaintenanceApprovalService
                 }
             }
 
+            // Cho phép hoàn tất dù thiếu file minh chứng, nhưng PHẢI ghi chú rõ vào hồ sơ.
+            $shortfall = $this->evidenceShortfall($schedule);
+            $shortfallNote = $shortfall === [] ? null : self::shortfallNote($shortfall);
+            if ($shortfallNote !== null) {
+                $comment = trim((string) $comment) === '' ? $shortfallNote : trim((string) $comment).' | '.$shortfallNote;
+            }
+
             $oldStatus = $schedule->status;
             $schedule->forceFill([
                 'status' => 'completed',
@@ -108,12 +116,73 @@ class SolarMaintenanceApprovalService
                 'completed_date' => now()->toDateString(),
                 'completed_at' => now(),
                 'approval_note' => $comment ?: $schedule->approval_note,
+                'result_note' => $shortfallNote === null
+                    ? $schedule->result_note
+                    : rtrim((string) $schedule->result_note)."\n".$shortfallNote,
             ])->save();
 
             $this->approval($schedule, $actor, 'complete', 'approved', $comment, $actor->id);
             $this->history($schedule, $actor, $oldStatus, 'completed', $comment ?: 'Đóng hồ sơ hoàn tất đợt bảo trì');
             $this->audit($schedule, $actor, 'approval_completed');
+
+            return $shortfall;
         });
+    }
+
+    /**
+     * Các hạng mục bắt buộc còn thiếu file minh chứng (cùng quy tắc với màn hình chi tiết đợt).
+     *
+     * @return array<int, array{title: string, min_files: int, files_count: int}>
+     */
+    public function evidenceShortfall(SolarMaintenanceSchedule $schedule): array
+    {
+        $rows = [];
+        $workItems = Schema::hasTable('solar_maintenance_work_items')
+            ? $schedule->workItems()->with('attachments')->get()
+            : collect();
+        $legacy = Schema::hasTable('solar_maintenance_checklist_items')
+            ? $schedule->checklistItems()->with('attachments')->get()
+            : collect();
+
+        if ($workItems->isEmpty() && $legacy->isNotEmpty()) {
+            foreach ($legacy as $item) {
+                $required = (bool) ($item->is_required ?? true);
+                $min = max(0, (int) ($item->min_evidence ?? 0));
+                $files = $item->attachments->count();
+                $hasFiles = ! $item->requires_evidence || $files >= $min;
+                if ($required && ! ((bool) $item->is_done || $hasFiles)) {
+                    $rows[] = ['title' => (string) $item->label, 'min_files' => $min, 'files_count' => $files];
+                }
+            }
+
+            return $rows;
+        }
+
+        foreach ($workItems as $item) {
+            $config = str_starts_with((string) $item->description, '__ego_checklist__')
+                ? (json_decode(substr((string) $item->description, 17), true) ?: [])
+                : [];
+            $required = (bool) ($config['required'] ?? true);
+            $min = (int) ($config['min'] ?? 1);
+            $files = $item->attachments->count();
+            $hasFiles = ! $required || $files >= $min;
+            if ($required && ! ($item->status === 'completed' || $hasFiles)) {
+                $rows[] = ['title' => (string) $item->title, 'min_files' => $min, 'files_count' => $files];
+            }
+        }
+
+        return $rows;
+    }
+
+    /** Dòng ghi chú ghi vào hồ sơ khi hoàn tất mà chưa đủ file. */
+    public static function shortfallNote(array $shortfall): string
+    {
+        $parts = array_map(
+            fn (array $row) => $row['title'].' ('.$row['files_count'].'/'.$row['min_files'].' file)',
+            $shortfall
+        );
+
+        return 'Hoàn tất khi chưa đủ file minh chứng: '.implode('; ', $parts).'.';
     }
 
     /**

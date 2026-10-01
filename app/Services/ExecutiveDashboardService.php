@@ -60,7 +60,7 @@ final class ExecutiveDashboardService
         $filters = $this->normaliseFilters($rawFilters, $access, $user);
         $companyId = EgoCompanyScope::currentId();
 
-        $cacheKey = 'executive-dashboard:v5:'.sha1(json_encode([
+        $cacheKey = 'executive-dashboard:v6:'.sha1(json_encode([
             'company_id' => $companyId,
             'scope_user_id' => $access['own_only'] ? (int) $user->id : 0,
             'roles' => $access['roles'],
@@ -336,7 +336,7 @@ final class ExecutiveDashboardService
             if ($recognized) {
                 $row = $recognized
                     ->selectRaw('COALESCE(SUM(o.total_amount), 0) AS revenue')
-                    ->selectRaw('COALESCE(SUM('.OrderReceivableQuery::PAID_CAPPED_EXPR.'), 0) AS paid')
+                    ->selectRaw('COALESCE(SUM('.OrderReceivableQuery::paidCappedExpr().'), 0) AS paid')
                     ->first();
                 $commercialRevenue = (float) ($row->revenue ?? 0);
                 $commercialRecognizedPaid = (float) ($row->paid ?? 0);
@@ -487,7 +487,7 @@ final class ExecutiveDashboardService
             $query = $this->receivableQuery->outstanding();
             $this->scopeOrderCompanyAndUser($query, $user, $access, $filters, 'o');
 
-            $balance = OrderReceivableQuery::BALANCE_EXPR;
+            $balance = OrderReceivableQuery::balanceExpr();
             $today = now()->toDateString();
             $day7 = now()->addDays(7)->toDateString();
             $day30 = now()->addDays(30)->toDateString();
@@ -1151,7 +1151,7 @@ final class ExecutiveDashboardService
                     ->selectRaw('o.created_by AS user_id')
                     ->selectRaw('COUNT(o.id) AS orders_count')
                     ->selectRaw('SUM(o.total_amount) AS revenue')
-                    ->selectRaw('SUM('.OrderReceivableQuery::PAID_CAPPED_EXPR.') AS collected')
+                    ->selectRaw('SUM('.OrderReceivableQuery::paidCappedExpr().') AS collected')
                     ->groupBy('o.created_by', 'u.name')
                     ->get();
 
@@ -1171,7 +1171,7 @@ final class ExecutiveDashboardService
                     ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
                     ->selectRaw("COALESCE(u.name, CONCAT('User #', o.created_by)) AS name")
                     ->selectRaw('o.created_by AS user_id')
-                    ->selectRaw('SUM('.OrderReceivableQuery::BALANCE_EXPR.') AS debt')
+                    ->selectRaw('SUM('.OrderReceivableQuery::balanceExpr().') AS debt')
                     ->groupBy('o.created_by', 'u.name')
                     ->get();
 

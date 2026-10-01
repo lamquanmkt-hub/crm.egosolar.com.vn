@@ -109,6 +109,7 @@ class OrderExcelExporter
         }
 
         $orders = $query->get();
+        \App\Models\CRM\Orders\Order::preloadReturnCredits($orders);
 
         if (! empty($filters['payment_filter'])) {
             $paymentFilter = (string) $filters['payment_filter'];
@@ -116,7 +117,7 @@ class OrderExcelExporter
             $orders = $orders->filter(function ($order) use ($paymentFilter) {
                 $total = (float) ($order->total_amount ?? 0);
                 $paid = (float) collect($order->payments ?? [])->sum('amount');
-                $debt = max($total - $paid, 0);
+                $debt = $order->remain_amount;
 
                 if ($paymentFilter === 'paid') {
                     return $total > 0 && $debt <= 0;
@@ -374,7 +375,7 @@ class OrderExcelExporter
             $customer = optional(optional($order->lead)->customer);
             $paid = (float) collect($order->payments ?? [])->sum('amount');
             $total = (float) ($order->total_amount ?? 0);
-            $remain = max($total - $paid, 0);
+            $remain = $order->remain_amount;
             $taxTotals = $calculateTaxTotals($order);
             $sheetTitle = $detailSheetTitles[(int) $order->id] ?? null;
 
@@ -451,7 +452,7 @@ class OrderExcelExporter
             $customer = optional(optional($order->lead)->customer);
             $paid = (float) collect($order->payments ?? [])->sum('amount');
             $total = (float) ($order->total_amount ?? 0);
-            $remain = max($total - $paid, 0);
+            $remain = $order->remain_amount;
             $taxTotals = $calculateTaxTotals($order);
 
             $sheetTitle = $detailSheetTitles[(int) $order->id] ?? $cleanSheetTitle($order->order_code ?: ('Don '.$order->id), []);
