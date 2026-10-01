@@ -1652,6 +1652,64 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin'])
     });
 /*
 |--------------------------------------------------------------------------
+| Finance - Công nợ nhà cung cấp (Admin / Kế toán / Kho: đầy đủ chức năng)
+|--------------------------------------------------------------------------
+| Role Kho dùng đầy đủ: xem, thêm, sửa, xóa, tệp đính kèm, đợt thanh toán và tạo ĐNTT.
+| Đợt đã thanh toán / đã khóa vẫn chỉ sửa được với quyền riêng payment_requests.override_locked
+| (kiểm tra trong SupplierDebtController, không theo role).
+*/
+Route::middleware(['auth', 'role:admin|accounting|warehouse|kho'])
+    ->prefix('finance/supplier-debts')
+    ->name('finance.supplier-debts.')
+    ->group(function () {
+        Route::get('/', [SupplierDebtController::class, 'index'])->name('index');
+
+        Route::get('/files/{fileId}/download', [SupplierDebtController::class, 'downloadDebtFile'])
+            ->whereNumber('fileId')
+            ->name('files.download');
+
+        Route::post('/', [SupplierDebtController::class, 'store'])
+            ->name('store');
+
+        Route::post('/{id}/files', [SupplierDebtController::class, 'storeDebtFileOnly'])
+            ->whereNumber('id')
+            ->name('files.store');
+
+        Route::delete('/files/{fileId}', [SupplierDebtController::class, 'destroyDebtFile'])
+            ->whereNumber('fileId')
+            ->name('files.destroy');
+
+        Route::put('/{id}', [SupplierDebtController::class, 'update'])
+            ->whereNumber('id')
+            ->name('update');
+
+        Route::delete('/{id}', [SupplierDebtController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('destroy');
+
+        Route::post('/{id}/payment-rounds', [SupplierDebtController::class, 'storePaymentRound'])
+            ->whereNumber('id')
+            ->name('payment-rounds.store');
+
+        Route::put('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'updatePaymentRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.update');
+
+        Route::delete('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'destroyPaymentRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.destroy');
+
+        Route::post('/payment-rounds/{paymentRoundId}/payment-request', [SupplierDebtController::class, 'createPaymentRequestFromRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.create-payment-request');
+
+        Route::post('/payment-rounds/{paymentRoundId}/create-remaining-round', [SupplierDebtController::class, 'createRemainingRoundFromLinkedPayment'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.create-remaining-round');
+    });
+
+/*
+|--------------------------------------------------------------------------
 | Finance
 |--------------------------------------------------------------------------
 */
@@ -1682,53 +1740,6 @@ Route::middleware(['auth', 'role:admin|accounting'])
             Route::get('/', [CustomerDebtController::class, 'index'])->name('index');
             Route::get('/by-customer', [CustomerDebtController::class, 'byCustomer'])->name('by-customer');
             Route::get('/payment-history', [CustomerDebtController::class, 'paymentHistory'])->name('payment-history');
-        });
-
-        Route::prefix('supplier-debts')->name('supplier-debts.')->group(function () {
-            Route::get('/', [SupplierDebtController::class, 'index'])->name('index');
-
-            Route::post('/', [SupplierDebtController::class, 'store'])
-                ->name('store');
-
-            Route::post('/{id}/files', [SupplierDebtController::class, 'storeDebtFileOnly'])
-                ->whereNumber('id')
-                ->name('files.store');
-
-            Route::get('/files/{fileId}/download', [SupplierDebtController::class, 'downloadDebtFile'])
-                ->whereNumber('fileId')
-                ->name('files.download');
-
-            Route::delete('/files/{fileId}', [SupplierDebtController::class, 'destroyDebtFile'])
-                ->whereNumber('fileId')
-                ->name('files.destroy');
-
-            Route::put('/{id}', [SupplierDebtController::class, 'update'])
-                ->whereNumber('id')
-                ->name('update');
-
-            Route::delete('/{id}', [SupplierDebtController::class, 'destroy'])
-                ->whereNumber('id')
-                ->name('destroy');
-
-            Route::post('/{id}/payment-rounds', [SupplierDebtController::class, 'storePaymentRound'])
-                ->whereNumber('id')
-                ->name('payment-rounds.store');
-
-            Route::put('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'updatePaymentRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.update');
-
-            Route::delete('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'destroyPaymentRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.destroy');
-
-            Route::post('/payment-rounds/{paymentRoundId}/payment-request', [SupplierDebtController::class, 'createPaymentRequestFromRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.create-payment-request');
-            Route::post('/payment-rounds/{paymentRoundId}/create-remaining-round', [SupplierDebtController::class, 'createRemainingRoundFromLinkedPayment'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.create-remaining-round');
-
         });
 
         Route::prefix('receipts')->name('receipts.')->group(function () {

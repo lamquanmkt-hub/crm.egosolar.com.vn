@@ -121,6 +121,16 @@ class EnforcePageAccess
         $isWarehouseProjectMaterialPage = $routeName === 'project-test.show'
             && $request->query('tab') === 'materials';
 
+        // Kho dùng đầy đủ công nợ nhà cung cấp (xem, thêm, sửa, xóa, tệp, đợt thanh toán, tạo ĐNTT).
+        // Áp cho mọi tài khoản có role Kho, kể cả người kiêm role khác; route vẫn có middleware role:admin|accounting|warehouse|kho.
+        $isWarehouseSupplierDebtRoute = $routeName
+            && \Illuminate\Support\Str::is('finance.supplier-debts.*', $routeName)
+            && $user->hasAnyRole(['warehouse', 'kho']);
+
+        if ($isWarehouseSupplierDebtRoute) {
+            return $next($request);
+        }
+
         if (
             $isWarehouseOnly
             && ($isWarehouseMaterialRoute || $isWarehouseProjectMaterialPage)

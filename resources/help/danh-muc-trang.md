@@ -25,7 +25,7 @@ Danh sách các trang chính và đường dẫn. Menu bạn thấy phụ thuộ
 ## Tài chính – Kế toán
 - [Tổng quan tài chính](/finance)
 - [Công nợ phải thu](/finance/customer-debts) — công nợ khách hàng theo đơn.
-- [Công nợ phải trả](/finance/supplier-debts) — công nợ nhà cung cấp, các đợt thanh toán. Công nợ/đợt thanh toán đã hoàn tất bị khóa, chỉ Admin/Giám đốc sửa được.
+- [Công nợ phải trả](/finance/supplier-debts) — công nợ nhà cung cấp, các đợt thanh toán. Admin, Kế toán và **Kho** đều dùng đầy đủ: xem, thêm, sửa, xóa, đính kèm tệp, thêm đợt thanh toán và tạo đề nghị thanh toán từ đợt. Công nợ/đợt thanh toán đã hoàn tất bị khóa, chỉ Admin/Giám đốc sửa được.
 - [Quỹ & tài khoản](/finance/accounts), [Báo cáo tài chính](/finance/reports), [Tài sản](/finance/assets).
 
 ## Kho & sản phẩm
