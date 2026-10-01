@@ -14,6 +14,8 @@
     $tpRowIndex = $i;
     $tpRow = (array) ($row ?? []);
     $tpIsTpl = (bool) ($isTpl ?? false);
+    // Chế độ gọn (drawer "Giao việc"): bỏ Ngày/Buổi/Giờ/Thời gian/Ưu tiên (giữ giá trị mặc định ẩn), Đầu việc tự nhập.
+    $tpCompact = (bool) ($compact ?? false);
     $tpName = fn (string $field): string => 'items['.$tpRowIndex.']['.$field.']';
     $tpErrKey = fn (string $field): string => 'items.'.$tpRowIndex.'.'.$field;
     $tpVal = function (string $field, $fallback = '') use ($tpRow) {
@@ -38,6 +40,18 @@
     </header>
 
     <div class="tp-rowcard__grid">
+        @if($tpCompact)
+            @php
+                $tpToday = now()->toDateString();
+                $tpInWeek = collect($days)->contains(fn ($d) => $d->toDateString() === $tpToday);
+                $tpDefaultDate = $selectedDate ?: ($tpInWeek ? $tpToday : $days[0]->toDateString());
+            @endphp
+            <input type="hidden" name="{{ $tpName('plan_date') }}" data-tp-field="plan_date" value="{{ $tpVal('plan_date', $tpDefaultDate) }}">
+            <input type="hidden" name="{{ $tpName('day_part') }}" data-tp-field="day_part" value="{{ $tpVal('day_part', 'full_day') }}">
+            <input type="hidden" name="{{ $tpName('estimated_minutes') }}" data-tp-field="estimated_minutes" value="{{ $tpVal('estimated_minutes', $defaultMinutes) }}">
+            <input type="hidden" name="{{ $tpName('priority') }}" data-tp-field="priority" value="{{ $tpVal('priority', 'normal') }}">
+            @if($tpErr('plan_date'))<div class="invalid-feedback d-block">{{ $tpErr('plan_date') }}</div>@endif
+        @else
         <div>
             <label class="form-label small">Ngày thực hiện <span class="tp-req">*</span></label>
             <select class="form-select form-select-sm {{ $tpErr('plan_date') ? 'is-invalid' : '' }}"
@@ -97,6 +111,7 @@
             </select>
             @if($tpErr('priority'))<div class="invalid-feedback d-block">{{ $tpErr('priority') }}</div>@endif
         </div>
+        @endif
 
         <div>
             <label class="form-label small">Nguồn công việc <span class="tp-req">*</span></label>
@@ -109,6 +124,16 @@
             @if($tpErr('source_type'))<div class="invalid-feedback d-block">{{ $tpErr('source_type') }}</div>@endif
         </div>
 
+        @if($tpCompact)
+            <div>
+                <label class="form-label small">Đầu việc</label>
+                <input type="text" class="form-control form-control-sm {{ $tpErr('source_text') || $tpErr('source_id') ? 'is-invalid' : '' }}"
+                       name="{{ $tpName('source_text') }}" data-tp-field="source_text" maxlength="255"
+                       value="{{ $tpVal('source_text') }}" placeholder="Tự nhập đầu việc / công trình">
+                @if($tpErr('source_text'))<div class="invalid-feedback d-block">{{ $tpErr('source_text') }}</div>@endif
+                @if($tpErr('source_id'))<div class="invalid-feedback d-block">{{ $tpErr('source_id') }}</div>@endif
+            </div>
+        @else
         <div>
             <label class="form-label small">Đầu việc</label>
             <select class="form-select form-select-sm {{ $tpErr('source_id') ? 'is-invalid' : '' }}"
@@ -126,12 +151,15 @@
             </select>
             @if($tpErr('source_id'))<div class="invalid-feedback d-block">{{ $tpErr('source_id') }}</div>@endif
         </div>
+        @endif
 
+        @unless($tpCompact)
         <div>
             <label class="form-label small">Công trình liên quan</label>
             <input type="text" class="form-control form-control-sm" data-tp-field="site_name"
                    value="" readonly placeholder="Theo đầu việc đã chọn">
         </div>
+        @endunless
 
         <div class="tp-rowcard__full">
             <label class="form-label small">Nội dung công việc <span class="tp-req">*</span></label>

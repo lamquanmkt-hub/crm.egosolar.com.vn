@@ -192,6 +192,7 @@
                     'i' => 0,
                     'row' => $tpAssignRow,
                     'isTpl' => false,
+                    'compact' => true,
                     'defaultSourceType' => $tpDefaultSource,
                 ])
             </div>

@@ -182,19 +182,22 @@ class TechnicalWeekPlanService
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function resolveSource(string $sourceType, ?int $sourceId, int $ownerId, string $fallbackTitle): array
+    public function resolveSource(string $sourceType, ?int $sourceId, int $ownerId, string $fallbackTitle, string $manualText = ''): array
     {
+        $manualText = trim($manualText);
+
         if (! array_key_exists($sourceType, TechnicalPlanItem::SOURCE_LABELS)) {
             $this->fail('source_type', 'Nguồn công việc không hợp lệ.');
         }
 
         // Việc nội bộ cá nhân / trưởng phòng giao thêm: không có bản ghi nguồn.
-        if (! in_array($sourceType, TechnicalPlanItem::FEED_SOURCES, true)) {
+        // Đầu việc TỰ NHẬP (không chọn công việc nguồn có sẵn) cũng đi đường này: lưu chữ đã nhập vào tên đầu việc/công trình.
+        if (! in_array($sourceType, TechnicalPlanItem::FEED_SOURCES, true) || ($manualText !== '' && ($sourceId === null || $sourceId <= 0))) {
             return [
                 'source_type' => $sourceType,
                 'source_id' => null,
                 'site_id' => null,
-                'site_name' => null,
+                'site_name' => $manualText !== '' ? mb_substr($manualText, 0, 255) : null,
                 'title' => $fallbackTitle,
                 'source_due_at' => null,
             ];
@@ -263,6 +266,7 @@ class TechnicalWeekPlanService
                 isset($data['source_id']) ? (int) $data['source_id'] : null,
                 (int) $owner->id,
                 trim((string) ($data['title'] ?? '')),
+                trim((string) ($data['source_text'] ?? '')),
             );
 
             $this->guardDuplicateSource((int) $owner->id, $planDate, $source);
