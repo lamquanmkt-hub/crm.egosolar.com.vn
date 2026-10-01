@@ -142,16 +142,29 @@ class TechnicalSimplifiedNavigationTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_manager_sidebar_shows_the_five_coordination_entries(): void
+    public function test_manager_sidebar_shows_the_coordination_entries_dashboard_and_kpis(): void
     {
         $labels = $this->technicalMenuLabels(
             $this->sidebarHtml($this->technicalManager(), route('ky-thuat.tong-quan')),
         );
 
         $this->assertSame(
-            ['Tổng quan', 'Kế hoạch nhân viên', 'Giao việc', 'Báo cáo', 'Tổng kết tuần'],
+            ['Tổng quan', 'Kế hoạch nhân viên', 'Giao việc', 'Báo cáo', 'Tổng kết tuần', 'Dashboard kết quả', 'KPIs'],
             $labels,
         );
+    }
+
+    public function test_manager_sidebar_has_projects_warranty_repair_and_guide_entries(): void
+    {
+        $html = $this->sidebarHtml($this->technicalManager(), route('ky-thuat.tong-quan'));
+
+        $this->assertStringContainsString('CÔNG TRÌNH &amp; BẢO HÀNH', $html);
+        foreach (['/du-an', '/du-an/bao-tri-bao-hanh', '/ky-thuat/de-xuat-doi-hang-bao-hanh', '/ky-thuat/sua-chua-tinh-phi', '/ky-thuat/huong-dan'] as $href) {
+            $this->assertStringContainsString($href, $html, 'Thiếu lối vào '.$href.' trong menu Trưởng phòng.');
+        }
+        foreach (['Công trình', 'Bảo hành &amp; O&amp;M', 'Đề xuất đổi hàng BH', 'Sửa chữa tính phí', 'Hướng dẫn sử dụng'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
     }
 
     /**

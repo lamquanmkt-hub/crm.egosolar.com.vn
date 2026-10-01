@@ -108,6 +108,19 @@ return [
             ['label' => 'Giao việc', 'icon' => 'bi-person-plus', 'route' => 'technical.manager.board', 'query' => ['open' => 'assign'], 'fallback' => '/ky-thuat/quan-ly/ke-hoach', 'patterns' => ['technical.manager.detail', 'technical.manager.assign']],
             ['label' => 'Báo cáo', 'icon' => 'bi-journal-text', 'route' => 'technical.daily-reports.index', 'fallback' => '/ky-thuat/bao-cao-ngay', 'patterns' => ['technical.daily-reports.*']],
             ['label' => 'Tổng kết tuần', 'icon' => 'bi-clipboard-data', 'route' => 'technical.manager.weekly-summary', 'fallback' => '/ky-thuat/quan-ly/tong-ket-tuan', 'patterns' => ['technical.manager.weekly-summary']],
+            ['label' => 'Dashboard kết quả', 'icon' => 'bi-speedometer', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard', 'technical.dashboard.*']],
+            ['label' => 'KPIs', 'icon' => 'bi-bar-chart-line', 'route' => 'ky-thuat.kpis.index', 'fallback' => '/ky-thuat/kpis', 'patterns' => ['ky-thuat.kpis.*']],
+
+            /*
+             * BỔ SUNG 2026-10: Trưởng phòng cần vào thẳng Công trình, Bảo hành & O&M, Đề xuất đổi hàng BH
+             * và Sửa chữa tính phí (trước đây chỉ có ở menu Admin kỹ thuật / tab trong trang đổi hàng).
+             */
+            $section('CÔNG TRÌNH & BẢO HÀNH'),
+            ['label' => 'Công trình', 'icon' => 'bi-buildings', 'route' => 'projects-unified.index', 'fallback' => '/du-an', 'patterns' => ['projects-unified.index', 'projects-unified.create', 'projects-unified.show', 'projects-unified.edit', 'projects-unified.workflow.*', 'projects-unified.phase.*', 'projects-unified.engineer.*', 'projects-unified.materials.*', 'projects-unified.finance.*']],
+            ['label' => 'Bảo hành & O&M', 'icon' => 'bi-shield-check', 'route' => 'projects-unified.maintenance.index', 'fallback' => '/du-an/bao-tri-bao-hanh', 'patterns' => ['projects-unified.maintenance.*']],
+            ['label' => 'Đề xuất đổi hàng BH', 'icon' => 'bi-arrow-left-right', 'route' => 'ky-thuat.warranty-exchange.index', 'fallback' => '/ky-thuat/de-xuat-doi-hang-bao-hanh', 'patterns' => ['ky-thuat.warranty-exchange.*']],
+            ['label' => 'Sửa chữa tính phí', 'icon' => 'bi-tools', 'route' => 'ky-thuat.repair.index', 'fallback' => '/ky-thuat/sua-chua-tinh-phi', 'patterns' => ['ky-thuat.repair.*']],
+            ['label' => 'Hướng dẫn sử dụng', 'icon' => 'bi-journal-bookmark', 'route' => 'technical.guides.index', 'fallback' => '/ky-thuat/huong-dan', 'patterns' => ['technical.guides.*']],
 
             /*
              * "Kế hoạch (bản cũ)" và "Báo cáo (bản cũ)" ĐÃ ĐƯỢC HẠ khỏi lối vào
