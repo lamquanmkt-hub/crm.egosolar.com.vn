@@ -113,6 +113,7 @@
 
     <form method="POST" action="{{ route('finance.supplier-debts.files.store', $item->id) }}" enctype="multipart/form-data" class="sd-file-upload">
         @csrf
+@include('finance.supplier-debts._return_filters')
         <div class="sd-file-input-wrap">
             <input name="attachments[]" type="file" multiple required>
         </div>
@@ -133,6 +134,7 @@
 
                 <form method="POST" action="{{ route('finance.supplier-debts.files.destroy', $file->id) }}" onsubmit="return confirm('Xóa tệp này?')" style="margin:0">
                     @csrf
+@include('finance.supplier-debts._return_filters')
                     @method('DELETE')
                     <button class="sd-btn sd-btn-danger" type="submit" style="height:34px;padding:0 10px">Xóa</button>
                 </form>
