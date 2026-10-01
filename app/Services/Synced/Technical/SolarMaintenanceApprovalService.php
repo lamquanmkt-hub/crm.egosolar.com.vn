@@ -103,12 +103,8 @@ class SolarMaintenanceApprovalService
                 $bypassed[] = 'chưa ở bước thực hiện';
             }
 
+            // Phân công chưa được Admin duyệt không còn chặn việc hoàn tất, chỉ ghi chú vào hồ sơ.
             if (! in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true)) {
-                if (! $force) {
-                    throw ValidationException::withMessages([
-                        'approval' => 'Chỉ được hoàn tất khi phân công đã được phê duyệt.',
-                    ]);
-                }
                 $bypassed[] = 'phân công chưa được duyệt';
             }
 

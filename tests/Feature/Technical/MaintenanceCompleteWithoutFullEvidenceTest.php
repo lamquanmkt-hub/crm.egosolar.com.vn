@@ -250,15 +250,48 @@ final class MaintenanceCompleteWithoutFullEvidenceTest extends TestCase
             ->assertSessionHasErrors('approval');
     }
 
-    public function test_unassigned_regular_technician_still_needs_approved_assignment_and_note(): void
+    public function test_assigned_technician_completes_even_when_assignment_is_not_approved_and_round_is_company_one(): void
     {
         $tech = $this->technician();
         $id = $this->makeSchedule($tech);
-        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['assignment_approval_status' => 'pending']);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update([
+            'assignment_approval_status' => 'pending',
+            'company_id' => 1,
+        ]);
+
+        $html = $this->actingAs($tech)->get('/du-an/bao-tri-bao-hanh/'.$id)->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<button class="emd9-btn primary eme11-btn-complete" type="submit">/', $html);
 
         $this->actingAs($tech)
             ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $schedule = SolarMaintenanceSchedule::withoutGlobalScopes()->findOrFail($id);
+        $this->assertSame('completed', $schedule->status);
+        $this->assertStringContainsString('phân công chưa được duyệt', (string) $schedule->approval_note);
+    }
+
+    public function test_unassigned_technician_is_forbidden_even_if_assignment_pending(): void
+    {
+        $owner = $this->technician();
+        $other = $this->technician();
+        $id = $this->makeSchedule($owner);
+        DB::table('solar_maintenance_schedules')->where('id', $id)->update(['assignment_approval_status' => 'pending']);
+
+        $this->actingAs($other)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
             ->assertForbidden();
+    }
+
+    public function test_assigned_technician_still_needs_a_result_note(): void
+    {
+        $tech = $this->technician();
+        $id = $this->makeSchedule($tech, resultNote: null);
+
+        $this->actingAs($tech)
+            ->post(route('projects-unified.maintenance.approval.complete', ['schedule' => $id]))
+            ->assertSessionHasErrors('result_note');
     }
     public function test_default_config_lists_anh_thu(): void
     {
