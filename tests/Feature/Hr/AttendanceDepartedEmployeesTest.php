@@ -90,6 +90,19 @@ final class AttendanceDepartedEmployeesTest extends TestCase
         $this->actingAs($hr)->get('/nhan-su/cham-cong?month='.self::MONTH)->assertOk()->assertSee('CC Khong co cong thang 8');
     }
 
+    public function test_departed_employee_with_only_an_empty_placeholder_record_is_not_shown(): void
+    {
+        $hr = $this->hr();
+        $departed = $this->employee('[Đã xóa] HH Chi co dong trong', false);
+        // Dòng công trống (vắng, không check-in) như dòng sinh ra khi duyệt tăng ca: chưa chấm công thật.
+        AttendanceRecord::create([
+            'user_id' => $departed->id, 'work_date' => '2026-05-12', 'late_minutes' => 0,
+            'early_leave_minutes' => 0, 'work_minutes' => 0, 'status' => 'absent',
+        ]);
+
+        $this->actingAs($hr)->get('/nhan-su/cham-cong?month='.self::MONTH)->assertOk()->assertDontSee('HH Chi co dong trong');
+    }
+
     public function test_summary_cards_count_only_active_employees(): void
     {
         $hr = $this->hr();

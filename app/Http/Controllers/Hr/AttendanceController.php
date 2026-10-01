@@ -305,7 +305,7 @@ class AttendanceController extends Controller
 
     /**
      * Danh sách nhân viên cho Bảng công / Excel / PDF: người đang hoạt động trước, sau đó là tài khoản đã
-     * khóa / xóa NHƯNG có công trong tháng đang xem (nghỉ giữa tháng vẫn tính đủ công). Tháng nào họ
+     * khóa / xóa NHƯNG đã chấm công (có giờ check-in) trong tháng đang xem (nghỉ giữa tháng vẫn tính đủ công). Tháng nào họ
      * không có công thì không hiện. Mỗi user có `is_departed`, `attendance_name`, `attendance_label`.
      */
     private function attendanceEmployees(Carbon $start, Carbon $end, $userId = null, $departmentId = null)
@@ -326,6 +326,7 @@ class AttendanceController extends Controller
             ->where(fn ($q) => $q->where('is_active', 0)->orWhereNull('is_active'))
             ->whereIn('id', AttendanceRecord::query()
                 ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotNull('check_in_at') // đã chấm công thật; dòng công trống (vd. sinh ra khi duyệt tăng ca) không tính
                 ->select('user_id'))
             ->get();
 
