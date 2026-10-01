@@ -221,10 +221,27 @@ class SolarMaintenanceQueryService
 
         return Site::withoutGlobalScopes()
             ->select($this->siteColumns())
-            ->when($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyId > 0 && ! $this->seesAllCompanies($user), fn ($q) => $q->where('company_id', $companyId))
             ->orderByDesc('id')
             ->limit(50)
             ->get();
+    }
+
+    /** Admin và quản lý kỹ thuật chọn được công trình của mọi công ty khi tạo lịch bảo trì. */
+    private function seesAllCompanies(User $user): bool
+    {
+        return SolarMaintenanceAccess::isAdmin($user) || SolarMaintenanceAccess::isTechnicalLead($user);
+    }
+
+    /** Một công trình cụ thể nếu người dùng được phép chọn (dùng khi mở form từ trang công trình). */
+    public function visibleSite(int $siteId, User $user)
+    {
+        $companyId = EgoCompanyScope::currentId();
+
+        return Site::withoutGlobalScopes()
+            ->select($this->siteColumns())
+            ->when($companyId > 0 && ! $this->seesAllCompanies($user), fn ($q) => $q->where('company_id', $companyId))
+            ->find($siteId);
     }
 
     /**
@@ -236,7 +253,7 @@ class SolarMaintenanceQueryService
 
         return Site::withoutGlobalScopes()
             ->select($this->siteColumns())
-            ->when($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user), fn ($q) => $q->where('company_id', $companyId))
+            ->when($companyId > 0 && ! $this->seesAllCompanies($user), fn ($q) => $q->where('company_id', $companyId))
             ->when($keyword !== '', function ($q) use ($keyword) {
                 $like = '%'.$keyword.'%';
                 $q->where(function ($sub) use ($like) {

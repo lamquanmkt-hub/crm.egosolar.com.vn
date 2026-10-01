@@ -162,6 +162,9 @@
         ['tm3RoundsCount', 'tm3RoundInterval', 'tm3BaseDate'].forEach((id) => { const el = byId(id); if (el) el.addEventListener('change', renderRoundsPreview); });
         if (config.scheduleHasErrors && config.canCreate && typeof bootstrap !== 'undefined') {
             const drawer = byId('tm4CreateDrawer'); if (drawer) bootstrap.Offcanvas.getOrCreateInstance(drawer).show();
+        } else if (config.autoOpenCreate && config.canCreate && typeof bootstrap !== 'undefined') {
+            // Mở từ trang công trình (?create=1&site_id=…): hiện sẵn form tạo lịch với công trình đã chọn.
+            const drawer = byId('tm4CreateDrawer'); if (drawer) bootstrap.Offcanvas.getOrCreateInstance(drawer).show();
         } else if (config.claimHasErrors && config.canCreateClaim && typeof bootstrap !== 'undefined') {
             const drawer = byId('tm4ClaimDrawer'); if (drawer) bootstrap.Offcanvas.getOrCreateInstance(drawer).show();
         } else if (config.stockHasErrors && config.canManageStock && typeof bootstrap !== 'undefined') {

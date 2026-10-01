@@ -434,7 +434,7 @@ class SolarMaintenanceDetailController extends Controller
      */
     private function canAccessSite(Request $request, Site $site): bool
     {
-        if (SolarMaintenanceAccess::isAdmin($request->user())) {
+        if (SolarMaintenanceAccess::isAdmin($request->user()) || SolarMaintenanceAccess::isTechnicalLead($request->user())) {
             return true;
         }
 

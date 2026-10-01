@@ -40,7 +40,8 @@ class SolarMaintenanceService
             $currentCompanyId = EgoCompanyScope::currentId();
             $companyId = (int) ($site?->company_id ?: $currentCompanyId ?: 0);
 
-            if ($site && $currentCompanyId > 0 && (int) $site->company_id !== $currentCompanyId) {
+            $seesAllCompanies = \App\Support\SolarMaintenanceAccess::isAdmin($actor) || \App\Support\SolarMaintenanceAccess::isTechnicalLead($actor);
+            if ($site && $currentCompanyId > 0 && (int) $site->company_id !== $currentCompanyId && ! $seesAllCompanies) {
                 throw ValidationException::withMessages([
                     'site_id' => 'Công trình không thuộc công ty đang làm việc.',
                 ]);

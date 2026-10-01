@@ -65,6 +65,9 @@
         <div class="pword-hero-actions">
             <a href="{{ route('projects-unified.index') }}" class="pword-btn ghost"><i class="bi bi-arrow-left"></i>Danh sách</a>
             <a href="{{ route('projects-unified.show', ['site'=>$site->id]).'#project-files' }}" class="pword-btn light"><i class="bi bi-folder2-open"></i>Hồ sơ</a>
+            @if(Route::has('projects-unified.maintenance.index') && auth()->user()?->can('create', \App\Models\SolarMaintenanceSchedule::class))
+                <a href="{{ route('projects-unified.maintenance.index', ['site_id' => $site->id, 'create' => 1]) }}" class="pword-btn light"><i class="bi bi-calendar2-plus"></i>Tạo lịch bảo trì</a>
+            @endif
             @if(Route::has('ky-thuat.kpis.project'))
                 <a href="{{ route('ky-thuat.kpis.project', ['site'=>$site->id, 'month'=>now()->format('Y-m')]) }}" class="pword-btn light"><i class="bi bi-bar-chart-line"></i>KPI kỹ thuật</a>
             @endif

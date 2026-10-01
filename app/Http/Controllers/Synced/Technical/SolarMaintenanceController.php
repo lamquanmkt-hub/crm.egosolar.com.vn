@@ -47,6 +47,14 @@ class SolarMaintenanceController extends Controller
         $technicianWorkload = $this->queryService->technicianWorkload($user, 6);
         $maintenanceRounds = $this->queryService->roundOverview($user, 4);
         $sites = $this->queryService->recentSites($user);
+        // Mở form từ trang một công trình (?site_id=): bảo đảm công trình đó luôn có trong ô chọn, dù không nằm trong 50 công trình mới nhất.
+        $requestedSiteId = (int) $request->input('site_id');
+        if ($requestedSiteId > 0 && ! $sites->contains('id', $requestedSiteId)) {
+            $requestedSite = $this->queryService->visibleSite($requestedSiteId, $user);
+            if ($requestedSite) {
+                $sites->prepend($requestedSite);
+            }
+        }
         $users = $this->queryService->technicalUsers();
         $activeView = in_array($request->input('view'), ['overview', 'maintenance', 'claims', 'stock', 'files'], true)
             ? (string) $request->input('view')
@@ -203,7 +211,8 @@ class SolarMaintenanceController extends Controller
                 'value' => $site->id,
                 'text' => $site->name
                     .($site->contact_name ? ' — '.$site->contact_name : '')
-                    .($site->contact_phone ? ' — '.$site->contact_phone : ''),
+                    .($site->contact_phone ? ' — '.$site->contact_phone : '')
+                    .((int) $site->company_id !== \App\Support\EgoCompanyScope::currentId() ? ' · EGO Việt Nam' : ''),
                 'name' => $site->name,
                 'contact_name' => $site->contact_name,
                 'contact_phone' => $site->contact_phone,
