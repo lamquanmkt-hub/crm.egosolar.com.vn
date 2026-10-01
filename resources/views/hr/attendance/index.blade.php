@@ -73,7 +73,7 @@
                         <option value="">Tất cả nhân viên</option>
                         @foreach($employees as $employee)
                             <option value="{{ $employee->id }}" {{ request('user_id') == $employee->id ? 'selected' : '' }}>
-                                {{ $employee->name }}
+                                {{ $employee->attendance_label }}
                             </option>
                         @endforeach
                     </select>
@@ -229,7 +229,7 @@
                     <tbody>
                         @forelse($employeeStats as $item)
                             <tr>
-                                <td class="fw-semibold">{{ $item->employee_name }}</td>
+                                <td class="fw-semibold">{{ $item->employee_name }}@if(!empty($item->departed)) <span class="badge bg-secondary ms-1">Đã nghỉ</span>@endif</td>
                                 <td>{{ $item->department_name }}</td>
                                 <td>{{ $item->position_name }}</td>
                                 <td>{{ $item->valid_days }}</td>
@@ -305,7 +305,7 @@
                         @forelse($records as $record)
                             <tr>
                                 <td class="fw-semibold">{{ $record->work_date->format('d/m/Y') }}</td>
-                                <td>{{ $record->user->name ?? '-' }}</td>
+                                <td>{{ $record->user->attendance_name ?? '-' }}@if(optional($record->user)->is_departed) <span class="badge bg-secondary ms-1">Đã nghỉ</span>@endif</td>
                                 <td>{{ optional($record->user->department)->name ?? '-' }}</td>
                                 <td>{{ optional($record->check_in_at)->format('H:i:s') ?? '-' }}</td>
                                 <td class="text-muted small" style="min-width: 240px;">

@@ -42,7 +42,7 @@
             @forelse($records as $record)
                 <tr>
                     <td>{{ optional($record->work_date)->format('d/m/Y') }}</td>
-                    <td><strong>{{ $record->user->name ?? '-' }}</strong></td>
+                    <td><strong>{{ $record->user->attendance_label ?? '-' }}</strong></td>
                     <td>{{ optional($record->user->department)->name ?? '-' }}</td>
                     <td>{{ optional($record->check_in_at)->format('H:i:s') ?? '-' }}</td>
                     <td>{{ optional($record->check_out_at)->format('H:i:s') ?? '-' }}</td>
