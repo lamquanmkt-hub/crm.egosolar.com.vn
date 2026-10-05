@@ -81,6 +81,10 @@ class EnforcePageAccess
                 'hr.leave.cancel',
                 'hr.leave.attachments.*',
                 'hr.online-work.create',
+                // Phiếu lương & KPI tự phục vụ: Controller chỉ cho xem dữ liệu của chính mình.
+                'hr.payroll.my',
+                'hr.payroll.payslip',
+                'hr.kpi-my',
                 // Tăng ca tự phục vụ: duyệt / từ chối vẫn do OvertimeAccessService kiểm tra trong Controller.
                 'hr.overtime.index',
                 'hr.overtime.create',

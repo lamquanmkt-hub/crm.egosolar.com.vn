@@ -489,3 +489,30 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
     });
     /* EGO_GIFT_MANAGEMENT_V1_ROUTES_END */
 });
+
+/* EGO_KPI_PAYROLL_V1_ROUTES_START — Bảng lương tự động + KPI HCNS / Kế toán kho (quyền kiểm trong controller) */
+Route::middleware(['auth'])->prefix('nhan-su')->name('hr.')->group(function (): void {
+    Route::prefix('bang-luong')->name('payroll.')->controller(\App\Http\Controllers\Hr\PayrollController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::post('/tinh', 'generate')->name('generate');
+        Route::get('/xuat-excel', 'export')->name('export');
+        Route::get('/cai-dat', 'settings')->name('settings');
+        Route::post('/cai-dat', 'saveSettings')->name('settings.save');
+        Route::put('/dong/{line}', 'updateLine')->whereNumber('line')->name('lines.update');
+        Route::get('/phieu/{line}', 'payslip')->whereNumber('line')->name('payslip');
+        Route::post('/{period}/duyet', 'approve')->whereNumber('period')->name('approve');
+        Route::post('/{period}/mo-khoa', 'reopen')->whereNumber('period')->name('reopen');
+    });
+    Route::get('bang-luong/ho-so-luong', [\App\Http\Controllers\Hr\SalaryProfileController::class, 'index'])->name('payroll.profiles');
+    Route::post('bang-luong/ho-so-luong', [\App\Http\Controllers\Hr\SalaryProfileController::class, 'store'])->name('payroll.profiles.store');
+    Route::get('phieu-luong-cua-toi', [\App\Http\Controllers\Hr\PayrollController::class, 'my'])->name('payroll.my');
+    Route::get('kpi-cua-toi', [\App\Http\Controllers\Hr\HrKpiController::class, 'my'])->name('kpi-my');
+
+    Route::prefix('kpi')->name('kpi.')->controller(\App\Http\Controllers\Hr\HrKpiController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('/cai-dat', 'settings')->name('settings');
+        Route::post('/cai-dat', 'saveSettings')->name('settings.save');
+    });
+});
+/* EGO_KPI_PAYROLL_V1_ROUTES_END */

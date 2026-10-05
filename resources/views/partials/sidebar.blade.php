@@ -1504,6 +1504,31 @@
                 </details>
             </li>
 
+            {{-- EGO_KPI_PAYROLL_V1_MENU --}}
+            @if(\Illuminate\Support\Facades\Route::has('hr.payroll.my'))
+                @php
+                    $egoHrPayrollOpen = request()->routeIs('hr.payroll.*') || request()->routeIs('hr.kpi.*') || request()->routeIs('hr.kpi-my');
+                    $egoCanManagePayroll = \App\Services\Hr\Payroll\PayrollAccess::canManage(auth()->user());
+                @endphp
+                <li class="ego-hr-v4-group">
+                    <details class="ego-hr-v4-details" {{ $egoHrPayrollOpen ? 'open' : '' }}>
+                        <summary class="ego-sublink ego-hr-v4-summary {{ $egoHrPayrollOpen ? 'active' : '' }}">
+                            <span>Lương &amp; KPI</span>
+                            <i class="bi bi-chevron-down ego-hr-v4-chevron"></i>
+                        </summary>
+                        <ul class="ego-hr-v4-children">
+                            @if($egoCanManagePayroll)
+                                <li><a href="{{ route('hr.payroll.index') }}" class="ego-sublink {{ request()->routeIs('hr.payroll.index') ? 'active' : '' }}" data-ego-type="nav">Bảng lương tháng</a></li>
+                                <li><a href="{{ route('hr.payroll.profiles') }}" class="ego-sublink {{ request()->routeIs('hr.payroll.profiles') ? 'active' : '' }}" data-ego-type="nav">Hồ sơ lương</a></li>
+                                <li><a href="{{ route('hr.kpi.index') }}" class="ego-sublink {{ request()->routeIs('hr.kpi.*') ? 'active' : '' }}" data-ego-type="nav">KPI nhân sự</a></li>
+                            @endif
+                            <li><a href="{{ route('hr.payroll.my') }}" class="ego-sublink {{ request()->routeIs('hr.payroll.my') ? 'active' : '' }}" data-ego-type="nav">Phiếu lương của tôi</a></li>
+                            <li><a href="{{ route('hr.kpi-my') }}" class="ego-sublink {{ request()->routeIs('hr.kpi-my') ? 'active' : '' }}" data-ego-type="nav">KPI của tôi</a></li>
+                        </ul>
+                    </details>
+                </li>
+            @endif
+
             @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.index') || \Illuminate\Support\Facades\Route::has('hr.candidate-processes.index'))
                 <li class="ego-hr-v4-group">
                     <details class="ego-hr-v4-details" {{ $egoHrRecruitmentOpen ? 'open' : '' }}>
