@@ -21,6 +21,9 @@
         #egoAttendancePromax .ot-btn-ok:hover{background:#d2f2e5}
         #egoAttendancePromax .ot-btn-no{background:#fff0f3;color:#ae3447}
         #egoAttendancePromax .ot-btn-no:hover{background:#ffdfe6}
+        #egoAttendancePromax .ot-row-actions{display:flex;gap:6px;align-items:center}
+        #egoAttendancePromax .ot-row-actions form{margin:0}
+        #egoAttendancePromax a.ot-btn-ok{display:inline-block;text-decoration:none}
         #egoAttendancePromax .ot-pager{padding:12px 16px}
         @media(max-width:1050px){#egoAttendancePromax .ot-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
     </style>
@@ -112,7 +115,7 @@
             <div class="at-card-head">
                 <div>
                     <h2><i class="bi bi-list-check"></i>{{ $tab === 'approval' ? 'Đơn cần duyệt' : 'Đơn tăng ca của tôi' }}</h2>
-                    <p>{{ $tab === 'approval' ? 'Đơn nhân viên gửi cho bạn duyệt' . ($canManage ? ' (HR / Admin thấy mọi đơn)' : '') . '. Không thể tự duyệt đơn của chính mình.' : 'Đơn chờ duyệt hiển thị trên cùng.' }}</p>
+                    <p>{{ $tab === 'approval' ? 'Đơn nhân viên gửi cho bạn duyệt' . ($canManage ? ' (HR / Admin / Kế toán thấy mọi đơn)' : '') . '. Không thể tự duyệt đơn của chính mình.' : 'Đơn chờ duyệt hiển thị trên cùng.' }}</p>
                 </div>
             </div>
 
@@ -161,7 +164,7 @@
                             <th>Lý do</th>
                             <th>Người duyệt</th>
                             <th>Trạng thái</th>
-                            @if($tab === 'approval')<th>Thao tác</th>@endif
+                            <th>Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -210,10 +213,25 @@
                                             <span class="ot-muted">—</span>
                                         @endif
                                     </td>
+                                @else
+                                    <td>
+                                        @if($access->canModify($currentUser, $item))
+                                            <div class="ot-row-actions">
+                                                <a class="ot-btn-ok" href="{{ route('hr.overtime.edit', $item) }}" data-overtime-edit><i class="bi bi-pencil"></i> Sửa</a>
+                                                <form method="POST" action="{{ route('hr.overtime.destroy', $item) }}" onsubmit="return confirm('Xoá đơn tăng ca ngày {{ optional($item->overtime_date)->format('d/m/Y') }}?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="ot-btn-no" type="submit" data-overtime-delete><i class="bi bi-trash"></i> Xoá</button>
+                                                </form>
+                                            </div>
+                                        @else
+                                            <span class="ot-muted">—</span>
+                                        @endif
+                                    </td>
                                 @endif
                             </tr>
                         @empty
-                            <tr><td colspan="{{ $tab === 'approval' ? 8 : 6 }}"><div class="at-empty">{{ $tab === 'approval' ? 'Không có đơn tăng ca cần duyệt.' : 'Bạn chưa có đơn tăng ca nào trong tháng này.' }}</div></td></tr>
+                            <tr><td colspan="{{ $tab === 'approval' ? 8 : 7 }}"><div class="at-empty">{{ $tab === 'approval' ? 'Không có đơn tăng ca cần duyệt.' : 'Bạn chưa có đơn tăng ca nào trong tháng này.' }}</div></td></tr>
                         @endforelse
                     </tbody>
                 </table>

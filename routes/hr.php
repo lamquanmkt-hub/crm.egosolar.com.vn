@@ -393,6 +393,18 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
     Route::post('tang-ca', [OvertimeRequestController::class, 'store'])
         ->name('overtime.store');
 
+    Route::get('tang-ca/{overtime}/edit', [OvertimeRequestController::class, 'edit'])
+        ->whereNumber('overtime')
+        ->name('overtime.edit');
+
+    Route::put('tang-ca/{overtime}', [OvertimeRequestController::class, 'update'])
+        ->whereNumber('overtime')
+        ->name('overtime.update');
+
+    Route::delete('tang-ca/{overtime}', [OvertimeRequestController::class, 'destroy'])
+        ->whereNumber('overtime')
+        ->name('overtime.destroy');
+
     Route::post('tang-ca/{overtime}/approve', [OvertimeRequestController::class, 'approve'])
         ->whereNumber('overtime')
         ->name('overtime.approve');

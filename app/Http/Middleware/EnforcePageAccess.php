@@ -89,6 +89,9 @@ class EnforcePageAccess
                 'hr.overtime.index',
                 'hr.overtime.create',
                 'hr.overtime.store',
+                'hr.overtime.edit',
+                'hr.overtime.update',
+                'hr.overtime.destroy',
                 'hr.overtime.approve',
                 'hr.overtime.reject',
             ], $routeName)

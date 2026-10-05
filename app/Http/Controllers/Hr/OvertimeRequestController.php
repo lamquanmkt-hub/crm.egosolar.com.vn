@@ -8,6 +8,7 @@ use App\Models\OvertimeRequest;
 use App\Models\User;
 use App\Services\Hr\OvertimeAccessService;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -117,6 +118,95 @@ class OvertimeRequestController extends Controller
     {
         $user = auth()->user();
 
+        $payload = $this->validatedPayload($request, $user);
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        OvertimeRequest::create($payload + [
+            'user_id' => $user->id,
+            'status' => 'pending',
+        ]);
+
+        return redirect()
+            ->route('hr.overtime.index', ['month' => Carbon::parse($payload['overtime_date'])->format('Y-m')])
+            ->with('success', 'Đã gửi đơn đăng ký tăng ca, chờ người duyệt xử lý.');
+    }
+
+    /**
+     * Form sửa đơn tăng ca: chỉ người gửi, chỉ đơn đang chờ duyệt.
+     */
+    public function edit(OvertimeRequest $overtime)
+    {
+        $this->authorizeModify($overtime);
+
+        $approvers = $this->access->approverOptions(auth()->id());
+
+        return view('hr.overtime.create', compact('approvers', 'overtime'));
+    }
+
+    /**
+     * Cập nhật đơn tăng ca đang chờ duyệt (cùng quy tắc như khi tạo).
+     */
+    public function update(Request $request, OvertimeRequest $overtime)
+    {
+        $this->authorizeModify($overtime);
+
+        $payload = $this->validatedPayload($request, auth()->user(), (int) $overtime->id);
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        $updated = OvertimeRequest::query()
+            ->whereKey($overtime->id)
+            ->where('status', 'pending')
+            ->update($payload + ['updated_at' => now()]);
+
+        if (! $updated) {
+            return redirect()->route('hr.overtime.index')->with('error', 'Đơn tăng ca đã được xử lý, không thể sửa.');
+        }
+
+        return redirect()
+            ->route('hr.overtime.index', ['month' => Carbon::parse($payload['overtime_date'])->format('Y-m')])
+            ->with('success', 'Đã cập nhật đơn tăng ca.');
+    }
+
+    /**
+     * Xoá đơn tăng ca đang chờ duyệt của chính mình.
+     */
+    public function destroy(OvertimeRequest $overtime)
+    {
+        $this->authorizeModify($overtime);
+
+        $deleted = OvertimeRequest::query()
+            ->whereKey($overtime->id)
+            ->where('status', 'pending')
+            ->delete();
+
+        if (! $deleted) {
+            return back()->with('error', 'Đơn tăng ca đã được xử lý, không thể xoá.');
+        }
+
+        return back()->with('success', 'Đã xoá đơn tăng ca.');
+    }
+
+    private function authorizeModify(OvertimeRequest $overtime): void
+    {
+        abort_unless(
+            $this->access->canModify(auth()->user(), $overtime),
+            403,
+            'Chỉ người gửi được sửa / xoá đơn tăng ca khi đơn còn chờ duyệt.'
+        );
+    }
+
+    /**
+     * Kiểm tra dữ liệu đơn tăng ca: bắt buộc người duyệt hợp lệ, qua đêm tự cộng 1 ngày, tối đa 16 giờ/lần,
+     * không trùng khung giờ với đơn đang chờ / đã duyệt khác của chính mình.
+     *
+     * @return array<string, mixed>|RedirectResponse
+     */
+    private function validatedPayload(Request $request, User $user, ?int $ignoreId = null): array|RedirectResponse
+    {
         $data = $request->validate([
             'overtime_date' => ['required', 'date'],
             'start_time' => ['required', 'date_format:H:i'],
@@ -157,6 +247,7 @@ class OvertimeRequestController extends Controller
             ->whereIn('status', ['pending', 'approved'])
             ->where('start_at', '<', $endAt)
             ->where('end_at', '>', $startAt)
+            ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
             ->first();
 
         if ($overlap) {
@@ -166,20 +257,14 @@ class OvertimeRequestController extends Controller
                     .' ('.$overlap->start_at->format('H:i').' - '.$overlap->end_at->format('H:i').', '.$overlap->status_label.').');
         }
 
-        OvertimeRequest::create([
-            'user_id' => $user->id,
+        return [
             'approver_id' => $approverId,
             'overtime_date' => $date,
             'start_at' => $startAt,
             'end_at' => $endAt,
             'hours' => round($minutes / 60, 2),
             'reason' => trim($data['reason']),
-            'status' => 'pending',
-        ]);
-
-        return redirect()
-            ->route('hr.overtime.index', ['month' => Carbon::parse($date)->format('Y-m')])
-            ->with('success', 'Đã gửi đơn đăng ký tăng ca, chờ người duyệt xử lý.');
+        ];
     }
 
     /**

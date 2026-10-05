@@ -198,6 +198,95 @@ final class OvertimeRequestTest extends TestCase
         $this->assertSame('approved', $ot->fresh()->status);
     }
 
+    public function test_accounting_without_hr_page_access_sees_and_can_decide_all_overtime(): void
+    {
+        $staff = $this->staff();
+        $manager = $this->manager();
+        $accountant = $this->userWithPageControlledRole('accounting', ['page.dashboard', 'page.finance', 'menu.dashboard', 'menu.finance']);
+        $this->assertFalse(app(PageAccessServiceInterface::class)->canAccess($accountant, 'page.hr'));
+
+        $this->submit($staff, ['approver_id' => $manager->id])->assertSessionHas('success');
+        $ot = OvertimeRequest::where('user_id', $staff->id)->firstOrFail();
+
+        // Kế toán vào tab Cần duyệt, thấy đơn giao cho người khác + bộ lọc nhân viên + nút duyệt.
+        $html = $this->actingAs($accountant)
+            ->get(self::BASE.'?tab=approval&month=2026-09&status=&user_id=')
+            ->assertOk()
+            ->assertSee('Duyệt đơn tăng ca')
+            ->assertSee($staff->name)
+            ->assertSee('Kế toán thấy mọi đơn')
+            ->getContent();
+        $this->assertStringContainsString('name="user_id"', $html);
+        $this->assertStringContainsString(route('hr.overtime.approve', $ot), $html);
+
+        // Menu Nhân sự cá nhân có link Tăng ca + Duyệt tăng ca.
+        $this->assertStringContainsString('data-overtime-menu', $html);
+        $this->assertStringContainsString('data-overtime-review-menu', $html);
+
+        $this->actingAs($accountant)->post(self::BASE.'/'.$ot->id.'/approve', ['approval_note' => 'KT xác nhận'])->assertSessionHas('success');
+        $this->assertSame('approved', $ot->fresh()->status);
+        $this->assertSame($accountant->id, (int) $ot->fresh()->approved_by);
+    }
+
+    public function test_owner_can_edit_and_delete_pending_request(): void
+    {
+        $staff = $this->staff();
+        $manager = $this->manager();
+        $otherManager = $this->manager();
+
+        $this->submit($staff, ['approver_id' => $manager->id]);
+        $ot = OvertimeRequest::where('user_id', $staff->id)->firstOrFail();
+
+        $this->actingAs($staff)->get(self::BASE.'?month=2026-09')->assertOk()
+            ->assertSee('data-overtime-edit', false)->assertSee('data-overtime-delete', false);
+        $this->actingAs($staff)->get(self::BASE.'/'.$ot->id.'/edit')->assertOk()
+            ->assertSee('Sửa đơn tăng ca')->assertSee('Xử lý đơn hàng gấp');
+
+        // Sửa giờ / người duyệt: không bị coi là trùng với chính đơn đang sửa.
+        $this->actingAs($staff)->put(self::BASE.'/'.$ot->id, [
+            'overtime_date' => self::DATE,
+            'start_time' => '18:30',
+            'end_time' => '21:30',
+            'approver_id' => $otherManager->id,
+            'reason' => 'Đổi giờ tăng ca',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $ot->refresh();
+        $this->assertSame('pending', $ot->status);
+        $this->assertSame($otherManager->id, (int) $ot->approver_id);
+        $this->assertEqualsWithDelta(3.0, (float) $ot->hours, 0.001);
+        $this->assertSame('Đổi giờ tăng ca', $ot->reason);
+
+        $this->actingAs($staff)->delete(self::BASE.'/'.$ot->id)->assertSessionHas('success');
+        $this->assertNull(OvertimeRequest::find($ot->id));
+    }
+
+    public function test_cannot_edit_or_delete_others_or_processed_requests(): void
+    {
+        $staff = $this->staff();
+        $manager = $this->manager();
+        $hr = $this->hr();
+
+        $this->submit($staff, ['approver_id' => $manager->id]);
+        $ot = OvertimeRequest::where('user_id', $staff->id)->firstOrFail();
+
+        // Người khác (kể cả HR / người duyệt) không sửa / xoá đơn của nhân viên.
+        $this->actingAs($hr)->get(self::BASE.'/'.$ot->id.'/edit')->assertForbidden();
+        $this->actingAs($manager)->delete(self::BASE.'/'.$ot->id)->assertForbidden();
+
+        // Đã duyệt thì người gửi cũng không sửa / xoá được.
+        $this->actingAs($manager)->post(self::BASE.'/'.$ot->id.'/approve');
+        $this->actingAs($staff)->get(self::BASE.'?month=2026-09')->assertOk()->assertDontSee('data-overtime-edit', false);
+        $this->actingAs($staff)->put(self::BASE.'/'.$ot->id, [
+            'overtime_date' => self::DATE, 'start_time' => '18:00', 'end_time' => '23:00',
+            'approver_id' => $manager->id, 'reason' => 'Sửa sau khi duyệt',
+        ])->assertForbidden();
+        $this->actingAs($staff)->delete(self::BASE.'/'.$ot->id)->assertForbidden();
+
+        $this->assertSame('approved', $ot->fresh()->status);
+        $this->assertEqualsWithDelta(2.0, (float) $ot->fresh()->hours, 0.001);
+    }
+
     public function test_my_attendance_shows_overtime_buttons_by_role(): void
     {
         $staffHtml = $this->actingAs($this->staff())->get('/nhan-su/cham-cong-cua-toi')->assertOk()->getContent();

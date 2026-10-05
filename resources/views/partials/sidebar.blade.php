@@ -1344,10 +1344,10 @@
             @if(!$egoCanHrMenu && auth()->check())
                 <li class="ego-item ego-item--has-sub" data-title="Nhân sự cá nhân" data-ego-sub="true">
                     <a href="#menuNhanSuCaNhan"
-                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}"
+                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
                        data-ego-type="toggle"
-                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'true' : 'false' }}"
+                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'true' : 'false' }}"
                        aria-controls="menuNhanSuCaNhan">
                         <span class="ego-ic"><i class="bi bi-person-workspace"></i></span>
                         <span class="ego-txt">Nhân sự</span>
@@ -1357,13 +1357,19 @@
                         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
                     <ul id="menuNhanSuCaNhan"
-                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'show' : '' }}"
+                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'show' : '' }}"
                         data-ego-submenu>
                         <li><a href="{{ route('hr.attendance.my') }}" class="ego-sublink {{ active_route('hr.attendance.my') }}" data-ego-type="nav">Chấm công của tôi</a></li>
                         @if(\Illuminate\Support\Facades\Route::has('hr.gifts.requests.index'))
                             <li><a href="{{ route('hr.gifts.requests.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}" data-ego-type="nav">Yêu cầu tặng quà</a></li>
                         @endif
                         <li><a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav">Đơn nghỉ phép / làm online</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('hr.overtime.index'))
+                            <li><a href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.overtime.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav" data-overtime-menu>Tăng ca</a></li>
+                            @if(app(\App\Services\Hr\OvertimeAccessService::class)->canReview(auth()->user()))
+                                <li><a href="{{ route('hr.overtime.index', ['tab' => 'approval', 'status' => 'pending']) }}" class="ego-sublink {{ request()->routeIs('hr.overtime.*') && request('tab') === 'approval' ? 'active' : '' }}" data-ego-type="nav" data-overtime-review-menu>Duyệt tăng ca</a></li>
+                            @endif
+                        @endif
                         @if($egoCanReviewLeave)
                             <li>
                                 <a href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}" data-ego-type="nav" style="display:flex;align-items:center;gap:8px">

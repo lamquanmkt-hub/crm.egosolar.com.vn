@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Đăng ký tăng ca')
+@section('title', isset($overtime) ? 'Sửa đơn tăng ca' : 'Đăng ký tăng ca')
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/ego-attendance-promax.css') }}?v={{ filemtime(public_path('css/ego-attendance-promax.css')) }}">
@@ -20,6 +20,10 @@
 @endpush
 
 @section('content')
+@php
+    $overtime = $overtime ?? null;
+    $isEdit = $overtime !== null;
+@endphp
 <div id="egoAttendancePromax">
     <div class="at-shell" style="max-width:980px">
         @if(session('error'))
@@ -37,7 +41,7 @@
                 <div class="at-heading__icon"><i class="bi bi-moon-stars"></i></div>
                 <div>
                     <span>CHẤM CÔNG · TĂNG CA</span>
-                    <h1>Đăng ký tăng ca</h1>
+                    <h1>{{ $isEdit ? 'Sửa đơn tăng ca' : 'Đăng ký tăng ca' }}</h1>
                     <p>Gửi đơn để quản lý / trưởng phòng / HR duyệt. Đơn được duyệt sẽ ghi vào chấm công và cộng vào tổng giờ công.</p>
                 </div>
             </div>
@@ -48,20 +52,23 @@
         </header>
 
         <section class="at-panel">
-            <form method="POST" action="{{ route('hr.overtime.store') }}" class="ot-form" data-overtime-form>
+            <form method="POST" action="{{ $isEdit ? route('hr.overtime.update', $overtime) : route('hr.overtime.store') }}" class="ot-form" data-overtime-form>
                 @csrf
+                @if($isEdit)
+                    @method('PUT')
+                @endif
 
                 <div class="ot-field">
                     <label for="ot-date">Ngày tăng ca *</label>
-                    <input id="ot-date" type="date" name="overtime_date" value="{{ old('overtime_date', now()->toDateString()) }}" required>
+                    <input id="ot-date" type="date" name="overtime_date" value="{{ old('overtime_date', $isEdit ? $overtime->overtime_date->toDateString() : now()->toDateString()) }}" required>
                 </div>
                 <div class="ot-field">
                     <label for="ot-start">Từ giờ *</label>
-                    <input id="ot-start" type="time" name="start_time" value="{{ old('start_time', '18:00') }}" required data-ot-start>
+                    <input id="ot-start" type="time" name="start_time" value="{{ old('start_time', $isEdit ? $overtime->start_at->format('H:i') : '18:00') }}" required data-ot-start>
                 </div>
                 <div class="ot-field">
                     <label for="ot-end">Đến giờ *</label>
-                    <input id="ot-end" type="time" name="end_time" value="{{ old('end_time', '20:00') }}" required data-ot-end>
+                    <input id="ot-end" type="time" name="end_time" value="{{ old('end_time', $isEdit ? $overtime->end_at->format('H:i') : '20:00') }}" required data-ot-end>
                     <small>Giờ kết thúc nhỏ hơn giờ bắt đầu = tăng ca qua đêm. Tối đa 16 giờ/lần.</small>
                 </div>
 
@@ -74,7 +81,7 @@
                     <select id="ot-approver" name="approver_id" required class="@error('approver_id') is-invalid @enderror">
                         <option value="">— Chọn quản lý / trưởng phòng / HR —</option>
                         @foreach($approvers as $approver)
-                            <option value="{{ $approver->id }}" @selected((int) old('approver_id') === (int) $approver->id)>
+                            <option value="{{ $approver->id }}" @selected((int) old('approver_id', $overtime?->approver_id) === (int) $approver->id)>
                                 {{ $approver->name }}@if($approver->email) · {{ $approver->email }}@endif
                             </option>
                         @endforeach
@@ -84,12 +91,12 @@
 
                 <div class="ot-field ot-field--full">
                     <label for="ot-reason">Lý do tăng ca *</label>
-                    <textarea id="ot-reason" name="reason" rows="4" required minlength="5" maxlength="5000" placeholder="VD: xử lý đơn hàng gấp, hỗ trợ công trình, trực kho...">{{ old('reason') }}</textarea>
+                    <textarea id="ot-reason" name="reason" rows="4" required minlength="5" maxlength="5000" placeholder="VD: xử lý đơn hàng gấp, hỗ trợ công trình, trực kho...">{{ old('reason', $overtime?->reason) }}</textarea>
                 </div>
 
                 <div class="ot-form-actions">
                     <a class="at-btn at-btn--light" href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}">Huỷ</a>
-                    <button type="submit" class="at-btn at-btn--primary"><i class="bi bi-send"></i>Gửi đơn tăng ca</button>
+                    <button type="submit" class="at-btn at-btn--primary">@if($isEdit)<i class="bi bi-save"></i>Lưu thay đổi @else<i class="bi bi-send"></i>Gửi đơn tăng ca @endif</button>
                 </div>
             </form>
         </section>

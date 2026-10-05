@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
  * - Người duyệt chỉ chọn trong nhóm quản lý / trưởng phòng / HR / admin, không phải chính người gửi.
  * - HR / Admin / Kế toán quản lý toàn bộ đơn; người được chọn duyệt chỉ duyệt đơn giao cho mình.
  * - Không ai được tự duyệt đơn của chính mình (kể cả HR / Admin).
+ * - Người gửi sửa / xoá được đơn của mình khi đơn còn chờ duyệt.
  */
 class OvertimeAccessService
 {
@@ -55,6 +56,14 @@ class OvertimeAccessService
         }
 
         return $this->canManageAll($user) || (int) $overtime->approver_id === (int) $user->id;
+    }
+
+    /** Sửa / xoá được đơn này: chỉ người gửi, và chỉ khi đơn còn đang chờ duyệt. */
+    public function canModify(?User $user, OvertimeRequest $overtime): bool
+    {
+        return $user !== null
+            && (int) $overtime->user_id === (int) $user->id
+            && $overtime->status === 'pending';
     }
 
     /** Đơn đang chờ mà user này duyệt được. */
