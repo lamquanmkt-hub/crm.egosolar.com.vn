@@ -54,7 +54,8 @@ return [
             ['label' => 'Đơn hàng', 'icon' => 'bi-receipt-cutoff', 'route' => 'orders.index', 'fallback' => '/orders', 'patterns' => ['orders.*']],
             ['label' => 'Tài chính', 'icon' => 'bi-graph-up-arrow', 'route' => 'finance.index', 'fallback' => '/finance', 'patterns' => ['finance.*']],
             ['label' => 'Kho & sản phẩm', 'icon' => 'bi-boxes', 'route' => 'warehouses.index', 'fallback' => '/warehouses', 'patterns' => ['warehouses.*', 'products.*']],
-            ['label' => 'Nhân sự', 'icon' => 'bi-people', 'route' => 'hr.employees.index', 'fallback' => '/nhan-su', 'patterns' => ['hr.*']],
+            ['label' => 'Nhân sự', 'icon' => 'bi-people', 'route' => 'hr.employees.index', 'fallback' => '/nhan-su', 'patterns' => ['hr.*'], 'exclude_patterns' => ['hr.payroll.*', 'hr.kpi.*']],
+            require __DIR__.'/hr_payroll_menu.php',
             $section('KỸ THUẬT'),
             ['label' => 'Tổng quan', 'icon' => 'bi-speedometer2', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard']],
             ['label' => 'Kế hoạch & Giao việc', 'icon' => 'bi-calendar-week', 'route' => 'technical.dashboard.plans', 'fallback' => '/ky-thuat/dashboard/ke-hoach', 'patterns' => ['technical.dashboard.plans', 'technical.dashboard.plans.detail', 'technical.manager.board', 'technical.manager.detail']],
@@ -72,7 +73,8 @@ return [
             ['label' => 'Đơn hàng', 'icon' => 'bi-receipt-cutoff', 'route' => 'orders.index', 'fallback' => '/orders', 'patterns' => ['orders.*']],
             ['label' => 'Tài chính', 'icon' => 'bi-graph-up-arrow', 'route' => 'finance.index', 'fallback' => '/finance', 'patterns' => ['finance.*']],
             ['label' => 'Kho & sản phẩm', 'icon' => 'bi-boxes', 'route' => 'warehouses.index', 'fallback' => '/warehouses', 'patterns' => ['warehouses.*', 'products.*']],
-            ['label' => 'Nhân sự', 'icon' => 'bi-people', 'route' => 'hr.employees.index', 'fallback' => '/nhan-su', 'patterns' => ['hr.*']],
+            ['label' => 'Nhân sự', 'icon' => 'bi-people', 'route' => 'hr.employees.index', 'fallback' => '/nhan-su', 'patterns' => ['hr.*'], 'exclude_patterns' => ['hr.payroll.*', 'hr.kpi.*']],
+            require __DIR__.'/hr_payroll_menu.php',
             $section('KỸ THUẬT'),
             ['label' => 'Tổng quan', 'icon' => 'bi-speedometer2', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard']],
             ['label' => 'Kế hoạch & Giao việc', 'icon' => 'bi-calendar-week', 'route' => 'technical.dashboard.plans', 'fallback' => '/ky-thuat/dashboard/ke-hoach', 'patterns' => ['technical.dashboard.plans', 'technical.dashboard.plans.detail', 'technical.manager.board', 'technical.manager.detail']],
@@ -108,6 +110,19 @@ return [
             ['label' => 'Giao việc', 'icon' => 'bi-person-plus', 'route' => 'technical.manager.board', 'query' => ['open' => 'assign'], 'fallback' => '/ky-thuat/quan-ly/ke-hoach', 'patterns' => ['technical.manager.detail', 'technical.manager.assign']],
             ['label' => 'Báo cáo', 'icon' => 'bi-journal-text', 'route' => 'technical.daily-reports.index', 'fallback' => '/ky-thuat/bao-cao-ngay', 'patterns' => ['technical.daily-reports.*']],
             ['label' => 'Tổng kết tuần', 'icon' => 'bi-clipboard-data', 'route' => 'technical.manager.weekly-summary', 'fallback' => '/ky-thuat/quan-ly/tong-ket-tuan', 'patterns' => ['technical.manager.weekly-summary']],
+            ['label' => 'Dashboard kết quả', 'icon' => 'bi-speedometer', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard', 'technical.dashboard.*']],
+            ['label' => 'KPIs', 'icon' => 'bi-bar-chart-line', 'route' => 'ky-thuat.kpis.index', 'fallback' => '/ky-thuat/kpis', 'patterns' => ['ky-thuat.kpis.*']],
+
+            /*
+             * BỔ SUNG 2026-10: Trưởng phòng cần vào thẳng Công trình, Bảo hành & O&M, Đề xuất đổi hàng BH
+             * và Sửa chữa tính phí (trước đây chỉ có ở menu Admin kỹ thuật / tab trong trang đổi hàng).
+             */
+            $section('CÔNG TRÌNH & BẢO HÀNH'),
+            ['label' => 'Công trình', 'icon' => 'bi-buildings', 'route' => 'projects-unified.index', 'fallback' => '/du-an', 'patterns' => ['projects-unified.index', 'projects-unified.create', 'projects-unified.show', 'projects-unified.edit', 'projects-unified.workflow.*', 'projects-unified.phase.*', 'projects-unified.engineer.*', 'projects-unified.materials.*', 'projects-unified.finance.*']],
+            ['label' => 'Bảo hành & O&M', 'icon' => 'bi-shield-check', 'route' => 'projects-unified.maintenance.index', 'fallback' => '/du-an/bao-tri-bao-hanh', 'patterns' => ['projects-unified.maintenance.*']],
+            ['label' => 'Đề xuất đổi hàng BH', 'icon' => 'bi-arrow-left-right', 'route' => 'ky-thuat.warranty-exchange.index', 'fallback' => '/ky-thuat/de-xuat-doi-hang-bao-hanh', 'patterns' => ['ky-thuat.warranty-exchange.*']],
+            ['label' => 'Sửa chữa tính phí', 'icon' => 'bi-tools', 'route' => 'ky-thuat.repair.index', 'fallback' => '/ky-thuat/sua-chua-tinh-phi', 'patterns' => ['ky-thuat.repair.*']],
+            ['label' => 'Hướng dẫn sử dụng', 'icon' => 'bi-journal-bookmark', 'route' => 'technical.guides.index', 'fallback' => '/ky-thuat/huong-dan', 'patterns' => ['technical.guides.*']],
 
             /*
              * "Kế hoạch (bản cũ)" và "Báo cáo (bản cũ)" ĐÃ ĐƯỢC HẠ khỏi lối vào
@@ -134,6 +149,15 @@ return [
             ['label' => 'Tổng quan', 'icon' => 'bi-speedometer2', 'route' => 'ky-thuat.tong-quan', 'fallback' => '/ky-thuat', 'patterns' => ['ky-thuat.tong-quan', 'technical.work.my', 'technical.work.calendar', 'technical.today']],
             ['label' => 'Kế hoạch', 'icon' => 'bi-calendar-week', 'route' => 'technical.week-plan.index', 'fallback' => '/ky-thuat/ke-hoach-tuan', 'patterns' => ['technical.week-plan.*']],
             ['label' => 'Báo cáo', 'icon' => 'bi-journal-text', 'route' => 'technical.daily-reports.index', 'fallback' => '/ky-thuat/bao-cao-ngay', 'patterns' => ['technical.daily-reports.*']],
+            ['label' => 'Dashboard kết quả', 'icon' => 'bi-speedometer', 'route' => 'technical.dashboard', 'fallback' => '/ky-thuat/dashboard', 'patterns' => ['technical.dashboard', 'technical.dashboard.*']],
+
+            /*
+             * BỔ SUNG 2026-10: nhân viên kỹ thuật cần vào thẳng Công trình (/du-an)
+             * và Bảo hành & O&M — hai trang này vốn đã mở được nhưng không có lối vào.
+             */
+            $section('CÔNG TRÌNH & BẢO HÀNH'),
+            ['label' => 'Công trình', 'icon' => 'bi-buildings', 'route' => 'projects-unified.index', 'fallback' => '/du-an', 'patterns' => ['projects-unified.index', 'projects-unified.create', 'projects-unified.show', 'projects-unified.edit', 'projects-unified.workflow.*', 'projects-unified.phase.*', 'projects-unified.engineer.*', 'projects-unified.materials.*', 'projects-unified.finance.*']],
+            ['label' => 'Bảo hành & O&M', 'icon' => 'bi-shield-check', 'route' => 'projects-unified.maintenance.index', 'fallback' => '/du-an/bao-tri-bao-hanh', 'patterns' => ['projects-unified.maintenance.*']],
 
             /*
              * "Đề xuất đổi hàng BH" là bước của quy trình Bảo trì / Bảo hành,
@@ -141,7 +165,6 @@ return [
              * KỸ THUẬT nhưng KHÔNG để mồ côi: giữ đúng MỘT lối vào tối thiểu ở
              * nhóm riêng bên dưới.
              */
-            $section('BẢO TRÌ / BẢO HÀNH'),
             ['label' => 'Đề xuất đổi hàng BH', 'icon' => 'bi-arrow-left-right', 'route' => 'ky-thuat.warranty-exchange.index', 'fallback' => '/ky-thuat/de-xuat-doi-hang-bao-hanh', 'patterns' => ['ky-thuat.warranty-exchange.*']],
         ],
 
@@ -241,6 +264,7 @@ return [
             ['label' => 'Nhân viên', 'icon' => 'bi-people', 'route' => 'hr.employees.index', 'fallback' => '/nhan-su/employees', 'patterns' => ['hr.employees.*', 'hr.records.*']],
             ['label' => 'Tuyển dụng', 'icon' => 'bi-person-plus', 'route' => 'hr.recruitment.requests', 'fallback' => '/nhan-su/tuyen-dung/yeu-cau', 'patterns' => ['hr.recruitment.*']],
             ['label' => 'Chấm công nhân sự', 'icon' => 'bi-calendar2-check', 'route' => 'hr.attendance.index', 'fallback' => '/nhan-su/cham-cong', 'patterns' => ['hr.attendance.index']],
+            require __DIR__.'/hr_payroll_menu.php',
             [
                 'label' => 'Hành chính', 'icon' => 'bi-building-gear',
                 'children' => [
@@ -248,6 +272,7 @@ return [
                     ['label' => 'Văn phòng phẩm', 'icon' => 'bi-box2', 'route' => 'hr.office-supply-process.index', 'fallback' => '/nhan-su/quy-trinh-phan-bo-vpp', 'patterns' => ['hr.office-supply-process.*']],
                     ['label' => 'Quà tặng', 'icon' => 'bi-gift', 'route' => 'hr.gifts.index', 'fallback' => '/nhan-su/qua-tang', 'patterns' => ['hr.gifts.*']],
                     ['label' => 'Tài sản & nhà cung cấp', 'icon' => 'bi-pc-display', 'route' => 'hr.operations.index', 'fallback' => '/nhan-su/hc-van-hanh', 'patterns' => ['hr.operations.*']],
+                    ['label' => 'Sự cố văn phòng', 'icon' => 'bi-tools', 'route' => 'hr.incidents.index', 'patterns' => ['hr.incidents.*']],
                 ],
             ],
         ],
@@ -280,6 +305,8 @@ return [
         ['label' => 'Đơn nghỉ phép', 'icon' => 'bi-calendar-x', 'route' => 'hr.leave.index', 'fallback' => '/nhan-su/leave-requests', 'patterns' => ['hr.leave.*']],
         ['label' => 'Đăng ký tăng ca', 'icon' => 'bi-clock-history', 'route' => 'hr.overtime.index', 'fallback' => '/nhan-su/tang-ca', 'patterns' => ['hr.overtime.*']],
         ['label' => 'Đặt phòng họp', 'icon' => 'bi-calendar2-plus', 'route' => 'meeting-room-bookings.index', 'fallback' => '/booking-phong-hop', 'patterns' => ['meeting-room-bookings.*']],
+        ['label' => 'Phiếu lương của tôi', 'icon' => 'bi-file-earmark-text', 'route' => 'hr.payroll.my', 'patterns' => ['hr.payroll.my'], 'exclude_roles' => ['admin', 'super_admin', 'director', 'ceo', 'management', 'hr', 'accounting']],
+        ['label' => 'KPI của tôi', 'icon' => 'bi-speedometer2', 'route' => 'hr.kpi-my', 'patterns' => ['hr.kpi-my']],
 
         $section('TÀI LIỆU'),
         ['label' => 'Hồ sơ công ty', 'icon' => 'bi-building', 'route' => 'company-documents.index', 'fallback' => '/company-documents', 'patterns' => ['company-documents.*']],

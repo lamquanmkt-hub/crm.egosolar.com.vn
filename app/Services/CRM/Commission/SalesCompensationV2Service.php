@@ -23,7 +23,7 @@ class SalesCompensationV2Service
             // Fallback below.
         }
 
-        return max(0, (int) (session('company_id') ?? session('selected_company_id') ?? 0));
+        return max(0, (int) \App\Support\EgoCompanyLock::id());
     }
 
     public function permissions($user): array

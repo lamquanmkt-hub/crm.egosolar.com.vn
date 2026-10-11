@@ -62,7 +62,40 @@ yarn-error.log
 
 # Temporary repair scripts
 /tools/
+/outputs/payroll-import-20261006/
+/outputs/claude-kpi-agent/
+/outputs/kpi-checklist-demo-20261007/
+/outputs/kpi-demo-20261006/
+/outputs/kpi-source-links-20261007/
+/outputs/payroll-ui-20261007/
+/outputs/hcns-ui-20261008/
 /patch_*.php
 /repair_*.php
 /rollback_*.php
 /install_*.php
+
+# Local reports, generated artifacts, credentials and operational data.
+# Database snapshots committed to this public repository must be encrypted.
+/outputs/
+/output/
+/artifacts/
+/Report/
+/tmp/
+/.codex-docx-*/
+/.claude/settings.local.json
+/cookie.txt
+/composer.phar
+/temp.html
+/*.docx
+*.sql
+*.sql.gz
+*.sql.zip
+*.key
+*.pem
+/public/uploads/**
+/database/snapshots/*.zip
+/database/snapshots/*.json
+/database/snapshots/*.enc
+# One-off local repair scripts; retained in the encrypted full snapshot.
+/fix_*.php
+/restore_layouts.php

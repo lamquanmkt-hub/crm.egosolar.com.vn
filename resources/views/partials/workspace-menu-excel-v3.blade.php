@@ -61,6 +61,21 @@
         (array) config('ego_menu_v4.common_sections', [])
     );
 
+    if (\App\Services\Hr\Payroll\PayrollAccess::canManage($egoExcelUser)
+        && !collect($egoExcelItems)->contains(fn ($item) => ($item['label'] ?? '') === 'Bảng lương')) {
+        $hrIndex = collect($egoExcelItems)->search(fn ($item) => ($item['label'] ?? '') === 'Nhân sự');
+        $insertAt = $hrIndex !== false ? $hrIndex + 1 : collect($egoExcelItems)->search(fn ($item) => ($item['label'] ?? '') === 'CÁ NHÂN');
+        $payrollItems = [];
+        if ($hrIndex === false) {
+            $payrollItems[] = [
+                'label' => 'Nhân sự', 'icon' => 'bi-people', 'route' => 'hr.dashboard',
+                'patterns' => ['hr.*'], 'exclude_patterns' => ['hr.payroll.*', 'hr.kpi.*'],
+            ];
+        }
+        $payrollItems[] = config('hr_payroll_menu');
+        array_splice($egoExcelItems, $insertAt !== false ? $insertAt : count($egoExcelItems), 0, $payrollItems);
+    }
+
     /* EGO_PAYMENT_ADVANCE_ALL_DEPARTMENT_MENUS_V3_START
      * Module dung chung: hien trong menu cua moi Workspace/phong ban.
      * Chi them loi vao; route/controller van quyet dinh quyen nghiep vu va du lieu.
@@ -102,25 +117,21 @@
         return url((string) ($item['fallback'] ?? '/workspace'));
     };
 
-    $egoExcelIsActive = static function (array $item): bool {
+    $egoExcelIsActive = function (array $item) use (&$egoExcelIsActive): bool {
+        foreach ((array) ($item['exclude_patterns'] ?? []) as $pattern) {
+            if (request()->routeIs($pattern)) return false;
+        }
+        $queryMatches = true;
+        foreach ((array) ($item['query'] ?? []) as $key => $value) {
+            $queryMatches = $queryMatches && (string) request()->query($key) === (string) $value;
+        }
         foreach ((array) ($item['patterns'] ?? []) as $pattern) {
-            if (request()->routeIs($pattern)) {
+            if ($queryMatches && request()->routeIs($pattern)) {
                 return true;
             }
         }
         foreach ((array) ($item['children'] ?? []) as $child) {
-            foreach ((array) ($child['patterns'] ?? []) as $pattern) {
-                if (request()->routeIs($pattern)) {
-                    return true;
-                }
-            }
-            foreach ((array) ($child['children'] ?? []) as $grandchild) {
-                foreach ((array) ($grandchild['patterns'] ?? []) as $pattern) {
-                    if (request()->routeIs($pattern)) {
-                        return true;
-                    }
-                }
-            }
+            if ($egoExcelIsActive($child)) return true;
         }
         return false;
     };
@@ -169,6 +180,11 @@
         $renderExcelMenu = function (array $items, string $path = 'root', int $depth = 0) use (&$renderExcelMenu, $egoExcelResolveUrl, $egoExcelIsActive) {
             $html = '';
             foreach ($items as $index => $item) {
+                $roles = (array) ($item['roles'] ?? []);
+                if ($roles && (!auth()->user() || !auth()->user()->hasAnyRole($roles))) continue;
+                $excludedRoles = (array) ($item['exclude_roles'] ?? []);
+                if ($excludedRoles && auth()->user() && auth()->user()->hasAnyRole($excludedRoles)) continue;
+                if (isset($item['roles'], $item['route']) && !\Illuminate\Support\Facades\Route::has($item['route'])) continue;
                 if (($item['type'] ?? 'item') === 'section') {
                     $sectionLabel = e((string) ($item['label'] ?? ''));
                     $html .= '<li class="ego-excel-section ego-excel-item" data-ego-excel-menu="true"><span>'.$sectionLabel.'</span></li>';

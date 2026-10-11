@@ -27,6 +27,8 @@
 <!-- TECHNICAL_DAILY_REPORTS_CONTENT_START -->
 <div class="container-fluid py-3 tw-wrap">
 
+    @include('technical.partials.kpi-work-rules')
+
     @php
         $drIsWeekly = (string) ($tab ?? '') === \App\Http\Controllers\Technical\TechnicalDailyReportController::TAB_WEEKLY;
         $drBaseParams = array_diff_key(request()->except(['page']), array_flip(['tab']));

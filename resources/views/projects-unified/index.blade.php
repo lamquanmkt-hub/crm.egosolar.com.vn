@@ -116,12 +116,7 @@
                         <option value="{{ $engineer->id }}" @selected((int) request('engineer_id') === (int) $engineer->id)>{{ $engineer->name }}</option>
                     @endforeach
                 </select>
-                <select class="pu-control" name="company_id">
-                    <option value="">Công ty đang chọn</option>
-                    @foreach($companies as $company)
-                        <option value="{{ $company->id }}" @selected((int) request('company_id') === (int) $company->id)>{{ $company->code ?: $company->name }}</option>
-                    @endforeach
-                </select>
+
                 <div class="pu-filter-actions">
                     <button class="pu-icon-btn is-primary" title="Lọc" type="submit"><i class="bi bi-funnel"></i></button>
                     <a class="pu-icon-btn" title="Đặt lại" href="{{ route('projects-unified.index') }}"><i class="bi bi-arrow-counterclockwise"></i></a>

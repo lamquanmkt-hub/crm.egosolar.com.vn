@@ -217,7 +217,7 @@ class TechnicalAdminPagesTest extends TestCase
         $this->assertFalse($second->isRedirect(), 'Trang đích không được chuyển hướng tiếp (tránh loop).');
 
         // Quyền được kiểm TRƯỚC khi chuyển hướng: không dùng redirect để che 403.
-        foreach ([$this->technician(), $this->technicalManager()] as $user) {
+        foreach ([$this->outsider()] as $user) {
             $response = $this->actingAs($user)->get(route('technical.dashboard.reports'));
             $response->assertForbidden();
             $this->assertFalse($response->isRedirect());
@@ -399,22 +399,27 @@ class TechnicalAdminPagesTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_technician_is_forbidden_on_admin_routes(): void
+    public function test_technician_can_view_dashboard_routes_but_outsider_cannot(): void
     {
         $tech = $this->technician();
 
-        $this->actingAs($tech)->get(route('technical.dashboard.plans'))->assertForbidden();
-        $this->actingAs($tech)->get(route('technical.dashboard.reports'))->assertForbidden();
-        $this->actingAs($tech)->get(route('technical.dashboard.kpis'))->assertForbidden();
+        $this->actingAs($tech)->get(route('technical.dashboard.plans'))->assertOk();
+        $this->actingAs($tech)->get(route('technical.dashboard.reports'))->assertRedirect();
+        $this->actingAs($tech)->get(route('technical.dashboard.kpis'))->assertRedirect();
+
+        $outsider = $this->outsider();
+        $this->actingAs($outsider)->get(route('technical.dashboard.plans'))->assertForbidden();
+        $this->actingAs($outsider)->get(route('technical.dashboard.reports'))->assertForbidden();
+        $this->actingAs($outsider)->get(route('technical.dashboard.kpis'))->assertForbidden();
     }
 
-    public function test_manager_is_forbidden_on_admin_routes_without_explicit_permission(): void
+    public function test_manager_can_view_dashboard_routes(): void
     {
         $mgr = $this->technicalManager();
 
-        $this->actingAs($mgr)->get(route('technical.dashboard.plans'))->assertForbidden();
-        $this->actingAs($mgr)->get(route('technical.dashboard.reports'))->assertForbidden();
-        $this->actingAs($mgr)->get(route('technical.dashboard.kpis'))->assertForbidden();
+        $this->actingAs($mgr)->get(route('technical.dashboard.plans'))->assertOk();
+        $this->actingAs($mgr)->get(route('technical.dashboard.reports'))->assertRedirect();
+        $this->actingAs($mgr)->get(route('technical.dashboard.kpis'))->assertRedirect(route('ky-thuat.kpis.index'));
     }
 
     /*

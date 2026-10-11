@@ -1,0 +1,239 @@
+/* HR presentation adapter. Tokens match ego-technical-work.css. No state/visibility rules. */
+@media screen {
+ .ego-page__body.hcns-workspace {
+    --hw-border: #e5e9f2;
+    --hw-ink: #111827;
+    --hw-muted: #6b7280;
+    --hw-soft: #f6f8fc;
+    --hw-primary: #2563eb;
+    background: #f6fbff;
+    color: var(--hw-ink);
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-width: 0;
+ }
+ .hcns-workspace > .hcns-breadcrumb {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin: 16px 12px 0; font-size: .78rem; color: var(--hw-muted);
+ }
+ .hcns-workspace .hcns-breadcrumb a { color: var(--hw-primary); text-decoration: none; }
+ .hcns-workspace .hcns-breadcrumb a:hover { text-decoration: underline; }
+ .hcns-workspace .hcns-breadcrumb i { font-size: .6rem; }
+
+ /* Full-width workspace, as on Technical KPI. Keep each page's information structure. */
+ .ego-page__body.hcns-workspace :is(
+    .rec-wrap, .hc-wrap, .ego-hr-wrap, .candidate-page, .vpp-page, .hs-page,
+    .emp-page, .hr-modern-page, .hr-dashboard-page, .ego-office-wrap, .asset-page, .payroll-page,
+    .task-page, .company-doc-page, .ep-page, .ego-pr-page, .ego-adv-page, .acr-page, .attendance-stats-page
+ ) { padding: 12px 12px 30px !important; max-width: none; width: 100%; margin: 0; background: transparent; min-height: 0; font-size: .875rem; }
+ .ego-page__body.hcns-workspace :is(.page-shell, .ep-wrap) { max-width: none; margin: 0; padding: 0; }
+ .ego-page__body.hcns-workspace > .container-fluid { padding: 12px 12px 30px !important; }
+ .ego-page__body.hcns-workspace > .container-fluid > .d-flex h2 { font-size: 1.35rem; font-weight: 700; line-height: 1.3; }
+ .ego-page__body.hcns-workspace :is(#egoAttendancePromax, #egoLeavePromax) { padding: 12px 12px 30px; background: transparent; min-height: 0; }
+ .ego-page__body.hcns-workspace :is(#egoAttendancePromax .at-shell, #egoLeavePromax .lv-shell) { width: 100%; max-width: none; margin: 0; }
+
+ /* Plain compact page headings replace decorative banners. */
+ .ego-page__body.hcns-workspace :is(
+    .rec-head, .hc-head, .ego-hr-head, .candidate-head, .emp-head,
+    .vpp-mini-hero, .hs-hero, .ego-office-hero, .ap-head, .payroll-hero,
+    .task-hero, .company-doc-hero, .ep-header, .ego-pr-page-header,
+    .ego-adv-header, .acr-hero, .at-hero, .lv-hero, .hr-hero-card, .attendance-hero
+ ) { background: transparent; color: var(--hw-ink); border: 0; border-radius: 0; box-shadow: none; padding: 0; margin-bottom: 18px; min-height: 0; }
+ .ego-page__body.hcns-workspace :is(.hs-hero-inner, .company-doc-hero-inner, .hero-top, .vpp-mini-hero, .rec-head, .hc-head, .ego-hr-head, .candidate-head, .emp-head, .ap-head, .ego-office-head) {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+ }
+ .ego-page__body.hcns-workspace :is(.hs-hero, .task-hero, .company-doc-hero, .vpp-mini-hero, .ego-office-hero)::before,
+ .ego-page__body.hcns-workspace :is(.hs-hero, .task-hero, .company-doc-hero, .vpp-mini-hero, .ego-office-hero)::after { content: none; }
+ .ego-page__body.hcns-workspace :is(.rec-title, .hc-title, .ego-hr-title, .candidate-title, .emp-title, .vpp-mini-title, .hs-title, .ego-office-title, .ep-title, .hr-page-title, .attendance-title),
+ .ego-page__body.hcns-workspace :is(.ap-title, .payroll-hero, .task-hero, .company-doc-title, .ego-pr-page-copy, .ego-adv-heading, .acr-hero, .at-heading, .lv-heading) :is(h1, h2) {
+    font-size: 1.35rem !important; font-weight: 700 !important; line-height: 1.3; color: var(--hw-ink); margin: 0;
+ }
+ .ego-page__body.hcns-workspace :is(.rec-sub, .hc-sub, .ego-hr-sub, .candidate-sub, .emp-sub, .vpp-mini-sub, .hs-sub, .ego-office-sub, .ep-sub, .hr-page-subtitle, .attendance-subtitle),
+ .ego-page__body.hcns-workspace :is(.ap-title, .payroll-hero, .task-hero, .company-doc-hero, .ego-pr-page-copy, .ego-adv-heading, .acr-hero, .at-heading, .lv-heading) p {
+    font-size: .875rem; font-weight: 400; color: var(--hw-muted); margin: 3px 0 0; opacity: 1; max-width: none;
+ }
+ .ego-page__body.hcns-workspace :is(.hs-kicker, .ego-office-kicker, .ep-eyebrow, .ego-pr-eyebrow, .ego-adv-eyebrow, .acr-kicker, .at-heading > div > span, .lv-heading > div > span) {
+    color: var(--hw-muted); font-size: .7rem; font-weight: 500; letter-spacing: .02em;
+ }
+ .ego-page__body.hcns-workspace :is(.at-heading__icon, .lv-heading__icon, .ep-heading-icon, .ego-pr-page-icon, .ego-adv-head-icon) { background: #eff6ff; color: var(--hw-primary); border: 1px solid var(--hw-border); border-radius: 10px; width: 38px; height: 38px; box-shadow: none; font-size: 1rem; }
+
+ /* White cards, clear boundaries, no heavy shadows or ornament. */
+ .ego-page__body.hcns-workspace :is(
+    .rec-card, .hc-card, .ego-hr-panel, .candidate-card, .emp-card, .vpp-card,
+    .hs-card, .hs-table-card, .hs-toolbar, .ego-panel, .ap-card, .payroll-card,
+    .dept-tabs-card, .content-card, .task-item, .company-doc-card, .ep-card,
+    .ego-pr-filter-card, .ego-pr-data-card, .ego-adv-card, .acr-card,
+    .at-panel:not(.at-hero), .lv-panel:not(.lv-hero), .hr-filter-card, .hr-department-section,
+    .card:not(.hr-hero), .hr-person-card
+ ) { border: 1px solid var(--hw-border); border-radius: 14px; box-shadow: none; background: #fff; }
+ .ego-page__body.hcns-workspace :is(
+    .rec-card-head, .hc-card-head, .ego-hr-panel-head, .candidate-card-head,
+    .emp-section-head, .vpp-card-head, .hs-card-head, .ego-panel-head,
+    .ap-card-head, .company-doc-card-head, .ego-pr-data-head, .ego-adv-card-head, .dept-tabs-head
+ ) { background: #fff; border-bottom: 1px solid var(--hw-border); padding: 14px 16px; }
+ .ego-page__body.hcns-workspace :is(.rec-card-body, .hc-card-body, .ego-hr-panel-body, .hs-card-body, .ego-panel-body, .vpp-card-body, .company-doc-card-body) { padding: 16px; }
+ .ego-page__body.hcns-workspace :is(
+    .rec-card-title, .hc-card-title, .ego-hr-panel-title, .candidate-card-title,
+    .emp-section-title, .vpp-card-title, .hs-card-title, .ego-panel-title,
+    .dept-tabs-title, .hr-section-title, .ego-adv-card-head h2, .ap-card-head h2
+ ) { font-size: .95rem; font-weight: 600; color: var(--hw-ink); }
+ .ego-page__body.hcns-workspace :is(.rec-card-note, .hc-card-note, .ego-hr-panel-note, .ego-panel-note, .dept-tabs-note, .hr-section-subtitle, .ap-sub) { font-size: .78rem; color: var(--hw-muted); font-weight: 400; }
+
+ /* Summary cards use the same density and typography as Technical. */
+ .ego-page__body.hcns-workspace :is(.rec-stats, .hc-stats, .ego-hr-stats, .candidate-stats, .vpp-stats, .hs-stat-grid, .ego-office-stats, .ap-kpis, .summary-grid, .ego-adv-kpis, .ep-kpis) {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px;
+ }
+ .ego-page__body.hcns-workspace :is(.rec-stat, .hc-stat, .ego-hr-stat, .candidate-stat, .vpp-stat, .hs-stat, .ego-stat, .ap-kpi, .summary-card, .ego-adv-kpi, .ep-kpi, .hr-hero-stat) {
+    padding: 14px 16px; background: #fff; color: var(--hw-ink); border: 1px solid var(--hw-border); border-radius: 14px; box-shadow: none; min-height: 0;
+ }
+ .ego-page__body.hcns-workspace :is(.rec-stat, .hc-stat, .hs-stat, .ego-stat, .ep-kpi, .ego-adv-kpi)::after { content: none; }
+ .ego-page__body.hcns-workspace :is(.rec-stat, .hc-stat) strong,
+ .ego-page__body.hcns-workspace :is(.rec-stat-value, .hc-stat-value, .ego-hr-stat-value, .candidate-stat-value, .vpp-stat-value, .hs-stat-num, .ego-stat-value, .ap-kpi .val, .summary-value, .ep-kpi-value, .ego-adv-kpi > strong, .hr-hero-stat .value) { font-size: 1.45rem; font-weight: 700; line-height: 1.3; color: var(--hw-ink); }
+ .ego-page__body.hcns-workspace :is(.rec-stat, .hc-stat) span,
+ .ego-page__body.hcns-workspace :is(.rec-stat-label, .hc-stat-label, .ego-hr-stat-label, .candidate-stat-label, .vpp-stat-label, .hs-stat-label, .ego-stat-label, .ap-kpi .label, .summary-label, .ep-kpi-label, .ego-adv-kpi > span) { font-size: .78rem; font-weight: 500; color: var(--hw-muted); text-transform: none; letter-spacing: 0; }
+ .ego-page__body.hcns-workspace :is(.rec-mini-row, .rec-step, .rec-small, .hc-flow p, .hc-flow ul, .hc-empty, .rec-empty, .ego-hr-empty) { font-weight: 400; }
+ .ego-page__body.hcns-workspace :is(.hc-flow h4, .rec-link) { font-weight: 600; }
+ .ego-page__body.hcns-workspace .rec-step span { background: #eff6ff; color: #1d4ed8; }
+ .ego-page__body.hcns-workspace :is(.hc-flow, .hr-stat-tile, .hr-hero-mini-card) { background: #fff; border: 1px solid var(--hw-border); border-radius: 14px; box-shadow: none; }
+ .ego-page__body.hcns-workspace :is(.hr-glass-card, .hr-kpi-card, .attendance-glass, .card.shadow-sm) { border-radius: 14px !important; border: 1px solid var(--hw-border) !important; box-shadow: none !important; background: #fff; }
+ .ego-page__body.hcns-workspace :is(.attendance-hero-box, .lv-kpi, .at-kpi) { background: #fff; border: 1px solid var(--hw-border); border-radius: 14px; box-shadow: none; }
+ .ego-page__body.hcns-workspace :is(.attendance-hero-label, .attendance-kicker) { font-size: .78rem; font-weight: 500; color: var(--hw-muted); }
+ .ego-page__body.hcns-workspace .attendance-hero-value { font-size: 1.1rem; font-weight: 600; color: var(--hw-ink); }
+
+ /* Form controls: readable labels, consistent heights, obvious keyboard focus. */
+ .ego-page__body.hcns-workspace :is(
+    .rec-input, .rec-select, .rec-textarea, .hc-input, .hc-select, .hc-textarea,
+    .ego-hr-input, .ego-hr-select, .candidate-input, .candidate-select,
+    .emp-input, .emp-select, .vpp-input, .vpp-select, .vpp-textarea,
+    .hs-input, .hs-select, .hs-textarea, .ego-input, .ego-select, .ego-textarea,
+    .ap-input, .ap-select, .ic-input, .ic-select, .form-control, .form-select
+ ) { border: 1px solid #d7e0ec; border-radius: 6px; min-height: 34px; padding: 6px 10px; font-size: .82rem; font-weight: 400; color: var(--hw-ink); background-color: #fff; box-shadow: none; max-width: 100%; }
+ .ego-page__body.hcns-workspace :is(.rec-field, .hc-field, .hs-filter, .ic-field, .emp-field) label,
+ .ego-page__body.hcns-workspace .form-label { font-size: .78rem; font-weight: 500; color: #475569; }
+ .ego-page__body.hcns-workspace :is(input, select, textarea):focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+
+ /* Explicit button families preserve disabled state and destructive/approval semantics. */
+ .ego-page__body.hcns-workspace :is(
+    .rec-btn, .rec-btn-outline, .rec-btn-danger, .hc-btn, .hc-btn-outline, .hc-btn-danger,
+    .ego-hr-btn, .ego-hr-btn-outline, .ego-hr-btn-danger, .candidate-btn, .candidate-btn-outline,
+    .emp-btn, .vpp-btn, .vpp-btn-outline, .hs-btn, .ego-btn, .ego-btn-light,
+    .ego-btn-danger, .ap-btn, .payroll-btn, .ep-btn, .ego-pr-btn, .ego-adv-btn,
+    .at-btn, .lv-btn, .btn
+ ) { border-radius: 6px; min-height: 32px; padding: 5px 10px; font-size: .8rem; font-weight: 500; line-height: 1.4; box-shadow: none; text-decoration: none; }
+ .ego-page__body.hcns-workspace :is(.rec-btn, .hc-btn, .ego-hr-btn, .candidate-btn, .vpp-btn, .ego-btn, .ap-btn-primary, .payroll-btn-primary, .ep-btn-primary, .ego-pr-btn-primary, .ego-adv-btn.primary, .at-btn--primary, .lv-btn--primary, .btn-primary) {
+    background: linear-gradient(90deg, #2563eb, #06b6d4) !important; color: #fff; border: 1px solid transparent;
+ }
+ .ego-page__body.hcns-workspace :is(.rec-btn-outline, .hc-btn-outline, .ego-hr-btn-outline, .candidate-btn-outline, .vpp-btn-outline, .hs-btn:not(.dark):not(.danger):not(.success), .ego-btn-light, .ap-btn-light, .payroll-btn-light, .btn-light, .btn-outline-light) {
+    color: #475569; border: 1px solid #cbd5e1; background: #fff;
+ }
+ .ego-page__body.hcns-workspace :is(.hs-btn.dark, .payroll-btn-dark) { color: #fff; background: var(--hw-primary); border-color: var(--hw-primary); }
+ .ego-page__body.hcns-workspace :is(a, button):focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+ .ego-page__body.hcns-workspace :is(.rec-tab, .hc-tab, .hr-filter-chip, .dept-tab-btn) { border-radius: 6px; box-shadow: none; padding: 8px 12px; font-size: .8rem; font-weight: 500; }
+ .ego-page__body.hcns-workspace :is(.rec-tab.active, .hc-tab.active, .hr-filter-chip.is-active, .dept-tab-btn.active) { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; box-shadow: none; }
+
+ /* Tables keep wide data scrollable inside their own container. */
+ .ego-page__body.hcns-workspace :is(.rec-table-wrap, .hc-table-wrap, .hs-table-card, .ego-table-wrap, .ego-hr-table-wrap, .vpp-table-wrap, .ap-table-wrap, .at-table-wrap, .ego-pr-table-scroll, .payroll-list-scroll, .table-responsive) { max-width: 100%; overflow-x: auto; border-radius: 10px; }
+ .ego-page__body.hcns-workspace :is(.rec-table, .hc-table, .hs-table, .ego-table, .ego-hr-table, .vpp-table, .ap-table, .at-table, .candidate-table, .table) th { background: #fff; color: #64748b; font-size: .75rem; font-weight: 600; padding: 11px 12px; text-transform: none; letter-spacing: 0; border-color: var(--hw-border); }
+ .ego-page__body.hcns-workspace :is(.rec-table, .hc-table, .hs-table, .ego-table, .ego-hr-table, .vpp-table, .ap-table, .at-table, .candidate-table, .table) td { font-size: .82rem; font-weight: 400; padding: 11px 12px; border-color: var(--hw-border); }
+ .ego-page__body.hcns-workspace :is(.rec-table, .hc-table, .hs-table, .ego-table, .vpp-table, .ap-table, .table) tbody tr:hover { background: var(--hw-soft); }
+ .ego-page__body.hcns-workspace :is(.hs-modal-head, .vpp-modal-head, .candidate-modal-head) { background: #fff; color: var(--hw-ink); border-bottom: 1px solid var(--hw-border); }
+ .ego-page__body.hcns-workspace .hs-close { color: #475569; background: #f6f8fc; border-color: var(--hw-border); border-radius: 6px; }
+ .ego-page__body.hcns-workspace :is(.at-btn--glass, .lv-btn--glass, .at-btn--light, .lv-btn--light) { color: #475569; border: 1px solid #cbd5e1; background: #fff; }
+ .ego-page__body.hcns-workspace :is(.at-hero, .lv-hero)::after { content: none; }
+ .ego-page__body.hcns-workspace :is(.hs-muted, .hs-empty, .hs-field label, .hs-modal-title) { font-weight: 500; }
+
+ /* Employee directory: retain department grouping, remove the marketing hero. */
+ .ego-page__body.hcns-workspace .hr-hero { border: 0; background: transparent; color: var(--hw-ink); box-shadow: none; border-radius: 0; }
+ .ego-page__body.hcns-workspace .hr-hero::before,
+ .ego-page__body.hcns-workspace .hr-hero::after { content: none; }
+ .ego-page__body.hcns-workspace .hr-hero > .card-body { padding: 0 !important; }
+ .ego-page__body.hcns-workspace .hcns-directory-title { font-size: 1.35rem; font-weight: 700; margin: 0; line-height: 1.3; }
+ .ego-page__body.hcns-workspace .hcns-directory-sub { font-size: .875rem; color: var(--hw-muted); margin: 3px 0 12px; }
+ .ego-page__body.hcns-workspace .hcns-directory-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+ .ego-page__body.hcns-workspace .hcns-directory-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+ .ego-page__body.hcns-workspace .hr-filter-card { padding: 16px !important; }
+ .ego-page__body.hcns-workspace .hr-person-card { padding: 14px; }
+ .ego-page__body.hcns-workspace .hr-department-header { background: #fff; color: var(--hw-ink); border-bottom: 1px solid var(--hw-border); padding: 14px 16px; }
+
+ /* Recruitment requests: list first, edit on demand. Native disclosures also work without JS. */
+ .ego-page__body.hcns-workspace .rec-request-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 760px; }
+ .ego-page__body.hcns-workspace .rec-create-summary { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 14px 16px; cursor: pointer; list-style: none; }
+ .ego-page__body.hcns-workspace :is(.rec-create-summary, .rec-request-row)::-webkit-details-marker { display: none; }
+ .ego-page__body.hcns-workspace .rec-create-label { display: inline-flex; align-items: center; gap: 8px; color: #1d4ed8; font-size: .875rem; font-weight: 600; }
+ .ego-page__body.hcns-workspace .rec-create-hint { font-size: .78rem; color: var(--hw-muted); flex: 1; }
+ .ego-page__body.hcns-workspace .rec-expand-icon { font-size: .8rem; transition: transform .15s; }
+ .ego-page__body.hcns-workspace details[open] > summary .rec-expand-icon { transform: rotate(180deg); }
+ .ego-page__body.hcns-workspace .rec-create-panel[open] > summary { border-bottom: 1px solid var(--hw-border); }
+ .ego-page__body.hcns-workspace :is(.rec-create-summary, .rec-request-row):focus-visible { outline: 2px solid #2563eb; outline-offset: -3px; }
+ .ego-page__body.hcns-workspace .rec-request-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--hw-border); }
+ .ego-page__body.hcns-workspace .rec-request-search { flex: 1; min-width: 180px; max-width: 500px; }
+ .ego-page__body.hcns-workspace .rec-list-count { display: inline-block; padding: 2px 7px; border-radius: 6px; background: var(--hw-soft); color: var(--hw-muted); font-size: .75rem; margin-left: 5px; }
+ .ego-page__body.hcns-workspace :is(.rec-request-columns, .rec-request-row) { display: grid; grid-template-columns: minmax(230px, 2fr) minmax(70px, .6fr) minmax(95px, .8fr) minmax(110px, 1fr) minmax(110px, 1fr) 90px; gap: 14px; padding: 14px 16px; align-items: center; }
+ .ego-page__body.hcns-workspace .rec-request-columns { font-size: .75rem; font-weight: 500; color: var(--hw-muted); background: var(--hw-soft); }
+ .ego-page__body.hcns-workspace .rec-request { border-top: 1px solid var(--hw-border); }
+ .ego-page__body.hcns-workspace .rec-request-row { list-style: none; cursor: pointer; font-size: .82rem; }
+ .ego-page__body.hcns-workspace .rec-request-row:hover { background: #f8fbff; }
+ .ego-page__body.hcns-workspace .rec-request-person { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+ .ego-page__body.hcns-workspace .rec-request-person strong { font-size: .875rem; font-weight: 600; }
+ .ego-page__body.hcns-workspace .rec-request-person small { color: var(--hw-muted); font-size: .78rem; }
+ .ego-page__body.hcns-workspace .rec-request-cell { min-width: 0; overflow-wrap: anywhere; }
+ .ego-page__body.hcns-workspace .rec-request-cell > small { display: none; }
+ .ego-page__body.hcns-workspace .rec-request-open { color: #1d4ed8; font-size: .78rem; display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+ .ego-page__body.hcns-workspace .rec-request-editor { padding: 18px 16px; border-top: 1px solid var(--hw-border); background: #fbfcff; }
+ .ego-page__body.hcns-workspace .rec-request-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+ .ego-page__body.hcns-workspace .rec-request-fields textarea { min-height: 84px; line-height: 1.6; }
+ .ego-page__body.hcns-workspace .rec-field-error { display: block; font-size: .78rem; color: #b91c1c; margin-top: 5px; }
+ .ego-page__body.hcns-workspace .rec-request-fields [aria-invalid="true"] { border-color: #dc2626; }
+ .ego-page__body.hcns-workspace :is(.rec-workflow-columns, .rec-workflow-row) { grid-template-columns: minmax(190px, 1.7fr) minmax(150px, 1.3fr) minmax(150px, 1.3fr) minmax(120px, 1fr) 90px; }
+ .ego-page__body.hcns-workspace .rec-workflow-cell { display: flex; flex-direction: column; gap: 5px; }
+ .ego-page__body.hcns-workspace .rec-workflow-secondary { color: var(--hw-muted); font-size: .78rem; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+ .ego-page__body.hcns-workspace .rec-request-danger-zone { padding-top: 14px; margin-top: 16px; border-top: 1px dashed var(--hw-border); }
+ .ego-page__body.hcns-workspace .rec-request-empty { display: flex; flex-direction: column; align-items: center; padding: 32px 16px; gap: 10px; text-align: center; }
+ .ego-page__body.hcns-workspace .rec-request-empty > i { font-size: 1.6rem; color: #2563eb; }
+ .ego-page__body.hcns-workspace .rec-request-empty p { color: var(--hw-muted); font-size: .82rem; margin: 0; }
+ .ego-page__body.hcns-workspace .rec-filter-empty { color: var(--hw-muted); padding: 22px 16px; text-align: center; font-size: .875rem; margin: 0; }
+}
+
+@media screen and (max-width: 1199.98px) {
+ .ego-page__body.hcns-workspace .rec-request-columns { display: none; }
+ .ego-page__body.hcns-workspace .rec-request-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+ .ego-page__body.hcns-workspace .rec-workflow-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+ .ego-page__body.hcns-workspace .rec-request-person { grid-column: 1 / -1; }
+ .ego-page__body.hcns-workspace .rec-request-cell > small { display: block; color: var(--hw-muted); font-size: .75rem; margin-bottom: 5px; }
+ .ego-page__body.hcns-workspace .rec-request-open { grid-column: 2 / -1; }
+}
+
+@media screen and (max-width: 767.98px) {
+ .ego-page__body.hcns-workspace .rec-stats.rec-request-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+ .ego-page__body.hcns-workspace .rec-request-stats .rec-stat { padding: 12px 10px; }
+ .ego-page__body.hcns-workspace .rec-request-stats .rec-stat-label { font-size: .72rem; }
+ .ego-page__body.hcns-workspace .rec-create-hint { display: none; }
+ .ego-page__body.hcns-workspace .rec-create-summary > .rec-expand-icon { margin-left: auto; }
+ .ego-page__body.hcns-workspace .rec-request-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+ .ego-page__body.hcns-workspace .rec-workflow-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .ego-page__body.hcns-workspace .rec-workflow-list .rec-card-head { flex-direction: column; align-items: flex-start; }
+ .ego-page__body.hcns-workspace .rec-request-open { grid-column: auto; }
+ .ego-page__body.hcns-workspace .rec-request-toolbar > .rec-field { width: 100%; max-width: none; }
+ .ego-page__body.hcns-workspace .rec-request-fields { grid-template-columns: minmax(0, 1fr); }
+ .ego-page__body.hcns-workspace .hcns-directory-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .ego-page__body.hcns-workspace :is(.rec-stats, .hc-stats, .ego-hr-stats, .candidate-stats, .vpp-stats, .hs-stat-grid, .ego-office-stats, .ap-kpis, .summary-grid, .ego-adv-kpis, .ep-kpis) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .ego-page__body.hcns-workspace :is(.rec-tabs, .hc-tabs, .hr-filter-chip-wrap) { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding-bottom: 6px; max-width: 100%; }
+ .ego-page__body.hcns-workspace :is(.rec-tab, .hc-tab, .hr-filter-chip) { flex: 0 0 auto; width: auto; white-space: nowrap; }
+ .ego-page__body.hcns-workspace :is(.rec-head-actions, .hc-head-actions, .ego-hr-top-actions, .candidate-actions, .vpp-hero-actions, .emp-actions, .ap-actions) { width: 100%; justify-content: flex-start; gap: 8px; }
+ .ego-page__body.hcns-workspace :is(.rec-head-actions, .hc-head-actions, .ego-hr-top-actions, .candidate-actions, .vpp-hero-actions, .emp-actions) > :is(a, button) { width: auto; flex: 0 1 auto; }
+ .ego-page__body.hcns-workspace :is(.hs-detail-grid, .ego-office-grid, .ego-hr-grid, .rec-report-grid) { grid-template-columns: minmax(0, 1fr); }
+ .ego-page__body.hcns-workspace :is(.rec-card, .hc-card, .hs-card, .ego-hr-panel, .ego-panel, .ap-card, .vpp-card, .emp-card) { min-width: 0; }
+ .ego-page__body.hcns-workspace :is(.rec-grid, .rec-grid-2, .hc-grid, .hc-grid-3, .ego-form-grid, .emp-form-grid) { grid-template-columns: minmax(0, 1fr); }
+ .ego-page__body.hcns-workspace .hs-filter { width: 100%; }
+ .ego-page__body.hcns-workspace .hs-filter :is(input, select) { width: 100%; }
+ .ego-page__body.hcns-workspace :is(.task-item, .hr-person-card, .rec-field, .hc-field, .ap-filter) { min-width: 0; }
+}
+/* Recruitment files use the same compact cards and actions on all seven steps. */
+.hcns-workspace .rec-attachments{margin-top:20px;padding:16px;border:1px solid #dde6f2;border-radius:10px;background:#f8fbff}
+.hcns-workspace .rec-attachments h3{font-size:15px;font-weight:700;margin:0 0 12px}
+.hcns-workspace .rec-attachments input[type=file]{height:auto;padding:10px;background:white}
+.hcns-workspace .rec-attachments .rec-card-note{margin:8px 0}
+.hcns-workspace .rec-file-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #dde6f2;flex-wrap:wrap}
+.hcns-workspace .rec-file-name{min-width:0;flex:1;overflow-wrap:anywhere}
+.hcns-workspace .rec-file-name small{display:block;color:#64748b;margin-top:3px}
+.hcns-workspace .rec-file-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:767px){.hcns-workspace .rec-file-name{flex-basis:100%}.hcns-workspace .rec-attachments{padding:12px}}

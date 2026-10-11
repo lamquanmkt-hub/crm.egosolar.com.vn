@@ -67,6 +67,11 @@ class EnforcePageAccess
                 'hr.attendance.checkin',
                 'hr.attendance.checkout',
                 'hr.attendance.guide.*',
+                // Sửa chấm công tự phục vụ: KHÔNG dùng wildcard để không mở approve/reject (chỉ role hr).
+                'hr.attendance-corrections.index',
+                'hr.attendance-corrections.store',
+                'hr.attendance-corrections.cancel',
+                'hr.attendance-corrections.attachments.download',
                 'hr.leave.index',
                 'hr.leave.create',
                 'hr.leave.store',
@@ -76,6 +81,22 @@ class EnforcePageAccess
                 'hr.leave.cancel',
                 'hr.leave.attachments.*',
                 'hr.online-work.create',
+                // Tăng ca tự phục vụ: duyệt / từ chối vẫn do OvertimeAccessService kiểm tra trong Controller.
+                'hr.overtime.index',
+                'hr.overtime.create',
+                'hr.overtime.store',
+                'hr.overtime.edit',
+                'hr.overtime.update',
+                'hr.overtime.destroy',
+                'hr.overtime.approve',
+                'hr.overtime.reject',
+                // Phiếu lương tự phục vụ: Controller chỉ cho xem phiếu của chính mình ở kỳ đã duyệt.
+                'hr.payroll.my',
+                'hr.payroll.payslip',
+                // KPI của tôi: Controller chỉ đọc KPI của chính người đăng nhập.
+                'hr.kpi-my',
+                // Sự cố văn phòng: mọi nhân viên báo / nghiệm thu sự cố của mình; Controller kiểm quyền từng thao tác.
+                'hr.incidents.*',
             ], $routeName)
         ) {
             return $next($request);
@@ -109,6 +130,16 @@ class EnforcePageAccess
 
         $isWarehouseProjectMaterialPage = $routeName === 'project-test.show'
             && $request->query('tab') === 'materials';
+
+        // Kho dùng đầy đủ công nợ nhà cung cấp (xem, thêm, sửa, xóa, tệp, đợt thanh toán, tạo ĐNTT).
+        // Áp cho mọi tài khoản có role Kho, kể cả người kiêm role khác; route vẫn có middleware role:admin|accounting|warehouse|kho.
+        $isWarehouseSupplierDebtRoute = $routeName
+            && \Illuminate\Support\Str::is('finance.supplier-debts.*', $routeName)
+            && $user->hasAnyRole(['warehouse', 'kho']);
+
+        if ($isWarehouseSupplierDebtRoute) {
+            return $next($request);
+        }
 
         if (
             $isWarehouseOnly

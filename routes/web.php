@@ -95,15 +95,7 @@ use App\Http\Controllers\System\UserController;
 use App\Http\Controllers\Inventory\WarehouseController;
 use Illuminate\Support\Facades\Schema;
 
-/* EGO_COMPANY_CONTEXT_ROUTES_START */
-Route::middleware(['auth'])->group(function () {
-    Route::get('/chon-cong-ty', \App\Http\Controllers\System\AutoCompanyContextController::class)
-        ->name('company-context.select');
-    Route::post('/chon-cong-ty', [\App\Http\Controllers\System\AutoCompanyContextController::class, 'store'])
-        ->name('company-context.store');
-    Route::post('/doi-cong-ty', [\App\Http\Controllers\System\EgoCompanyContextController::class, 'reset'])->name('company-context.reset');
-});
-/* EGO_COMPANY_CONTEXT_ROUTES_END */
+
 
 
 /* EGO_WORKSPACE_APP_CENTER_ROUTES_START */
@@ -339,9 +331,13 @@ Route::middleware('auth')
             Route::post('/tasks/projects/quick', 'quickProjectStore')->name('tasks.projects.quick');
             Route::match(['get', 'post'], '/tasks/{task}/submit', 'submitResult')->name('tasks.submit');
             Route::post('/tasks/{task}/attachments/{attachment}/replace', 'replaceAttachment')->whereNumber('attachment')->name('tasks.attachments.replace');
+            // Xem/tải tệp qua kiểm quyền (thay link /storage trực tiếp; tệp thủ tục HCNS lưu riêng tư).
+            Route::get('/tasks/{task}/attachments/{attachment}/file', 'attachmentFile')->whereNumber('attachment')->name('tasks.attachments.file');
             Route::match(['post', 'delete'], '/tasks/{task}/attachments/{attachment}', 'destroyAttachment')->whereNumber('attachment')->name('tasks.attachments.destroy');
             Route::post('/tasks/{task}/return-revision', 'returnRevision')->name('tasks.return-revision');
             Route::post('/tasks/{task}/approve', 'approve')->name('tasks.approve');
+            // Hủy có lý do (thủ tục hành chính HCNS — KPI HC09): giữ hồ sơ thay vì xóa.
+            Route::post('/tasks/{task}/cancel', 'cancel')->name('tasks.cancel');
             Route::patch('/tasks/{task}/status', 'updateStatus')->name('tasks.status');
             Route::get('/tasks/{task}/edit', 'edit')->name('tasks.edit');
             Route::put('/tasks/{task}', 'update')->name('tasks.update');
@@ -1660,6 +1656,64 @@ Route::middleware(['auth', 'role:marketing|marketing_manager|admin'])
     });
 /*
 |--------------------------------------------------------------------------
+| Finance - Công nợ nhà cung cấp (Admin / Kế toán / Kho: đầy đủ chức năng)
+|--------------------------------------------------------------------------
+| Role Kho dùng đầy đủ: xem, thêm, sửa, xóa, tệp đính kèm, đợt thanh toán và tạo ĐNTT.
+| Đợt đã thanh toán / đã khóa vẫn chỉ sửa được với quyền riêng payment_requests.override_locked
+| (kiểm tra trong SupplierDebtController, không theo role).
+*/
+Route::middleware(['auth', 'role:admin|accounting|warehouse|kho'])
+    ->prefix('finance/supplier-debts')
+    ->name('finance.supplier-debts.')
+    ->group(function () {
+        Route::get('/', [SupplierDebtController::class, 'index'])->name('index');
+
+        Route::get('/files/{fileId}/download', [SupplierDebtController::class, 'downloadDebtFile'])
+            ->whereNumber('fileId')
+            ->name('files.download');
+
+        Route::post('/', [SupplierDebtController::class, 'store'])
+            ->name('store');
+
+        Route::post('/{id}/files', [SupplierDebtController::class, 'storeDebtFileOnly'])
+            ->whereNumber('id')
+            ->name('files.store');
+
+        Route::delete('/files/{fileId}', [SupplierDebtController::class, 'destroyDebtFile'])
+            ->whereNumber('fileId')
+            ->name('files.destroy');
+
+        Route::put('/{id}', [SupplierDebtController::class, 'update'])
+            ->whereNumber('id')
+            ->name('update');
+
+        Route::delete('/{id}', [SupplierDebtController::class, 'destroy'])
+            ->whereNumber('id')
+            ->name('destroy');
+
+        Route::post('/{id}/payment-rounds', [SupplierDebtController::class, 'storePaymentRound'])
+            ->whereNumber('id')
+            ->name('payment-rounds.store');
+
+        Route::put('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'updatePaymentRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.update');
+
+        Route::delete('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'destroyPaymentRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.destroy');
+
+        Route::post('/payment-rounds/{paymentRoundId}/payment-request', [SupplierDebtController::class, 'createPaymentRequestFromRound'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.create-payment-request');
+
+        Route::post('/payment-rounds/{paymentRoundId}/create-remaining-round', [SupplierDebtController::class, 'createRemainingRoundFromLinkedPayment'])
+            ->whereNumber('paymentRoundId')
+            ->name('payment-rounds.create-remaining-round');
+    });
+
+/*
+|--------------------------------------------------------------------------
 | Finance
 |--------------------------------------------------------------------------
 */
@@ -1690,53 +1744,6 @@ Route::middleware(['auth', 'role:admin|accounting'])
             Route::get('/', [CustomerDebtController::class, 'index'])->name('index');
             Route::get('/by-customer', [CustomerDebtController::class, 'byCustomer'])->name('by-customer');
             Route::get('/payment-history', [CustomerDebtController::class, 'paymentHistory'])->name('payment-history');
-        });
-
-        Route::prefix('supplier-debts')->name('supplier-debts.')->group(function () {
-            Route::get('/', [SupplierDebtController::class, 'index'])->name('index');
-
-            Route::post('/', [SupplierDebtController::class, 'store'])
-                ->name('store');
-
-            Route::post('/{id}/files', [SupplierDebtController::class, 'storeDebtFileOnly'])
-                ->whereNumber('id')
-                ->name('files.store');
-
-            Route::get('/files/{fileId}/download', [SupplierDebtController::class, 'downloadDebtFile'])
-                ->whereNumber('fileId')
-                ->name('files.download');
-
-            Route::delete('/files/{fileId}', [SupplierDebtController::class, 'destroyDebtFile'])
-                ->whereNumber('fileId')
-                ->name('files.destroy');
-
-            Route::put('/{id}', [SupplierDebtController::class, 'update'])
-                ->whereNumber('id')
-                ->name('update');
-
-            Route::delete('/{id}', [SupplierDebtController::class, 'destroy'])
-                ->whereNumber('id')
-                ->name('destroy');
-
-            Route::post('/{id}/payment-rounds', [SupplierDebtController::class, 'storePaymentRound'])
-                ->whereNumber('id')
-                ->name('payment-rounds.store');
-
-            Route::put('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'updatePaymentRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.update');
-
-            Route::delete('/payment-rounds/{paymentRoundId}', [SupplierDebtController::class, 'destroyPaymentRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.destroy');
-
-            Route::post('/payment-rounds/{paymentRoundId}/payment-request', [SupplierDebtController::class, 'createPaymentRequestFromRound'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.create-payment-request');
-            Route::post('/payment-rounds/{paymentRoundId}/create-remaining-round', [SupplierDebtController::class, 'createRemainingRoundFromLinkedPayment'])
-                ->whereNumber('paymentRoundId')
-                ->name('payment-rounds.create-remaining-round');
-
         });
 
         Route::prefix('receipts')->name('receipts.')->group(function () {
@@ -2843,6 +2850,25 @@ Route::middleware(['auth'])
         Route::get('/popup-chi-tiet/{id}', 'detailJson')->whereNumber('id')->name('detail-json');
     });
 /* EGO_VPP_DETAIL_POPUP_ROUTE_END */
+
+/* EGO_VPP_KPI_HC06_ROUTES_START */
+// KPI HC06 (cấp phát theo yêu cầu): sửa mốc/người, tệp minh chứng riêng tư, gửi kiểm/xác nhận/trả bổ sung.
+Route::middleware(['auth'])
+    ->prefix('nhan-su/quy-trinh-phan-bo-vpp')
+    ->name('hr.office-supply-process.kpi.')
+    ->controller(\App\Http\Controllers\Hr\OfficeSupplyProcessController::class)
+    ->group(function () {
+        Route::put('/{id}/kpi', 'kpiUpdate')->whereNumber('id')->name('update');
+        Route::post('/{id}/kpi/files', 'kpiFileUpload')->whereNumber('id')->name('files.upload');
+        Route::get('/{id}/kpi/files/{fileId}', 'kpiFile')->whereNumber('id')->whereNumber('fileId')->name('files.show');
+        Route::delete('/{id}/kpi/files/{fileId}', 'kpiFileDelete')->whereNumber('id')->whereNumber('fileId')->name('files.delete');
+        Route::post('/{id}/kpi/draft', 'kpiDraft')->whereNumber('id')->name('draft');
+        Route::post('/{id}/kpi/submit', 'kpiSubmit')->whereNumber('id')->name('submit');
+        Route::post('/{id}/kpi/confirm', 'kpiConfirm')->whereNumber('id')->name('confirm');
+        Route::post('/{id}/kpi/return', 'kpiReturn')->whereNumber('id')->name('return');
+        Route::post('/{id}/kpi/receipt', 'kpiReceipt')->whereNumber('id')->name('receipt');
+    });
+/* EGO_VPP_KPI_HC06_ROUTES_END */
 
 /* EGO_BOOKING_ROOM_ROUTES_START */
 require __DIR__.'/booking_room.php';

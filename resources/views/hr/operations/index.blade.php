@@ -262,6 +262,57 @@
             </tbody></table></div>
             @else <div class="hc-empty">Chưa có tài sản.</div> @endif
         </div></div>
+
+        @if(! empty($inventoryReady))
+            @php
+                $invStatus = ['planned' => ['Đã lập kế hoạch', 'gray'], 'in_progress' => ['Đang kiểm kê', 'yellow'], 'completed' => ['Đã báo hoàn tất', 'green'], 'cancelled' => ['Đã hủy', 'red']];
+            @endphp
+            <div class="hc-card" id="kiem-ke" data-hc-inventories>
+                <div class="hc-card-head">
+                    <div><h3 class="hc-card-title">Đợt kiểm kê tài sản · KPI HC06</h3>
+                        <div class="hc-card-note">Lập đợt theo kỳ, chụp danh sách từ một danh mục (Tài sản HC & Vận hành hoặc Tài sản Tài chính — không cộng hai danh mục). Người phụ trách ghi kết quả từng tài sản + biên bản → gửi kiểm; người kiểm khác người phụ trách xác nhận.</div></div>
+                </div>
+                <div class="hc-card-body">
+                    <details @if($errors->hasAny(['title','period_month','scope','handler_id','reviewer_id','due_at'])) open @endif>
+                        <summary class="hc-btn-outline" style="display:inline-flex;list-style:none">+ Lập đợt kiểm kê</summary>
+                        <form method="POST" action="{{ route('hr.asset-inventories.store') }}" style="margin-top:12px" data-hc-inventory-create>
+                            @csrf
+                            <div class="hc-grid">
+                                <div class="hc-field"><label class="hc-label">Tên đợt *</label><input class="hc-input" name="title" value="{{ old('title') }}" placeholder="VD: Kiểm kê tài sản tháng 10" required></div>
+                                <div class="hc-field"><label class="hc-label">Kỳ KPI (tháng) *</label><input class="hc-input" type="month" name="period_month" value="{{ old('period_month', now()->format('Y-m')) }}" required></div>
+                                <div class="hc-field"><label class="hc-label">Danh mục *</label><select class="hc-select" name="scope">@foreach(\App\Services\Hr\Kpi\AssetInventories::SCOPES as $k => $label)<option value="{{ $k }}" @selected(old('scope') === $k)>{{ $label }}</option>@endforeach</select></div>
+                                <div class="hc-field"><label class="hc-label">Hạn hoàn tất *</label><input class="hc-input" type="datetime-local" name="due_at" value="{{ old('due_at') }}" required></div>
+                                <div class="hc-field"><label class="hc-label">Người phụ trách (chịu KPI) *</label><select class="hc-select" name="handler_id" required><option value="">-- Chọn --</option>@foreach($inventoryUsers as $u)<option value="{{ $u->id }}" @selected((int) old('handler_id') === (int) $u->id)>{{ $u->name }}</option>@endforeach</select></div>
+                                <div class="hc-field"><label class="hc-label">Người kiểm (khác người phụ trách) *</label><select class="hc-select" name="reviewer_id" required><option value="">-- Chọn --</option>@foreach($inventoryUsers as $u)<option value="{{ $u->id }}" @selected((int) old('reviewer_id') === (int) $u->id)>{{ $u->name }}</option>@endforeach</select></div>
+                                <div class="hc-field full"><label class="hc-label">Ghi chú</label><input class="hc-input" name="note" value="{{ old('note') }}"></div>
+                            </div>
+                            <div class="hc-form-foot"><button class="hc-btn" type="submit">Lập đợt kiểm kê</button></div>
+                        </form>
+                    </details>
+
+                    <div style="height:12px"></div>
+                    @if($inventories->count())
+                        <div class="hc-table-wrap"><table class="hc-table sm"><thead><tr><th>Mã · Tên đợt</th><th>Kỳ</th><th>Danh mục</th><th>Phụ trách / Kiểm</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th>KPI</th><th></th></tr></thead><tbody>
+                        @foreach($inventories as $row)
+                            <tr data-hc-inventory-row="{{ $row->id }}">
+                                <td><b>{{ $row->code }}</b><div>{{ $row->title }}</div></td>
+                                <td>{{ substr($row->period_month, 5, 2) }}/{{ substr($row->period_month, 0, 4) }}</td>
+                                <td>{{ \App\Services\Hr\Kpi\AssetInventories::SCOPES[$row->scope] ?? $row->scope }}</td>
+                                <td>{{ $row->handler_name ?: '—' }}<div style="color:#64748b">Kiểm: {{ $row->reviewer_name ?: '—' }}</div></td>
+                                <td>{{ $row->due_at ? \Illuminate\Support\Carbon::parse($row->due_at)->format('H:i d/m/Y') : '—' }}</td>
+                                <td>{{ (int) $row->items_checked }}/{{ (int) $row->items_total }} tài sản</td>
+                                <td><span class="hc-pill {{ $invStatus[$row->status][1] ?? 'gray' }}">{{ $invStatus[$row->status][0] ?? $row->status }}</span></td>
+                                <td>{{ \App\Services\Hr\Kpi\HcnsSourceReviews::STATUSES[$row->review_status ?? ''] ?? 'Chưa gửi' }}</td>
+                                <td><a class="hc-btn-outline" href="{{ route('hr.asset-inventories.show', $row->id) }}">Mở</a></td>
+                            </tr>
+                        @endforeach
+                        </tbody></table></div>
+                    @else
+                        <div class="hc-empty">Chưa có đợt kiểm kê.</div>
+                    @endif
+                </div>
+            </div>
+        @endif
     @endif
 
     @if($tab === 'maintenance')

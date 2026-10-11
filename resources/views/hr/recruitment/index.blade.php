@@ -63,6 +63,22 @@
 
 @php
     $active = $active ?? 'reports';
+    $pageCopy = [
+        'requests' => ['Yêu cầu tuyển dụng', 'Theo dõi nhu cầu tuyển và trạng thái phê duyệt. Mở một yêu cầu để xem hoặc chỉnh sửa.'],
+        'screening' => ['Ứng viên & sàng lọc', 'Quản lý hồ sơ ứng viên, liên hệ và kết quả sàng lọc.'],
+        'interviews' => ['Lịch phỏng vấn', 'Theo dõi lịch hẹn và tình trạng phỏng vấn.'],
+        'evaluations' => ['Đánh giá phỏng vấn', 'Ghi nhận kết quả và nhận xét sau phỏng vấn.'],
+        'offers' => ['Thư mời nhận việc', 'Theo dõi thư mời, phản hồi và ngày nhận việc.'],
+        'onboarding' => ['Tiếp nhận nhân sự mới', 'Theo dõi các việc cần hoàn tất khi nhân viên nhận việc.'],
+        'archives' => ['Hồ sơ ứng viên lưu trữ', 'Tra cứu hồ sơ đã lưu và lý do chưa phù hợp.'],
+        'reports' => ['Tổng quan tuyển dụng', 'Theo dõi tình hình tuyển dụng theo từng bước.'],
+    ];
+    $currentCopy = $pageCopy[$active] ?? $pageCopy['reports'];
+    $requestMetrics = [
+        ['Tổng yêu cầu', $requests->count()],
+        ['Chờ duyệt', $requests->where('approval_status', 'pending')->count()],
+        ['Đã duyệt', $requests->where('approval_status', 'approved')->count()],
+    ];
     $statusPill = [
         'new' => 'gray',
         'screening' => 'amber',
@@ -96,11 +112,11 @@
     ];
 @endphp
 
-<div class="rec-wrap">
+<div class="rec-wrap{{ $active === 'requests' ? ' rec-requests-workspace' : '' }}">
     <div class="rec-head">
         <div>
-            <h1 class="rec-title">Tuyển dụng ứng viên</h1>
-            <div class="rec-sub">Bám đúng 7 bước: yêu cầu tuyển dụng → tìm kiếm & sàng lọc → lịch phỏng vấn → đánh giá → mời nhận việc → tiếp nhận nhân sự mới → lưu hồ sơ & báo cáo.</div>
+            <h1 class="rec-title">{{ $currentCopy[0] }}</h1>
+            <div class="rec-sub">{{ $currentCopy[1] }}</div>
         </div>
         <div class="rec-head-actions">
             <a class="rec-btn-outline" href="{{ route('hr.operations.index') }}">← HC & Vận hành</a>
@@ -123,9 +139,18 @@
     @endif
 
     @if($errors->any())
-        <div class="rec-error">{{ $errors->first() }}</div>
+        <div class="rec-error" role="alert">{{ $errors->hasAny(['kpi', 'quantity', 'recruitment_request_id']) ? $errors->first() : ($active !== 'reports' ? 'Chưa lưu được. Kiểm tra các mục được đánh dấu trong form bên dưới.' : $errors->first()) }}</div>
     @endif
 
+    @if($active === 'requests')
+        <div class="rec-stats rec-request-stats">
+            @foreach($requestMetrics as [$label, $value])
+                <div class="rec-stat"><div class="rec-stat-label">{{ $label }}</div><div class="rec-stat-value">{{ $value }}</div></div>
+            @endforeach
+        </div>
+    @elseif(in_array($active, ['screening','interviews','evaluations','offers','onboarding','archives'], true))
+        @include('hr.recruitment.partials.workflow-metrics')
+    @else
     <div class="rec-stats">
         <div class="rec-stat"><div class="rec-stat-label">Y/c tuyển dụng</div><div class="rec-stat-value">{{ $stats['requests'] ?? 0 }}</div></div>
         <div class="rec-stat"><div class="rec-stat-label">Đã duyệt</div><div class="rec-stat-value">{{ $stats['approved_requests'] ?? 0 }}</div></div>
@@ -135,6 +160,7 @@
         <div class="rec-stat"><div class="rec-stat-label">Đã nhận việc</div><div class="rec-stat-value">{{ $stats['hired'] ?? 0 }}</div></div>
         <div class="rec-stat"><div class="rec-stat-label">Lưu / Từ chối</div><div class="rec-stat-value">{{ ($stats['archived'] ?? 0) + ($stats['rejected'] ?? 0) }}</div></div>
     </div>
+    @endif
 
     @if($active === 'reports')
         <div class="rec-card">
@@ -178,611 +204,11 @@
     @endif
 
     @if($active === 'requests')
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B1. Tạo yêu cầu tuyển dụng</h3>
-                    <div class="rec-card-note">Nhập số lượng, vị trí, JD, mức lương, ngày cần và gửi duyệt.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                <form method="POST" action="{{ route('hr.recruitment.requests.store') }}">
-                    @csrf
-                    <div class="rec-grid">
-                        <div class="rec-field"><label class="rec-label">Bộ phận cần tuyển *</label><input class="rec-input" name="department" required></div>
-                        <div class="rec-field"><label class="rec-label">Vị trí *</label><input class="rec-input" name="position" required></div>
-                        <div class="rec-field"><label class="rec-label">Số lượng *</label><input class="rec-input" type="number" min="1" name="quantity" value="1" required></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Lý do tuyển</label>
-                            <select class="rec-select" name="reason">
-                                <option value="Tuyển mới">Tuyển mới</option>
-                                <option value="Thay thế">Thay thế</option>
-                                <option value="Bổ sung nhân sự">Bổ sung nhân sự</option>
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Ngày cần nhân sự</label><input class="rec-input" type="date" name="needed_date"></div>
-                        <div class="rec-field"><label class="rec-label">Mức lương dự kiến</label><input class="rec-input" name="expected_salary" placeholder="VD: 8-12 triệu"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Phê duyệt</label>
-                            <select class="rec-select" name="approval_status">
-                                @foreach($approvalStatuses as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Ghi chú</label><input class="rec-input" name="note"></div>
-                        <div class="rec-field full"><label class="rec-label">Yêu cầu ứng viên</label><textarea class="rec-textarea" name="requirements"></textarea></div>
-                        <div class="rec-field full"><label class="rec-label">JD / Mô tả công việc</label><textarea class="rec-textarea" name="job_description"></textarea></div>
-                    </div>
-                    <div class="rec-form-foot"><button class="rec-btn" type="submit">+ Tạo yêu cầu</button></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="rec-card">
-            <div class="rec-card-head"><h3 class="rec-card-title">Danh sách yêu cầu tuyển dụng</h3></div>
-            <div class="rec-card-body">
-                @if($requests->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table">
-                            <thead><tr><th>Bộ phận</th><th>Vị trí</th><th>SL</th><th>Lý do</th><th>Ngày cần</th><th>Lương</th><th>Phê duyệt</th><th>Yêu cầu</th><th>JD</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($requests as $row)
-                                    <tr>
-                                        <td><form id="req{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.requests.update', $row->id) }}">@csrf @method('PUT')<input class="rec-input" name="department" value="{{ $row->department }}" required></form></td>
-                                        <td><input form="req{{ $row->id }}" class="rec-input" name="position" value="{{ $row->position }}" required></td>
-                                        <td><input form="req{{ $row->id }}" class="rec-input" type="number" min="1" name="quantity" value="{{ $row->quantity }}" required></td>
-                                        <td><input form="req{{ $row->id }}" class="rec-input" name="reason" value="{{ $row->reason }}"></td>
-                                        <td><input form="req{{ $row->id }}" class="rec-input" type="date" name="needed_date" value="{{ $row->needed_date }}"></td>
-                                        <td><input form="req{{ $row->id }}" class="rec-input" name="expected_salary" value="{{ $row->expected_salary }}"></td>
-                                        <td>
-                                            <select form="req{{ $row->id }}" class="rec-select" name="approval_status">
-                                                @foreach($approvalStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected($row->approval_status === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td><textarea form="req{{ $row->id }}" class="rec-textarea" name="requirements">{{ $row->requirements }}</textarea></td>
-                                        <td><textarea form="req{{ $row->id }}" class="rec-textarea" name="job_description">{{ $row->job_description }}</textarea></td>
-                                        <td>
-                                            <div class="rec-actions">
-                                                <button form="req{{ $row->id }}" class="rec-btn" type="submit">Lưu</button>
-                                                <form method="POST" action="{{ route('hr.recruitment.requests.destroy', $row->id) }}" onsubmit="return confirm('Xoá yêu cầu này?')">@csrf @method('DELETE')<button class="rec-btn-danger">Xoá</button></form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có yêu cầu tuyển dụng.</div>
-                @endif
-            </div>
-        </div>
+        @include('hr.recruitment.partials.requests-workspace')
     @endif
 
-    @if($active === 'screening')
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B2. Tìm kiếm & sàng lọc ứng viên</h3>
-                    <div class="rec-card-note">Phân loại nguồn TopCV, Facebook, LinkedIn... lọc CV, liên hệ qua Phone/Mail/Zalo và đánh giá mức độ phù hợp.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                <form method="POST" action="{{ route('hr.recruitment.candidates.store') }}">
-                    @csrf
-                    <div class="rec-grid">
-                        <div class="rec-field"><label class="rec-label">Họ tên *</label><input class="rec-input" name="full_name" required></div>
-                        <div class="rec-field"><label class="rec-label">SĐT</label><input class="rec-input" name="phone"></div>
-                        <div class="rec-field"><label class="rec-label">Email</label><input class="rec-input" name="email"></div>
-                        <div class="rec-field"><label class="rec-label">Zalo</label><input class="rec-input" name="zalo"></div>
-                        <div class="rec-field"><label class="rec-label">Vị trí ứng tuyển</label><input class="rec-input" name="position"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Nguồn ứng viên</label>
-                            <select class="rec-select" name="source">
-                                @foreach($sources as $source)
-                                    <option value="{{ $source }}">{{ $source }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Link CV / hồ sơ</label><input class="rec-input" name="cv_link" placeholder="Dán link CV nếu có"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Trạng thái</label>
-                            <select class="rec-select" name="status">
-                                @foreach($candidateStatuses as $key => $label)
-                                    <option value="{{ $key }}" @selected($key === 'screening')>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field">
-                            <label class="rec-label">Kênh liên hệ</label>
-                            <select class="rec-select" name="contact_channel">
-                                <option value="">Chưa liên hệ</option>
-                                @foreach($contactChannels as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Thời gian liên hệ</label><input class="rec-input" type="datetime-local" name="contacted_at"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Mức độ phù hợp</label>
-                            <select class="rec-select" name="suitability">
-                                <option value="">Chưa đánh giá</option>
-                                @foreach($suitabilityLevels as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field">
-                            <label class="rec-label">Yêu cầu tuyển dụng</label>
-                            <select class="rec-select" name="recruitment_request_id">
-                                <option value="">Không gắn</option>
-                                @foreach($requests as $req)
-                                    <option value="{{ $req->id }}">{{ $req->position }} - {{ $req->department }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field full"><label class="rec-label">Ghi chú sàng lọc / lý do chưa phù hợp</label><textarea class="rec-textarea" name="note"></textarea></div>
-                    </div>
-                    <div class="rec-form-foot"><button class="rec-btn" type="submit">+ Thêm ứng viên</button></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="rec-card">
-            <div class="rec-card-head"><h3 class="rec-card-title">Kho ứng viên & tình trạng liên hệ</h3></div>
-            <div class="rec-card-body">
-                @if($candidates->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table">
-                            <thead><tr><th>Ứng viên</th><th>Liên hệ</th><th>Vị trí</th><th>Nguồn</th><th>CV</th><th>Kênh / giờ liên hệ</th><th>Mức phù hợp</th><th>Trạng thái</th><th>Y/c</th><th>Ghi chú / lý do</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($candidates as $row)
-                                    <tr>
-                                        <td><form id="can{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.candidates.update', $row->id) }}">@csrf @method('PUT')<input class="rec-input" name="full_name" value="{{ $row->full_name }}" required></form></td>
-                                        <td>
-                                            <input form="can{{ $row->id }}" class="rec-input" name="phone" value="{{ $row->phone }}" placeholder="SĐT">
-                                            <div style="height:6px"></div>
-                                            <input form="can{{ $row->id }}" class="rec-input" name="email" value="{{ $row->email }}" placeholder="Email">
-                                            <div style="height:6px"></div>
-                                            <input form="can{{ $row->id }}" class="rec-input" name="zalo" value="{{ $row->zalo ?? '' }}" placeholder="Zalo">
-                                        </td>
-                                        <td><input form="can{{ $row->id }}" class="rec-input" name="position" value="{{ $row->position }}"></td>
-                                        <td>
-                                            <select form="can{{ $row->id }}" class="rec-select" name="source">
-                                                <option value="">--</option>
-                                                @foreach($sources as $source)
-                                                    <option value="{{ $source }}" @selected(($row->source ?? '') === $source)>{{ $source }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input form="can{{ $row->id }}" class="rec-input" name="cv_link" value="{{ $row->cv_link ?? '' }}" placeholder="Link CV">
-                                            @if(!empty($row->cv_link))
-                                                <div class="rec-small"><a class="rec-link" href="{{ $row->cv_link }}" target="_blank">Mở CV</a></div>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <select form="can{{ $row->id }}" class="rec-select" name="contact_channel">
-                                                <option value="">Chưa liên hệ</option>
-                                                @foreach($contactChannels as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->contact_channel ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                            <div style="height:6px"></div>
-                                            <input form="can{{ $row->id }}" class="rec-input" type="datetime-local" name="contacted_at" value="{{ !empty($row->contacted_at) ? date('Y-m-d\TH:i', strtotime($row->contacted_at)) : '' }}">
-                                        </td>
-                                        <td>
-                                            <select form="can{{ $row->id }}" class="rec-select" name="suitability">
-                                                <option value="">Chưa đánh giá</option>
-                                                @foreach($suitabilityLevels as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->suitability ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <select form="can{{ $row->id }}" class="rec-select" name="status">
-                                                @foreach($candidateStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->status ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <select form="can{{ $row->id }}" class="rec-select" name="recruitment_request_id">
-                                                <option value="">Không gắn</option>
-                                                @foreach($requests as $req)
-                                                    <option value="{{ $req->id }}" @selected((int)($row->recruitment_request_id ?? 0) === (int)$req->id)>{{ $req->position }} - {{ $req->department }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <textarea form="can{{ $row->id }}" class="rec-textarea" name="note" placeholder="Ghi chú">{{ $row->note }}</textarea>
-                                            <textarea form="can{{ $row->id }}" class="rec-textarea" name="reject_reason" placeholder="Lý do từ chối / chưa phù hợp" style="margin-top:6px">{{ $row->reject_reason ?? '' }}</textarea>
-                                        </td>
-                                        <td>
-                                            <div class="rec-actions">
-                                                <button form="can{{ $row->id }}" class="rec-btn" type="submit">Lưu</button>
-                                                <form method="POST" action="{{ route('hr.recruitment.candidates.destroy', $row->id) }}" onsubmit="return confirm('Xoá ứng viên này?')">@csrf @method('DELETE')<button class="rec-btn-danger">Xoá</button></form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có ứng viên.</div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    @if($active === 'interviews')
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B3. Lên lịch mời phỏng vấn</h3>
-                    <div class="rec-card-note">Theo dõi đặt lịch PV, đang PV, hẹn ngày khác, huỷ lịch và lý do huỷ.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                <form method="POST" action="{{ route('hr.recruitment.interviews.store') }}">
-                    @csrf
-                    <div class="rec-grid">
-                        <div class="rec-field">
-                            <label class="rec-label">Ứng viên *</label>
-                            <select class="rec-select" name="candidate_id" required>
-                                @foreach($candidates as $can)
-                                    <option value="{{ $can->id }}">{{ $can->full_name }} - {{ $can->position }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Ngày giờ PV</label><input class="rec-input" type="datetime-local" name="interview_at"></div>
-                        <div class="rec-field"><label class="rec-label">Địa điểm / Link họp</label><input class="rec-input" name="location" placeholder="Văn phòng / Google Meet"></div>
-                        <div class="rec-field"><label class="rec-label">Hình thức</label><select class="rec-select" name="interview_form"><option value="Offline">Offline</option><option value="Online">Online</option><option value="Điện thoại">Điện thoại</option></select></div>
-                        <div class="rec-field"><label class="rec-label">Người phỏng vấn</label><input class="rec-input" name="interviewer"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Trạng thái lịch</label>
-                            <select class="rec-select" name="status">
-                                @foreach($interviewStatuses as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field full"><label class="rec-label">Ghi chú / lý do hủy / hẹn ngày khác</label><textarea class="rec-textarea" name="cancel_reason"></textarea></div>
-                    </div>
-                    <div class="rec-form-foot"><button class="rec-btn" type="submit">+ Đặt lịch PV</button></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="rec-card">
-            <div class="rec-card-head"><h3 class="rec-card-title">Danh sách lịch phỏng vấn</h3></div>
-            <div class="rec-card-body">
-                @if($interviews->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table sm">
-                            <thead><tr><th>Ứng viên</th><th>Ngày giờ</th><th>Địa điểm</th><th>Hình thức</th><th>Người PV</th><th>Trạng thái</th><th>Lý do / ghi chú</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($interviews as $row)
-                                    <tr>
-                                        <td>
-                                            <form id="int{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.interviews.update', $row->id) }}">@csrf @method('PUT')
-                                                <select class="rec-select" name="candidate_id" required>
-                                                    @foreach($candidates as $can)
-                                                        <option value="{{ $can->id }}" @selected((int)$row->candidate_id === (int)$can->id)>{{ $can->full_name }} - {{ $can->position }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </form>
-                                        </td>
-                                        <td><input form="int{{ $row->id }}" class="rec-input" type="datetime-local" name="interview_at" value="{{ !empty($row->interview_at) ? date('Y-m-d\TH:i', strtotime($row->interview_at)) : '' }}"></td>
-                                        <td><input form="int{{ $row->id }}" class="rec-input" name="location" value="{{ $row->location }}"></td>
-                                        <td><input form="int{{ $row->id }}" class="rec-input" name="interview_form" value="{{ $row->interview_form }}"></td>
-                                        <td><input form="int{{ $row->id }}" class="rec-input" name="interviewer" value="{{ $row->interviewer }}"></td>
-                                        <td>
-                                            <select form="int{{ $row->id }}" class="rec-select" name="status">
-                                                @foreach($interviewStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->status ?? 'scheduled') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <textarea form="int{{ $row->id }}" class="rec-textarea" name="cancel_reason" placeholder="Lý do hủy / hẹn lại">{{ $row->cancel_reason ?? '' }}</textarea>
-                                            <textarea form="int{{ $row->id }}" class="rec-textarea" name="note" placeholder="Ghi chú" style="margin-top:6px">{{ $row->note }}</textarea>
-                                        </td>
-                                        <td>
-                                            <div class="rec-actions">
-                                                <button form="int{{ $row->id }}" class="rec-btn" type="submit">Lưu</button>
-                                                <form method="POST" action="{{ route('hr.recruitment.interviews.destroy', $row->id) }}" onsubmit="return confirm('Xoá lịch PV này?')">@csrf @method('DELETE')<button class="rec-btn-danger">Xoá</button></form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có lịch phỏng vấn.</div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    @if($active === 'evaluations')
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B4. Đánh giá sau phỏng vấn</h3>
-                    <div class="rec-card-note">Ghi kết quả Đạt / Không đạt / Hẹn vòng tiếp, nhận xét và thời gian có thể nhận việc.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                @if($interviews->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table">
-                            <thead><tr><th>Ứng viên</th><th>Lịch PV</th><th>Người PV</th><th>Trạng thái</th><th>Kết quả</th><th>Thời gian nhận việc</th><th>Đánh giá / nhận xét</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($interviews as $row)
-                                    <tr>
-                                        <td>
-                                            <form id="eva{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.interviews.update', $row->id) }}">@csrf @method('PUT')
-                                                <select class="rec-select" name="candidate_id" required>
-                                                    @foreach($candidates as $can)
-                                                        <option value="{{ $can->id }}" @selected((int)$row->candidate_id === (int)$can->id)>{{ $can->full_name }} - {{ $can->position }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </form>
-                                        </td>
-                                        <td><input form="eva{{ $row->id }}" class="rec-input" type="datetime-local" name="interview_at" value="{{ !empty($row->interview_at) ? date('Y-m-d\TH:i', strtotime($row->interview_at)) : '' }}"></td>
-                                        <td><input form="eva{{ $row->id }}" class="rec-input" name="interviewer" value="{{ $row->interviewer }}"></td>
-                                        <td>
-                                            <select form="eva{{ $row->id }}" class="rec-select" name="status">
-                                                @foreach($interviewStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->status ?? 'scheduled') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <select form="eva{{ $row->id }}" class="rec-select" name="evaluation_result">
-                                                <option value="">Chưa chốt</option>
-                                                @foreach($evaluationResults as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->evaluation_result ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                            <input form="eva{{ $row->id }}" class="rec-input" name="result" value="{{ $row->result }}" placeholder="Kết quả tóm tắt" style="margin-top:6px">
-                                        </td>
-                                        <td><input form="eva{{ $row->id }}" class="rec-input" type="date" name="expected_start_date" value="{{ $row->expected_start_date ?? '' }}"></td>
-                                        <td>
-                                            <textarea form="eva{{ $row->id }}" class="rec-textarea" name="evaluation" placeholder="Đánh giá chuyên môn / thái độ / mức phù hợp">{{ $row->evaluation ?? '' }}</textarea>
-                                            <textarea form="eva{{ $row->id }}" class="rec-textarea" name="note" placeholder="Ghi chú" style="margin-top:6px">{{ $row->note }}</textarea>
-                                        </td>
-                                        <td><button form="eva{{ $row->id }}" class="rec-btn" type="submit">Lưu đánh giá</button></td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có dữ liệu phỏng vấn để đánh giá.</div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    @if($active === 'offers')
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B5. Mời nhận việc</h3>
-                    <div class="rec-card-note">Tạo thư mời, lương offer, ngày nhận việc, theo dõi đồng ý / từ chối / không phản hồi.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                <form method="POST" action="{{ route('hr.recruitment.offers.store') }}">
-                    @csrf
-                    <div class="rec-grid">
-                        <div class="rec-field">
-                            <label class="rec-label">Ứng viên *</label>
-                            <select class="rec-select" name="candidate_id" required>
-                                @foreach($candidates as $can)
-                                    <option value="{{ $can->id }}">{{ $can->full_name }} - {{ $can->position }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field"><label class="rec-label">Ngày gửi thư mời</label><input class="rec-input" type="date" name="offer_date"></div>
-                        <div class="rec-field"><label class="rec-label">Mức lương đề nghị</label><input class="rec-input" name="salary_offer" placeholder="VD: 12 triệu"></div>
-                        <div class="rec-field"><label class="rec-label">Ngày nhận việc</label><input class="rec-input" type="date" name="start_date"></div>
-                        <div class="rec-field">
-                            <label class="rec-label">Trạng thái phản hồi</label>
-                            <select class="rec-select" name="status">
-                                @foreach($offerStatuses as $key => $label)
-                                    <option value="{{ $key }}">{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="rec-field full"><label class="rec-label">Nội dung phản hồi / ghi chú</label><textarea class="rec-textarea" name="response_note"></textarea></div>
-                    </div>
-                    <div class="rec-form-foot"><button class="rec-btn" type="submit">+ Tạo thư mời</button></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="rec-card">
-            <div class="rec-card-head"><h3 class="rec-card-title">Danh sách thư mời nhận việc</h3></div>
-            <div class="rec-card-body">
-                @if($offers->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table sm">
-                            <thead><tr><th>Ứng viên</th><th>Ngày gửi</th><th>Lương</th><th>Ngày nhận việc</th><th>Trạng thái</th><th>Phản hồi / ghi chú</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($offers as $row)
-                                    <tr>
-                                        <td>
-                                            <form id="off{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.offers.update', $row->id) }}">@csrf @method('PUT')
-                                                <select class="rec-select" name="candidate_id" required>
-                                                    @foreach($candidates as $can)
-                                                        <option value="{{ $can->id }}" @selected((int)$row->candidate_id === (int)$can->id)>{{ $can->full_name }} - {{ $can->position }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </form>
-                                        </td>
-                                        <td><input form="off{{ $row->id }}" class="rec-input" type="date" name="offer_date" value="{{ $row->offer_date }}"></td>
-                                        <td><input form="off{{ $row->id }}" class="rec-input" name="salary_offer" value="{{ $row->salary_offer }}"></td>
-                                        <td><input form="off{{ $row->id }}" class="rec-input" type="date" name="start_date" value="{{ $row->start_date }}"></td>
-                                        <td>
-                                            <select form="off{{ $row->id }}" class="rec-select" name="status">
-                                                @foreach($offerStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->status ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <textarea form="off{{ $row->id }}" class="rec-textarea" name="response_note" placeholder="Phản hồi của ứng viên">{{ $row->response_note ?? '' }}</textarea>
-                                            <textarea form="off{{ $row->id }}" class="rec-textarea" name="note" placeholder="Ghi chú nội bộ" style="margin-top:6px">{{ $row->note }}</textarea>
-                                        </td>
-                                        <td>
-                                            <div class="rec-actions">
-                                                <button form="off{{ $row->id }}" class="rec-btn" type="submit">Lưu</button>
-                                                <form method="POST" action="{{ route('hr.recruitment.offers.destroy', $row->id) }}" onsubmit="return confirm('Xoá thư mời này?')">@csrf @method('DELETE')<button class="rec-btn-danger">Xoá</button></form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có thư mời nhận việc.</div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    @if($active === 'onboarding')
-        @php
-            $onboardingOffers = $offers->filter(function($offer){
-                return in_array($offer->status ?? '', ['accepted', 'onboarded'], true) || !empty($offer->onboarding_status);
-            });
-        @endphp
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B6. Tiếp nhận nhân sự mới</h3>
-                    <div class="rec-card-note">Theo dõi nhân sự đã đồng ý offer, ngày nhận việc, tình trạng bổ sung hồ sơ và ký nhận việc.</div>
-                </div>
-            </div>
-            <div class="rec-card-body">
-                @if($onboardingOffers->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table sm">
-                            <thead><tr><th>Nhân sự</th><th>Ngày nhận việc</th><th>Lương offer</th><th>Tình trạng tiếp nhận</th><th>Ngày tiếp nhận</th><th>Ghi chú</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($onboardingOffers as $row)
-                                    <tr>
-                                        <td>
-                                            <form id="onb{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.offers.update', $row->id) }}">@csrf @method('PUT')
-                                                <select class="rec-select" name="candidate_id" required>
-                                                    @foreach($candidates as $can)
-                                                        <option value="{{ $can->id }}" @selected((int)$row->candidate_id === (int)$can->id)>{{ $can->full_name }} - {{ $can->position }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </form>
-                                        </td>
-                                        <td><input form="onb{{ $row->id }}" class="rec-input" type="date" name="start_date" value="{{ $row->start_date }}"></td>
-                                        <td><input form="onb{{ $row->id }}" class="rec-input" name="salary_offer" value="{{ $row->salary_offer }}"></td>
-                                        <td>
-                                            <input form="onb{{ $row->id }}" type="hidden" name="status" value="onboarded">
-                                            <select form="onb{{ $row->id }}" class="rec-select" name="onboarding_status">
-                                                @foreach($onboardingStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->onboarding_status ?? 'pending') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td><input form="onb{{ $row->id }}" class="rec-input" type="date" name="onboarding_date" value="{{ $row->onboarding_date ?? '' }}"></td>
-                                        <td>
-                                            <textarea form="onb{{ $row->id }}" class="rec-textarea" name="note" placeholder="Hồ sơ cần bổ sung / ghi chú ngày đầu nhận việc">{{ $row->note }}</textarea>
-                                            <input form="onb{{ $row->id }}" type="hidden" name="offer_date" value="{{ $row->offer_date }}">
-                                            <input form="onb{{ $row->id }}" type="hidden" name="response_note" value="{{ $row->response_note ?? '' }}">
-                                        </td>
-                                        <td><button form="onb{{ $row->id }}" class="rec-btn" type="submit">Lưu tiếp nhận</button></td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có ứng viên đồng ý offer để tiếp nhận.</div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    @if($active === 'archives')
-        @php
-            $archiveCandidates = $candidates->filter(function($candidate){
-                return in_array($candidate->status ?? '', ['archived', 'rejected', 'not_fit', 'interview_failed'], true);
-            });
-        @endphp
-        <div class="rec-card">
-            <div class="rec-card-head">
-                <div>
-                    <h3 class="rec-card-title">B7. Lưu hồ sơ & báo cáo</h3>
-                    <div class="rec-card-note">Chuyển các hồ sơ chưa đạt / chưa phù hợp / từ chối sang kho lưu để có thể dùng lại sau hoặc thống kê nguyên nhân.</div>
-                </div>
-                <a class="rec-btn-outline" href="{{ route('hr.recruitment.reports') }}">Xem báo cáo tổng</a>
-            </div>
-            <div class="rec-card-body">
-                @if($archiveCandidates->count())
-                    <div class="rec-table-wrap">
-                        <table class="rec-table sm">
-                            <thead><tr><th>Ứng viên</th><th>Vị trí</th><th>Nguồn</th><th>Trạng thái</th><th>Lý do / ghi chú lưu</th><th>Lưu đến ngày</th><th>Thao tác</th></tr></thead>
-                            <tbody>
-                                @foreach($archiveCandidates as $row)
-                                    <tr>
-                                        <td><form id="arc{{ $row->id }}" method="POST" action="{{ route('hr.recruitment.candidates.update', $row->id) }}">@csrf @method('PUT')<input class="rec-input" name="full_name" value="{{ $row->full_name }}" required></form></td>
-                                        <td><input form="arc{{ $row->id }}" class="rec-input" name="position" value="{{ $row->position }}"></td>
-                                        <td>
-                                            <select form="arc{{ $row->id }}" class="rec-select" name="source">
-                                                <option value="">--</option>
-                                                @foreach($sources as $source)
-                                                    <option value="{{ $source }}" @selected(($row->source ?? '') === $source)>{{ $source }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <select form="arc{{ $row->id }}" class="rec-select" name="status">
-                                                @foreach($candidateStatuses as $key => $label)
-                                                    <option value="{{ $key }}" @selected(($row->status ?? '') === $key)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <textarea form="arc{{ $row->id }}" class="rec-textarea" name="reject_reason" placeholder="Lý do từ chối / chưa đạt">{{ $row->reject_reason ?? '' }}</textarea>
-                                            <textarea form="arc{{ $row->id }}" class="rec-textarea" name="archive_note" placeholder="Ghi chú lưu hồ sơ" style="margin-top:6px">{{ $row->archive_note ?? '' }}</textarea>
-                                            <input form="arc{{ $row->id }}" type="hidden" name="phone" value="{{ $row->phone }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="email" value="{{ $row->email }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="zalo" value="{{ $row->zalo ?? '' }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="cv_link" value="{{ $row->cv_link ?? '' }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="contact_channel" value="{{ $row->contact_channel ?? '' }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="contacted_at" value="{{ $row->contacted_at ?? '' }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="suitability" value="{{ $row->suitability ?? '' }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="note" value="{{ $row->note }}">
-                                            <input form="arc{{ $row->id }}" type="hidden" name="recruitment_request_id" value="{{ $row->recruitment_request_id }}">
-                                        </td>
-                                        <td><input form="arc{{ $row->id }}" class="rec-input" type="date" name="archive_until" value="{{ $row->archive_until ?? '' }}"></td>
-                                        <td><button form="arc{{ $row->id }}" class="rec-btn" type="submit">Lưu hồ sơ</button></td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="rec-empty">Chưa có hồ sơ lưu trữ / từ chối.</div>
-                @endif
-            </div>
-        </div>
+    @if(in_array($active, ['screening','interviews','evaluations','offers','onboarding','archives'], true))
+        @include('hr.recruitment.partials.workflow-workspace')
     @endif
 </div>
 @endsection

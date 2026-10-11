@@ -125,9 +125,11 @@ final class WarrantyExchangeWorkflowTest extends TestCase
     public function test_other_lead_approval_records_exception_approver_and_moves_to_warehouse(): void
     {
         $c = $this->createExchange($this->lead, $this->expiredSerial(), ['warranty_exception' => '1', 'exception_reason' => 'Ngoại lệ có lý do rõ ràng']);
-        $this->svc()->approve($c->id, $this->lead2, 'OK');
+        // Phiếu do Trưởng phòng tạo chưa có người phụ trách → bắt buộc chọn khi duyệt.
+        $this->svc()->approve($c->id, $this->lead2, 'OK', null, (int) $this->tech->id);
         $x = $this->claim($c->id);
         $this->assertSame('waiting_stock', $x->status);
+        $this->assertSame((int) $this->tech->id, (int) $x->assigned_to);
         $this->assertSame((int) $this->lead2->id, (int) $x->approved_by);
         $this->assertSame((int) $this->lead2->id, (int) $x->exception_approved_by);
         $this->assertNotNull($x->exception_approved_at);
@@ -143,7 +145,7 @@ final class WarrantyExchangeWorkflowTest extends TestCase
         } catch (WarrantyException $e) {
             $this->assertStringContainsString('lý do', $e->getMessage());
         }
-        $this->svc()->approve($c->id, $this->admin, null, 'Khẩn cấp: khách dừng nhà máy');
+        $this->svc()->approve($c->id, $this->admin, null, 'Khẩn cấp: khách dừng nhà máy', (int) $this->tech->id);
         $x = $this->claim($c->id);
         $this->assertSame('waiting_stock', $x->status);
         $this->assertSame('Khẩn cấp: khách dừng nhà máy', $x->override_reason);

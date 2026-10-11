@@ -1,0 +1,57 @@
+Tiếp tục triển khai KPI HCNS — HC01, HC02, HC03.
+
+Source: D:/Source Dev/crm.egosolar.com.vn/crm.egosolar.com.vn
+
+Đọc .claude/skills/ego-hcns-kpi-automation/SKILL.md và PROJECT, PLAN, SOURCE-MAP, STATUS mới nhất của dự án HCNS. Đối chiếu source/schema/route đang chạy, giữ các thay đổi hiện có. Không làm lại HC09, HC07, HC06; chỉ sửa phần liên quan nếu phát hiện lỗi.
+
+1. Kiểm tra hai điểm trước khi triển khai tiếp
+
+- Khi phiên bản đã duyệt chọn một tiêu chí tính từ nguồn, thiếu nguồn/xác nhận/quy tắc phải báo chưa đủ và chặn kết quả lương phụ thuộc; không âm thầm quay về điểm nhập tay. Chế độ nhập tay lịch sử hoặc ngoại lệ phải rõ ràng, có quyền, lý do và audit, không cộng hai lần. Phân biệt bản nháp xem trước với bản đã áp dụng.
+- Giải thích bằng từng hồ sơ: HC09 3/6 xử lý việc chờ xác nhận thế nào; kỳ 09 tại sao tổng là 84,03/97,78. Chỉ loại trọng số khi có quy tắc N/A hợp lệ và xác nhận. Phần thiếu không tự thành N/A hoặc biến mất khỏi mẫu số. Không tự đổi chính sách nếu chưa chốt; bổ sung hiển thị trạng thái và test guard.
+
+2. HC01 — Thời gian tuyển dụng
+
+- Nối yêu cầu tuyển đã duyệt → vị trí/số lượng cần tuyển → ứng viên → nhận việc thực tế → hồ sơ nhân viên bằng ID, theo đúng công ty.
+- Lưu người HCNS phụ trách, mốc tiếp nhận yêu cầu thật, ngày thực nhận việc và người/giờ xác nhận. Ngày dự kiến hoặc ngày tạo bản ghi không thay ngày thực tế.
+- Hoàn thiện luồng nhập/lưu nháp → gửi kiểm → xác nhận/trả bổ sung tại bảy bước tuyển dụng đang có.
+- Hiện từng lượt tuyển trong checklist, số ngày thực tế và link nguồn. Xử lý nhiều vị trí, tuyển nhiều người, không nhận việc, hủy yêu cầu và qua tháng bằng quy tắc rõ ràng.
+- Word ghi mục tiêu 23–25 ngày; không tự chọn 23 hoặc 25 làm chính sách chính thức. Cohort, mốc và quy đổi chưa chốt thì hiện số đo/xem trước có nhãn, chưa có điểm chính thức.
+
+3. HC02 — Chi phí tuyển dụng
+
+- Liên kết khoản chi thực được xác nhận với đợt/yêu cầu/vị trí tuyển và người phụ trách. Tận dụng module chi phí/chứng từ có sẵn, không tạo sổ chi thứ hai.
+- Lưu trạng thái đề nghị, duyệt, thực chi, hoàn tiền và chứng từ đúng quy trình hiện có. Không lấy khoản đề xuất làm thực chi, không cộng cả tạm ứng và quyết toán.
+- Có phân bổ chi phí chung cho nhiều vị trí, chống đếm trùng, lịch sử điều chỉnh và người xác nhận. Quy tắc chi phí hợp lệ/phân bổ chưa chốt chỉ đề xuất ở bản nháp.
+- Checklist hiện chi phí, vị trí tuyển thành công, tổng chi hợp lệ, mẫu số và chi phí bình quân; mở được chứng từ theo quyền. Không có vị trí tuyển thành công thì không tự ra 0 chi phí hoặc 100% đạt.
+- Word ghi 500.000–1.000.000đ/vị trí. Chưa chốt ngưỡng/quy đổi thì chưa chấm chính thức; không tự thay cách trả lương HCNS.
+
+4. HC03 — Nghỉ trong thử việc
+
+- Nối người nhận việc với nhân viên, ngày bắt đầu/kết thúc thử việc, ngày nghỉ thực, lý do và người xác nhận.
+- Phân biệt đang thử việc, đạt thử việc, nghỉ trong thử việc, chưa xác định. Không dùng cờ inactive hoặc ngày không chấm công để suy là nghỉ.
+- Checklist theo người có link hồ sơ; hiện số nghỉ trong thử việc/tổng cohort và tỷ lệ thực tế. Word quy định không quá 10%; cohort/kỳ chưa chốt thì hiện rõ, không tự loại người đang thử việc để nâng điểm.
+- Người nhập không tự xác nhận phần KPI của mình. Không mở rộng quyền hoặc tự cấp role mới.
+
+5. Giao diện và bộ tính
+
+- Bổ sung ngay các trang tuyển dụng/hồ sơ/chi phí đang có; không thêm menu hoặc trang nhập % thay nghiệp vụ.
+- Đồng bộ giao diện kỹ thuật. Mỗi form có ghi chú ai nhập, ai kiểm, thao tác tiếp theo và khi nào được tính KPI.
+- Tái sử dụng upload/preview tuyển dụng riêng tư; các chứng từ khác phải kiểm quyền theo module. Không dùng file:/// hoặc viewer bên ngoài.
+- Tích hợp HC01–HC03 vào cùng evaluator/checklist hiện tại. Hiện đủ số đo, điểm xem trước, điểm chính thức và lý do thiếu; không viết công thức riêng cho checklist hoặc payroll.
+- Bảo toàn phiên bản theo kỳ và snapshot đã chốt. Sửa hồ sơ/tệp/người/mốc làm ảnh hưởng kết quả phải được xử lý theo cơ chế khóa/version, bao phủ request trực tiếp. Không khóa toàn bộ hoạt động tuyển dụng tương lai chỉ vì một kỳ cũ đã chốt.
+- HC06 vẫn chờ H-D04; không tự duyệt cách gộp, SLA, thời gian chờ hoặc lịch làm việc.
+
+6. Kiểm thử và demo
+
+- Chỉ dùng egosolar_test với server/cache/session/storage riêng. crm_egosolar_test trên cổng 8001 là DB vận hành local, không dùng chạy fixture.
+- Dọn demo hiện có đúng phạm vi trước hồi quy, dựng lại sau nếu cần. Không xóa dữ liệu không thuộc fixture.
+- Test thiếu dữ liệu, chưa xác nhận, trả bổ sung/gửi lại, đúng biên ngày, nhiều vị trí/người, qua tháng, hủy, chi phí trùng/phân bổ/hoàn tiền, cohort 0, quyền/khác công ty và sửa sau chốt.
+- Đối chiếu tính tay cả ba tiêu chí, gồm ví dụ số đo đạt/không đạt/thiếu; cấu hình TEST không phải chính sách thật.
+- Thử UI người nhập/người kiểm/người không có quyền trên desktop và 390px; mở link nguồn, upload/preview và quay lại đúng người/kỳ.
+- Chạy test HCNS, tuyển dụng/tệp và hồi quy phần dùng chung bị ảnh hưởng. Lỗi cũ phải có baseline đối chứng, không gán cho phiên khác khi chưa có bằng chứng.
+
+Không commit, deploy, gửi thông báo, phê duyệt dữ liệu hoặc áp migration lên DB vận hành local. Giữ kỳ lương Excel 08/2026, dữ liệu/cấu hình kỹ thuật mẫu và các kỳ đã chốt. Không thêm làm tròn tiền theo nghìn.
+
+Thực hiện phần source/test được phép; thiếu quyết định chỉ chặn phần phụ thuộc, không dừng ở audit. Đề xuất lựa chọn cụ thể trong bản nháp để người dùng dễ chốt, không coi im lặng là phê duyệt.
+
+Cập nhật PLAN, PROJECT, SOURCE-MAP, STATUS bằng bằng chứng. Bàn giao phần đã làm/chưa làm, tính tay, test/UI, link demo và thao tác từng vai trò, migration chưa áp local, quyết định còn mở. Không ghi mật khẩu hoặc dữ liệu thật vào tài liệu có thể commit; không gọi HCNS hoàn tất khi còn tiêu chí thủ công/quy tắc chưa chốt.

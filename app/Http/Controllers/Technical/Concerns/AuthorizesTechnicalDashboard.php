@@ -8,11 +8,13 @@ use App\Models\User;
 use Illuminate\Http\Request;
 
 /**
- * QUYỀN VÀO KHU "DASHBOARD KỸ THUẬT" (Admin / Giám đốc — chỉ xem).
+ * QUYỀN VÀO KHU "DASHBOARD KỸ THUẬT" (Admin / Giám đốc / Trưởng phòng / nhân sự kỹ thuật — chỉ xem).
  *
  * Dùng chung cho cả BỐN trang: Tổng quan, Kế hoạch, Báo cáo tuần/tháng, KPIs.
- * Điều kiện GIỐNG HỆT Dashboard đã có từ trước, không nới lỏng:
+ * Điều kiện:
  *   - `User::isAdmin()`  (Admin = Giám đốc, gom từ đợt P0), HOẶC
+ *   - role trưởng phòng (`ego_menu_v4.technical_head_roles`) hoặc nhân sự kỹ thuật
+ *     (`technical.staff_roles`) — mở thêm cho họ XEM; các trang vẫn CHỈ ĐỌC, HOẶC
  *   - permission `technical.dashboard.view`.
  *
  * Người không đủ điều kiện nhận **403**, KHÔNG chuyển hướng về trang khác:
@@ -27,7 +29,12 @@ trait AuthorizesTechnicalDashboard
 
         abort_unless($user !== null, 403);
 
-        if ($user->isAdmin()) {
+        $viewerRoles = array_merge(
+            (array) config('ego_menu_v4.technical_head_roles', []),
+            (array) config('technical.staff_roles', []),
+        );
+
+        if ($user->isAdmin() || $user->hasAnyRole($viewerRoles)) {
             return $user;
         }
 
@@ -42,7 +49,7 @@ trait AuthorizesTechnicalDashboard
         abort_unless(
             $allowed,
             403,
-            'Khu Dashboard kết quả Kỹ thuật dành cho Ban giám đốc. Trưởng phòng vui lòng dùng "Tổng quan phòng".',
+            'Khu Dashboard kết quả Kỹ thuật chỉ dành cho Ban giám đốc và bộ phận Kỹ thuật.',
         );
 
         return $user;

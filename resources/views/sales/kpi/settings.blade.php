@@ -21,6 +21,7 @@
 @endphp
 
 <div class="container-fluid px-3 px-lg-4 py-3 sales-kpi-settings-v2">
+    @include('hr.payroll._departments')
     @if(session('success'))
         <div class="mini-alert mini-alert--success mb-3">
             <i class="bi bi-check-circle"></i>

@@ -460,7 +460,7 @@
                             </div>
                             <form method="POST" action="{{ route('project-test.update-basic', $project) }}" class="pt-form-grid" data-confirm="Lưu thay đổi yêu cầu Kỹ thuật?">
                                 @csrf
-                                <div><label class="pt-label">Công ty</label><select class="pt-select" name="company_id"><option value="">-- Không chọn --</option>@foreach($companies as $company)<option value="{{ $company->id }}" @selected($project->company_id==$company->id)>{{ $company->name }}</option>@endforeach</select></div>
+
                                 <div><label class="pt-label">Khách hàng CRM</label><select class="pt-select" name="customer_id"><option value="">-- Không liên kết --</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" @selected($project->customer_id==$customer->id)>{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>@endforeach</select></div>
                                 <div><label class="pt-label">Nguồn yêu cầu</label><select class="pt-select" name="request_source" required>@foreach($requestSources as $value=>$label)<option value="{{ $value }}" @selected($project->request_source===$value)>{{ $label }}</option>@endforeach</select></div>
                                 <div><label class="pt-label">Loại nghiệp vụ</label><select class="pt-select" name="project_type" required>@foreach($projectTypes as $value=>$label)<option value="{{ $value }}" @selected($project->project_type===$value)>{{ $label }}</option>@endforeach</select></div>

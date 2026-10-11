@@ -45,6 +45,8 @@ trait ValidatesPlanItems
         if ($withSource) {
             $rules[$prefix.'source_type'] = ['required', 'string', 'in:'.implode(',', array_keys(TechnicalPlanItem::SOURCE_LABELS))];
             $rules[$prefix.'source_id'] = ['nullable', 'integer', 'min:1'];
+            // Đầu việc tự nhập (drawer Giao việc): dùng khi không chọn công việc nguồn có sẵn.
+            $rules[$prefix.'source_text'] = ['nullable', 'string', 'max:255'];
         }
 
         return $rules;

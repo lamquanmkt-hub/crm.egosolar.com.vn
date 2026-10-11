@@ -144,7 +144,25 @@ class HcOperationController extends Controller
             'cancelled' => 'Huỷ / Từ chối',
         ];
 
+        // KPI HC06 — đợt kiểm kê tài sản (chỉ khi đã có bảng).
+        $inventoryReady = \App\Services\Hr\Kpi\AssetInventories::ready();
+        $inventories = $inventoryReady && $tab === 'assets'
+            ? DB::table('hr_asset_inventories as i')
+                ->leftJoin('hr_kpi_source_reviews as v', fn ($j) => $j->on('v.source_id', '=', 'i.id')
+                    ->where('v.source_type', \App\Services\Hr\Kpi\AssetInventories::SOURCE_TYPE)->where('v.criterion_code', 'assets'))
+                ->leftJoin('users as h', 'h.id', '=', 'i.handler_id')
+                ->leftJoin('users as r', 'r.id', '=', 'i.reviewer_id')
+                ->select('i.*', 'v.status as review_status', 'h.name as handler_name', 'r.name as reviewer_name')
+                ->selectSub(fn ($q) => $q->from('hr_asset_inventory_items')->selectRaw('COUNT(*)')->whereColumn('inventory_id', 'i.id'), 'items_total')
+                ->selectSub(fn ($q) => $q->from('hr_asset_inventory_items')->selectRaw('COUNT(*)')->whereColumn('inventory_id', 'i.id')->whereNotNull('result'), 'items_checked')
+                ->orderByDesc('i.period_month')->orderByDesc('i.id')->limit(24)->get()
+            : collect();
+        $inventoryUsers = $inventoryReady && $tab === 'assets' ? DB::table('users')->select('id', 'name')->orderBy('name')->get() : collect();
+
         return view('hr.operations.index', compact(
+            'inventoryReady',
+            'inventories',
+            'inventoryUsers',
             'tab',
             'expenses',
             'assets',

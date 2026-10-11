@@ -25,6 +25,48 @@ class OrderReturnFinancialService
     private const CLOSED_RETURN_STATUSES = ['rejected', 'cancelled'];
 
     /**
+     * Biểu thức SQL: tổng tín dụng hàng hoàn của một đơn (cùng công thức `creditForReturn()`).
+     *
+     * Chỉ tính phiếu return/recall đã nhập kho (inventory_status = posted), chưa bị từ chối/hủy.
+     * Mỗi phiếu = Σ(đơn giá dòng ÷ SL yêu cầu × SL kho chấp nhận) − phí xử lý − phí vận chuyển.
+     * Dùng trong mọi chỗ cần "công nợ thực" = tổng đơn − tín dụng hàng hoàn − đã thu.
+     *
+     * @param  string  $orderIdColumn  Cột id đơn của truy vấn bên ngoài (vd `crm_orders.id`, `o.id`).
+     */
+    public static function returnCreditSql(string $orderIdColumn = 'crm_orders.id'): string
+    {
+        $closed = "'".implode("','", self::CLOSED_RETURN_STATUSES)."'";
+
+        return "(SELECT COALESCE(SUM(GREATEST(0, COALESCE("
+            .'(SELECT SUM(ri.return_amount / GREATEST(ri.requested_quantity, 1) * GREATEST(ri.accepted_quantity, ri.stock_posted_quantity, 0))'
+            .' FROM order_return_items ri WHERE ri.order_return_id = r.id), r.total_return_amount)'
+            .' - r.restocking_fee - r.shipping_fee)), 0)'
+            ." FROM order_returns r WHERE r.order_id = {$orderIdColumn} AND r.deleted_at IS NULL"
+            ." AND r.inventory_status = 'posted' AND r.type IN ('return','recall') AND r.status NOT IN ({$closed}))";
+    }
+
+    /**
+     * Tín dụng hàng hoàn theo từng đơn, một truy vấn cho cả danh sách.
+     *
+     * @param  array<int, int|string>  $orderIds
+     * @return array<int, float>  [order_id => tín dụng]
+     */
+    public static function returnCreditsForOrders(array $orderIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $orderIds))));
+        if ($ids === [] || ! Schema::hasTable('order_returns')) {
+            return [];
+        }
+
+        return DB::table('crm_orders as o')
+            ->whereIn('o.id', $ids)
+            ->selectRaw('o.id, '.self::returnCreditSql('o.id').' as credit')
+            ->pluck('credit', 'id')
+            ->map(fn ($v) => round(max(0, (float) $v), 2))
+            ->all();
+    }
+
+    /**
      * Chốt phương án tài chính ngay sau khi kho đã nhập hoàn.
      *
      * Công thức cốt lõi:

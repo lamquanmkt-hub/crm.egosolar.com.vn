@@ -469,9 +469,38 @@ final class TechnicalWorkspaceController extends Controller
         return $this->projectStage('installation-schedule');
     }
 
-    public function assignments(): RedirectResponse
+    public function assignments(Request $request): View
     {
-        return $this->projectStage('assignments');
+        $user = $request->user();
+        $isManager = $this->isManager($user);
+
+        abort_if(! $isManager, 403, 'Truy cập bị từ chối. Bạn không có quyền phân công nhân sự.');
+
+        $projects = $this->visibleProjectQuery($user)
+            ->whereIn('status', self::PROJECT_STAGE_STATUSES['assignments'])
+            ->latest('updated_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        $teamIds = $this->technicalTeamIds($user);
+        $teamMembers = User::query()
+            ->whereIn('id', $teamIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'department_id']);
+
+        return view('technical.workspace.assignments', compact('projects', 'isManager', 'teamMembers'));
+    }
+
+    public function storeAssignment(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        abort_if(! $this->isManager($user), 403, 'Truy cập bị từ chối. Bạn không có quyền phân công nhân sự.');
+
+        // TODO: Validate project_id and assigned_to
+        // Ensure both belong to the same company_id and assigned_to is in technicalTeamIds
+        
+        // Return back with a message (NOT ENABLED for writing yet)
+        return back()->with('error', 'Chế độ Read-Only: Chưa được phép ghi dữ liệu thật.');
     }
 
     public function teamTasks(Request $request): RedirectResponse

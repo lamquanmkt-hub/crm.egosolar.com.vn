@@ -30,10 +30,20 @@ class Task extends Model
         'issue_note',
         'result_attachment_path',
         'completed_at',
+        // Thủ tục hành chính HCNS (KPI HC09); bị lọc bỏ khi DB chưa có cột. Không thêm company_id: hook toàn hệ thống
+        // sẽ tự gán công ty cho mọi việc mới và cấm đổi company_id khi sửa — giữ nguyên hành vi module Công việc.
+        'hcns_procedure_type',
+        'original_due_at',
     ];
 
     protected $casts = [
         'due_at' => 'datetime',
+        'original_due_at' => 'datetime',
+        'draft_saved_at' => 'datetime',
+        'first_submitted_at' => 'datetime',
+        'last_submitted_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'cancelled_at' => 'datetime',
         'completed_at' => 'datetime',
         'actual_minutes' => 'integer',
         'progress_percent' => 'integer',

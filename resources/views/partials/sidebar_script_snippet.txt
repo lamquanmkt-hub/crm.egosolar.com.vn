@@ -1,0 +1,302 @@
+{{-- Flyout container (desktop collapsed) --}}
+<div id="egoFlyout" class="ego-flyout" aria-hidden="true"></div>
+
+<script>
+(function () {
+  const sidebar   = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('toggleSidebar');
+  const overlay   = document.getElementById('sidebarOverlay');
+  const flyout    = document.getElementById('egoFlyout');
+
+  const KEY = 'ego_sidebar_collapsed';
+  const MOBILE_MAX = 991;
+
+  function isMobile() { return window.innerWidth <= MOBILE_MAX; }
+  function isCollapsed() { return sidebar?.classList.contains('ego-collapsed'); }
+
+  // ===== Toggle icon (arrow in/out) =====
+  function setToggleIcon() {
+    if (!toggleBtn) return;
+    const icon = toggleBtn.querySelector('i');
+    if (!icon) return;
+
+    // Mobile: show "arrow-left" when opened (to close), else "arrow-right" to open
+    if (isMobile()) {
+      const opened = sidebar?.classList.contains('show');
+      icon.className = opened ? 'bi bi-arrow-left' : 'bi bi-arrow-right';
+      return;
+    }
+
+    // Desktop: collapsed => show arrow-right (expand), expanded => arrow-left (collapse)
+    icon.className = isCollapsed() ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+  }
+
+  // ===== MOBILE OFFCANVAS =====
+  function openMobile() {
+    if (!sidebar) return;
+    sidebar.classList.add('show');
+    overlay?.classList.add('show');
+    document.body.classList.add('ego-noscroll');
+    setToggleIcon();
+  }
+  function closeMobile() {
+    sidebar?.classList.remove('show');
+    overlay?.classList.remove('show');
+    document.body.classList.remove('ego-noscroll');
+    setToggleIcon();
+  }
+
+  // EXPOSE for topbar button
+  window.EgoSidebar = {
+    open: openMobile,
+    close: closeMobile,
+    toggle: () => (sidebar?.classList.contains('show') ? closeMobile() : openMobile())
+  };
+
+  // ===== DESKTOP COLLAPSE =====
+  function setCollapsed(v) {
+    if (!sidebar) return;
+    sidebar.classList.toggle('ego-collapsed', !!v);
+    document.body.classList.toggle('ego-sidebar-collapsed', !!v);
+    localStorage.setItem(KEY, v ? '1' : '0');
+    hideFlyout();
+    setToggleIcon();
+  }
+
+  function initState() {
+    if (!sidebar) return;
+
+    if (isMobile()) {
+      sidebar.classList.remove('ego-collapsed');
+      hideFlyout();
+      closeMobile();
+    } else {
+      const saved = localStorage.getItem(KEY) === '1';
+      setCollapsed(saved);
+      closeMobile();
+    }
+    setToggleIcon();
+  }
+
+  // ===== FLYOUT (desktop collapsed) =====
+  function hideFlyout() {
+    if (!flyout) return;
+    flyout.classList.remove('show');
+    flyout.innerHTML = '';
+    flyout.setAttribute('aria-hidden', 'true');
+  }
+
+  function showFlyoutForItem(itemEl) {
+    if (!flyout || !itemEl) return;
+    if (isMobile() || !isCollapsed()) return;
+
+    const submenu = itemEl.querySelector('[data-ego-submenu]');
+    if (!submenu) { hideFlyout(); return; }
+
+    const clone = submenu.cloneNode(true);
+    clone.classList.remove('collapse', 'show');
+    clone.classList.add('ego-flyout__menu');
+
+    const title = itemEl.getAttribute('data-title') || '';
+    flyout.innerHTML = `
+      <div class="ego-flyout__panel" role="menu">
+        <div class="ego-flyout__title">${title}</div>
+      </div>
+    `;
+    flyout.querySelector('.ego-flyout__panel')?.appendChild(clone);
+
+    const r = itemEl.getBoundingClientRect();
+    flyout.style.top  = Math.max(12, r.top) + 'px';
+    flyout.style.left = (r.right + 10) + 'px';
+
+    flyout.classList.add('show');
+    flyout.setAttribute('aria-hidden', 'false');
+  }
+
+  flyout?.addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) {
+      e.preventDefault();
+      return;
+    }
+    hideFlyout();
+  });
+
+  // ===== Toggle button behavior =====
+  toggleBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (isMobile()) {
+      sidebar?.classList.contains('show') ? closeMobile() : openMobile();
+    } else {
+      setCollapsed(!isCollapsed());
+    }
+  });
+
+  overlay?.addEventListener('click', closeMobile);
+
+  // ===== Click handling =====
+  sidebar?.addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (!a) return;
+
+    const type = a.getAttribute('data-ego-type') || '';
+    const isToggle = type === 'toggle' || a.getAttribute('data-bs-toggle') === 'collapse';
+    const href = a.getAttribute('href') || '';
+    const isHash = href.startsWith('#');
+
+    if (isMobile()) {
+      if (isToggle || isHash) return;        // mở submenu -> không đóng
+      if (type === 'action') return;         // action/modal -> không đóng
+      closeMobile();                          // link thật -> đóng
+    } else {
+      if (isCollapsed() && (isToggle || isHash)) {
+        e.preventDefault();
+        const item = a.closest('.ego-item');
+        showFlyoutForItem(item);
+      }
+    }
+  });
+
+  // ===== Hover flyout (desktop collapsed) =====
+  sidebar?.addEventListener('pointerenter', (e) => {
+    const item = e.target.closest('.ego-item');
+    if (!item) return;
+    if (!isCollapsed() || isMobile()) return;
+    if (item.hasAttribute('data-ego-sub')) showFlyoutForItem(item);
+    else hideFlyout();
+  }, true);
+
+  let flyoutHideTimer = null;
+  sidebar?.addEventListener('pointerleave', () => {
+    if (!isCollapsed() || isMobile()) return;
+    clearTimeout(flyoutHideTimer);
+    flyoutHideTimer = setTimeout(() => hideFlyout(), 120);
+  });
+
+  flyout?.addEventListener('pointerenter', () => clearTimeout(flyoutHideTimer));
+  flyout?.addEventListener('pointerleave', () => {
+    if (!isCollapsed() || isMobile()) return;
+    clearTimeout(flyoutHideTimer);
+    flyoutHideTimer = setTimeout(() => hideFlyout(), 120);
+  });
+
+  // ===== Resize =====
+  window.addEventListener('resize', initState);
+
+  // ===== Init =====
+  initState();
+
+  // ===== Mini status clock =====
+  const egoClockEl = document.querySelector('[data-ego-clock]');
+  function updateEgoSidebarClock() {
+    if (!egoClockEl) return;
+    const d = new Date();
+    egoClockEl.textContent = d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+  updateEgoSidebarClock();
+  window.setInterval(updateEgoSidebarClock, 30000);
+
+  // ===== FORCE LIVE STATUS FIX =====
+  function egoSetStatusByLabel(labelText, value) {
+    document.querySelectorAll('.ego-status-row').forEach(function (row) {
+      const label = row.querySelector('.ego-status-row__label');
+      const number = row.querySelector('strong');
+
+      if (!label || !number) return;
+
+      const text = (label.textContent || '').toLowerCase();
+      if (text.includes(labelText.toLowerCase())) {
+        number.textContent = value;
+      }
+    });
+  }
+
+  async function egoForceRefreshStatus() {
+    let online = 1;
+    let working = null;
+    let employees = null;
+    let updatedAt = null;
+
+    try {
+      const response = await fetch('/sidebar/status?t=' + Date.now(), {
+        cache: 'no-store',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        online = Math.max(parseInt(data.online || 0, 10), 1);
+        working = parseInt(data.working || 0, 10);
+        employees = parseInt(data.employees || 0, 10);
+        updatedAt = data.updated_at || null;
+      }
+    } catch (error) {
+      online = 1;
+    }
+
+    egoSetStatusByLabel('Đang online', online);
+
+    if (working !== null) {
+      egoSetStatusByLabel('Đang làm việc', working);
+    }
+
+    if (employees !== null) {
+      egoSetStatusByLabel('Nhân viên', employees);
+      egoSetStatusByLabel('Nhân sự', employees);
+    }
+
+    document.querySelectorAll('[data-ego-status="online"]').forEach(function (el) {
+      el.textContent = online;
+    });
+
+    document.querySelectorAll('[data-ego-status="working"]').forEach(function (el) {
+      if (working !== null) el.textContent = working;
+    });
+
+    document.querySelectorAll('[data-ego-status="employees"]').forEach(function (el) {
+      if (employees !== null) el.textContent = employees;
+    });
+
+    if (updatedAt) {
+      document.querySelectorAll('[data-ego-status="updated_at"], [data-ego-clock]').forEach(function (el) {
+        el.textContent = updatedAt;
+      });
+    }
+  }
+
+  window.setTimeout(egoForceRefreshStatus, 120000);
+  window.setInterval(function () {
+    if (document.visibilityState === 'visible') {
+      egoForceRefreshStatus();
+    }
+  }, 120000);
+  // ===== Customer modal AJAX =====
+  window.openCustomerForm = async function (url = "{{ route('customers.popup-form') }}") {
+    const modalElement = document.getElementById("customerModal");
+    const modalContent = document.getElementById("customerModalContent");
+
+    modalContent.innerHTML = `<div class="p-4 text-center">Đang tải...</div>`;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    modal.show();
+
+    try {
+      const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      if (!response.ok) throw new Error("Lỗi tải dữ liệu");
+      modalContent.innerHTML = await response.text();
+    } catch (err) {
+      modalContent.innerHTML = `<div class="p-4 text-danger text-center">Không thể tải dữ liệu!</div>`;
+      console.error(err);
+    }
+  }
+})();
+</script>
+

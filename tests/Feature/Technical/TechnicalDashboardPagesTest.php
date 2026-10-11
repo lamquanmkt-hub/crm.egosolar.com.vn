@@ -265,7 +265,7 @@ class TechnicalDashboardPagesTest extends TestCase
         $second->assertOk();
         $this->assertFalse($second->isRedirect());
 
-        foreach ([$this->technician(), $this->technicalManager(), $this->outsider()] as $user) {
+        foreach ([$this->outsider()] as $user) {
             $response = $this->actingAs($user)->get(route('technical.dashboard.reports'));
             $response->assertForbidden();
             $this->assertFalse($response->isRedirect());
@@ -351,7 +351,7 @@ class TechnicalDashboardPagesTest extends TestCase
             ->get(route('technical.dashboard.kpis.detail', ['member' => $this->technician()->id]))
             ->assertRedirect(route('ky-thuat.kpis.index'));
 
-        foreach ([$this->technician(), $this->technicalManager(), $this->outsider()] as $user) {
+        foreach ([$this->outsider()] as $user) {
             $response = $this->actingAs($user)->get(route('technical.dashboard.kpis'));
             $response->assertForbidden();
             $this->assertFalse($response->isRedirect());
@@ -404,33 +404,29 @@ class TechnicalDashboardPagesTest extends TestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_technician_receives_403_on_every_admin_route(): void
+    /** Nhân viên kỹ thuật được XEM khu Dashboard (chỉ đọc), giống Trưởng phòng. */
+    public function test_technician_can_open_the_dashboard_pages(): void
     {
         $tech = $this->technician();
 
-        foreach (self::ADMIN_ONLY_ROUTES as $routeName) {
-            $response = $this->actingAs($tech)->get(route($routeName));
-            $response->assertForbidden();
-            $this->assertFalse($response->isRedirect(), $routeName.' phải trả 403, không được chuyển hướng.');
-        }
-
-        $this->actingAs($tech)->get(route('technical.dashboard.plans.detail', ['member' => $tech->id]))->assertForbidden();
-        $this->actingAs($tech)->get(route('technical.dashboard.kpis.detail', ['member' => $tech->id]))->assertForbidden();
+        $this->actingAs($tech)->get(route('technical.dashboard'))->assertOk();
+        $this->actingAs($tech)->get(route('technical.dashboard.plans'))->assertOk();
+        $this->actingAs($tech)->get(route('technical.dashboard.plans.detail', ['member' => $tech->id]))->assertOk();
+        $this->actingAs($tech)->get(route('technical.dashboard.reports'))->assertRedirect();
+        $this->actingAs($tech)->get(route('technical.dashboard.kpis'))->assertRedirect(route('ky-thuat.kpis.index'));
     }
 
-    public function test_technical_manager_receives_403_on_every_admin_route(): void
+    /** Trưởng phòng được XEM khu Dashboard (chỉ đọc): Kế hoạch mở thẳng, Báo cáo/KPIs chuyển 302 một chiều. */
+    public function test_technical_manager_can_open_the_dashboard_pages(): void
     {
         $manager = $this->technicalManager();
         $tech = $this->technician();
 
-        foreach (self::ADMIN_ONLY_ROUTES as $routeName) {
-            $response = $this->actingAs($manager)->get(route($routeName));
-            $response->assertForbidden();
-            $this->assertFalse($response->isRedirect(), $routeName.' phải trả 403, không được chuyển hướng.');
-        }
-
-        $this->actingAs($manager)->get(route('technical.dashboard.plans.detail', ['member' => $tech->id]))->assertForbidden();
-        $this->actingAs($manager)->get(route('technical.dashboard.kpis.detail', ['member' => $tech->id]))->assertForbidden();
+        $this->actingAs($manager)->get(route('technical.dashboard'))->assertOk();
+        $this->actingAs($manager)->get(route('technical.dashboard.plans'))->assertOk();
+        $this->actingAs($manager)->get(route('technical.dashboard.plans.detail', ['member' => $tech->id]))->assertOk();
+        $this->actingAs($manager)->get(route('technical.dashboard.reports'))->assertRedirect();
+        $this->actingAs($manager)->get(route('technical.dashboard.kpis'))->assertRedirect(route('ky-thuat.kpis.index'));
     }
 
     public function test_outsider_receives_403_on_every_admin_route(): void

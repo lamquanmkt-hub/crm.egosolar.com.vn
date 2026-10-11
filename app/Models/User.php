@@ -55,6 +55,28 @@ class User extends Authenticatable
      * (Spatie role theo config `role_permissions.admin_roles`, cột `role`
      * legacy, cột `is_admin` legacy) để không tạo ra cơ chế phân quyền mới.
      */
+    /**
+     * Tài khoản đã bị khóa / xóa (ẩn): is_active = 0. Dữ liệu chấm công của họ vẫn được giữ để tính công.
+     */
+    public function getIsDepartedAttribute(): bool
+    {
+        return array_key_exists('is_active', $this->attributes) && ! $this->is_active;
+    }
+
+    /** Tên hiển thị trên bảng công: bỏ tiền tố "[Đã xóa]" do chức năng xóa nhân viên thêm vào. */
+    public function getAttendanceNameAttribute(): string
+    {
+        $name = trim((string) preg_replace('/^\[Đã xóa\]\s*/u', '', (string) ($this->name ?? '')));
+
+        return $name !== '' ? $name : 'Nhân viên #'.$this->id;
+    }
+
+    /** Tên cho Excel / PDF: thêm nhãn "(Đã nghỉ)" nếu tài khoản đã khóa. */
+    public function getAttendanceLabelAttribute(): string
+    {
+        return $this->attendance_name.($this->is_departed ? ' (Đã nghỉ)' : '');
+    }
+
     public function isAdmin(): bool
     {
         try {

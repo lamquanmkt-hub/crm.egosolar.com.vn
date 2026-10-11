@@ -14,6 +14,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureUnifiedProjectAccess::clas
         Route::get('/san-pham/tim-kiem', 'searchMaterialProducts')->name('materials.products.search');
         Route::post('/', 'store')->name('store');
         Route::get('/{site}', 'show')->whereNumber('site')->name('show');
+        // Hướng dẫn sử dụng Công trình → Nghiệm thu → KPI: cùng quyền xem công trình, chỉ đọc.
+        Route::get('/{site}/huong-dan', 'guide')->whereNumber('site')->name('guide');
         Route::post('/{site}/giai-doan', 'updatePhase')->whereNumber('site')->name('phase.update');
         Route::post('/{site}/giai-doan/gui-duyet', 'submitPhaseForApproval')->whereNumber('site')->name('phase.submit');
         Route::post('/{site}/giai-doan/duyet', 'approvePhase')->whereNumber('site')->name('phase.approve');
@@ -40,6 +42,11 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureUnifiedProjectAccess::clas
                 Route::post('/tra-lai', 'revise')->name('revise');
                 Route::post('/du-lieu', 'saveData')->name('data.save');
                 Route::post('/ngoai-le', 'requestException')->name('exception');
+                // Kết quả nghiệm thu tính KPI kỹ thuật (chỉ bước acceptance; bước khác trả 404 trong controller).
+                Route::post('/ket-qua-nghiem-thu', 'saveAcceptanceKpi')->name('kpi.save');
+                Route::post('/ket-qua-nghiem-thu/xac-nhan', 'confirmAcceptanceKpi')->name('kpi.confirm');
+                Route::post('/ket-qua-nghiem-thu/tra-bo-sung', 'returnAcceptanceKpi')->name('kpi.return');
+                Route::post('/kpi-vat-tu', 'saveMaterialKpi')->name('material-kpi.save');
             });
 
         Route::post('/{site}/vat-tu/de-xuat/{proposal}/admin-duyet', [ProjectWorkflowV2Controller::class, 'approveMaterialAdmin'])
@@ -105,6 +112,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureUnifiedProjectAccess::clas
                     ->whereNumber('schedule')->name('comments.store');
                 Route::delete('/{schedule}/binh-luan/{comment}', [\App\Http\Controllers\Technical\SolarMaintenanceCommentController::class, 'destroy'])
                     ->whereNumber('schedule')->whereNumber('comment')->name('comments.destroy');
+
+                // KPI kỹ thuật KS06: mốc khách báo, phản hồi lần đầu và xác nhận kiểm tra khiếu nại.
+                Route::post('/{schedule}/sla-bao-hanh', [\App\Http\Controllers\Technical\MaintenanceWarrantySlaController::class, 'store'])
+                    ->whereNumber('schedule')->name('warranty-sla.store');
 
                 Route::post('/{schedule}/gui-duyet', [\App\Http\Controllers\Synced\Technical\SolarMaintenanceApprovalController::class, 'submit'])
                     ->whereNumber('schedule')->name('approval.submit');

@@ -67,7 +67,7 @@
                 <div><dt>Serial lỗi</dt><dd><code>{{ $claim->serial_code }}</code></dd></div>
                 <div><dt>Bảo hành</dt><dd>{{ ['active'=>'Đang hiệu lực','replaced'=>'Đã được thay thế','expired'=>'Hết hạn'][$device->warranty_status ?? ''] ?? ($device->warranty_status ?? 'Chưa rõ') }}<br><small>{{ $device->warranty_start_at ?? '—' }} → {{ $device->warranty_end_at ?? '—' }}</small></dd></div>
                 <div><dt>Ngày tiếp nhận</dt><dd>{{ optional($claim->received_at)->format('d/m/Y') ?: '—' }}</dd></div>
-                <div><dt>Người phụ trách</dt><dd>{{ $claim->assignee->name ?? $claim->assigned_name ?? 'Chưa phân công' }}</dd></div>
+                <div><dt>Người phụ trách</dt><dd>{{ $claim->assignee->name ?? $claim->assigned_name ?? 'Chưa phân công' }}@if($can['assign'])<br><button type="button" class="wx-btn ghost" style="padding:2px 10px;font-size:12px;margin-top:4px" data-wx-open="mAssign">{{ $claim->assigned_to ? 'Đổi người phụ trách' : 'Phân công' }}</button>@endif</dd></div>
                 <div><dt>Người tạo</dt><dd>{{ $claim->creator->name ?? '—' }}</dd></div>
                 <div><dt>Người duyệt</dt><dd>{{ $claim->approver->name ?? '—' }}<br><small>{{ $fmtDt($claim->approved_at) }}</small></dd></div>
                 @if($canViewCosts)<div><dt>Chi phí dự kiến / thực tế</dt><dd>{{ number_format((float) $claim->estimated_cost, 0, ',', '.') }} / {{ number_format((float) $claim->actual_cost, 0, ',', '.') }} đ</dd></div>@endif
@@ -155,6 +155,7 @@
                 @if($can['faulty_return'])<button type="button" class="wx-btn primary" data-wx-open="mFaulty">Thu hồi thiết bị lỗi</button>@endif
                 @if($can['defer_return'])<button type="button" class="wx-btn ghost" data-wx-open="mDefer">Hoãn thu hồi (đổi trước – thu sau)</button>@endif
                 @if($can['complete'])<button type="button" class="wx-btn primary" data-wx-open="mComplete"><i class="bi bi-flag"></i> Hoàn tất</button>@endif
+                @if($can['assign'])<button type="button" class="wx-btn secondary" data-wx-open="mAssign"><i class="bi bi-person-check"></i> {{ $claim->assigned_to ? 'Đổi người phụ trách' : 'Phân công người phụ trách' }}</button>@endif
                 @if($can['cancel'])<button type="button" class="wx-btn ghost" data-wx-open="mCancel">Hủy phiếu</button>@endif
                 @if($can['evidence'])<button type="button" class="wx-btn secondary" data-wx-open="mEvidence"><i class="bi bi-cloud-arrow-up"></i> Tải minh chứng</button>@endif
                 @if(! collect($can)->except(['override', 'approve_blocked_self'])->contains(true))
@@ -172,6 +173,14 @@
     <div class="wx2-info">Sau khi duyệt, phiếu chuyển sang “Chờ Kho xử lý” và Kho nhận việc chọn serial thay thế.</div>
     @if($can['approve_blocked_self'])<div class="wx2-warn">Bạn là người tạo/phụ trách/đề nghị ngoại lệ của phiếu này nên KHÔNG được tự duyệt.@if($can['override']) Chỉ được duyệt bằng emergency override kèm lý do.@endif</div>@endif
     <div class="wx2-form">
+        @if(! $claim->assigned_to)
+            <label>Kỹ thuật viên phụ trách (bắt buộc — phiếu chưa được phân công)
+                <select name="assigned_to" required>
+                    <option value="">— Chọn kỹ thuật viên —</option>
+                    @foreach($technicians as $tech)<option value="{{ $tech->id }}">{{ $tech->name }}</option>@endforeach
+                </select>
+            </label>
+        @endif
         <label>Ý kiến duyệt<textarea name="approval_note" rows="3"></textarea></label>
         @if($can['approve_blocked_self'] && $can['override'])<label>Emergency override — lý do bắt buộc<textarea name="override_reason" rows="2"></textarea></label>@endif
     </div>
@@ -191,6 +200,20 @@
         <label>Hiện tượng<textarea name="issue_description" rows="2">{{ $claim->issue_description }}</textarea></label>
         <label>Chẩn đoán<textarea name="diagnosis" rows="2">{{ $claim->diagnosis }}</textarea></label>
         <label>Phương án đề xuất<textarea name="proposed_solution" rows="2">{{ $claim->proposed_solution }}</textarea></label>
+    </div>
+</x-wx-modal>
+@endif
+@if($can['assign'])
+<x-wx-modal id="mAssign" :title="$claim->assigned_to ? 'Đổi người phụ trách' : 'Phân công người phụ trách'" :action="route('ky-thuat.warranty-exchange.assign', $claim)" submit="LƯU PHÂN CÔNG" size="md">
+    <div class="wx2-info">Kỹ thuật viên được phân công sẽ nhận thông báo, thấy phiếu trong danh sách của mình và thực hiện bước nhận hàng / thay thiết bị.</div>
+    <div class="wx2-form">
+        <label>Kỹ thuật viên phụ trách
+            <select name="assigned_to" required>
+                <option value="">— Chọn kỹ thuật viên —</option>
+                @foreach($technicians as $tech)<option value="{{ $tech->id }}" @selected((int) $claim->assigned_to === (int) $tech->id)>{{ $tech->name }}</option>@endforeach
+            </select>
+        </label>
+        @if($claim->assigned_to)<label>Lý do đổi người phụ trách (bắt buộc)<textarea name="reason" rows="2"></textarea></label>@endif
     </div>
 </x-wx-modal>
 @endif

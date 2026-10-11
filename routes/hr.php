@@ -28,6 +28,32 @@ Route::middleware(['auth'])->prefix('nhan-su')->name('hr.')->group(function () {
     */
     Route::prefix('tuyen-dung')->name('recruitment.')->group(function () {
         Route::get('/', [RecruitmentController::class, 'index'])->name('index');
+        foreach (['preview', 'content', 'download'] as $action) {
+            Route::get('tep/{entity}/{record}/{file}/'.$action, [\App\Http\Controllers\Hr\RecruitmentAttachmentController::class, $action])
+                ->whereIn('entity', ['requests','candidates','interviews','offers','hires'])->whereNumber('record')->whereNumber('file')->name('attachments.'.$action);
+        }
+
+        // KPI tuyển dụng HC01–HC03: trang KPI của yêu cầu tuyển, lượt tuyển (nhận việc thực tế, thử việc), khoản chi phân bổ.
+        Route::controller(\App\Http\Controllers\Hr\RecruitmentKpiController::class)->group(function (): void {
+            Route::get('yeu-cau/{id}/kpi', 'request')->whereNumber('id')->name('requests.kpi');
+            Route::put('yeu-cau/{id}/kpi', 'requestUpdate')->whereNumber('id')->name('requests.kpi.update');
+            Route::post('yeu-cau/{id}/kpi/huy', 'requestCancel')->whereNumber('id')->name('requests.kpi.cancel');
+            Route::post('yeu-cau/{id}/luot-tuyen', 'hireStore')->whereNumber('id')->name('hires.store');
+            Route::post('yeu-cau/{id}/chi-phi', 'costStore')->whereNumber('id')->name('costs.store');
+            Route::get('luot-tuyen/{id}', 'hire')->whereNumber('id')->name('hires.show');
+            Route::put('luot-tuyen/{id}', 'hireUpdate')->whereNumber('id')->name('hires.update');
+            Route::put('luot-tuyen/{id}/thu-viec', 'probationUpdate')->whereNumber('id')->name('hires.probation');
+            Route::post('luot-tuyen/{id}/huy', 'hireCancel')->whereNumber('id')->name('hires.cancel');
+            Route::post('luot-tuyen/{id}/tep', 'hireFileUpload')->whereNumber('id')->name('hires.files.upload');
+            Route::delete('luot-tuyen/{id}/tep/{fileId}', 'hireFileDelete')->whereNumber('id')->whereNumber('fileId')->name('hires.files.delete');
+            Route::post('luot-tuyen/{id}/kpi/{criterion}/{action}', 'hireKpi')->whereNumber('id')
+                ->whereIn('criterion', ['recruit_time', 'probation_quit'])->whereIn('action', ['draft', 'submit', 'confirm', 'return'])->name('hires.kpi');
+            Route::get('chi-phi/{id}', 'cost')->whereNumber('id')->name('costs.show');
+            Route::put('chi-phi/{id}', 'costUpdate')->whereNumber('id')->name('costs.update');
+            Route::post('chi-phi/{id}/go', 'costRemove')->whereNumber('id')->name('costs.remove');
+            Route::post('chi-phi/{id}/kpi/{action}', 'costKpi')->whereNumber('id')->whereIn('action', ['draft', 'submit', 'confirm', 'return'])->name('costs.kpi');
+        });
+
 
         Route::get('yeu-cau', [RecruitmentController::class, 'requests'])->name('requests');
         Route::post('yeu-cau', [RecruitmentController::class, 'storeRequest'])->name('requests.store');
@@ -126,6 +152,25 @@ Route::middleware(['auth'])->prefix('nhan-su')->name('hr.')->group(function () {
     Route::delete('hc-van-hanh/assets/{id}', [HcOperationController::class, 'destroyAsset'])
         ->whereNumber('id')
         ->name('operations.assets.destroy');
+
+    // KPI HC06 — đợt kiểm kê tài sản theo kỳ (mở từ tab Tài sản công ty).
+    Route::prefix('hc-van-hanh/kiem-ke')
+        ->name('asset-inventories.')
+        ->controller(\App\Http\Controllers\Hr\AssetInventoryController::class)
+        ->group(function () {
+            Route::post('/', 'store')->name('store');
+            Route::get('/{id}', 'show')->whereNumber('id')->name('show');
+            Route::put('/{id}', 'update')->whereNumber('id')->name('update');
+            Route::post('/{id}/ket-qua', 'saveItems')->whereNumber('id')->name('items');
+            Route::post('/{id}/files', 'fileUpload')->whereNumber('id')->name('files.upload');
+            Route::get('/{id}/files/{fileId}', 'file')->whereNumber('id')->whereNumber('fileId')->name('files.show');
+            Route::delete('/{id}/files/{fileId}', 'fileDelete')->whereNumber('id')->whereNumber('fileId')->name('files.delete');
+            Route::post('/{id}/kpi/draft', 'kpiDraft')->whereNumber('id')->name('kpi.draft');
+            Route::post('/{id}/kpi/submit', 'kpiSubmit')->whereNumber('id')->name('kpi.submit');
+            Route::post('/{id}/kpi/confirm', 'kpiConfirm')->whereNumber('id')->name('kpi.confirm');
+            Route::post('/{id}/kpi/return', 'kpiReturn')->whereNumber('id')->name('kpi.return');
+            Route::post('/{id}/huy', 'cancel')->whereNumber('id')->name('cancel');
+        });
 
     Route::post('hc-van-hanh/suppliers', [HcOperationController::class, 'storeSupplier'])
         ->name('operations.suppliers.store');
@@ -393,6 +438,18 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
     Route::post('tang-ca', [OvertimeRequestController::class, 'store'])
         ->name('overtime.store');
 
+    Route::get('tang-ca/{overtime}/edit', [OvertimeRequestController::class, 'edit'])
+        ->whereNumber('overtime')
+        ->name('overtime.edit');
+
+    Route::put('tang-ca/{overtime}', [OvertimeRequestController::class, 'update'])
+        ->whereNumber('overtime')
+        ->name('overtime.update');
+
+    Route::delete('tang-ca/{overtime}', [OvertimeRequestController::class, 'destroy'])
+        ->whereNumber('overtime')
+        ->name('overtime.destroy');
+
     Route::post('tang-ca/{overtime}/approve', [OvertimeRequestController::class, 'approve'])
         ->whereNumber('overtime')
         ->name('overtime.approve');
@@ -441,6 +498,11 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
             Route::get('/{id}/files/{fileId}/preview', 'previewFile')->whereNumber('id')->whereNumber('fileId')->name('files.preview');
             Route::get('/{id}/files/{fileId}/download', 'downloadFile')->whereNumber('id')->whereNumber('fileId')->name('files.download');
             Route::delete('/{id}/files/{fileId}', 'deleteFile')->whereNumber('id')->whereNumber('fileId')->name('files.delete');
+            // KPI HC07: người xử lý lưu nháp/gửi kiểm; người kiểm (khác người xử lý) xác nhận hoặc trả bổ sung.
+            Route::post('/{id}/kpi/draft', 'kpiDraft')->whereNumber('id')->name('kpi.draft');
+            Route::post('/{id}/kpi/submit', 'kpiSubmit')->whereNumber('id')->name('kpi.submit');
+            Route::post('/{id}/kpi/confirm', 'kpiConfirm')->whereNumber('id')->name('kpi.confirm');
+            Route::post('/{id}/kpi/return', 'kpiReturn')->whereNumber('id')->name('kpi.return');
             Route::delete('/{id}', 'destroy')->whereNumber('id')->name('destroy');
         });
 
@@ -488,4 +550,65 @@ Route::post('hc-van-hanh/items', [HrDocumentController::class, 'storeOperationIt
         });
     });
     /* EGO_GIFT_MANAGEMENT_V1_ROUTES_END */
+
+    /* EGO_KPI_PAYROLL_V1_ROUTES_START — Bảng lương tự động + KPI HCNS / Kế toán kho (quyền kiểm trong controller) */
+    Route::prefix('bang-luong')->name('payroll.')->controller(\App\Http\Controllers\Hr\PayrollController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::post('/tinh', 'generate')->name('generate');
+        Route::get('/xuat-excel', 'export')->name('export');
+        Route::get('/cai-dat', 'settings')->name('settings');
+        Route::post('/cai-dat', 'saveSettings')->name('settings.save');
+        Route::put('/dong/{line}', 'updateLine')->whereNumber('line')->name('lines.update');
+        Route::get('/phieu/{line}', 'payslip')->whereNumber('line')->name('payslip');
+        Route::post('/{period}/duyet', 'approve')->whereNumber('period')->name('approve');
+        Route::post('/{period}/mo-khoa', 'reopen')->whereNumber('period')->name('reopen');
+    });
+    // KPI HC04 — đối soát độ chính xác bảng lương, ngay trong trang Bảng lương (không thêm menu; quyền kiểm trong controller).
+    Route::prefix('bang-luong/doi-soat')->name('payroll.audits.')->controller(\App\Http\Controllers\Hr\PayrollAuditController::class)->group(function (): void {
+        Route::post('/', 'store')->name('store');
+        Route::get('/{audit}', 'show')->whereNumber('audit')->name('show');
+        Route::put('/{audit}', 'update')->whereNumber('audit')->name('update');
+        Route::post('/{audit}/ket-qua', 'saveItems')->whereNumber('audit')->name('items');
+        Route::post('/{audit}/dong/{item}/loi', 'errorStore')->whereNumber(['audit', 'item'])->name('errors.store');
+        Route::put('/{audit}/loi/{error}', 'errorUpdate')->whereNumber(['audit', 'error'])->name('errors.update');
+        Route::post('/{audit}/loi/{error}/go', 'errorRemove')->whereNumber(['audit', 'error'])->name('errors.remove');
+        Route::post('/{audit}/loi/{error}/tep', 'errorFileUpload')->whereNumber(['audit', 'error'])->name('errors.files.upload');
+        Route::post('/{audit}/tep', 'fileUpload')->whereNumber('audit')->name('files.upload');
+        Route::get('/{audit}/tep/{file}', 'file')->whereNumber(['audit', 'file'])->name('files.show');
+        Route::delete('/{audit}/tep/{file}', 'fileDelete')->whereNumber(['audit', 'file'])->name('files.delete');
+        Route::post('/{audit}/kpi/nhap', 'kpiDraft')->whereNumber('audit')->name('kpi.draft');
+        Route::post('/{audit}/kpi/gui', 'kpiSubmit')->whereNumber('audit')->name('kpi.submit');
+        Route::post('/{audit}/kpi/xac-nhan', 'kpiConfirm')->whereNumber('audit')->name('kpi.confirm');
+        Route::post('/{audit}/kpi/tra', 'kpiReturn')->whereNumber('audit')->name('kpi.return');
+        Route::post('/{audit}/huy', 'cancel')->whereNumber('audit')->name('cancel');
+    });
+    Route::get('bang-luong/ho-so-luong', [\App\Http\Controllers\Hr\SalaryProfileController::class, 'index'])->name('payroll.profiles');
+    Route::post('bang-luong/ho-so-luong', [\App\Http\Controllers\Hr\SalaryProfileController::class, 'store'])->name('payroll.profiles.store');
+    Route::get('phieu-luong-cua-toi', [\App\Http\Controllers\Hr\PayrollController::class, 'my'])->name('payroll.my');
+    Route::get('kpi-cua-toi', [\App\Http\Controllers\Hr\HrKpiController::class, 'my'])->name('kpi-my');
+
+    // Sự cố văn phòng: mọi nhân viên báo; HCNS xử lý; Giám đốc duyệt chi (quyền kiểm trong controller).
+    Route::prefix('su-co-van-phong')->name('incidents.')->controller(\App\Http\Controllers\Hr\OfficeIncidentController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::post('/cai-dat', 'saveSettings')->name('settings.save');
+        Route::get('/{incident}', 'show')->whereNumber('incident')->name('show');
+        Route::post('/{incident}/phan-loai', 'classify')->whereNumber('incident')->name('classify');
+        Route::post('/{incident}/duyet-chi', 'approveCost')->whereNumber('incident')->name('approve-cost');
+        Route::post('/{incident}/xu-ly-xong', 'resolve')->whereNumber('incident')->name('resolve');
+        Route::post('/{incident}/nghiem-thu', 'accept')->whereNumber('incident')->name('accept');
+        Route::post('/{incident}/huy', 'cancel')->whereNumber('incident')->name('cancel');
+        Route::get('/{incident}/file/{file}', 'download')->whereNumber('incident')->whereNumber('file')->name('file');
+    });
+
+    Route::prefix('kpi')->name('kpi.')->controller(\App\Http\Controllers\Hr\HrKpiController::class)->group(function (): void {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::get('/cai-dat', 'settings')->name('settings');
+        Route::post('/cai-dat', 'saveSettings')->name('settings.save');
+        // Quy tắc đo nguồn KPI HCNS theo phiên bản: lưu nháp (xem trước) và duyệt áp dụng từ một kỳ.
+        Route::post('/quy-tac-nguon/nhap', 'saveRuleDraft')->name('rules.draft');
+        Route::post('/quy-tac-nguon/{version}/duyet', 'approveRuleVersion')->whereNumber('version')->name('rules.approve');
+    });
+    /* EGO_KPI_PAYROLL_V1_ROUTES_END */
 });

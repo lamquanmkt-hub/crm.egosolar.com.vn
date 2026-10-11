@@ -259,26 +259,32 @@ final class TechnicalScheduleSyncService
             return;
         }
 
-        $event = TechnicalScheduleEvent::query()->updateOrCreate(
-            [
+        $values = [
+            'project_id' => $projectId,
+            'title' => $title,
+            'address' => $address ?: null,
+            'starts_at' => Carbon::parse($startsAt),
+            'ends_at' => $endsAt ? Carbon::parse($endsAt) : null,
+            'all_day' => false,
+            'status' => $status,
+            'priority' => $priority,
+            'note' => $note ?: null,
+            'created_by' => $createdBy ?: null,
+        ];
+
+        // company_id chỉ gán khi TẠO sự kiện. Cập nhật sự kiện đã có KHÔNG được đổi company_id
+        // (khóa công ty toàn hệ thống sẽ ném lỗi, làm hỏng việc lưu phân công của đợt gắn nhãn công ty khác).
+        $event = (clone $query)->first();
+        if ($event) {
+            $event->fill($values)->save();
+        } else {
+            $event = TechnicalScheduleEvent::query()->create(array_merge([
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
                 'event_type' => $eventType,
-            ],
-            [
                 'company_id' => $companyId ?: null,
-                'project_id' => $projectId,
-                'title' => $title,
-                'address' => $address ?: null,
-                'starts_at' => Carbon::parse($startsAt),
-                'ends_at' => $endsAt ? Carbon::parse($endsAt) : null,
-                'all_day' => false,
-                'status' => $status,
-                'priority' => $priority,
-                'note' => $note ?: null,
-                'created_by' => $createdBy ?: null,
-            ]
-        );
+            ], $values));
+        }
 
         $ids = $users->filter()->map(fn ($id): int => (int) $id)->unique()->values();
         DB::table('technical_schedule_event_users')

@@ -90,6 +90,21 @@ class AttendanceController extends Controller
             ? AttendanceCorrectionRequest::query()->where('status', 'pending')->count()
             : 0;
 
+        // Tăng ca: giờ đã duyệt trong tháng (cộng vào Tổng giờ công), đơn chờ của tôi, đơn chờ tôi duyệt.
+        $overtimeAccess = app(\App\Services\Hr\OvertimeAccessService::class);
+        $overtimeInMonth = \App\Models\OvertimeRequest::query()
+            ->where('user_id', $user->id)
+            ->whereBetween('overtime_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['id', 'overtime_date', 'start_at', 'end_at', 'hours', 'status']);
+        $overtimeApproved = $overtimeInMonth->where('status', 'approved');
+        $overtimeHours = round((float) $overtimeApproved->sum('hours'), 2);
+        $overtimeByDate = $overtimeApproved->groupBy(fn ($ot) => $ot->overtime_date->toDateString());
+        $myPendingOvertimeCount = \App\Models\OvertimeRequest::query()->where('user_id', $user->id)->where('status', 'pending')->count();
+        $canReviewOvertime = $overtimeAccess->canReview($user);
+        $pendingOvertimeApprovalCount = $canReviewOvertime
+            ? $overtimeAccess->scopePendingForReviewer(\App\Models\OvertimeRequest::query(), $user)->count()
+            : 0;
+
         return view('hr.attendance.my', compact(
             'records',
             'todayRecord',
@@ -103,7 +118,12 @@ class AttendanceController extends Controller
             'myPendingLeaveCount',
             'canReviewCorrections',
             'myPendingCorrectionCount',
-            'pendingCorrectionApprovalCount'
+            'pendingCorrectionApprovalCount',
+            'overtimeHours',
+            'overtimeByDate',
+            'myPendingOvertimeCount',
+            'canReviewOvertime',
+            'pendingOvertimeApprovalCount'
         ));
     }
 
@@ -127,23 +147,7 @@ class AttendanceController extends Controller
         $end = (clone $start)->endOfMonth();
         $today = now()->toDateString();
 
-        $employeesQuery = User::query()
-            ->with(['department', 'position'])
-            ->orderBy('name');
-
-        if (Schema::hasColumn('users', 'is_active')) {
-            $employeesQuery->where('is_active', 1);
-        }
-
-        if ($userId) {
-            $employeesQuery->where('id', $userId);
-        }
-
-        if ($departmentId) {
-            $employeesQuery->where('department_id', $departmentId);
-        }
-
-        $employees = $employeesQuery->get();
+        $employees = $this->attendanceEmployees($start, $end, $userId, $departmentId);
         $employeeIds = $employees->pluck('id');
 
         $attendanceQuery = AttendanceRecord::query()
@@ -213,7 +217,10 @@ class AttendanceController extends Controller
 
             $ontimeRate = $validDays > 0 ? round(($ontimeDays / $validDays) * 100) : 0;
 
-            if ($validDays === 0) {
+            if ($employee->is_departed) {
+                $rankLabel = 'Đã nghỉ';
+                $rankBadge = 'secondary';
+            } elseif ($validDays === 0) {
                 $rankLabel = 'Chưa chấm công';
                 $rankBadge = 'secondary';
             } elseif ($ontimeRate >= 95 && $incompleteDays === 0) {
@@ -232,7 +239,8 @@ class AttendanceController extends Controller
 
             return (object) [
                 'user_id' => $employee->id,
-                'employee_name' => $employee->name,
+                'employee_name' => $employee->attendance_name,
+                'departed' => $employee->is_departed,
                 'department_name' => optional($employee->department)->name ?? '-',
                 'position_name' => optional($employee->position)->name ?? '-',
                 'valid_days' => $validDays,
@@ -247,19 +255,22 @@ class AttendanceController extends Controller
             ];
         });
 
-        $validAttendanceDays = $employeeStats->sum('valid_days');
-        $completedDays = $employeeStats->sum('completed_days');
-        $lateCount = $employeeStats->sum('late_days');
-        $earlyLeaveCount = $employeeStats->sum('early_leave_days');
-        $incompleteCount = $employeeStats->sum('incomplete_days');
-        $totalWorkHours = round($employeeStats->sum('total_hours'), 2);
+        // Thẻ tổng quan chỉ tính người đang hoạt động; người đã nghỉ chỉ hiện ở cuối bảng để tính công.
+        $activeStats = $employeeStats->where('departed', false);
+        $activeEmployeeIds = $employees->where('is_departed', false)->pluck('id');
+        $validAttendanceDays = $activeStats->sum('valid_days');
+        $completedDays = $activeStats->sum('completed_days');
+        $lateCount = $activeStats->sum('late_days');
+        $earlyLeaveCount = $activeStats->sum('early_leave_days');
+        $incompleteCount = $activeStats->sum('incomplete_days');
+        $totalWorkHours = round($activeStats->sum('total_hours'), 2);
 
         $checkedInToday = AttendanceRecord::query()
             ->whereDate('work_date', $today)
             ->whereNotNull('check_in_at')
             ->when(
-                $employeeIds->isNotEmpty(),
-                fn ($q) => $q->whereIn('user_id', $employeeIds),
+                $activeEmployeeIds->isNotEmpty(),
+                fn ($q) => $q->whereIn('user_id', $activeEmployeeIds),
                 fn ($q) => $q->whereRaw('1 = 0')
             )
             ->count();
@@ -269,7 +280,7 @@ class AttendanceController extends Controller
             : 0;
 
         $summary = [
-            'employees' => $employees->count(),
+            'employees' => $activeEmployeeIds->count(),
             'valid_days' => $validAttendanceDays,
             'completed' => $completedDays,
             'late' => $lateCount,
@@ -290,6 +301,36 @@ class AttendanceController extends Controller
             'end',
             'summary'
         ));
+    }
+
+    /**
+     * Danh sách nhân viên cho Bảng công / Excel / PDF: người đang hoạt động trước, sau đó là tài khoản đã
+     * khóa / xóa NHƯNG đã chấm công (có giờ check-in) trong tháng đang xem (nghỉ giữa tháng vẫn tính đủ công). Tháng nào họ
+     * không có công thì không hiện. Mỗi user có `is_departed`, `attendance_name`, `attendance_label`.
+     */
+    private function attendanceEmployees(Carbon $start, Carbon $end, $userId = null, $departmentId = null)
+    {
+        $base = fn () => User::query()
+            ->with(['department', 'position'])
+            ->when($userId, fn ($q) => $q->where('id', $userId))
+            ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
+            ->orderBy('name');
+
+        if (! Schema::hasColumn('users', 'is_active')) {
+            return $base()->get();
+        }
+
+        $active = $base()->where('is_active', 1)->get();
+
+        $departed = $base()
+            ->where(fn ($q) => $q->where('is_active', 0)->orWhereNull('is_active'))
+            ->whereIn('id', AttendanceRecord::query()
+                ->whereBetween('work_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotNull('check_in_at') // đã chấm công thật; dòng công trống (vd. sinh ra khi duyệt tăng ca) không tính
+                ->select('user_id'))
+            ->get();
+
+        return $active->concat($departed)->values();
     }
 
     /**
@@ -529,23 +570,7 @@ class AttendanceController extends Controller
         $end = (clone $start)->endOfMonth();
         $setting = AttendanceSetting::first();
 
-        $employeesQuery = User::query()
-            ->with(['department', 'position'])
-            ->orderBy('name');
-
-        if (Schema::hasColumn('users', 'is_active')) {
-            $employeesQuery->where('is_active', 1);
-        }
-
-        if ($userId) {
-            $employeesQuery->where('id', $userId);
-        }
-
-        if ($departmentId) {
-            $employeesQuery->where('department_id', $departmentId);
-        }
-
-        $employees = $employeesQuery->get();
+        $employees = $this->attendanceEmployees($start, $end, $userId, $departmentId);
         $employeeIds = $employees->pluck('id');
 
         $holidays = collect();
@@ -708,7 +733,9 @@ class AttendanceController extends Controller
             $missingDays = max($standardDays - $validDays, 0);
             $ontimeRate = $validDays > 0 ? round(($ontimeDays / $validDays) * 100) : 0;
 
-            if ($validDays === 0) {
+            if ($employee->is_departed) {
+                $rankLabel = 'Đã nghỉ';
+            } elseif ($validDays === 0) {
                 $rankLabel = 'Chưa chấm công';
             } elseif ($missingDays === 0 && $ontimeRate >= 95 && $incompleteDays === 0) {
                 $rankLabel = 'Xuất sắc';
@@ -722,7 +749,7 @@ class AttendanceController extends Controller
 
             return (object) [
                 'user_id' => $employee->id,
-                'employee_name' => $employee->name,
+                'employee_name' => $employee->attendance_label,
                 'department_name' => optional($employee->department)->name ?? '-',
                 'position_name' => optional($employee->position)->name ?? '-',
                 'standard_days' => $standardDays,
@@ -939,14 +966,14 @@ class AttendanceController extends Controller
         $usedSheetTitles = ['Tong hop', 'Lich cong chuan'];
 
         foreach ($employees as $employee) {
-            $sheetTitle = $cleanSheetTitle($employee->name, $usedSheetTitles);
+            $sheetTitle = $cleanSheetTitle($employee->attendance_label, $usedSheetTitles);
             $usedSheetTitles[] = $sheetTitle;
 
             $sheet = $spreadsheet->createSheet();
             $sheet->setTitle($sheetTitle);
 
             $sheet->mergeCells('A1:O1');
-            $sheet->setCellValue('A1', 'CHI TIẾT CHẤM CÔNG - '.$employee->name);
+            $sheet->setCellValue('A1', 'CHI TIẾT CHẤM CÔNG - '.$employee->attendance_label);
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -1052,23 +1079,7 @@ class AttendanceController extends Controller
 
         $end = (clone $start)->endOfMonth();
 
-        $employeesQuery = User::query()
-            ->with(['department', 'position'])
-            ->orderBy('name');
-
-        if (Schema::hasColumn('users', 'is_active')) {
-            $employeesQuery->where('is_active', 1);
-        }
-
-        if ($userId) {
-            $employeesQuery->where('id', $userId);
-        }
-
-        if ($departmentId) {
-            $employeesQuery->where('department_id', $departmentId);
-        }
-
-        $employees = $employeesQuery->get();
+        $employees = $this->attendanceEmployees($start, $end, $userId, $departmentId);
         $employeeIds = $employees->pluck('id');
 
         $recordsQuery = AttendanceRecord::query()

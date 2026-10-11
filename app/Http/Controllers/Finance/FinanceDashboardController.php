@@ -100,6 +100,12 @@ class FinanceDashboardController extends Controller
      */
     public function salary(Request $request)
     {
+        // Bảng lương chính thức đã chuyển sang Nhân sự › Bảng lương (tự tính BH, thuế, KPI, có duyệt & khoá).
+        // Bảng cũ giữ để đối chiếu dữ liệu đã lưu: thêm ?legacy=1.
+        if (! $request->boolean('legacy') && \Illuminate\Support\Facades\Route::has('hr.payroll.index')) {
+            return redirect()->route('hr.payroll.index', array_filter(['month' => $request->get('month')]));
+        }
+
         $month = $request->get('month', now()->format('Y-m'));
         $departmentId = $request->get('department_id');
         $keyword = trim((string) $request->get('keyword', ''));
@@ -784,6 +790,10 @@ class FinanceDashboardController extends Controller
      */
     public function mySalary(Request $request)
     {
+        if (! $request->boolean('legacy') && \Illuminate\Support\Facades\Route::has('hr.payroll.my')) {
+            return redirect()->route('hr.payroll.my');
+        }
+
         return $this->salaryDetail($request, auth()->user());
     }
 

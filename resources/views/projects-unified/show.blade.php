@@ -44,6 +44,15 @@
 @endphp
 
 <div class="pword-page">
+    @if(Route::has('projects-unified.guide'))
+        {{-- Hướng dẫn sử dụng: trang riêng cùng tab, quay lại đúng công trình/bước (vị trí # được thêm khi bấm). --}}
+        <div class="pword-guide-bar">
+            <a href="{{ route('projects-unified.guide', $uiStep === 'overview' ? ['site' => $site->id] : ['site' => $site->id, 'step' => $uiStep]) }}"
+               class="pword-btn light pword-guide-btn" data-pword-guide>
+                <i class="bi bi-book"></i><span>Hướng dẫn sử dụng</span>
+            </a>
+        </div>
+    @endif
     @if(session('success'))
         <div class="pword-flash success"><i class="bi bi-check-circle-fill"></i>{{ session('success') }}</div>
     @endif
@@ -65,6 +74,9 @@
         <div class="pword-hero-actions">
             <a href="{{ route('projects-unified.index') }}" class="pword-btn ghost"><i class="bi bi-arrow-left"></i>Danh sách</a>
             <a href="{{ route('projects-unified.show', ['site'=>$site->id]).'#project-files' }}" class="pword-btn light"><i class="bi bi-folder2-open"></i>Hồ sơ</a>
+            @if(Route::has('projects-unified.maintenance.index') && auth()->user()?->can('create', \App\Models\SolarMaintenanceSchedule::class))
+                <a href="{{ route('projects-unified.maintenance.index', ['site_id' => $site->id, 'create' => 1]) }}" class="pword-btn light"><i class="bi bi-calendar2-plus"></i>Tạo lịch bảo trì</a>
+            @endif
             @if(Route::has('ky-thuat.kpis.project'))
                 <a href="{{ route('ky-thuat.kpis.project', ['site'=>$site->id, 'month'=>now()->format('Y-m')]) }}" class="pword-btn light"><i class="bi bi-bar-chart-line"></i>KPI kỹ thuật</a>
             @endif
@@ -161,6 +173,7 @@
         </aside>
 
         <main class="pword-content">
+            @include('projects-unified.partials.kpi-demo-progress', ['demoSite' => $site, 'demoStep' => $uiStep])
             @if($uiStep === 'overview')
                 <section class="pword-panel">
                     <div class="pword-panel-head">
@@ -317,9 +330,29 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+    .pword-guide-bar{display:flex;justify-content:flex-end;margin:0 0 10px}
+    .pword-guide-btn{gap:7px;font-weight:750}
+    .pword-guide-btn i{color:#07988a;font-size:15px}
+    @media(max-width:760px){.pword-guide-bar{margin-bottom:8px}.pword-guide-btn{min-height:38px}}
+</style>
+@endpush
+
 @push('scripts')
 <script>
 (() => {
+    // Nút Hướng dẫn: gửi kèm vị trí đang xem (#...) để nút quay lại về đúng chỗ; server vẫn kiểm tra lại.
+    document.querySelectorAll('[data-pword-guide]').forEach(link => {
+        link.addEventListener('click', () => {
+            const anchor = (window.location.hash || '').slice(1);
+            if (/^[a-z][a-z0-9-]{0,39}$/.test(anchor)) {
+                const url = new URL(link.href, window.location.origin);
+                url.searchParams.set('anchor', anchor);
+                link.href = url.toString();
+            }
+        });
+    });
     document.addEventListener('click', event => {
         const opener = event.target.closest('[data-pword-open-dialog]');
         if (opener) {

@@ -311,15 +311,6 @@
             @csrf
 
             <div class="sa-row">
-                <div>
-                    <div class="sa-label">Công ty</div>
-                    <select class="sa-control" name="company_id" id="saCompany" required>
-                        <option value="">-- Chọn công ty --</option>
-                        @foreach($companies as $company)
-                            <option value="{{ $company->id }}">{{ $company->code }} - {{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
 
                 <div>
                     <div class="sa-label">Công trình nếu có</div>
@@ -512,34 +503,13 @@ function saAddMaterial(){
     var node = tpl.content.cloneNode(true);
     document.getElementById('saMaterials').appendChild(node);
     saReindexMaterials();
-    saApplyCompanyFilter();
+
 }
 
-function saApplyCompanyFilter(){
-    var companyId = document.getElementById('saCompany') ? document.getElementById('saCompany').value : '';
-
-    document.querySelectorAll('select[data-company-filter="1"]').forEach(function(select){
-        Array.prototype.forEach.call(select.options, function(opt, idx){
-            if(idx === 0){ opt.hidden = false; return; }
-
-            var c = opt.getAttribute('data-company') || '';
-            opt.hidden = !!companyId && !!c && c !== companyId;
-        });
-
-        if(select.selectedOptions[0] && select.selectedOptions[0].hidden){
-            select.value = '';
-        }
-    });
-}
 
 document.addEventListener('DOMContentLoaded', function(){
     saAddMaterial();
-    saApplyCompanyFilter();
 
-    var company = document.getElementById('saCompany');
-    if(company){
-        company.addEventListener('change', saApplyCompanyFilter);
-    }
 });
 </script>
 @endsection

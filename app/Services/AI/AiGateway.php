@@ -321,7 +321,8 @@ final class AiGateway
                 ?? ('HTTP '.$response->status())
             );
 
-            throw new RuntimeException('API AI báo lỗi: '.$message);
+            // Mã lỗi HTTP gắn vào exception code để nơi gọi phân biệt lỗi tạm thời (429/5xx) với lỗi cấu hình.
+            throw new RuntimeException('API AI báo lỗi: '.$message, $response->status());
         }
 
         return $data;

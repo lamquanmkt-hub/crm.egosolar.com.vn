@@ -13,7 +13,7 @@
 <div class="ap-field span2"><label>Tên tài sản *</label><input class="ap-input" name="name" value="{{ $val('name') }}" required placeholder="VD: Laptop Dell, Xe nâng, Máy hàn..."></div>
 <div class="ap-field"><label>Nhóm</label><select class="ap-select" name="category_id"><option value="">Chọn nhóm</option>@foreach($categories as $c)<option value="{{ $c->id }}" @selected((string)$val('category_id') === (string)$c->id)>{{ $c->name }}</option>@endforeach</select></div>
 
-<div class="ap-field"><label>Công ty</label><select class="ap-select" name="company_id"><option value="">Chọn công ty</option>@foreach($companies as $c)<option value="{{ $c->id }}" @selected((string)$val('company_id') === (string)$c->id)>{{ $c->name }}</option>@endforeach</select></div>
+
 <div class="ap-field"><label>Người đang giữ</label><select class="ap-select" name="assigned_to"><option value="">Chưa bàn giao</option>@foreach($users as $u)<option value="{{ $u->id }}" @selected((string)$val('assigned_to') === (string)$u->id)>{{ $u->name }}</option>@endforeach</select></div>
 <div class="ap-field"><label>Bộ phận</label><input class="ap-input" name="department" value="{{ $val('department') }}" placeholder="Kế toán, kỹ thuật..."></div>
 <div class="ap-field"><label>Serial / IMEI</label><input class="ap-input" name="serial_no" value="{{ $val('serial_no') }}" placeholder="Số serial"></div>

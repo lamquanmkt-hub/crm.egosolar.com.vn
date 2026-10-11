@@ -322,6 +322,36 @@ class SupplierDebtController extends Controller
         ));
     }
 
+        /**
+     * Quay về danh sách công nợ NCC GIỮ NGUYÊN bộ lọc người dùng đang xem (kiểu lọc, từ khóa, trạng thái, tháng).
+     * Bộ lọc đi kèm form qua các input ẩn `ret[...]`; không có bộ lọc nào thì quay về theo tháng như cũ.
+     */
+    private function backToIndex(?string $fallbackMonth = null): \Illuminate\Http\RedirectResponse
+    {
+        $ret = (array) request()->input('ret', []);
+        $params = [];
+
+        foreach (['period', 'keyword', 'status', 'month'] as $key) {
+            $value = $ret[$key] ?? null;
+            if (is_string($value) && $value !== '') {
+                $params[$key] = mb_substr($value, 0, 190);
+            }
+        }
+
+        if (isset($params['period']) && ! in_array($params['period'], ['all', 'month'], true)) {
+            unset($params['period']);
+        }
+        if (isset($params['month']) && ! preg_match('/^\d{4}-\d{2}$/', $params['month'])) {
+            unset($params['month']);
+        }
+
+        if ($params === [] && $fallbackMonth) {
+            $params = ['month' => $fallbackMonth];
+        }
+
+        return redirect()->route('finance.supplier-debts.index', $params);
+    }
+
     /**
      * Thêm công nợ nhà cung cấp mới kèm tệp đính kèm.
      */
@@ -353,8 +383,7 @@ class SupplierDebtController extends Controller
         $this->storeDebtFiles($request, (int) $debtId);
         $this->supplierDebtService->syncSupplierDebtTotals((int) $debtId);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', ['month' => $data['debt_month']])
+        return $this->backToIndex($data['debt_month'])
             ->with('success', 'Đã thêm công nợ nhà cung cấp.');
     }
 
@@ -399,8 +428,7 @@ class SupplierDebtController extends Controller
         $this->storeDebtFiles($request, (int) $id);
         $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', ['month' => $data['debt_month']])
+        return $this->backToIndex($data['debt_month'])
             ->with('success', 'Đã cập nhật công nợ nhà cung cấp.');
     }
 
@@ -477,10 +505,7 @@ class SupplierDebtController extends Controller
             ->where('id', $id)
             ->delete();
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã xóa công nợ nhà cung cấp.');
     }
 
@@ -603,10 +628,7 @@ class SupplierDebtController extends Controller
             DB::table('finance_supplier_debt_payments')->insert($bulkRows);
             $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
-            return redirect()
-                ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-                ])
+            return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
                 ->with('success', 'Đã thêm '.count($bulkRows).' đợt thanh toán.');
         }
 
@@ -679,10 +701,7 @@ class SupplierDebtController extends Controller
         $this->storeRoundFiles($request, $roundId);
         $this->supplierDebtService->syncSupplierDebtTotals((int) $id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã thêm đợt thanh toán.');
     }
 
@@ -790,10 +809,7 @@ class SupplierDebtController extends Controller
 
         $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã cập nhật đợt thanh toán.');
     }
 
@@ -842,10 +858,7 @@ class SupplierDebtController extends Controller
 
         $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã xóa đợt thanh toán.');
     }
 
@@ -891,20 +904,14 @@ class SupplierDebtController extends Controller
         }
 
         if (in_array((string) ($round->status ?? ''), ['paid', 'accounting_approved'], true) && ! $this->canEditCompletedFinanceRecord()) {
-            return redirect()
-                ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-                ])
+            return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
                 ->withErrors(['error' => 'Đợt thanh toán này đã thanh toán nên không tạo ĐNTT nữa.']);
         }
 
         if (in_array((string) ($round->status ?? ''), $this->supplierDebtService->paidRoundStatuses(), true) && ! $this->canEditCompletedFinanceRecord()) {
             $this->supplierDebtService->syncSupplierDebtTotals((int) $debt->id);
 
-            return redirect()
-                ->route('finance.supplier-debts.index', [
-                    'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-                ])
+            return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
                 ->withErrors(['error' => 'Đợt thanh toán này đã đánh dấu đã thanh toán nên không tạo ĐNTT nữa.']);
         }
 
@@ -1041,8 +1048,7 @@ class SupplierDebtController extends Controller
 
         $this->supplierDebtService->syncSupplierDebtTotals((int) $round->supplier_debt_id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', ['month' => $this->supplierDebtService->supplierDebtMonth($debt)])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã tạo đợt còn lại '.number_format($remainingAmount, 0, ',', '.').' đ. Bấm Tạo ĐNTT ở dòng mới để lập phiếu tiếp.');
     }
 
@@ -1178,10 +1184,7 @@ class SupplierDebtController extends Controller
 
         $this->storeDebtFiles($request, (int) $id);
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã thêm tệp công nợ.');
     }
 
@@ -1223,10 +1226,7 @@ class SupplierDebtController extends Controller
 
         DB::table('finance_supplier_debt_files')->where('id', (int) $fileId)->delete();
 
-        return redirect()
-            ->route('finance.supplier-debts.index', [
-                'month' => $this->supplierDebtService->supplierDebtMonth($debt),
-            ])
+        return $this->backToIndex($this->supplierDebtService->supplierDebtMonth($debt))
             ->with('success', 'Đã xóa tệp công nợ.');
     }
 

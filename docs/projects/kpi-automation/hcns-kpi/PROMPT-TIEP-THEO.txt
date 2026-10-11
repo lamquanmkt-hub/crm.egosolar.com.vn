@@ -1,0 +1,38 @@
+Tiếp tục KPI HCNS trong source:
+D:/Source Dev/crm.egosolar.com.vn/crm.egosolar.com.vn
+
+Đọc skill ego-hcns-kpi-automation và PROJECT, PLAN, SOURCE-MAP, STATUS hiện tại. Giữ các thay đổi đang có, không làm lại HC09/HC07.
+
+Làm theo thứ tự:
+
+1. Đối chiếu HC09 và HC07
+- HC09 báo 2/4 đạt nhưng ví dụ chỉ nêu rõ một việc đạt. Liệt kê từng hồ sơ, mốc giờ, xác nhận, tử số/mẫu số và tính tay lại.
+- Kiểm tra việc chờ xác nhận, quá hạn chưa nộp, hủy, gia hạn và gửi lại.
+- Checklist phải khớp bộ tính; phân biệt số đo, điểm xem trước và điểm chính thức.
+
+2. Hoàn thiện nền tính lương
+- Phiên bản trọng số, target và bậc trả tiền theo kỳ; chính sách chưa chốt chỉ là nháp.
+- Lưu snapshot nguồn/kết quả/cấu hình khi chốt, bảo toàn kỳ cũ.
+- Khóa đủ đường sửa nguồn liên quan, không khóa công việc thường/kỹ thuật.
+- Bảo vệ minh chứng HC09 bằng kiểm quyền xem trước/tải xuống; chuyển tệp cũ an toàn, không mất liên kết.
+- HR payroll dùng cùng bộ tính HCNS, không nhân % hai lần, không thêm làm tròn theo nghìn.
+- Thử đầy đủ giao diện lương HR trên DB test: đủ/thiếu dữ liệu, nháp/đã duyệt, quyền, chốt và sửa sau chốt.
+
+3. Tiếp tục HC06
+- Hoàn thiện nguồn cấp phát VPP, kiểm kê tài sản và sự cố tại trang hiện có.
+- Có người phụ trách, hạn, mốc thực tế, minh chứng, gửi kiểm tra, xác nhận/trả bổ sung và lịch sử.
+- Checklist giữ ba nhóm riêng, mở được hồ sơ, ghi rõ đã tính KPI chưa.
+- Cách gộp/SLA chưa chốt thì hiện số đo và lý do chưa tính. Không tự lấy điểm sự cố thay toàn bộ HC06.
+- Đồng bộ giao diện kỹ thuật, upload/xem trước nơi cần, không thêm menu không cần thiết.
+
+Kiểm thử:
+- Chỉ dùng egosolar_test, server/cache/session/storage riêng.
+- Dọn demo đúng phạm vi trước hồi quy, dựng lại demo sau nếu cần.
+- Test quyền, khác công ty, thiếu dữ liệu, biên hạn, gửi lại, đổi tệp/người/hạn, sửa sau chốt.
+- Thử desktop và điện thoại 390px; lỗi cũ phải có baseline chứng minh.
+
+Không commit, deploy, gửi thông báo, duyệt dữ liệu hoặc áp migration lên DB vận hành local crm_egosolar_test/cổng 8001. Giữ lương Excel 08/2026 và dữ liệu kỹ thuật mẫu.
+
+Tiếp tục phần độc lập khi thiếu quyết định; không dừng ở audit. Cập nhật tài liệu bằng bằng chứng thực.
+
+Bàn giao kết quả tính tay, test/UI, link demo, cách thao tác từng vai trò, phần chưa xong và quyết định cần chốt. Không gọi toàn bộ HCNS hoàn tất khi còn chấm tay hoặc chưa kiểm tra.

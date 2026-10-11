@@ -1,6 +1,13 @@
 @php
     // Admin/Giám đốc hoặc người được cấp permission `payment_requests.override_locked`.
     $financeCompletedEditor = auth()->check() && auth()->user()->canOverrideLockedFinanceRecords();
+
+    // Role Kho (không kèm admin/kế toán) chỉ được xem: ẩn toàn bộ form thêm/sửa/xóa.
+    $sdCanWrite = ! (
+        auth()->check()
+        && auth()->user()->hasAnyRole(['warehouse', 'kho'])
+        && ! auth()->user()->hasAnyRole(['admin', 'accounting'])
+    );
 @endphp
 
 @extends('layouts.app')
@@ -753,11 +760,13 @@
         </div>
     </div>
 
+    @if($sdCanWrite)
     <details class="sd-create">
         <summary>+ Thêm công nợ nhà cung cấp</summary>
 
         <form method="POST" action="{{ route('finance.supplier-debts.store') }}" enctype="multipart/form-data" class="sd-grid">
             @csrf
+@include('finance.supplier-debts._return_filters')
 
             <input class="sd-input" name="supplier_name" placeholder="Tên nhà cung cấp" required>
 
@@ -777,6 +786,7 @@
             <button class="sd-btn sd-btn-primary" type="submit">Lưu công nợ</button>
         </form>
     </details>
+    @endif
 
     <div class="sd-panel">
         <div class="sd-panel-head">
@@ -831,13 +841,16 @@
                             <td>
                                 <div class="sd-row-actions">
                                     <button type="button" class="sd-icon-btn" onclick="toggleSupplierDebtDetail({{ $item->id }})" title="Xem chi tiết">&#128065;</button>
+                                    @if($sdCanWrite)
                                     <button type="button" class="sd-icon-btn" onclick="openSupplierDebtEdit({{ $item->id }})" title="Sửa công nợ">&#9998;</button>
 
                                     <form method="POST" action="{{ route('finance.supplier-debts.destroy', $item->id) }}" onsubmit="return confirm('Xóa công nợ này?')" style="margin:0">
                                         @csrf
+@include('finance.supplier-debts._return_filters')
                                         @method('DELETE')
                                         <button class="sd-icon-btn red" type="submit" title="{{ ($debtHasLinkedPaymentRequest && !$financeCompletedEditor) ? 'Đã có ĐNTT, không xóa trực tiếp' : 'Xóa công nợ' }}" {{ ($debtHasLinkedPaymentRequest && !$financeCompletedEditor) ? 'disabled' : '' }}>&times;</button>
                                     </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -847,10 +860,12 @@
                                 <div class="sd-detail-box">
                                     <div class="sd-detail-grid">
                                         <div class="sd-mini-card">
-                                            <div class="sd-mini-title">Sửa công nợ</div>
+                                            <div class="sd-mini-title">{{ $sdCanWrite ? 'Sửa công nợ' : 'Thông tin công nợ' }}</div>
 
+                                            @if($sdCanWrite)
                                             <form method="POST" action="{{ route('finance.supplier-debts.update', $item->id) }}" enctype="multipart/form-data" class="sd-edit-grid">
                                                 @csrf
+@include('finance.supplier-debts._return_filters')
                                                 @method('PUT')
 
                                                 <input class="sd-input" name="supplier_name" value="{{ $item->supplier_name }}" required>
@@ -871,18 +886,21 @@
 
                                                 <button class="sd-btn sd-btn-primary" type="submit">Cập nhật</button>
                                             </form>
+                                            @endif
 
-                                            @includeIf('finance.supplier-debts._debt_files_manager', ['item' => $item])
+                                            @includeIf('finance.supplier-debts._debt_files_manager', ['item' => $item, 'sdCanWrite' => $sdCanWrite])
 
-
+                                            @if($sdCanWrite)
                                             <form method="POST" action="{{ route('finance.supplier-debts.destroy', $item->id) }}" onsubmit="return confirm('Xóa công nợ này?')" style="margin-top:10px">
                                                 @csrf
+@include('finance.supplier-debts._return_filters')
                                                 @method('DELETE')
                                                 <button class="sd-btn sd-btn-danger" type="submit" {{ ($debtHasLinkedPaymentRequest && !$financeCompletedEditor) ? 'disabled' : '' }}>Xóa công nợ</button>
                                             </form>
 
                                             @if($debtHasLinkedPaymentRequest)
                                                 <div class="sd-sub" style="margin-top:6px;color:#be123c;font-weight:800">Công nợ đã có ĐNTT liên kết nên không xóa trực tiếp.</div>
+                                            @endif
                                             @endif
 
                                             <div class="sd-sub" style="margin-top:12px">
@@ -940,9 +958,10 @@
                                                                                 <div class="line"><span>Còn thiếu</span><b>{{ $money($roundRemainingByRequest) }}</b></div>
                                                                                 <div class="hint">Chỉ tạo thêm 1 đợt công nợ cho phần còn thiếu, không tự link ĐNTT khác.</div>
 
-                                                                                @if($financeCompletedEditor && !$roundRemainingExists)
+                                                                                @if($sdCanWrite && $financeCompletedEditor && !$roundRemainingExists)
                                                                                     <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.create-remaining-round', $round->id) }}">
                                                                                         @csrf
+@include('finance.supplier-debts._return_filters')
                                                                                         <button class="sd-btn sd-btn-light" type="submit">+ Tạo đợt còn lại {{ $money($roundRemainingByRequest) }}</button>
                                                                                     </form>
                                                                                 @elseif($roundRemainingExists)
@@ -956,7 +975,7 @@
                                                                 @elseif($roundIsPaid)
                                                                     <span class="sd-badge success">Đã thanh toán</span>
                                                                     <div class="sd-sub">Không tạo ĐNTT nữa</div>
-                                                                @else
+                                                                @elseif($sdCanWrite)
                                                                     <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.create-payment-request', $round->id) }}">
                                                                         @csrf
                                                                         <button class="sd-btn sd-btn-light" type="submit" style="height:34px;padding:0 10px">Tạo ĐNTT</button>
@@ -964,25 +983,30 @@
                                                                 @endif
                                                             </td>
                                                             <td>
+                                                                @if($sdCanWrite)
                                                                 <div class="sd-round-actions">
                                                                     <button class="sd-icon-btn" type="button" title="{{ ($roundIsPaid && !$financeCompletedEditor) ? 'Đợt đã thanh toán, không sửa trực tiếp' : 'Sửa đợt' }}" onclick="toggleRoundEdit({{ $round->id }})" {{ (($roundLocked || $roundIsPaid) && !$financeCompletedEditor) ? 'disabled' : '' }}>✎</button>
 
                                                                     @if(empty($round->payment_request_id) || $financeCompletedEditor)
                                                                         <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.destroy', $round->id) }}" onsubmit="return confirm('Xóa đợt thanh toán này? Nếu có ĐNTT liên kết, phiếu ĐNTT không bị xóa, chỉ gỡ liên kết dòng công nợ.')">
                                                                             @csrf
+@include('finance.supplier-debts._return_filters')
                                                                             @method('DELETE')
                                                                             <button class="sd-icon-btn red" type="submit" title="Xóa">×</button>
                                                                         </form>
                                                                     @endif
                                                                 </div>
+                                                                @endif
                                                             </td>
                                                         </tr>
 
+                                                        @if($sdCanWrite)
                                                         <tr id="sd-round-edit-{{ $round->id }}" class="sd-round-edit-row">
                                                             <td colspan="6">
                                                                 <div class="sd-round-edit-box">
                                                                     <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.update', $round->id) }}" enctype="multipart/form-data" class="sd-round-edit-form">
                                                                         @csrf
+@include('finance.supplier-debts._return_filters')
                                                                         @method('PUT')
 
                                                                         <input name="payment_round" type="number" min="1" value="{{ $round->payment_round }}" placeholder="Đợt" required>
@@ -1011,6 +1035,7 @@
                                                                 </div>
                                                             </td>
                                                         </tr>
+                                                        @endif
                                                     @empty
                                                         <tr>
                                                             <td colspan="6">Chưa có đợt thanh toán.</td>
@@ -1019,8 +1044,10 @@
                                                 </tbody>
                                             </table>
 
+                                            @if($sdCanWrite)
                                             <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.store', $item->id) }}" enctype="multipart/form-data" class="sd-round-form">
                                                 @csrf
+@include('finance.supplier-debts._return_filters')
 
                                                 <input name="payment_round" type="number" min="1" placeholder="Đợt">
                                                 <input name="_percent" type="text" inputmode="decimal" data-round-percent data-round-total="{{ (float) ($item->total_amount ?? 0) }}" placeholder="%" title="Phần trăm theo tổng công nợ">
@@ -1065,6 +1092,7 @@
 
                                                 <form method="POST" action="{{ route('finance.supplier-debts.payment-rounds.store', $item->id) }}" class="sd-bulk-form">
                                                     @csrf
+@include('finance.supplier-debts._return_filters')
                                                     <div class="sd-split-rows" data-split-rows></div>
 
                                                     <div class="sd-split-total">
@@ -1073,6 +1101,7 @@
                                                     </div>
                                                 </form>
                                             </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

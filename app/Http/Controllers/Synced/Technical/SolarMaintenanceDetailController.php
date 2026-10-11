@@ -125,6 +125,7 @@ class SolarMaintenanceDetailController extends Controller
         $schedule->loadMissing([
             'site',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
+            'assignees.user.department:id,name,code',
         ]);
 
         if (! $request->user()->can('view', $schedule)) {
@@ -137,6 +138,7 @@ class SolarMaintenanceDetailController extends Controller
             'submitter:id,name',
             'approver:id,name',
             'assignees.user:id,name,email,phone_number,department_id,position_id',
+            'assignees.user.department:id,name,code',
             'approvals.approver:id,name',
             'approvals.submitter:id,name',
             'attachments.uploader:id,name',
@@ -180,14 +182,22 @@ class SolarMaintenanceDetailController extends Controller
             ? $schedule->comments
             : collect();
         $legacyChecklistFallback = $workItems->isEmpty() && $legacyChecklistItems->isNotEmpty();
+        // The current UI completes a round from its result and evidence; legacy
+        // checklist rows have no separate completion checkbox in that flow.
+        // Display them as complete after closing only when their evidence is ready.
+        // This is a read projection, not a backfill of historical checklist flags.
+        $closedWithTimestamp = $schedule->status === 'completed' && $schedule->completed_at !== null;
+        $legacyCompleted = $legacyChecklistItems->filter(fn ($item) => (bool) $item->is_done
+            || ($closedWithTimestamp && (! $item->requires_evidence
+                || $item->attachments->count() >= max(1, (int) $item->min_evidence))));
         $workProgress = $workItems->isNotEmpty()
             ? (int) round((float) $workItems->avg('progress_percent'))
             : ($legacyChecklistFallback
-                ? (int) round((float) ($legacyChecklistItems->avg(fn ($item) => (bool) $item->is_done ? 100 : 0) ?? 0))
+                ? (int) round($legacyCompleted->count() / $legacyChecklistItems->count() * 100)
                 : 0);
         $workSummary = [
             'total' => $legacyChecklistFallback ? $legacyChecklistItems->count() : $workItems->count(),
-            'completed' => $legacyChecklistFallback ? $legacyChecklistItems->where('is_done', true)->count() : $workItems->where('status', 'completed')->count(),
+            'completed' => $legacyChecklistFallback ? $legacyCompleted->count() : $workItems->where('status', 'completed')->count(),
             'in_progress' => $legacyChecklistFallback ? 0 : $workItems->where('status', 'in_progress')->count(),
             'blocked' => $legacyChecklistFallback ? 0 : $workItems->where('status', 'blocked')->count(),
             'progress' => $workProgress,
@@ -322,6 +332,7 @@ class SolarMaintenanceDetailController extends Controller
                 'upload' => $request->user()->can('uploadAttachment', $schedule),
                 'submit' => $request->user()->can('submitForApproval', $schedule),
                 'approve' => $request->user()->can('approve', $schedule),
+                'complete' => $request->user()->can('completeDirectly', $schedule),
                 'revision' => $request->user()->can('requestRevision', $schedule),
                 'reject' => $request->user()->can('reject', $schedule),
                 'reopen' => $request->user()->can('reopen', $schedule),
@@ -431,7 +442,7 @@ class SolarMaintenanceDetailController extends Controller
      */
     private function canAccessSite(Request $request, Site $site): bool
     {
-        if (SolarMaintenanceAccess::isAdmin($request->user())) {
+        if (SolarMaintenanceAccess::isAdmin($request->user()) || SolarMaintenanceAccess::isTechnicalLead($request->user())) {
             return true;
         }
 

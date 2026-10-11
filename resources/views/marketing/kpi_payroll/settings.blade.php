@@ -328,6 +328,7 @@
 @endphp
 
 <div class="container-fluid k-shell">
+    @include('hr.payroll._departments')
 
   <div class="k-hero">
     <div class="k-hero-top">

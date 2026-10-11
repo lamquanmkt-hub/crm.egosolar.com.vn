@@ -5,7 +5,9 @@ namespace App\Services\Synced\Technical;
 use App\Models\SolarMaintenanceApproval;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
+use App\Support\SolarMaintenanceAccess;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -75,29 +77,157 @@ class SolarMaintenanceApprovalService
     }
 
     /**
-     * Hoàn thành công việc sau khi đã được Trưởng phòng phê duyệt.
+     * Hoàn thành công việc (có thể được gọi bởi Quản lý sau khi duyệt hoặc Kỹ thuật viên hoàn tất trực tiếp).
      */
-    public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): void
+    public function complete(SolarMaintenanceSchedule $schedule, User $actor, ?string $comment = null): array
     {
-        DB::transaction(function () use ($schedule, $actor, $comment) {
-            if ($schedule->status !== 'approved' || $schedule->approval_status !== 'approved') {
+        return DB::transaction(function () use ($schedule, $actor, $comment) {
+            DB::table($schedule->getTable())->where('id', $schedule->id)->lockForUpdate()->first();
+            $schedule->refresh();
+            if ($schedule->getAttribute('complaint_checked_at')) {
+                throw ValidationException::withMessages(['approval' => 'Phiếu đã xác nhận KPI bảo hành; mốc hoàn tất đã khóa.']);
+            }
+            // Người được chỉ định (technical.maintenance_complete_any_emails) hoàn tất mọi đợt, không cần điều kiện;
+            // chỉ chặn đợt đã hoàn tất / đã hủy để không đóng hồ sơ hai lần.
+            $force = SolarMaintenanceAccess::canCompleteAnyRound($actor);
+            $bypassed = [];
+
+            if (in_array($schedule->status, ['completed', 'cancelled'], true)) {
                 throw ValidationException::withMessages([
-                    'approval' => 'Chỉ được hoàn thành sau khi kết quả kỹ thuật đã được phê duyệt.',
+                    'approval' => 'Đợt này đã hoàn tất hoặc đã hủy.',
                 ]);
+            }
+
+            $allowedStatuses = ['approved', 'in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'];
+            if (! in_array($schedule->status, $allowedStatuses, true)) {
+                if (! $force) {
+                    throw ValidationException::withMessages([
+                        'approval' => 'Trạng thái hiện tại không cho phép hoàn tất.',
+                    ]);
+                }
+                $bypassed[] = 'chưa ở bước thực hiện';
+            }
+
+            // Phân công chưa được Admin duyệt không còn chặn việc hoàn tất, chỉ ghi chú vào hồ sơ.
+            if (! in_array($schedule->assignment_approval_status, ['approved', 'not_required'], true)) {
+                $bypassed[] = 'phân công chưa được duyệt';
+            }
+
+            if (in_array($schedule->status, ['in_progress', 'waiting_material', 'waiting_submission', 'revision_requested'], true)) {
+                if (! trim((string) $schedule->result_note)) {
+                    if (! $force) {
+                        throw ValidationException::withMessages([
+                            'result_note' => 'Phải nhập kết quả xử lý trước khi hoàn tất.',
+                        ]);
+                    }
+                    $bypassed[] = 'chưa nhập kết quả xử lý';
+                }
+            }
+
+            if ($bypassed !== []) {
+                $bypassNote = 'Hoàn tất trực tiếp bởi '.$actor->name.' ('.implode(', ', $bypassed).').';
+                $comment = trim((string) $comment) === '' ? $bypassNote : trim((string) $comment).' | '.$bypassNote;
+            }
+
+            // Đợt tạo từ ngày áp dụng trở đi: kỹ thuật viên phải đủ file; manager thì không bị chặn.
+            $shortfall = $this->evidenceShortfall($schedule);
+            if ($shortfall !== [] && SolarMaintenanceAccess::mustHaveEvidenceToComplete($actor, $schedule)) {
+                throw ValidationException::withMessages([
+                    'evidence' => 'Đợt này cần đủ file minh chứng bắt buộc mới hoàn tất được. '.self::missingList($shortfall),
+                ]);
+            }
+
+            // Các trường hợp còn lại cho phép hoàn tất dù thiếu file, nhưng PHẢI ghi chú rõ vào hồ sơ.
+            $shortfallNote = $shortfall === [] ? null : self::shortfallNote($shortfall);
+            if ($shortfallNote !== null) {
+                $comment = trim((string) $comment) === '' ? $shortfallNote : trim((string) $comment).' | '.$shortfallNote;
             }
 
             $oldStatus = $schedule->status;
             $schedule->forceFill([
                 'status' => 'completed',
+                'approval_status' => 'approved',
                 'completed_date' => now()->toDateString(),
                 'completed_at' => now(),
+                // Ghi lúc thao tác hoàn tất thật; không lấy completed_at của hồ sơ cũ để bù mốc.
+                'execution_finished_at' => $schedule->execution_finished_at ?: now(),
                 'approval_note' => $comment ?: $schedule->approval_note,
+                'result_note' => $shortfallNote === null
+                    ? $schedule->result_note
+                    : rtrim((string) $schedule->result_note)."\n".$shortfallNote,
             ])->save();
 
             $this->approval($schedule, $actor, 'complete', 'approved', $comment, $actor->id);
-            $this->history($schedule, $actor, $oldStatus, 'completed', $comment ?: 'Đóng hồ sơ sau phê duyệt');
+            $this->history($schedule, $actor, $oldStatus, 'completed', $comment ?: 'Đóng hồ sơ hoàn tất đợt bảo trì');
             $this->audit($schedule, $actor, 'approval_completed');
+
+            return $shortfall;
         });
+    }
+
+    /**
+     * Các hạng mục bắt buộc còn thiếu file minh chứng (cùng quy tắc với màn hình chi tiết đợt).
+     *
+     * @return array<int, array{title: string, min_files: int, files_count: int}>
+     */
+    public function evidenceShortfall(SolarMaintenanceSchedule $schedule): array
+    {
+        $rows = [];
+        $workItems = Schema::hasTable('solar_maintenance_work_items')
+            ? $schedule->workItems()->with('attachments')->get()
+            : collect();
+        $legacy = Schema::hasTable('solar_maintenance_checklist_items')
+            ? $schedule->checklistItems()->with('attachments')->get()
+            : collect();
+
+        if ($workItems->isEmpty() && $legacy->isNotEmpty()) {
+            foreach ($legacy as $item) {
+                $required = (bool) ($item->is_required ?? true);
+                $min = max(0, (int) ($item->min_evidence ?? 0));
+                $files = $item->attachments->count();
+                $hasFiles = ! $item->requires_evidence || $files >= $min;
+                if ($required && ! ((bool) $item->is_done || $hasFiles)) {
+                    $rows[] = ['title' => (string) $item->label, 'min_files' => $min, 'files_count' => $files];
+                }
+            }
+
+            return $rows;
+        }
+
+        foreach ($workItems as $item) {
+            $config = str_starts_with((string) $item->description, '__ego_checklist__')
+                ? (json_decode(substr((string) $item->description, 17), true) ?: [])
+                : [];
+            $required = (bool) ($config['required'] ?? true);
+            $min = (int) ($config['min'] ?? 1);
+            $files = $item->attachments->count();
+            $hasFiles = ! $required || $files >= $min;
+            if ($required && ! ($item->status === 'completed' || $hasFiles)) {
+                $rows[] = ['title' => (string) $item->title, 'min_files' => $min, 'files_count' => $files];
+            }
+        }
+
+        return $rows;
+    }
+
+    /** Danh sách hạng mục thiếu file, dạng "Tên (0/1 file); ..." */
+    public static function missingList(array $shortfall): string
+    {
+        return implode('; ', array_map(
+            fn (array $row) => $row['title'].' ('.$row['files_count'].'/'.$row['min_files'].' file)',
+            $shortfall
+        )).'.';
+    }
+
+    /** Dòng ghi chú ghi vào hồ sơ khi hoàn tất mà chưa đủ file. */
+    public static function shortfallNote(array $shortfall): string
+    {
+        $parts = array_map(
+            fn (array $row) => $row['title'].' ('.$row['files_count'].'/'.$row['min_files'].' file)',
+            $shortfall
+        );
+
+        return 'Hoàn tất khi chưa đủ file minh chứng: '.implode('; ', $parts).'.';
     }
 
     /**
@@ -162,6 +292,11 @@ class SolarMaintenanceApprovalService
     public function reopen(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
+            DB::table($schedule->getTable())->where('id', $schedule->id)->lockForUpdate()->first();
+            $schedule->refresh();
+            if ($schedule->getAttribute('complaint_checked_at')) {
+                throw ValidationException::withMessages(['comment' => 'Phiếu đã xác nhận KPI bảo hành; không được mở lại để thay đổi các mốc đã khóa.']);
+            }
             if (! in_array($schedule->status, ['approved', 'completed', 'pending_approval', 'revision_requested'], true)) {
                 throw ValidationException::withMessages(['comment' => 'Trạng thái hiện tại không cần mở lại.']);
             }
@@ -183,6 +318,7 @@ class SolarMaintenanceApprovalService
                 'approval_note' => $comment,
                 'completed_at' => null,
                 'completed_date' => null,
+                'execution_finished_at' => null,
                 'reopened_at' => now(),
                 'reopened_by' => $actor->id,
             ])->save();

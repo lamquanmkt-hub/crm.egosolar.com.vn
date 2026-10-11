@@ -4,6 +4,9 @@
 --}}
 @php $p = ($idPrefix ?? '').$item->id; @endphp
 
+@include('technical.partials.kpi-work-status', ['kpiItem' => $item])
+<p class="small text-muted">KPI: Bắt đầu / Cập nhật tiến độ chỉ ghi tình trạng thực hiện. Để nhận điểm Tiến độ, bấm Viết báo cáo, chọn đúng việc này rồi Hoàn tất báo cáo / Gửi duyệt trong hạn.</p>
+
 <div class="row g-3">
     <div class="col-12 col-lg-6">
         <form method="POST" action="{{ route('technical.week-plan.items.status', $item) }}" class="tp-form">

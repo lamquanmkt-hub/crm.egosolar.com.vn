@@ -247,6 +247,35 @@
                 </div>
             </div>
 
+            @if(\App\Services\Hr\Kpi\RecruitmentKpi::ready())
+                @php
+                    $kpiHires = \Illuminate\Support\Facades\DB::table('hr_recruitment_hires as h')->join('hr_recruitment_requests as r', 'r.id', '=', 'h.request_id')
+                        ->where('h.employee_user_id', $employee->id)->orderByDesc('h.id')->get(['h.*', 'r.position']);
+                    $kpiOutcomes = (array) config('hcns_kpi.probation_outcomes');
+                @endphp
+                @if($kpiHires->isNotEmpty())
+                    <div class="emp-card" data-emp-kpi-hires>
+                        <div class="emp-section">
+                            <div class="emp-section-head"><div>
+                                <h3 class="emp-section-title">Lượt tuyển & thử việc (KPI HC01/HC03)</h3>
+                                <div class="emp-section-note">Ngày nhận việc thực tế và kết quả thử việc ghi ở lượt tuyển; có người kiểm xác nhận.</div>
+                            </div></div>
+                            <div class="emp-info-list" style="grid-template-columns:1fr;">
+                                @foreach($kpiHires as $kh)
+                                    <div class="emp-mini">
+                                        <div class="emp-label">Lượt #{{ $kh->id }} · {{ $kh->position }}</div>
+                                        <div class="emp-value">Nhận việc {{ $kh->actual_start_date ? \Illuminate\Support\Carbon::parse($kh->actual_start_date)->format('d/m/Y') : 'chưa ghi' }}
+                                            · thử việc {{ $kh->probation_end_date ? 'đến '.\Illuminate\Support\Carbon::parse($kh->probation_end_date)->format('d/m/Y') : 'chưa ghi' }}
+                                            · {{ $kpiOutcomes[$kh->probation_outcome ?? ''] ?? 'Chưa xác định' }}
+                                            · <a href="{{ route('hr.recruitment.hires.show', $kh->id) }}">Mở lượt tuyển</a></div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            @endif
+
             <div class="emp-card">
                 <div class="emp-section">
                     <div class="emp-section-head">

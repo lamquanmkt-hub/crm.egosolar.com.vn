@@ -40,8 +40,10 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
 
         $query = SolarWarrantyClaim::query()->where('claim_type', WarrantyFlow::TYPE_REPAIR)->with(['assignee:id,name']);
         $company = EgoCompanyScope::currentId();
-        if ($company > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
-            $query->where(fn (Builder $w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+        if ($company > 0) {
+            $query->where('company_id', $company);
+        } else {
+            $query->whereRaw('1 = 0');
         }
         if (SolarMaintenanceAccess::isTechnicianOnly($user)) {
             $query->where('assigned_to', $user->id);
@@ -115,7 +117,9 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         });
         $company = EgoCompanyScope::currentId();
         if ($company > 0) {
-            $rows->where(fn ($w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+            $rows->where('company_id', $company);
+        } else {
+            $rows->whereRaw('1 = 0');
         }
 
         return response()->json(['items' => $rows->orderBy('name')->limit(8)->get(['id', 'name', 'phone', 'email', 'address', 'billing_company_name as company'])]);
@@ -444,9 +448,18 @@ class WarrantyRepairController extends TechnicalWarrantyExchangeController
         abort_unless($claim->claim_type === WarrantyFlow::TYPE_REPAIR, 404);
         $user = request()->user();
         abort_unless(SolarMaintenanceAccess::canViewAny($user), 403);
+        
         $current = EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        
         $cc = (int) $claim->company_id;
-        if ($current > 0 && $cc > 0 && $current !== $cc && ! SolarMaintenanceAccess::isAdmin($user)) {
+        if ($cc <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        
+        if ($current !== $cc) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
         try {

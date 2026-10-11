@@ -354,70 +354,43 @@
 </style>
 
 <div class="container-fluid py-4 hr-modern-page">
-    <div class="card hr-hero mb-4">
-        <div class="card-body p-4 p-xl-5">
-            <div class="row g-4 align-items-center">
-                <div class="col-xl-7">
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                        <span class="hr-chip"><i class="bi bi-stars"></i> HR Command Center</span>
-                        <span class="hr-chip"><i class="bi bi-diagram-3"></i> Cấu trúc theo phòng ban</span>
-                    </div>
-
-                    <h1 class="fw-bold mb-3" style="font-size:clamp(28px,4vw,42px);line-height:1.1;">
-                        Xem nhanh toàn bộ nhân sự theo <span style="color:#93c5fd;">phòng ban</span>,
-                        nhận diện rõ <span style="color:#bfdbfe;">ban giám đốc</span>, trưởng nhóm và từng thành viên.
-                    </h1>
-
-                    <div class="mb-4" style="max-width:760px; opacity:.92; font-size:15px;">
-                        Giao diện mới ưu tiên cho admin: mỗi cụm phòng ban là một khu vực riêng, người ngừng hợp tác được gom xuống cuối cùng, và mỗi card hiển thị rõ ảnh đại diện, tên, phòng ban và chức vụ.
-                    </div>
-
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ route('hr.dashboard') }}" class="btn btn-light px-3">
-                            <i class="bi bi-arrow-left me-1"></i> Dashboard
-                        </a>
-                        <a href="{{ route('hr.employees.create') }}" class="btn btn-primary px-3">
-                            <i class="bi bi-plus-circle me-1"></i> Thêm nhân viên
-                        </a>
-                        <a href="{{ route('hr.departments.index') }}" class="btn btn-outline-light px-3">
-                            <i class="bi bi-building me-1"></i> Phòng ban
-                        </a>
-                    </div>
-                </div>
-
-                <div class="col-xl-5">
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <div class="hr-hero-stat">
-                                <div class="small opacity-75">Tổng nhân sự</div>
-                                <div class="value">{{ $totalEmployees }}</div>
-                                <div class="small opacity-75 mt-2">Toàn bộ hồ sơ hệ thống</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="hr-hero-stat">
-                                <div class="small opacity-75">Đang hoạt động</div>
-                                <div class="value">{{ $activeEmployees }}</div>
-                                <div class="small opacity-75 mt-2">Đội ngũ đang vận hành</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="hr-hero-stat">
-                                <div class="small opacity-75">Đã ngừng hợp tác</div>
-                                <div class="value">{{ $inactiveEmployees }}</div>
-                                <div class="small opacity-75 mt-2">Gom xuống cuối cùng</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="hr-hero-stat">
-                                <div class="small opacity-75">Phòng ban</div>
-                                <div class="value">{{ $departmentCount }}</div>
-                                <div class="small opacity-75 mt-2">Cơ cấu tổ chức</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div class="hcns-directory-head">
+        <div>
+            <h1 class="hcns-directory-title">Danh sách nhân viên</h1>
+            <p class="hcns-directory-sub">Tìm nhân viên, xem hồ sơ và quản lý theo phòng ban.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ route('hr.dashboard') }}" class="btn btn-light px-3">
+                <i class="bi bi-arrow-left me-1"></i> Tổng quan nhân sự
+            </a>
+            <a href="{{ route('hr.employees.create') }}" class="btn btn-primary px-3">
+                <i class="bi bi-plus-circle me-1"></i> Thêm nhân viên
+            </a>
+            <a href="{{ route('hr.departments.index') }}" class="btn btn-outline-light px-3">
+                <i class="bi bi-building me-1"></i> Phòng ban
+            </a>
+        </div>
+    </div>
+    <div class="hcns-directory-stats">
+        <div class="hr-hero-stat">
+            <div class="small opacity-75">Tổng nhân sự</div>
+            <div class="value">{{ $totalEmployees }}</div>
+            <div class="small opacity-75 mt-2">Toàn bộ hồ sơ hệ thống</div>
+        </div>
+        <div class="hr-hero-stat">
+            <div class="small opacity-75">Đang hoạt động</div>
+            <div class="value">{{ $activeEmployees }}</div>
+            <div class="small opacity-75 mt-2">Đội ngũ đang vận hành</div>
+        </div>
+        <div class="hr-hero-stat">
+            <div class="small opacity-75">Đã ngừng hợp tác</div>
+            <div class="value">{{ $inactiveEmployees }}</div>
+            <div class="small opacity-75 mt-2">Gom xuống cuối cùng</div>
+        </div>
+        <div class="hr-hero-stat">
+            <div class="small opacity-75">Phòng ban</div>
+            <div class="value">{{ $departmentCount }}</div>
+            <div class="small opacity-75 mt-2">Cơ cấu tổ chức</div>
         </div>
     </div>
 

@@ -121,6 +121,11 @@ class SolarMaintenanceApprovalService
     public function reopen(SolarMaintenanceSchedule $schedule, User $actor, string $comment): void
     {
         DB::transaction(function () use ($schedule, $actor, $comment) {
+            DB::table($schedule->getTable())->where('id', $schedule->id)->lockForUpdate()->first();
+            $schedule->refresh();
+            if ($schedule->getAttribute('complaint_checked_at')) {
+                throw ValidationException::withMessages(['comment' => 'Phiếu đã xác nhận KPI bảo hành; không được mở lại để thay đổi các mốc đã khóa.']);
+            }
             if (! in_array($schedule->status, ['approved', 'completed', 'pending_approval', 'revision_requested'], true)) {
                 throw ValidationException::withMessages(['comment' => 'Trạng thái hiện tại không cần mở lại.']);
             }

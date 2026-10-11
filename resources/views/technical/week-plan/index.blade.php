@@ -42,6 +42,8 @@
 
     @include('technical.workboard.partials.flash')
 
+    @include('technical.partials.kpi-work-rules')
+
 @if($planTab === 'history')
     {{-- ---------- Tab: Lịch sử kế hoạch của chính tôi ---------- --}}
     <div class="tw-card">
@@ -379,6 +381,7 @@
                                     <td>
                                         <span class="tp-table__title">{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->title) }}</span>
                                         <span class="tp-table__sub">{{ $item->sourceLabel() }}</span>
+                                        @include('technical.partials.kpi-work-status', ['kpiItem' => $item])
                                     </td>
                                     <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->site_name ?? '—') }}</td>
                                     <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->objective ?: '—') }}</td>
@@ -422,6 +425,7 @@
                         @foreach($dayItems as $item)
                             <div class="tp-jobcard">
                                 <p class="tp-jobcard__title">{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->title) }}</p>
+                                @include('technical.partials.kpi-work-status', ['kpiItem' => $item])
                                 <div class="tp-jobcard__row">
                                     <span class="tp-jobcard__label">Buổi</span>
                                     <span class="tp-jobcard__value">{{ $item->dayPartLabel() }}</span>

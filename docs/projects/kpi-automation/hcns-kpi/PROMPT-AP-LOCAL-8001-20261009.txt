@@ -1,0 +1,52 @@
+Áp dụng phần KPI HCNS đã triển khai lên web local 8001 và tạo dữ liệu mẫu để tôi kiểm tra bằng tài khoản Admin cũ.
+
+Source: D:/Source Dev/crm.egosolar.com.vn/crm.egosolar.com.vn
+Web đích: http://127.0.0.1:8001
+DB đích dự kiến: crm_egosolar_test. Xác minh kết nối runtime thực tế trước khi ghi.
+
+ỦY QUYỀN MỚI CỦA NGƯỜI DÙNG NGÀY 09/10/2026:
+Được sao lưu, áp các migration HCNS liên quan lên DB local 8001 và tạo/kiểm tra dữ liệu mẫu tại đó. Phạm vi này thay thế yêu cầu cũ “chưa áp migration/data lên local” trong skill và tài liệu. Không cần hỏi lại việc áp local đã được yêu cầu. Đây là cập nhật local, không phải deploy hosting/production. Chưa được duyệt cấu hình HCNS áp dụng cho nhân viên thật hoặc duyệt lương thật.
+
+1. Kiểm tra và sao lưu
+- Đọc skill ego-hcns-kpi-automation, PROJECT, PLAN, SOURCE-MAP, STATUS và source hiện tại. Giữ thay đổi của các phiên khác; tránh ghi đồng thời cùng tệp.
+- Xác minh web 8001 dùng đúng repo/DB, trạng thái migration, phiên bản PHP và các prerequisite. Không sửa .env hoặc chuyển 8001 sang egosolar_test.
+- Ghi baseline dữ liệu cần bảo vệ: lương Excel 08/2026, cấu hình/KPI HCNS hiện có, dữ liệu kỹ thuật mẫu, tài khoản Admin cũ và dữ liệu tuyển dụng cũ. Không xuất mật khẩu hoặc bí mật vào log.
+- Sao lưu DB local đầy đủ và các tệp upload liên quan vào nơi riêng tư ngoài git; kiểm tra dump hợp lệ và ghi cách khôi phục. Không coi tên DB có chữ test là dữ liệu có thể xóa.
+
+2. Áp migration lên 8001
+Kiểm nội dung up/down và phụ thuộc thật, rồi chạy riêng các tệp chưa áp theo thứ tự:
+- 2026_10_08_160000_add_hcns_kpi_source_tracking.php
+- 2026_10_08_190000_hcns_kpi_payroll_foundation.php
+- 2026_10_08_200000_hcns_kpi_hc06_sources.php
+- 2026_10_09_100000_hcns_kpi_recruitment_sources.php
+
+- Bỏ qua tệp đã áp. Nếu prerequisite chưa có, kiểm tra và giải thích tác động trước; không chạy mọi migration đang chờ một cách mù quáng.
+- Không migrate:fresh, migrate:refresh, db:wipe, seed toàn DB, nhập toàn bộ DB thử hoặc rollback dữ liệu mới để dọn demo.
+- Kiểm tra schema và route sau áp; giữ server 8001 đúng cấu hình. Chỉ làm mới cache liên quan nếu cần, không xóa cache/storage chung hàng loạt.
+- Nguồn/tệp HC09 cần chuyển riêng tư: chạy hcns:secure-task-attachments ở chế độ liệt kê trước; nếu đúng phạm vi thủ tục HCNS thì chuyển có backup và giữ nguyên ID/link. Không chuyển tệp kỹ thuật hoặc xóa bản cũ trước khi kiểm chứng bản mới.
+
+3. Dữ liệu mẫu tại local
+- Tạo bộ HCNS-LOCAL-DEMO-20261009, tách khỏi dữ liệu thật bằng mã/ID rõ ràng. Lệnh tạo phải chạy lại không trùng và không đổi giờ/kết quả đã tạo.
+- Tạo tài khoản HCNS nhập, người kiểm và người không có quyền theo role sẵn có nếu chưa có tài khoản mẫu phù hợp. Không đổi mật khẩu/role/quyền của Admin cũ hoặc nhân viên thật. Không sao chép toàn DB demo 8012 sang 8001.
+- Gán hồ sơ lương/bộ KPI cho riêng nhân viên mẫu nếu trang KPI cần để hiện người; dữ liệu lương phải ghi TEST, không tạo/duyệt kỳ lương thật.
+- HC09: có việc đúng hạn, trễ, quá hạn chưa nộp, nháp/chờ xác nhận và gia hạn. HC07: hồ sơ đạt, sai nơi nhận và chờ kiểm.
+- HC06: có cấp phát VPP, kiểm kê và sự cố để thấy đủ ba nhóm; chưa chốt H-D04 thì không tạo điểm tổng giả.
+- HC01–HC03: có yêu cầu tuyển → ứng viên → nhận việc thực tế → nhân viên/thử việc; có chi phí hợp lệ, tạm ứng chưa quyết toán/hoàn tiền và trường hợp thiếu dữ liệu.
+- Được gửi, xác nhận/trả bổ sung các hồ sơ TEST bằng đúng vai trò để thử luồng. Không tự duyệt bản cấu hình áp dụng chung. Mọi quy tắc/trọng số/cohort chưa chốt giữ nháp/xem trước. Không tự tạo điểm chính thức bằng cách nhập tay thay nguồn thiếu.
+- Không gửi email, thông báo ra ngoài hoặc chạy tác vụ thanh toán thật. Giữ bộ mẫu trên 8001 cho người dùng xem, không tự dọn sau bàn giao; ghi danh sách ID và cách dọn đúng bộ mẫu.
+
+4. Kiểm tra sau áp
+- Automated tests vẫn chạy trên egosolar_test cô lập, không chạy PHPUnit/Pest hoặc fixture test suite trên crm_egosolar_test.
+- Trên 8001 kiểm tra thật bằng trình duyệt: đăng nhập, menu, tạo/sửa/gửi/xác nhận/trả bổ sung hồ sơ TEST, upload/preview, checklist, link nguồn, bộ lọc người/tháng, quyền và mobile 390px.
+- Admin cũ phải giữ khả năng đăng nhập. Dùng phiên đăng nhập sẵn nếu có; không reset mật khẩu để test. Nếu chưa có thông tin đăng nhập, tiếp tục bằng tài khoản mẫu, bàn giao link để người dùng kiểm tra Admin; ghi rõ phần Admin chưa kiểm, không nhận là đạt.
+- Đối chiếu từng dòng HC09/HC07 và số đo HC01–HC03/HC06 với tính tay. Ghi rõ số đo, xem trước, chính thức và lý do chưa đủ; báo chưa đủ đúng quy tắc không được coi là lỗi cần che đi.
+- Kiểm tra trang lương HR mở bình thường, giữ số tiền/lịch sử thật. Các ca duyệt/chốt lương và khóa kỳ vẫn thử ở DB test riêng, không chốt kỳ thật trên 8001 để kiểm khóa.
+- Đối chiếu baseline trước/sau. Sửa lỗi 500 hoặc quyền/route/schema phát hiện, kiểm thử lại phần ảnh hưởng. Không gọi toàn bộ HCNS xong: HC04, HC05, HC08 vẫn chưa có nguồn.
+
+5. Bàn giao
+- Cập nhật PROJECT, PLAN, STATUS với phạm vi local đã được cho phép và trạng thái thực; bổ sung mục ủy quyền này vào skill nếu cần để không tiếp tục chặn sai phạm vi trong phiên sau.
+- Báo migration đã chạy/bỏ qua, backup nằm đâu, dữ liệu thật trước/sau, ID dữ liệu mẫu, test/UI đã chạy và phần chưa kiểm.
+- Gửi link đầy đủ trên 8001 để Admin mở KPI nhân viên mẫu và từng trang nguồn, kèm tài khoản mẫu/cách thao tác. Mật khẩu mẫu chỉ lưu trong hướng dẫn riêng tư gitignore, không trong tài liệu có thể commit.
+- Ghi quyết định còn cần chốt, các điểm vẫn xem trước và bước tiếp theo. Không commit/push/deploy hoặc phê duyệt cấu hình/lương thật.
+
+Thực hiện cập nhật local và kiểm tra dữ liệu theo phạm vi trên. Không chỉ lập kế hoạch, không tiếp tục giữ toàn bộ tính năng ở 8012 vì hạn chế local cũ.

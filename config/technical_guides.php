@@ -95,6 +95,16 @@ return [
             'route_hint' => 'technical.daily-reports.create',
             'route_hint_params' => ['mode' => 'phat-sinh'],
         ],
+        [
+            'slug' => 'nhan-vien-kpi-cua-toi',
+            'title' => 'Xem KPI và lương hiệu suất của tôi',
+            'group' => 'staff',
+            'roles' => ['staff', 'manager', 'admin'],
+            'icon' => 'bi-graph-up-arrow',
+            'summary' => '5 tiêu chí KPI, cách tính tiền KPI và vì sao KPI báo “Chưa đủ dữ liệu”.',
+            'reading_minutes' => 3,
+            'route_hint' => 'ky-thuat.kpis.index',
+        ],
 
         /* ---------------- TRƯỞNG PHÒNG KỸ THUẬT ---------------- */
 
@@ -128,6 +138,16 @@ return [
             'reading_minutes' => 3,
             'route_hint' => 'technical.manager.weekly-summary',
         ],
+        [
+            'slug' => 'truong-phong-kpi-thang',
+            'title' => 'KPI tháng: nhập số liệu và đánh giá khi nghiệm thu',
+            'group' => 'manager',
+            'roles' => ['manager', 'admin'],
+            'icon' => 'bi-pencil-square',
+            'summary' => 'KH / TH là gì, nhập số liệu tháng, cộng/trừ điểm và đánh giá KPI ở bước Nghiệm thu dự án.',
+            'reading_minutes' => 6,
+            'route_hint' => 'ky-thuat.kpis.input',
+        ],
 
         /* ---------------- ADMIN / BAN GIÁM ĐỐC ---------------- */
 
@@ -153,12 +173,12 @@ return [
         ],
         [
             'slug' => 'admin-kpi-ky-thuat',
-            'title' => 'KPI Kỹ thuật: đọc và hiểu đúng số',
+            'title' => 'KPI Kỹ thuật: cài đặt, lương thoả thuận và đọc bảng KPI',
             'group' => 'admin',
             'roles' => ['admin'],
             'icon' => 'bi-bar-chart-line',
-            'summary' => 'Năm tiêu chí, trọng số và nguồn dữ liệu của bảng KPI theo tháng.',
-            'reading_minutes' => 5,
+            'summary' => 'Cài đặt công thức và phê duyệt, nhập lương thoả thuận, đọc % KPI và xử lý dòng “Chưa đủ dữ liệu”.',
+            'reading_minutes' => 6,
             'route_hint' => 'ky-thuat.kpis.index',
         ],
     ],

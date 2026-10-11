@@ -7,6 +7,8 @@ use App\Models\Department;
 use App\Models\Tasks\Task;
 use App\Models\ProjectTest\Project;
 use App\Models\User;
+use App\Services\Hr\Kpi\HcnsAdminTasks;
+use App\Services\Tasks\TaskPermissions;
 use App\Services\Workspace\WorkspaceContextService;
 use App\Support\EgoCompanyLock;
 use Illuminate\Http\Request;
@@ -26,35 +28,8 @@ class TaskController extends Controller
      */
     private function canAssign($user): bool
     {
-        if (! $user) {
-            return false;
-        }
-
-        /*
-         * EGO_TECHNICAL_TASK_ACCESS:
-         * Tài khoản có role kỹ thuật nhưng mang chức danh Trưởng phòng,
-         * Manager hoặc Leader vẫn được quyền giao và quản lý việc của phòng.
-         */
-        if ($this->isTechnicalManager($user)) {
-            return true;
-        }
-
-        $roles = [
-            'admin', 'manager', 'management', 'director', 'general_director',
-            'ban_giam_doc', 'giam_doc', 'sales_manager', 'marketing_manager',
-            'accounting', 'technical_manager', 'technical_leader', 'truong_phong_ky_thuat',
-        ];
-
-        if (method_exists($user, 'hasAnyRole')) {
-            try {
-                return $user->hasAnyRole($roles);
-            } catch (\Throwable) {
-            }
-        }
-
-        $role = strtolower((string) ($user->role ?? $user->type ?? ''));
-
-        return in_array($role, $roles, true);
+        // Logic gốc chuyển sang TaskPermissions để checklist KPI dùng chung; hành vi giữ nguyên.
+        return TaskPermissions::canAssign($user);
     }
 
     /**
@@ -188,6 +163,7 @@ class TaskController extends Controller
             'revision' => 'Cần sửa / bổ sung',
             'rejected' => 'Bị từ chối',
             'approved' => 'Đã duyệt',
+            'cancelled' => 'Đã hủy',
         ];
     }
 
@@ -228,41 +204,12 @@ class TaskController extends Controller
      */
     private function isExecutiveTaskManager($user): bool
     {
-        if (! $user) {
-            return false;
-        }
-
-        $roles = [
-            'admin', 'manager', 'management', 'director', 'general_director',
-            'ban_giam_doc', 'giam_doc', 'ceo',
-        ];
-
-        return method_exists($user, 'hasAnyRole')
-            ? $user->hasAnyRole($roles)
-            : in_array(strtolower((string) ($user->role ?? '')), $roles, true);
+        return TaskPermissions::isExecutive($user);
     }
 
     private function isTechnicalManager($user): bool
     {
-        if (! $user) {
-            return false;
-        }
-
-        $roles = ['technical_manager', 'technical_leader', 'truong_phong_ky_thuat'];
-        if (method_exists($user, 'hasAnyRole')) {
-            try {
-                if ($user->hasAnyRole($roles)) {
-                    return true;
-                }
-            } catch (\Throwable) {
-            }
-        }
-
-        $position = mb_strtolower((string) optional($user->position)->name);
-        $department = mb_strtolower((string) optional($user->department)->name);
-
-        return (str_contains($position, 'trưởng') || str_contains($position, 'manager') || str_contains($position, 'leader'))
-            && (str_contains($department, 'kỹ thuật') || str_contains($department, 'technical'));
+        return TaskPermissions::isTechnicalManager($user);
     }
 
     private function isTechnicalTaskContext($user, ?Task $task = null): bool
@@ -431,12 +378,15 @@ class TaskController extends Controller
             return;
         }
 
+        // Minh chứng thủ tục HCNS lưu riêng tư, chỉ mở qua route có kiểm quyền; việc khác giữ disk public như cũ.
+        $disk = HcnsAdminTasks::is($task) && Schema::hasColumn('task_attachments', 'disk') ? 'local' : 'public';
+
         foreach ($request->file($inputName) as $file) {
             if (! $file) {
                 continue;
             }
 
-            $path = $file->store('task_attachments/'.$task->id, 'public');
+            $path = $file->store('task_attachments/'.$task->id, $disk);
 
             if ($this->tableExists('task_attachments')) {
                 DB::table('task_attachments')->insert([
@@ -449,7 +399,7 @@ class TaskController extends Controller
                     'file_size' => $file->getSize(),
                     'created_at' => now(),
                     'updated_at' => now(),
-                ]);
+                ] + ($disk === 'local' ? ['disk' => 'local'] : []));
             }
         }
     }
@@ -587,7 +537,63 @@ class TaskController extends Controller
         $statuses = $this->statuses();
         $context = $this->technicalFormData($user);
 
-        return view('tasks.create', array_merge(compact('users', 'priorities', 'statuses'), $context));
+        return view('tasks.create', array_merge(compact('users', 'priorities', 'statuses'), $context, $this->hcnsFormData($user, $context)));
+    }
+
+    /**
+     * Dữ liệu khối "Thủ tục hành chính HCNS (KPI HC09)" trên form giao/sửa việc.
+     * Không hiện trong ngữ cảnh Kỹ thuật hoặc khi DB chưa áp migration nguồn HCNS.
+     */
+    private function hcnsFormData($user, array $context, ?Task $task = null): array
+    {
+        $available = HcnsAdminTasks::ready() && empty($context['isTechnicalTaskContext']) && $this->canAssign($user);
+
+        return [
+            'hcnsAvailable' => $available,
+            'hcnsProcedureTypes' => $available ? HcnsAdminTasks::procedureTypes() : [],
+            'hcnsReviewers' => $available ? $this->assignableUsers($user) : collect(),
+        ];
+    }
+
+    /**
+     * Kiểm tra và chuẩn hóa dữ liệu thủ tục hành chính HCNS: loại thủ tục, hạn có giờ, người kiểm khác người làm.
+     */
+    private function hcnsValidated(Request $request, array $data, $assigneeIds): array
+    {
+        $request->validate([
+            'hcns_procedure_type' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys(HcnsAdminTasks::procedureTypes()))],
+            'due_at' => ['required', 'date'],
+            'due_time' => ['nullable', 'date_format:H:i'],
+            'approver_id' => ['required', 'integer', 'exists:users,id'],
+        ], [
+            'hcns_procedure_type.required' => 'Chọn loại thủ tục hành chính.',
+            'due_at.required' => 'Thủ tục hành chính HCNS phải có hạn hoàn thành.',
+            'approver_id.required' => 'Chọn người kiểm tra/xác nhận kết quả.',
+        ]);
+
+        if (collect($assigneeIds)->contains(fn ($id) => (int) $id === (int) $request->input('approver_id'))) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'approver_id' => 'Người kiểm tra phải khác người thực hiện — không tự xác nhận KPI của mình.',
+            ]);
+        }
+
+        $data['task_type'] = HcnsAdminTasks::TYPE;
+        $data['hcns_procedure_type'] = (string) $request->input('hcns_procedure_type');
+        $data['approver_id'] = (int) $request->input('approver_id');
+        $data['due_at'] = HcnsAdminTasks::dueFromInput((string) $request->input('due_at'), $request->input('due_time'));
+
+        return $data;
+    }
+
+    /** Thủ tục HCNS thuộc kỳ KPI đã chốt lương → trả thông báo khóa (null = được sửa). */
+    private function hcnsLockError(?object $task, ?string $newDue = null): ?string
+    {
+        if (! HcnsAdminTasks::ready()) {
+            return null;
+        }
+        $month = HcnsAdminTasks::lockedMonth($task, $newDue);
+
+        return $month ? HcnsAdminTasks::lockMessage($month) : null;
     }
 
     /**
@@ -633,6 +639,14 @@ class TaskController extends Controller
             $this->assertTechnicalTaskData($user, $data);
             $data['task_type'] = 'technical';
         }
+        $hcns = ! $technical && $request->boolean('hcns_task') && HcnsAdminTasks::ready();
+        if ($hcns) {
+            $data = $this->hcnsValidated($request, $data, $assigneeIds);
+            if ($locked = $this->hcnsLockError((object) ['task_type' => HcnsAdminTasks::TYPE], (string) $data['due_at'])) {
+                return back()->withInput()->with('error', $locked);
+            }
+            $data['original_due_at'] = $data['due_at'];
+        }
 
         $createdTasks = collect();
         foreach ($assigneeIds as $assigneeId) {
@@ -654,6 +668,7 @@ class TaskController extends Controller
                 'new',
                 'Đã giao công việc cho '.(optional($task->assignee)->name ?: 'nhân viên'),
                 ['assignee_id' => $assigneeId, 'project_id' => $task->project_id]
+                    + ($hcns ? ['task_type' => HcnsAdminTasks::TYPE, 'due_at' => optional($task->due_at)->toDateTimeString(), 'approver_id' => $task->approver_id] : [])
             );
         }
 
@@ -741,7 +756,7 @@ class TaskController extends Controller
         $statuses = $this->statuses();
         $context = $this->technicalFormData($user, $task);
 
-        return view('tasks.edit', array_merge(compact('task', 'users', 'priorities', 'statuses'), $context));
+        return view('tasks.edit', array_merge(compact('task', 'users', 'priorities', 'statuses'), $context, $this->hcnsFormData($user, $context, $task)));
     }
 
     /**
@@ -754,7 +769,8 @@ class TaskController extends Controller
             abort(403);
         }
 
-        $technical = $this->isTechnicalTaskContext($user, $task);
+        // Thủ tục HCNS giữ nguyên loại khi sửa (kể cả từ không gian Kỹ thuật) để không rút việc khỏi KPI HC09.
+        $technical = ! HcnsAdminTasks::is($task) && $this->isTechnicalTaskContext($user, $task);
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -789,6 +805,24 @@ class TaskController extends Controller
             $data['task_type'] = 'technical';
         }
 
+        $wasHcns = HcnsAdminTasks::is($task);
+        $hcns = ! $technical && HcnsAdminTasks::ready() && ($wasHcns || $request->boolean('hcns_task'));
+        if ($wasHcns && HcnsAdminTasks::isCancelled($task)) {
+            return back()->with('error', 'Thủ tục đã hủy — không sửa được. Giao việc mới nếu cần làm lại.');
+        }
+        $oldDue = $task->due_at ? Carbon::parse($task->due_at) : null;
+        if ($hcns) {
+            $data = $this->hcnsValidated($request, $data, $assigneeIds);
+            if ($locked = $this->hcnsLockError($wasHcns ? $task : (object) ['task_type' => HcnsAdminTasks::TYPE], (string) $data['due_at'])) {
+                return back()->withInput()->with('error', $locked);
+            }
+            // Trạng thái thủ tục HCNS chỉ đổi qua Nộp / Duyệt / Trả bổ sung / Hủy để giữ đúng mốc KPI.
+            $data['status'] = (string) $task->status;
+            if (! $wasHcns) {
+                $data['original_due_at'] = $data['due_at'];
+            }
+        }
+
         $mainAssigneeId = (int) $assigneeIds->first();
         $oldAssigneeId = (int) ($task->assignee_id ?? 0);
         $oldStatus = (string) ($task->status ?? '');
@@ -796,17 +830,31 @@ class TaskController extends Controller
         unset($updateData['assignee_ids']);
         $updateData['assignee_id'] = $mainAssigneeId;
         $task->update($this->filterColumns('tasks', $updateData));
+        if ($hcns && ! $wasHcns) {
+            // Việc thường chuyển thành thủ tục HCNS: tệp cũ trên disk public chuyển sang riêng tư (link theo ID vẫn dùng được).
+            self::securePublicAttachments((int) $task->id);
+        }
         $this->storeAttachments($request, $task, 'attachments', 'task');
         if ($oldAssigneeId !== $mainAssigneeId) {
             $this->notifyTaskAssigned($task->fresh());
         }
+        $newDue = $task->due_at ? Carbon::parse($task->due_at) : null;
+        $dueChanged = $hcns && $wasHcns && $oldDue?->toDateTimeString() !== $newDue?->toDateTimeString();
         $this->logTaskActivity(
             $task,
-            'updated',
+            $dueChanged ? 'due_changed' : 'updated',
             $oldStatus,
             (string) $task->status,
-            'Đã cập nhật nội dung, người phụ trách hoặc thời hạn công việc.',
+            $dueChanged
+                ? 'Đổi hạn từ '.($oldDue?->format('H:i d/m/Y') ?? 'chưa có').' sang '.($newDue?->format('H:i d/m/Y') ?? 'chưa có').'.'
+                : 'Đã cập nhật nội dung, người phụ trách hoặc thời hạn công việc.',
             ['old_assignee_id' => $oldAssigneeId, 'assignee_id' => $mainAssigneeId]
+                + ($hcns ? [
+                    'old_due_at' => $oldDue?->toDateTimeString(),
+                    'due_at' => $newDue?->toDateTimeString(),
+                    'original_due_at' => optional($task->original_due_at)->toDateTimeString(),
+                    'changed_after_original_due' => $task->original_due_at && now()->greaterThan($task->original_due_at),
+                ] : [])
         );
 
         $createdCount = 0;
@@ -815,6 +863,10 @@ class TaskController extends Controller
             $taskData['assignee_id'] = $assigneeId;
             $taskData['requester_id'] = $task->requester_id ?: $user->id;
             $taskData['progress_percent'] = 0;
+            if ($hcns) {
+                $taskData['status'] = 'new';
+                $taskData['original_due_at'] = $taskData['due_at'];
+            }
             $newTask = Task::create($this->filterColumns('tasks', $taskData));
             $this->storeAttachments($request, $newTask, 'attachments', 'task');
             $this->notifyTaskAssigned($newTask);
@@ -840,6 +892,13 @@ class TaskController extends Controller
             'status' => 'required|in:new,in_progress',
             'progress_percent' => 'nullable|integer|min:0|max:100',
         ]);
+
+        if ($locked = $this->hcnsLockError($task)) {
+            return back()->with('error', $locked);
+        }
+        if (HcnsAdminTasks::is($task) && in_array((string) $task->status, ['submitted', 'approved', 'cancelled'], true)) {
+            return back()->with('error', 'Thủ tục HCNS đã nộp/xác nhận/hủy — không đổi trạng thái bằng cập nhật nhanh.');
+        }
 
         $oldStatus = (string) ($task->status ?? '');
         $task->status = $data['status'];
@@ -973,14 +1032,43 @@ class TaskController extends Controller
 
         $oldStatus = (string) ($task->status ?? '');
         $technical = (string) ($task->task_type ?? '') === 'technical';
+        $hcns = HcnsAdminTasks::is($task) && HcnsAdminTasks::ready();
+        if ($hcns && HcnsAdminTasks::isCancelled($task)) {
+            return back()->with('error', 'Thủ tục đã hủy — không nộp kết quả được.');
+        }
+        if ($locked = $this->hcnsLockError($task)) {
+            return back()->with('error', $locked);
+        }
+        $isDraft = $hcns && $request->input('intent') === 'draft';
         $data = $request->validate([
-            'result_note' => $technical ? 'required|string' : 'nullable|string',
+            'result_note' => ($technical || ($hcns && ! $isDraft)) ? 'required|string' : 'nullable|string',
             'issue_note' => 'nullable|string|max:10000',
             'actual_minutes' => $technical ? 'required|integer|min:1|max:100000' : 'nullable|integer|min:1|max:100000',
             'progress_percent' => 'nullable|integer|min:0|max:100',
             'result_attachments.*' => 'nullable|file|max:51200',
             'clear_result_attachments' => 'nullable|boolean',
+        ], [
+            'result_note.required' => 'Ghi rõ kết quả thủ tục (số biên nhận, cơ quan, tình trạng hồ sơ…) trước khi gửi.',
         ]);
+
+        if ($isDraft) {
+            // Lưu nháp: chỉ người thực hiện, chưa gửi người kiểm, chưa có mốc nộp và chưa tính KPI.
+            abort_unless($isAssignee, 403, 'Chỉ người thực hiện được lưu nháp kết quả.');
+            if (! in_array($oldStatus, ['new', 'in_progress', 'revision', 'rejected'], true)) {
+                return back()->with('error', 'Kết quả đã gửi kiểm tra — không lưu nháp đè lên bản đã gửi.');
+            }
+            $task->result_note = $data['result_note'] ?? null;
+            $task->progress_percent = (int) ($data['progress_percent'] ?? $task->progress_percent);
+            if ($oldStatus === 'new') {
+                $task->status = 'in_progress';
+            }
+            $task->draft_saved_at = now();
+            $task->save();
+            $this->storeAttachments($request, $task, 'result_attachments', 'result');
+            $this->logTaskActivity($task, 'draft_saved', $oldStatus, (string) $task->status, 'Lưu nháp kết quả (chưa gửi người kiểm).');
+
+            return back()->with('success', 'Đã lưu nháp. Kết quả chưa gửi người kiểm và chưa tính KPI.');
+        }
 
         $task->result_note = $data['result_note'] ?? null;
         if (Schema::hasColumn('tasks', 'issue_note')) {
@@ -995,13 +1083,28 @@ class TaskController extends Controller
         if (in_array($oldStatus, ['revision', 'rejected'], true) && Schema::hasColumn('tasks', 'resubmitted_at')) {
             $task->resubmitted_at = now();
         }
+        // Mốc nộp riêng: lần đầu giữ nguyên, lần gần nhất và số lần cập nhật mỗi lần gửi (completed_at bị trả bổ sung xóa).
+        if (HcnsAdminTasks::hasColumn('first_submitted_at') && empty($task->first_submitted_at)) {
+            $task->first_submitted_at = now();
+        }
+        if (HcnsAdminTasks::hasColumn('last_submitted_at')) {
+            $task->last_submitted_at = now();
+        }
+        if (HcnsAdminTasks::hasColumn('submission_count')) {
+            $task->submission_count = (int) ($task->submission_count ?? 0) + 1;
+        }
+        if ($oldStatus === 'approved' && HcnsAdminTasks::hasColumn('approved_at')) {
+            // Sửa kết quả đã duyệt đưa việc về chờ duyệt: xác nhận cũ không còn hiệu lực.
+            $task->approved_by = null;
+            $task->approved_at = null;
+        }
         $task->save();
 
         if ($request->boolean('clear_result_attachments') && $this->tableExists('task_attachments')) {
             $oldFiles = DB::table('task_attachments')->where('task_id', $task->id)->where('type', 'result')->get();
             foreach ($oldFiles as $oldFile) {
                 if (! empty($oldFile->file_path)) {
-                    Storage::disk('public')->delete($oldFile->file_path);
+                    Storage::disk($this->attachmentDisk($oldFile))->delete($oldFile->file_path);
                 }
             }
             DB::table('task_attachments')->where('task_id', $task->id)->where('type', 'result')->delete();
@@ -1015,10 +1118,67 @@ class TaskController extends Controller
             'submitted',
             $data['result_note'] ?? 'Nhân viên đã nộp kết quả công việc.',
             ['actual_minutes' => $data['actual_minutes'] ?? null, 'progress_percent' => $task->progress_percent]
+                + ($isAssignee ? [] : ['submitted_on_behalf' => true])
         );
         return back()->with('success', in_array($oldStatus, ['revision', 'rejected'], true)
             ? 'Đã nộp lại kết quả, chờ người duyệt xác nhận.'
             : 'Đã nộp kết quả, chờ người duyệt xác nhận.');
+    }
+
+    /**
+     * Xem/tải tệp của công việc qua route có kiểm quyền (cùng quyền xem chi tiết việc). Đọc đúng disk của tệp
+     * (riêng tư cho thủ tục HCNS, public cho tệp cũ) nên link theo ID không mất khi tệp được chuyển chỗ.
+     */
+    public function attachmentFile(Request $request, Task $task, $attachment)
+    {
+        abort_unless(TaskPermissions::canView(auth()->user(), $task), 403);
+        abort_unless($this->tableExists('task_attachments'), 404);
+        $file = DB::table('task_attachments')->where('id', (int) $attachment)->where('task_id', $task->id)->first();
+        abort_unless($file && ! empty($file->file_path), 404);
+        $disk = Storage::disk($this->attachmentDisk($file));
+        abort_unless($disk->exists($file->file_path), 404);
+        $name = (string) ($file->file_name ?: basename($file->file_path));
+
+        return $request->boolean('download')
+            ? $disk->download($file->file_path, $name)
+            : $disk->response($file->file_path, $name, ['Content-Type' => $file->file_mime ?: 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    /** Disk của tệp đính kèm: cột disk (nếu có) hoặc public như cũ. */
+    private function attachmentDisk(object $file): string
+    {
+        return (string) ($file->disk ?? '') !== '' ? (string) $file->disk : 'public';
+    }
+
+    /**
+     * Chuyển tệp công việc từ disk public sang riêng tư (khi việc trở thành thủ tục HCNS): chép, kiểm kích thước,
+     * cập nhật disk rồi mới xóa bản public. Lỗi giữa chừng thì giữ nguyên bản cũ. Trả số tệp đã chuyển.
+     */
+    public static function securePublicAttachments(int $taskId): int
+    {
+        if (! Schema::hasTable('task_attachments') || ! Schema::hasColumn('task_attachments', 'disk')) {
+            return 0;
+        }
+        $moved = 0;
+        $files = DB::table('task_attachments')->where('task_id', $taskId)->where(fn ($q) => $q->whereNull('disk')->orWhere('disk', 'public'))->get();
+        foreach ($files as $file) {
+            $public = Storage::disk('public');
+            if (empty($file->file_path) || ! $public->exists($file->file_path)) {
+                continue;
+            }
+            $local = Storage::disk('local');
+            $local->put($file->file_path, $public->get($file->file_path));
+            if ($local->size($file->file_path) !== $public->size($file->file_path)) {
+                $local->delete($file->file_path);
+
+                continue;
+            }
+            DB::table('task_attachments')->where('id', $file->id)->update(['disk' => 'local', 'updated_at' => now()]);
+            $public->delete($file->file_path);
+            $moved++;
+        }
+
+        return $moved;
     }
 
     /* EGO_TASK_DELETE_ATTACHMENT_START */
@@ -1045,6 +1205,10 @@ class TaskController extends Controller
 
         abort_unless($canManage || $isUploader, 403);
 
+        if ($blocked = $this->hcnsEvidenceLocked($task, $file)) {
+            return back()->with('error', $blocked);
+        }
+
         $data = $request->validate([
             'file' => 'required|file|max:51200',
         ], [
@@ -1056,10 +1220,10 @@ class TaskController extends Controller
         $uploadedFile = $request->file('file');
 
         if (! empty($file->file_path)) {
-            Storage::disk('public')->delete($file->file_path);
+            Storage::disk($this->attachmentDisk($file))->delete($file->file_path);
         }
 
-        $path = $uploadedFile->store('task_attachments/'.$task->id, 'public');
+        $path = $uploadedFile->store('task_attachments/'.$task->id, $this->attachmentDisk($file));
 
         DB::table('task_attachments')
             ->where('id', (int) $attachment)
@@ -1111,8 +1275,12 @@ class TaskController extends Controller
             return back()->with('error', 'Công việc đã được duyệt nên không thể xóa file kết quả.');
         }
 
+        if ($blocked = $this->hcnsEvidenceLocked($task, $file)) {
+            return back()->with('error', $blocked);
+        }
+
         if (! empty($file->file_path)) {
-            Storage::disk('public')->delete($file->file_path);
+            Storage::disk($this->attachmentDisk($file))->delete($file->file_path);
         }
 
         DB::table('task_attachments')
@@ -1129,8 +1297,16 @@ class TaskController extends Controller
      */
     public function returnRevision(Request $request, Task $task)
     {
-        if ((int) $task->requester_id !== (int) auth()->id() && ! $this->canAssign(auth()->user())) {
+        // Thủ tục HCNS: người kiểm được chỉ định (approver_id) trả bổ sung được như người giao.
+        $isHcnsReviewer = HcnsAdminTasks::is($task) && (int) ($task->approver_id ?? 0) === (int) auth()->id();
+        if ((int) $task->requester_id !== (int) auth()->id() && ! $this->canAssign(auth()->user()) && ! $isHcnsReviewer) {
             abort(403);
+        }
+        if (HcnsAdminTasks::isCancelled($task)) {
+            return back()->with('error', 'Thủ tục đã hủy.');
+        }
+        if ($locked = $this->hcnsLockError($task)) {
+            return back()->with('error', $locked);
         }
 
         $data = $request->validate([
@@ -1147,6 +1323,10 @@ class TaskController extends Controller
 
         $task->status = 'revision';
         $task->completed_at = null;
+        if (HcnsAdminTasks::hasColumn('approved_at')) {
+            $task->approved_by = null;
+            $task->approved_at = null;
+        }
 
         if ((int) ($task->progress_percent ?? 0) >= 100) {
             $task->progress_percent = 90;
@@ -1201,14 +1381,79 @@ class TaskController extends Controller
         if ($task->status !== 'submitted') {
             return back()->with('error', 'Công việc chưa được nộp kết quả.');
         }
+        if ($locked = $this->hcnsLockError($task)) {
+            return back()->with('error', $locked);
+        }
+        if (HcnsAdminTasks::is($task) && (int) $task->assignee_id === (int) $user->id) {
+            return back()->with('error', 'Không tự xác nhận thủ tục do chính mình thực hiện — người kiểm khác phải duyệt.');
+        }
 
         $oldStatus = (string) ($task->status ?? '');
         $task->status = 'approved';
         $task->progress_percent = 100;
+        if (HcnsAdminTasks::hasColumn('approved_at')) {
+            $task->approved_by = $user->id;
+            $task->approved_at = now();
+        }
         $task->save();
-        $this->logTaskActivity($task, 'approved', $oldStatus, 'approved', 'Người duyệt xác nhận công việc hoàn thành.');
+        $this->logTaskActivity($task, 'approved', $oldStatus, 'approved', 'Người duyệt xác nhận công việc hoàn thành.',
+            HcnsAdminTasks::is($task) ? ['accepted_submission_at' => optional($task->last_submitted_at)->toDateTimeString()] : []);
 
         return back()->with('success', 'Đã duyệt hoàn thành công việc.');
+    }
+
+    /**
+     * Hủy thủ tục hành chính HCNS (KPI HC09) có lý do: giữ hồ sơ và lịch sử để KPI không mất việc quá hạn.
+     */
+    public function cancel(Request $request, Task $task)
+    {
+        abort_unless(HcnsAdminTasks::is($task) && HcnsAdminTasks::ready(), 404);
+        if ((int) $task->requester_id !== (int) auth()->id() && ! $this->canAssign(auth()->user())) {
+            abort(403);
+        }
+        if (in_array((string) $task->status, ['approved', 'cancelled'], true)) {
+            return back()->with('error', 'Thủ tục đã xác nhận hoặc đã hủy — không hủy được.');
+        }
+        if ($locked = $this->hcnsLockError($task)) {
+            return back()->with('error', $locked);
+        }
+
+        $data = $request->validate(['cancel_reason' => 'required|string|min:5|max:2000'], [
+            'cancel_reason.required' => 'Ghi lý do hủy thủ tục.',
+            'cancel_reason.min' => 'Lý do hủy tối thiểu 5 ký tự.',
+        ]);
+
+        $oldStatus = (string) $task->status;
+        $task->status = 'cancelled';
+        $task->cancelled_at = now();
+        $task->cancelled_by = auth()->id();
+        $task->cancel_reason = trim($data['cancel_reason']);
+        $task->save();
+        $this->logTaskActivity($task, 'cancelled', $oldStatus, 'cancelled', $task->cancel_reason, [
+            'due_at' => optional($task->due_at)->toDateTimeString(),
+            'cancelled_after_due' => $task->due_at && now()->greaterThan($task->due_at),
+        ]);
+
+        return back()->with('success', 'Đã hủy thủ tục. Hồ sơ và lý do được giữ lại trong lịch sử.');
+    }
+
+    /**
+     * Thủ tục HCNS đã xác nhận/hủy: không đổi minh chứng kết quả (phải trả bổ sung trước để người kiểm xem lại).
+     */
+    private function hcnsEvidenceLocked(Task $task, object $file): ?string
+    {
+        if ($locked = $this->hcnsLockError($task)) {
+            return $locked;
+        }
+        if (! HcnsAdminTasks::is($task) || (string) ($file->type ?? '') !== 'result') {
+            return null;
+        }
+
+        return match ((string) $task->status) {
+            'approved' => 'Thủ tục đã được xác nhận — trả bổ sung trước khi thay/xóa minh chứng kết quả.',
+            'cancelled' => 'Thủ tục đã hủy — không thay/xóa minh chứng.',
+            default => null,
+        };
     }
 
     /**
@@ -1220,13 +1465,18 @@ class TaskController extends Controller
             abort(403);
         }
 
+        if (HcnsAdminTasks::is($task)) {
+            // Xóa sẽ làm mất việc khỏi mẫu số KPI HC09 (kể cả việc quá hạn) — dùng Hủy có lý do.
+            return back()->with('error', 'Thủ tục hành chính HCNS không xóa được. Dùng "Hủy thủ tục" và ghi lý do.');
+        }
+
         if ($this->tableExists('task_attachments')) {
             $attachments = DB::table('task_attachments')
                 ->where('task_id', $task->id)
                 ->get();
 
             foreach ($attachments as $file) {
-                Storage::disk('public')->delete($file->file_path);
+                Storage::disk($this->attachmentDisk($file))->delete($file->file_path);
             }
 
             DB::table('task_attachments')

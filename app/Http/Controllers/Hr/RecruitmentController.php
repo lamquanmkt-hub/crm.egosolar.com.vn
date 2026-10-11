@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Services\Hr\RecruitmentAttachmentService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -125,6 +126,10 @@ class RecruitmentController extends Controller
             ->orderByDesc('o.id')
             ->get();
 
+        $recruitmentFiles = Schema::hasTable('hr_recruitment_attachments')
+            ? DB::table('hr_recruitment_attachments')->orderBy('id')->get()->groupBy(fn ($file) => $file->entity.':'.$file->record_id)
+            : collect();
+
         $candidateStatuses = $this->candidateStatuses();
         $approvalStatuses = $this->approvalStatuses();
         $sources = $this->sources();
@@ -160,8 +165,17 @@ class RecruitmentController extends Controller
             'rejected' => DB::table('hr_recruitment_candidates')->whereIn('status', ['rejected', 'not_fit', 'interview_failed'])->count(),
         ];
 
+        // KPI HC01/HC03: lượt tuyển theo ứng viên để mở nhanh từ bước Mời nhận việc / Tiếp nhận.
+        $kpiHireByCandidate = \App\Services\Hr\Kpi\RecruitmentKpi::ready()
+            ? DB::table('hr_recruitment_hires')->whereNotNull('candidate_id')->orderBy('id')->get(['id', 'candidate_id', 'request_id', 'status'])->keyBy('candidate_id')
+            : collect();
+        $candidateRequest = $candidates->pluck('recruitment_request_id', 'id');
+
         return view('hr.recruitment.index', compact(
+            'kpiHireByCandidate',
+            'candidateRequest',
             'active',
+            'recruitmentFiles',
             'requests',
             'candidates',
             'interviews',
@@ -186,6 +200,7 @@ class RecruitmentController extends Controller
      */
     public function storeRequest(Request $request)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'department' => ['required', 'string', 'max:255'],
             'position' => ['required', 'string', 'max:255'],
@@ -202,8 +217,9 @@ class RecruitmentController extends Controller
         $data['approval_status'] = $data['approval_status'] ?? 'pending';
         $data['created_at'] = now();
         $data['updated_at'] = now();
+        $data += $this->approvalStamp(null, $data['approval_status'], $request);
 
-        DB::table('hr_recruitment_requests')->insert($data);
+        app(RecruitmentAttachmentService::class)->save($request, 'requests', null, $data);
 
         return back()->with('success', 'Đã tạo yêu cầu tuyển dụng.');
     }
@@ -215,6 +231,7 @@ class RecruitmentController extends Controller
      */
     public function updateRequest(Request $request, $id)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'department' => ['required', 'string', 'max:255'],
             'position' => ['required', 'string', 'max:255'],
@@ -229,10 +246,53 @@ class RecruitmentController extends Controller
         ]);
 
         $data['updated_at'] = now();
+        $current = DB::table('hr_recruitment_requests')->where('id', (int) $id)->first();
+        $data += $this->approvalStamp($current, $data['approval_status'] ?? ($current->approval_status ?? 'pending'), $request);
+        // KPI HC01: yêu cầu đã có lượt tuyển thì số lượng không giảm dưới số suất đang dùng.
+        if ($current && \App\Services\Hr\Kpi\RecruitmentKpi::ready()) {
+            $active = DB::table('hr_recruitment_hires')->where('request_id', $current->id)->whereIn('status', ['pending', 'started'])->count();
+            if ((int) $data['quantity'] < $active) {
+                return back()->withInput()->withErrors(['quantity' => 'Yêu cầu đang có '.$active.' lượt tuyển theo dõi KPI — số lượng không nhỏ hơn số này.']);
+            }
+        }
 
-        DB::table('hr_recruitment_requests')->where('id', (int) $id)->update($data);
+        app(RecruitmentAttachmentService::class)->save($request, 'requests', (int) $id, $data);
 
         return back()->with('success', 'Đã cập nhật yêu cầu tuyển dụng.');
+    }
+
+    /**
+     * Ghi người/giờ duyệt khi yêu cầu chuyển sang “Đã duyệt” (server ghi, không nhận từ form); bỏ duyệt thì xoá dấu.
+     */
+    private function approvalStamp(?object $current, string $status, Request $request): array
+    {
+        if (! Schema::hasColumn('hr_recruitment_requests', 'approved_at')) {
+            return [];
+        }
+        $wasApproved = $current && in_array((string) $current->approval_status, ['approved', 'closed'], true);
+        $isApproved = in_array($status, ['approved', 'closed'], true);
+
+        return match (true) {
+            $isApproved && ! $wasApproved => ['approved_by' => $request->user()?->id, 'approved_at' => now()],
+            ! $isApproved && $wasApproved => ['approved_by' => null, 'approved_at' => null],
+            default => [],
+        };
+    }
+
+    /** Bản ghi đã gắn KPI tuyển dụng (lượt tuyển/chi phí) thì không xoá — dùng Hủy để giữ lịch sử. */
+    private function kpiLinked(string $entity, int $id): ?string
+    {
+        if (! \App\Services\Hr\Kpi\RecruitmentKpi::ready()) {
+            return null;
+        }
+        $linked = match ($entity) {
+            'requests' => DB::table('hr_recruitment_hires')->where('request_id', $id)->exists() || DB::table('hr_recruitment_costs')->where('request_id', $id)->exists(),
+            'candidates' => DB::table('hr_recruitment_hires')->where('candidate_id', $id)->exists(),
+            'offers' => DB::table('hr_recruitment_hires')->where('offer_id', $id)->exists(),
+            default => false,
+        };
+
+        return $linked ? 'Bản ghi đã gắn lượt tuyển/chi phí theo dõi KPI — không xoá được. Dùng “Hủy” ở trang KPI tuyển dụng để giữ lịch sử.' : null;
     }
 
     /**
@@ -242,7 +302,10 @@ class RecruitmentController extends Controller
      */
     public function destroyRequest($id)
     {
-        DB::table('hr_recruitment_requests')->where('id', (int) $id)->delete();
+        if ($blocked = $this->kpiLinked('requests', (int) $id)) {
+            return back()->withErrors(['kpi' => $blocked]);
+        }
+        app(RecruitmentAttachmentService::class)->delete('requests', (int) $id);
 
         return back()->with('success', 'Đã xoá yêu cầu tuyển dụng.');
     }
@@ -252,6 +315,7 @@ class RecruitmentController extends Controller
      */
     public function storeCandidate(Request $request)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'recruitment_request_id' => ['nullable', 'integer'],
             'full_name' => ['required', 'string', 'max:255'],
@@ -277,7 +341,7 @@ class RecruitmentController extends Controller
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
-        DB::table('hr_recruitment_candidates')->insert($this->onlyExistingColumns('hr_recruitment_candidates', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'candidates', null, $this->onlyExistingColumns('hr_recruitment_candidates', $data));
 
         return back()->with('success', 'Đã thêm ứng viên vào kho sàng lọc.');
     }
@@ -289,6 +353,7 @@ class RecruitmentController extends Controller
      */
     public function updateCandidate(Request $request, $id)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'recruitment_request_id' => ['nullable', 'integer'],
             'full_name' => ['required', 'string', 'max:255'],
@@ -311,10 +376,13 @@ class RecruitmentController extends Controller
         $this->normalizeDateTimes($data, ['contacted_at']);
 
         $data['updated_at'] = now();
+        // KPI HC01: ứng viên đã có lượt tuyển thì không chuyển sang yêu cầu khác (mất liên kết yêu cầu → ứng viên).
+        $current = DB::table('hr_recruitment_candidates')->where('id', (int) $id)->first();
+        if ($current && $this->kpiLinked('candidates', (int) $id) && (int) ($data['recruitment_request_id'] ?? 0) !== (int) $current->recruitment_request_id) {
+            return back()->withInput()->withErrors(['recruitment_request_id' => 'Ứng viên đã có lượt tuyển theo dõi KPI — không đổi yêu cầu tuyển.']);
+        }
 
-        DB::table('hr_recruitment_candidates')
-            ->where('id', (int) $id)
-            ->update($this->onlyExistingColumns('hr_recruitment_candidates', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'candidates', (int) $id, $this->onlyExistingColumns('hr_recruitment_candidates', $data));
 
         return back()->with('success', 'Đã cập nhật ứng viên.');
     }
@@ -326,7 +394,10 @@ class RecruitmentController extends Controller
      */
     public function destroyCandidate($id)
     {
-        DB::table('hr_recruitment_candidates')->where('id', (int) $id)->delete();
+        if ($blocked = $this->kpiLinked('candidates', (int) $id)) {
+            return back()->withErrors(['kpi' => $blocked]);
+        }
+        app(RecruitmentAttachmentService::class)->delete('candidates', (int) $id);
 
         return back()->with('success', 'Đã xoá ứng viên.');
     }
@@ -336,6 +407,7 @@ class RecruitmentController extends Controller
      */
     public function storeInterview(Request $request)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'candidate_id' => ['required', 'integer'],
             'interview_at' => ['nullable', 'date'],
@@ -357,7 +429,7 @@ class RecruitmentController extends Controller
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
-        DB::table('hr_recruitment_interviews')->insert($this->onlyExistingColumns('hr_recruitment_interviews', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'interviews', null, $this->onlyExistingColumns('hr_recruitment_interviews', $data));
 
         $this->syncCandidateFromInterview((int) $data['candidate_id'], $data);
 
@@ -371,6 +443,7 @@ class RecruitmentController extends Controller
      */
     public function updateInterview(Request $request, $id)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'candidate_id' => ['required', 'integer'],
             'interview_at' => ['nullable', 'date'],
@@ -390,9 +463,7 @@ class RecruitmentController extends Controller
 
         $data['updated_at'] = now();
 
-        DB::table('hr_recruitment_interviews')
-            ->where('id', (int) $id)
-            ->update($this->onlyExistingColumns('hr_recruitment_interviews', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'interviews', (int) $id, $this->onlyExistingColumns('hr_recruitment_interviews', $data));
 
         $this->syncCandidateFromInterview((int) $data['candidate_id'], $data);
 
@@ -406,7 +477,7 @@ class RecruitmentController extends Controller
      */
     public function destroyInterview($id)
     {
-        DB::table('hr_recruitment_interviews')->where('id', (int) $id)->delete();
+        app(RecruitmentAttachmentService::class)->delete('interviews', (int) $id);
 
         return back()->with('success', 'Đã xoá lịch phỏng vấn.');
     }
@@ -416,6 +487,7 @@ class RecruitmentController extends Controller
      */
     public function storeOffer(Request $request)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'candidate_id' => ['required', 'integer'],
             'offer_date' => ['nullable', 'date'],
@@ -432,7 +504,7 @@ class RecruitmentController extends Controller
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
-        DB::table('hr_recruitment_offers')->insert($this->onlyExistingColumns('hr_recruitment_offers', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'offers', null, $this->onlyExistingColumns('hr_recruitment_offers', $data));
 
         $this->syncCandidateFromOffer((int) $data['candidate_id'], $data);
 
@@ -446,6 +518,7 @@ class RecruitmentController extends Controller
      */
     public function updateOffer(Request $request, $id)
     {
+        app(RecruitmentAttachmentService::class)->validate($request);
         $data = $request->validate([
             'candidate_id' => ['required', 'integer'],
             'offer_date' => ['nullable', 'date'],
@@ -460,9 +533,7 @@ class RecruitmentController extends Controller
 
         $data['updated_at'] = now();
 
-        DB::table('hr_recruitment_offers')
-            ->where('id', (int) $id)
-            ->update($this->onlyExistingColumns('hr_recruitment_offers', $data));
+        app(RecruitmentAttachmentService::class)->save($request, 'offers', (int) $id, $this->onlyExistingColumns('hr_recruitment_offers', $data));
 
         $this->syncCandidateFromOffer((int) $data['candidate_id'], $data);
 
@@ -476,7 +547,10 @@ class RecruitmentController extends Controller
      */
     public function destroyOffer($id)
     {
-        DB::table('hr_recruitment_offers')->where('id', (int) $id)->delete();
+        if ($blocked = $this->kpiLinked('offers', (int) $id)) {
+            return back()->withErrors(['kpi' => $blocked]);
+        }
+        app(RecruitmentAttachmentService::class)->delete('offers', (int) $id);
 
         return back()->with('success', 'Đã xoá đề nghị nhận việc.');
     }

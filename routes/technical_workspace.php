@@ -12,8 +12,13 @@ Route::middleware([
     ->controller(TechnicalWorkspaceController::class)
     ->group(function (): void {
         // 1. Tổng quan Kỹ thuật
-        // Trang /ky-thuat nay do module dong bo tu crm.egosolar.vn phu trach.
-        Route::get('/workspace-cu', 'overview')->name('overview');
+        Route::get('/workspace-cu', function () {
+            return redirect('/ky-thuat/dashboard');
+        })->name('overview.legacy');
+        
+        Route::get('/tong-quan', function () {
+            return redirect('/ky-thuat/dashboard');
+        })->name('overview');
 
         // 2. Công trình — giữ một danh sách tổng, các URL cũ vẫn hoạt động.
         Route::prefix('cong-trinh')->name('projects.')->group(function (): void {
@@ -39,7 +44,8 @@ Route::middleware([
         Route::prefix('dieu-phoi')->name('coordination.')->group(function (): void {
             Route::get('/lich-khao-sat', 'weeklyPlan')->name('survey-schedule');
             Route::get('/lich-thi-cong', 'installationCalendar')->name('installation-schedule');
-            Route::get('/phan-cong-nhan-su', 'weeklyPlan')->name('assignments');
+            Route::get('/phan-cong-nhan-su', 'assignments')->name('assignments');
+            Route::post('/phan-cong-nhan-su', 'storeAssignment')->name('assignments.store');
             Route::get('/viec-cua-phong', 'teamTasks')->name('team-tasks');
             Route::get('/viec-cua-toi', 'myTasks')->name('my-tasks');
         });

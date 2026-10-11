@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Http\Middleware\EgoCompanyContextMiddleware;
 use App\Models\Tasks\Task;
 use App\Policies\TaskPolicy;
 use App\Services\Debug\SchemaInspector;
@@ -48,15 +47,34 @@ class AppServiceProvider extends ServiceProvider
         });
         /* EGO_SERIAL_WARRANTY_GATE_END */
 
-        try {
-            app('router')->pushMiddlewareToGroup('web', EgoCompanyContextMiddleware::class);
-        } catch (\Throwable $e) {
-            // Ignore middleware registration issues during artisan optimize/package discovery.
-        }
+        \Illuminate\Support\Facades\Event::listen('eloquent.creating: *', function ($eventName, array $data) {
+            $model = $data[0] ?? null;
+            if ($model instanceof \Illuminate\Database\Eloquent\Model) {
+                if (
+                    array_key_exists('company_id', $model->getAttributes()) || 
+                    in_array('company_id', $model->getFillable())
+                ) {
+                    $model->company_id = \App\Support\EgoCompanyLock::id();
+                }
+            }
+        });
+
+        \Illuminate\Support\Facades\Event::listen('eloquent.updating: *', function ($eventName, array $data) {
+            $model = $data[0] ?? null;
+            if ($model instanceof \Illuminate\Database\Eloquent\Model) {
+                if ($model->isDirty('company_id')) {
+                    throw new \RuntimeException('CRITICAL ERROR: Không được phép thay đổi company_id của bản ghi đã tồn tại.');
+                }
+            }
+        });
+
+        // Middleware EgoCompanyContextMiddleware đã bị xóa do chuyển sang cấu hình tĩnh.
 
         // Map policy cho Task
         Gate::policy(Task::class, TaskPolicy::class);
         Paginator::useBootstrap();
+        
+        \Illuminate\Database\Eloquent\Model::preventLazyLoading(!app()->isProduction());
 
     }
 }

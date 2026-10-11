@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models\AI;
 
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Crypt;
 
 final class AiProvider extends Model
 {
@@ -55,6 +57,10 @@ final class AiProvider extends Model
 
     public function maskedKey(): string
     {
+        if (! $this->hasReadableKey()) {
+            return 'Không đọc được key cũ — vui lòng nhập lại API key';
+        }
+
         $key = (string) ($this->api_key ?? '');
         if ($key === '') {
             return 'Chưa thiết lập';
@@ -65,9 +71,45 @@ final class AiProvider extends Model
         return '••••••••••••'.$tail;
     }
 
+    /**
+     * Key được mã hoá theo APP_KEY. Đổi APP_KEY (hoặc DB chép từ server khác) thì key cũ
+     * không giải mã được — trả false thay vì để lỗi làm sập trang cài đặt.
+     */
+    public function hasReadableKey(): bool
+    {
+        if (($this->attributes['api_key'] ?? null) === null || $this->attributes['api_key'] === '') {
+            return true;
+        }
+
+        try {
+            $this->api_key;
+
+            return true;
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
+    /**
+     * Ghi key mới mà KHÔNG giải mã key cũ (Eloquent sẽ giải mã giá trị cũ để so sánh khi save(),
+     * nên key cũ hỏng sẽ làm lỗi). Mã hoá bằng cùng cơ chế với cast 'encrypted'.
+     */
+    public function replaceApiKey(string $key): void
+    {
+        $cipher = Crypt::encryptString($key);
+
+        self::query()->whereKey($this->getKey())->toBase()->update([
+            'api_key' => $cipher,
+            'updated_at' => now(),
+        ]);
+
+        $this->attributes['api_key'] = $cipher;
+        $this->syncOriginalAttribute('api_key');
+    }
+
     public static function activeDefault(): ?self
     {
-        return static::query()
+        return self::query()
             ->where('is_active', true)
             ->orderByDesc('is_default')
             ->orderBy('id')

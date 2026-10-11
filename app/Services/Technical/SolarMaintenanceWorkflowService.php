@@ -545,7 +545,11 @@ class SolarMaintenanceWorkflowService
     public function finishExecution(SolarMaintenanceSchedule $schedule, User $actor): void
     {
         DB::transaction(function () use ($schedule, $actor): void {
+            DB::table($schedule->getTable())->where('id', $schedule->id)->lockForUpdate()->first();
             $schedule->refresh();
+            if ($schedule->getAttribute('complaint_checked_at')) {
+                throw ValidationException::withMessages(['approval' => 'Phiếu đã xác nhận KPI bảo hành; mốc hoàn tất đã khóa.']);
+            }
             $this->ensureChecklist($schedule);
             $readiness = $this->checklistReadiness($schedule);
 

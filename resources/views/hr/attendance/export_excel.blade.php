@@ -73,7 +73,7 @@
         <tr>
             <td class="text-center">{{ $index + 1 }}</td>
             <td>{{ \Carbon\Carbon::parse($record->work_date)->format('d/m/Y') }}</td>
-            <td>{{ $record->user->name ?? '-' }}</td>
+            <td>{{ $record->user->attendance_label ?? '-' }}</td>
             <td>{{ optional($record->user->department)->name ?? '-' }}</td>
             <td>{{ optional($record->user->position)->name ?? '-' }}</td>
             <td>

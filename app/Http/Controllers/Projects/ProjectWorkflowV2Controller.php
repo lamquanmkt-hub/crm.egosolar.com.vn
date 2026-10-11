@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Projects\Site;
 use App\Models\SolarMaintenanceSchedule;
 use App\Models\User;
+use App\Services\Projects\AcceptanceKpiService;
+use App\Services\Projects\ManualMaterialKpiService;
 use App\Services\Projects\ProjectWorkflowV2Service;
 use App\Services\Synced\Technical\SolarMaintenanceService;
 use App\Support\SolarMaintenanceAccess;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class ProjectWorkflowV2Controller extends Controller
 {
@@ -113,6 +116,10 @@ class ProjectWorkflowV2Controller extends Controller
             $this->assertStepUnlocked($site, $step);
         }
         abort_unless($this->workflow->canAssign($user, $definition), 403);
+        // Phân công Khảo sát/Thi công/Nghiệm thu quyết định ai chịu KPI công trình: khóa khi kỳ KPI đã chốt.
+        if (in_array($step, ['survey', 'construction', 'acceptance'], true)) {
+            $this->assertKpiSourceUnlocked($site);
+        }
 
         $data = $request->validate([
             'primary_assignee_id' => ['required', 'integer', 'exists:users,id'],
@@ -189,7 +196,8 @@ class ProjectWorkflowV2Controller extends Controller
                 $old,
                 $newStatus,
                 'Giao bước cho '.count($assigneeIds).' nhân sự, hạn '.$data['due_at'].'.',
-                ['assignee_ids' => $assigneeIds->all()]
+                // Hạn cũ/mới để KPI tiến độ truy được lịch sử đổi hạn của người giao việc.
+                ['assignee_ids' => $assigneeIds->all(), 'due_at' => Carbon::parse($data['due_at'])->toDateTimeString(), 'previous_due_at' => $row->due_at]
             );
             $this->workflow->syncProject($site);
         });
@@ -365,6 +373,16 @@ class ProjectWorkflowV2Controller extends Controller
         ]);
 
         $documentDefinition = (array) ($documentDefinitions[$data['document_code']] ?? []);
+        // Hồ sơ Khảo sát/Đề xuất/Nghiệm thu là nguồn KPI: khóa kỳ chặn trước khi lưu file (kể cả Admin).
+        if (in_array($step, ['survey', 'proposal', 'acceptance'], true)) {
+            $this->assertKpiSourceUnlocked($site);
+        }
+        if ($step === 'acceptance' && $wasApproved && ! $this->workflow->isAdmin($user)
+            && in_array($data['document_code'], array_merge(...array_values(AcceptanceKpiService::EVIDENCE)), true)
+            && ! empty(app(AcceptanceKpiService::class)->stored($row)['confirmations'] ?? null)) {
+            // Minh chứng đã dùng để xác nhận KPI của nghiệm thu đã duyệt: không thay/bổ sung vòng qua upload.
+            abort(422, 'Nghiệm thu đã duyệt và kết quả KPI đã được xác nhận trên minh chứng này; chỉ Admin được bổ sung.');
+        }
         $maximum = (int) ($documentDefinition['max'] ?? 0);
         if ($maximum > 0) {
             $uploadedCount = DB::table('project_workflow_documents')
@@ -408,6 +426,13 @@ class ProjectWorkflowV2Controller extends Controller
             ]);
 
             $this->workflow->recordEvent($site, $row, $user, 'document_uploaded', null, $data['document_code'], 'Tải hồ sơ phiên bản '.$version.': '.$request->file('file')->getClientOriginalName());
+            if ($step === 'acceptance') {
+                // Minh chứng đổi → xác nhận KPI của nhóm liên quan hết hiệu lực vĩnh viễn (R1).
+                app(AcceptanceKpiService::class)->syncConfirmations((int) $site->id, $user, 'document_uploaded:'.$data['document_code']);
+                if ($data['document_code'] === 'material_reconciliation') {
+                    app(ManualMaterialKpiService::class)->invalidateDocuments($site, $user);
+                }
+            }
         });
 
         $submitted = $wasApproved ? false : $this->workflow->refreshSubmissionState($site, $step, $user);
@@ -619,6 +644,10 @@ class ProjectWorkflowV2Controller extends Controller
         ]);
         $assignments = DB::table('project_workflow_assignments')->where('workflow_step_id', $row->id)->where('is_active', 1)->get();
         abort_unless($this->workflow->isAdmin($user) || $this->workflow->canApproveTrack($user, (array) $tracks[$data['approval_type']], $assignments), 403, 'Người thực hiện không được tự duyệt kết quả của mình.');
+        // Duyệt lại nghiệm thu đổi mốc duyệt (= tháng KPI): không cho khi kỳ KPI đã chốt.
+        if ($step === 'acceptance') {
+            $this->assertKpiSourceUnlocked($site);
+        }
 
         $documents = DB::table('project_workflow_documents')->where('workflow_step_id', $row->id)->get();
         $documentState = $this->workflow->documentState($site, $step, $row, $documents);
@@ -685,6 +714,10 @@ class ProjectWorkflowV2Controller extends Controller
         $assignments = DB::table('project_workflow_assignments')->where('workflow_step_id', $row->id)->where('is_active', 1)->get();
         abort_unless($isAdmin || $this->workflow->canApproveTrack($user, (array) $tracks[$data['approval_type']], $assignments), 403);
         abort_unless($isAdmin || $assignments->contains(fn ($assignment) => (int) $assignment->user_id === (int) $data['recipient_id']), 422, 'Người nhận xử lý phải thuộc danh sách nhân sự đang được phân công.');
+        // "Trả lại" Thi công/Nghiệm thu là căn cứ KS02 (đạt lần đầu) và mở lại bước: khóa khi kỳ KPI đã chốt.
+        if (in_array($step, ['construction', 'acceptance'], true)) {
+            $this->assertKpiSourceUnlocked($site);
+        }
 
         $attachment = $request->file('attachment');
         $attachmentPath = $attachment?->store(
@@ -769,6 +802,10 @@ class ProjectWorkflowV2Controller extends Controller
                 'attachment_name' => $attachment?->getClientOriginalName(),
             ]);
             $this->workflow->syncProject($site);
+            if (in_array($step, ['construction', 'acceptance'], true)) {
+                // Lịch sử trả lại đổi → xác nhận chất lượng (đạt lần đầu) cũ hết hiệu lực vĩnh viễn (R1).
+                app(AcceptanceKpiService::class)->syncConfirmations((int) $site->id, $user, 'step_revision_requested:'.$step);
+            }
         });
 
         return $this->back($site, $step, 'Đã trả hồ sơ yêu cầu chỉnh sửa, giao người xử lý và ghi vào lịch sử công trình.');
@@ -805,19 +842,62 @@ class ProjectWorkflowV2Controller extends Controller
             'uses_replacement_material' => ['nullable', 'boolean'],
             'warranty_scope' => ['nullable', Rule::in(['in_scope', 'out_of_scope', 'pending'])],
             'step_note' => ['nullable', 'string', 'max:10000'],
+            // % lệch vật tư theo bảng quyết toán (nguồn vật tư hiện tại, nhập tay — chưa đối chiếu kho).
+            'kpi_material_deviation_percent' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+        ], [], [
+            'kpi_material_deviation_percent' => '% chênh lệch vật tư',
         ]);
 
-        $booleanKeys = [
-            'technical_feasibility_confirmed', 'requires_grid_connection',
-            'requires_insurance', 'has_incident', 'uses_replacement_material',
+        // Cờ của bước nào chỉ được ghi khi lưu đúng bước đó và form thật sự gửi trường (checkbox kèm hidden "0").
+        // Trước đây mọi lần lưu đều ép các cờ vắng mặt thành false — kể cả requires_grid_connection của Hồ sơ pháp lý.
+        $stepBooleans = [
+            'contract' => ['technical_feasibility_confirmed'],
+            'legal' => ['requires_insurance'],
+            'construction' => ['has_incident'],
+            'warranty' => ['uses_replacement_material'],
         ];
-        foreach ($booleanKeys as $key) {
-            $data[$key] = $request->boolean($key);
+        foreach (['technical_feasibility_confirmed', 'requires_grid_connection', 'requires_insurance', 'has_incident', 'uses_replacement_material'] as $key) {
+            unset($data[$key]);
+        }
+        foreach ($stepBooleans[$step] ?? [] as $key) {
+            if ($request->has($key)) {
+                $data[$key] = $request->boolean($key);
+            }
+        }
+        unset($data['kpi_material_deviation_percent']);
+
+        // Khóa kỳ KPI (kể cả Admin): dữ liệu Nghiệm thu và quyết định đấu nối là nguồn KPI đã chốt.
+        if ($step === 'acceptance' || ($step === 'legal' && $request->has('requires_grid_connection'))) {
+            $this->assertKpiSourceUnlocked($site);
         }
 
-        DB::transaction(function () use ($site, $step, $row, $user, $data): void {
+        // Giá trị ghi rõ (kể cả null = "chưa xác định"/xóa số nhập tay), không đi qua bộ lọc bỏ null.
+        $explicit = [];
+        if ($step === 'legal' && $request->has('requires_grid_connection')) {
+            // Ba trạng thái: '' = chưa xác định, 1 = cần đấu nối, 0 = không cần. Người/giờ ghi nhận do server đặt.
+            $acceptance = $this->workflow->stepRow($site, 'acceptance');
+            abort_if((string) $acceptance->status === 'approved' && ! $this->workflow->isAdmin($user), 422,
+                'Nghiệm thu đã duyệt; quyết định cần đấu nối đã dùng cho KPI nên chỉ Admin được sửa.');
+            $raw = $request->input('requires_grid_connection');
+            $decision = ($raw === null || $raw === '') ? null : $request->boolean('requires_grid_connection');
+            $explicit['requires_grid_connection'] = $decision;
+            $explicit['requires_grid_connection_decided_by'] = $decision === null ? null : (int) $user->id;
+            $explicit['requires_grid_connection_decided_at'] = $decision === null ? null : now()->toDateTimeString();
+        }
+        if ($step === 'acceptance' && $request->has('kpi_material_deviation_percent')) {
+            // Form cũ chỉ lưu nháp theo luồng manager; để trống là thiếu dữ liệu, không quay về số tự tính.
+            abort_unless($this->workflow->canAssign($user, $definition), 403, 'Chỉ Trưởng phòng Kỹ thuật hoặc Admin được nhập % lệch vật tư.');
+            abort_if((string) $row->status === 'approved' && ! $this->workflow->isAdmin($user), 422, 'Nghiệm thu đã duyệt; số vật tư đã khóa.');
+            $explicit['kpi_material_deviation_percent'] = $request->filled('kpi_material_deviation_percent')
+                ? (float) $request->input('kpi_material_deviation_percent')
+                : null;
+            $explicit['kpi_material_updated_by'] = (int) $user->id;
+            $explicit['kpi_material_updated_at'] = now()->toDateTimeString();
+        }
+
+        DB::transaction(function () use ($site, $step, $row, $user, $data, $explicit): void {
             $current = $this->workflow->decodeData($row->data ?? null);
-            $merged = array_merge($current, array_filter($data, fn ($value) => $value !== null));
+            $merged = array_merge($current, array_filter($data, fn ($value) => $value !== null), $explicit);
             DB::table('project_workflow_steps')->where('id', $row->id)->update([
                 'data' => json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'updated_at' => now(),
@@ -841,8 +921,17 @@ class ProjectWorkflowV2Controller extends Controller
                 DB::table('sites')->where('id', $site->id)->update($siteUpdate);
             }
 
-            $this->workflow->recordEvent($site, $row, $user, 'step_data_updated', null, $step, $data['step_note'] ?? 'Cập nhật dữ liệu nghiệp vụ của bước.');
+            $this->workflow->recordEvent($site, $row, $user, 'step_data_updated', null, $step, $data['step_note'] ?? 'Cập nhật dữ liệu nghiệp vụ của bước.',
+                $explicit === [] ? [] : ['explicit' => $explicit, 'before' => array_intersect_key($current, $explicit)]);
             $this->workflow->syncProject($site);
+            if (array_key_exists('requires_grid_connection', $explicit)) {
+                // Quyết định đấu nối đổi → xác nhận EVN/App cũ hết hiệu lực vĩnh viễn (R1), kể cả khi đổi về giá trị cũ.
+                app(AcceptanceKpiService::class)->syncConfirmations((int) $site->id, $user, 'grid_decision_changed');
+            }
+            if (array_key_exists('kpi_material_deviation_percent', $explicit)) {
+                // Older forms/API calls only save a draft; they cannot confirm by posting a number.
+                app(ManualMaterialKpiService::class)->save($site, $user, $explicit['kpi_material_deviation_percent'], '', false);
+            }
         });
 
         return $this->back($site, $step, 'Đã lưu dữ liệu nghiệp vụ của bước.');
@@ -858,6 +947,8 @@ class ProjectWorkflowV2Controller extends Controller
             'reason' => ['required', 'string', 'max:10000'],
         ]);
         abort_unless(Schema::hasTable('project_workflow_exceptions'), 503);
+        // Ngoại lệ chuyển bước ghi lại trạng thái/mốc duyệt các bước trước: không vượt khóa kỳ KPI.
+        $this->assertKpiSourceUnlocked($site);
 
         DB::transaction(function () use ($site, $step, $user, $data, $definitions): void {
             $row = $this->workflow->stepRow($site, $step, true);
@@ -964,6 +1055,12 @@ class ProjectWorkflowV2Controller extends Controller
         }
     }
 
+    /** Khóa kỳ KPI (khác khóa bước): áp dụng cho mọi người kể cả Admin, gọi trước khi ghi DB/file. */
+    private function assertKpiSourceUnlocked(Site $site): void
+    {
+        app(AcceptanceKpiService::class)->assertSourceUnlocked((int) $site->id);
+    }
+
     private function assertStepUnlocked(Site $site, string $step): void
     {
         abort_unless(
@@ -996,8 +1093,102 @@ class ProjectWorkflowV2Controller extends Controller
     private function back(Site $site, string $step, string $message): RedirectResponse
     {
         return redirect()
-            ->route('projects-unified.show', ['site' => $site->id, 'step' => $step])
+            // Hồ sơ pháp lý hiển thị chung tab "HĐ & Pháp lý".
+            ->route('projects-unified.show', ['site' => $site->id, 'step' => $step === 'legal' ? 'contract' : $step])
             ->with('success', $message)
             ->withFragment('workflow');
+    }
+
+    /* ---------------------------------------------------------- Kết quả nghiệm thu tính KPI kỹ thuật */
+
+    public function saveMaterialKpi(Request $request, Site $site, string $step, ManualMaterialKpiService $material): RedirectResponse
+    {
+        abort_unless($step === 'acceptance', 404);
+        $actor = $this->user($request);
+        abort_unless($material->canManage($actor), 403);
+        $data = $request->validate([
+            'intent' => ['required', Rule::in(['draft', 'confirm'])],
+            'percent' => ['nullable', 'numeric', 'min:0', 'max:1000'],
+            'note' => ['nullable', 'string', 'max:5000'],
+            'version' => ['required', 'integer', 'min:0'],
+            'fingerprint' => ['required', 'string', 'size:64'],
+        ], [], ['percent' => '% sai lệch vật tư', 'note' => 'cách tính vật tư']);
+
+        return $this->kpiResult($site, fn () => $material->save($site, $actor,
+            $request->filled('percent') ? (float) $data['percent'] : null, (string) ($data['note'] ?? ''),
+            $data['intent'] === 'confirm', (int) $data['version'], $data['fingerprint']), 'material-kpi');
+    }
+
+    public function saveAcceptanceKpi(Request $request, Site $site, string $step, AcceptanceKpiService $kpi): RedirectResponse
+    {
+        abort_unless($step === 'acceptance', 404);
+        $user = $this->user($request);
+        $request->validate([
+            'intent' => ['required', Rule::in(['draft', 'submit'])],
+            'kpi' => ['nullable', 'array'],
+            'kpi.complaint' => ['nullable', Rule::in(['none', 'has'])],
+            'kpi.complaint_note' => ['nullable', 'string', 'max:5000'],
+            'kpi.hse' => ['nullable', 'array'],
+            'kpi.hse.*' => ['nullable', Rule::in(['pass', 'fail'])],
+            'kpi.hse_note' => ['nullable', 'string', 'max:5000'],
+            'kpi.grid_tested' => ['nullable', Rule::in(['pass', 'fail'])],
+            'kpi.app_handover' => ['nullable', Rule::in(['pass', 'fail'])],
+            'kpi.evn_note' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        return $this->kpiResult($site, function () use ($site, $step, $user, $request, $kpi): string {
+            if (! $this->workflow->isAdmin($user)) {
+                $this->assertStepUnlocked($site, $step);
+            }
+
+            return $kpi->saveDeclaration($site, $user, (array) $request->input('kpi', []), $request->input('intent') === 'submit');
+        });
+    }
+
+    public function confirmAcceptanceKpi(Request $request, Site $site, string $step, AcceptanceKpiService $kpi): RedirectResponse
+    {
+        abort_unless($step === 'acceptance', 404);
+        $user = $this->user($request);
+        $groups = array_keys(AcceptanceKpiService::GROUPS);
+        $data = $request->validate([
+            'groups' => ['required', 'array', 'min:1'],
+            'groups.*' => ['required', Rule::in($groups)],
+            'fingerprints' => ['required', 'array'],
+            'fingerprints.*' => ['nullable', 'string', 'max:64'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ], ['groups.required' => 'Chọn ít nhất một nhóm kết quả để xác nhận.']);
+
+        return $this->kpiResult($site, fn () => $kpi->confirm(
+            $site, $user, array_values(array_unique($data['groups'])), (array) $data['fingerprints'], $data['note'] ?? null));
+    }
+
+    public function returnAcceptanceKpi(Request $request, Site $site, string $step, AcceptanceKpiService $kpi): RedirectResponse
+    {
+        abort_unless($step === 'acceptance', 404);
+        $user = $this->user($request);
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:5000'],
+            'groups' => ['nullable', 'array'],
+            'groups.*' => [Rule::in(array_keys(AcceptanceKpiService::GROUPS))],
+        ], [], ['reason' => 'nội dung cần bổ sung']);
+
+        return $this->kpiResult($site, fn () => $kpi->returnForRevision($site, $user, $data['reason'], (array) ($data['groups'] ?? [])));
+    }
+
+    /** 403 giữ nguyên (chặn cứng); 409/422 quay về màn hình Nghiệm thu kèm lý do để người dùng sửa. */
+    private function kpiResult(Site $site, \Closure $action, string $fragment = 'acceptance-kpi'): RedirectResponse
+    {
+        $target = fn () => redirect()->route('projects-unified.show', ['site' => $site->id, 'step' => 'acceptance'])->withFragment($fragment);
+        try {
+            $message = $action();
+        } catch (HttpException $e) {
+            if (! in_array($e->getStatusCode(), [409, 422], true)) {
+                throw $e;
+            }
+
+            return $target()->withErrors(['acceptance_kpi' => $e->getMessage()]);
+        }
+
+        return $target()->with('success', $message);
     }
 }

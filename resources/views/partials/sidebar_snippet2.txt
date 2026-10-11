@@ -1,0 +1,452 @@
+
+{{-- EGO_SALES_MANAGER_DROPDOWN_START --}}
+@php
+    $egoSalesManagerOptions = collect();
+
+    try {
+        $egoSalesManagerOptions = \App\Models\User::query()
+            ->get()
+            ->filter(function ($u) {
+                $roles = [];
+
+                foreach (['role', 'type', 'position', 'department'] as $field) {
+                    if (!empty($u->{$field})) {
+                        $roles[] = mb_strtolower((string) $u->{$field});
+                    }
+                }
+
+                if (method_exists($u, 'getRoleNames')) {
+                    foreach ($u->getRoleNames() as $roleName) {
+                        $roles[] = mb_strtolower((string) $roleName);
+                    }
+                }
+
+                $roleText = implode('|', array_unique(array_filter($roles)));
+
+                return str_contains($roleText, 'sales_manager')
+                    || str_contains($roleText, 'sales manager')
+                    || str_contains($roleText, 'trưởng phòng sales')
+                    || str_contains($roleText, 'truong_phong_sales')
+                    || str_contains($roleText, 'manager_sales');
+            })
+            ->map(function ($u) {
+                return [
+                    'id' => (string) $u->id,
+                    'name' => (string) ($u->name ?? $u->email ?? ('User #' . $u->id)),
+                ];
+            })
+            ->values();
+    } catch (\Throwable $e) {
+        $egoSalesManagerOptions = collect();
+    }
+@endphp
+
+<script>
+(function () {
+    var managers = @json($egoSalesManagerOptions);
+
+    function cleanText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function selectLooksLikeSalesOwner(select) {
+        var name = cleanText(select.getAttribute('name'));
+        var id = cleanText(select.getAttribute('id'));
+        var text = cleanText(select.closest('form, .modal, .card, section, div') ? select.closest('form, .modal, .card, section, div').textContent : '');
+
+        return name.indexOf('sales') !== -1
+            || name.indexOf('assigned') !== -1
+            || name.indexOf('owner') !== -1
+            || id.indexOf('sales') !== -1
+            || text.indexOf('sales phụ trách') !== -1
+            || text.indexOf('sales phu trach') !== -1;
+    }
+
+    function hasOption(select, value) {
+        return Array.prototype.slice.call(select.options).some(function (opt) {
+            return String(opt.value) === String(value);
+        });
+    }
+
+    function addManagersToSelect(select) {
+        if (!select || !selectLooksLikeSalesOwner(select)) return;
+
+        managers.forEach(function (manager) {
+            if (!manager || !manager.id || hasOption(select, manager.id)) return;
+
+            var option = document.createElement('option');
+            option.value = manager.id;
+            option.textContent = manager.name + ' - Sales Manager';
+            option.setAttribute('data-ego-sales-manager', '1');
+
+            select.appendChild(option);
+        });
+    }
+
+    function run() {
+        if (!Array.isArray(managers) || managers.length === 0) return;
+
+        document.querySelectorAll('select').forEach(addManagersToSelect);
+    }
+
+    document.addEventListener('DOMContentLoaded', run);
+
+    setTimeout(run, 300);
+    setTimeout(run, 900);
+    setTimeout(run, 1800);
+
+    document.addEventListener('click', function () {
+        setTimeout(run, 150);
+        setTimeout(run, 500);
+    }, true);
+})();
+</script>
+{{-- EGO_SALES_MANAGER_DROPDOWN_END --}}
+
+
+<script>
+/* EGO_SIDE_LANG_JS_START */
+(function(){
+    const PAGE_LANG = 'vi';
+
+    function setCookie(name, value) {
+        document.cookie = name + '=' + value + ';path=/';
+        document.cookie = name + '=' + value + ';path=/;domain=' + location.hostname;
+
+        const parts = location.hostname.split('.');
+        if (parts.length >= 2) {
+            document.cookie = name + '=' + value + ';path=/;domain=.' + parts.slice(-2).join('.');
+        }
+    }
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : '';
+    }
+
+    function currentLang() {
+        const val = getCookie('googtrans');
+        const match = val.match(/\/vi\/([^/]+)/);
+        return match ? match[1] : 'vi';
+    }
+
+    function markActive(lang) {
+        document.querySelectorAll('.ego-side-lang-btn').forEach(function(btn){
+            btn.classList.toggle('active', btn.dataset.egoLang === lang);
+        });
+    }
+
+    window.googleTranslateElementInit = function(){
+        new google.translate.TranslateElement({
+            pageLanguage: PAGE_LANG,
+            includedLanguages: 'vi,en,zh-CN',
+            autoDisplay: false
+        }, 'google_translate_element');
+
+        setTimeout(function(){
+            markActive(currentLang());
+        }, 500);
+    };
+
+    function changeLang(lang) {
+        markActive(lang);
+        setCookie('googtrans', '/vi/' + lang);
+
+        const combo = document.querySelector('.goog-te-combo');
+
+        if (combo) {
+            combo.value = lang;
+            combo.dispatchEvent(new Event('change'));
+            setTimeout(function(){ location.reload(); }, 300);
+        } else {
+            location.reload();
+        }
+    }
+
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.ego-side-lang-btn');
+        if (!btn) return;
+
+        e.preventDefault();
+        changeLang(btn.dataset.egoLang || 'vi');
+    });
+
+    document.addEventListener('DOMContentLoaded', function(){
+        markActive(currentLang());
+    });
+
+    if (!document.querySelector('script[src*="translate.google.com/translate_a/element.js"]')) {
+        const script = document.createElement('script');
+        script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+        document.head.appendChild(script);
+    }
+})();
+/* EGO_SIDE_LANG_JS_END */
+</script>
+
+
+<!-- EGO_STATUS_FINAL_V4_START -->
+<style>
+    html body #sidebar .ego-sidebar__footer{
+        width:100% !important;
+        padding:0 8px 10px !important;
+        margin:0 !important;
+        box-sizing:border-box !important;
+    }
+
+    html body #sidebar .ego-status-card-final-v4{
+        position:relative !important;
+        width:100% !important;
+        max-width:100% !important;
+        margin:0 !important;
+        padding:12px 10px 11px !important;
+        border-radius:18px !important;
+        overflow:hidden !important;
+        box-sizing:border-box !important;
+        transform:none !important;
+    }
+
+    html body #sidebar .ego-status-final-head{
+        display:flex !important;
+        align-items:flex-start !important;
+        justify-content:space-between !important;
+        gap:8px !important;
+        margin-bottom:9px !important;
+    }
+
+    html body #sidebar .ego-status-final-actions{
+        display:flex !important;
+        align-items:center !important;
+        gap:6px !important;
+        flex:0 0 auto !important;
+    }
+
+    html body #sidebar .ego-status-final-toggle{
+        width:25px !important;
+        height:25px !important;
+        min-width:25px !important;
+        min-height:25px !important;
+        padding:0 !important;
+        border:1px solid rgba(45,212,191,.45) !important;
+        border-radius:999px !important;
+        background:rgba(15,118,110,.28) !important;
+        color:#9ff7ee !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        cursor:pointer !important;
+        font-size:12px !important;
+        line-height:1 !important;
+        box-shadow:none !important;
+        appearance:none !important;
+    }
+
+    html body #sidebar .ego-company-picker-final{
+        width:100% !important;
+        min-height:40px !important;
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto !important;
+        align-items:center !important;
+        gap:8px !important;
+        padding:7px 9px !important;
+        margin:0 0 8px !important;
+        border-radius:15px !important;
+        background:rgba(15,23,42,.28) !important;
+        border:1px solid rgba(255,255,255,.07) !important;
+        box-sizing:border-box !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__label{
+        min-width:0 !important;
+        display:flex !important;
+        align-items:center !important;
+        gap:8px !important;
+        color:#e5edf7 !important;
+        font-size:12px !important;
+        font-weight:900 !important;
+        white-space:nowrap !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__label i{
+        color:#22d3ee !important;
+        font-size:13px !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__switch{
+        justify-self:end !important;
+        display:flex !important;
+        align-items:center !important;
+        gap:4px !important;
+        padding:4px !important;
+        border-radius:999px !important;
+        background:rgba(15,23,42,.62) !important;
+        border:1px solid rgba(148,163,184,.18) !important;
+        box-sizing:border-box !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__switch form{
+        margin:0 !important;
+        padding:0 !important;
+        display:block !important;
+        line-height:0 !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__btn{
+        appearance:none !important;
+        width:35px !important;
+        height:24px !important;
+        min-width:35px !important;
+        max-width:35px !important;
+        padding:0 !important;
+        margin:0 !important;
+        border:0 !important;
+        border-radius:999px !important;
+        background:transparent !important;
+        color:#cbd5e1 !important;
+        font-size:10px !important;
+        font-weight:950 !important;
+        line-height:24px !important;
+        text-align:center !important;
+        cursor:pointer !important;
+        box-shadow:none !important;
+    }
+
+    html body #sidebar .ego-company-picker-final__btn.active{
+        background:linear-gradient(135deg,#2dd4bf,#22d3ee) !important;
+        color:#052f3a !important;
+        box-shadow:0 7px 16px rgba(45,212,191,.28) !important;
+    }
+
+    html body #sidebar .ego-status-grid{
+        display:flex !important;
+        flex-direction:column !important;
+        gap:7px !important;
+        width:100% !important;
+    }
+
+    html body #sidebar .ego-status-row{
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto !important;
+        align-items:center !important;
+        gap:8px !important;
+        width:100% !important;
+        min-height:37px !important;
+        padding:8px 10px !important;
+        border-radius:14px !important;
+        background:rgba(15,23,42,.26) !important;
+        border:1px solid rgba(255,255,255,.065) !important;
+        box-sizing:border-box !important;
+    }
+
+    html body #sidebar .ego-status-row > *:not(.ego-status-row__label):not(strong){
+        display:none !important;
+    }
+
+    html body #sidebar .ego-status-row__label{
+        min-width:0 !important;
+        display:flex !important;
+        align-items:center !important;
+        gap:8px !important;
+        color:#e5edf7 !important;
+        font-size:12px !important;
+        font-weight:900 !important;
+        white-space:nowrap !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+    }
+
+    html body #sidebar .ego-status-row strong{
+        justify-self:end !important;
+        position:static !important;
+        transform:none !important;
+        font-size:15px !important;
+        font-weight:950 !important;
+        color:#fff !important;
+    }
+
+    html body #sidebar .ego-status-card__bottom{
+        width:100% !important;
+        margin-top:10px !important;
+        height:32px !important;
+        border-radius:13px !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        gap:7px !important;
+        font-size:12px !important;
+        font-weight:900 !important;
+    }
+
+    html body #sidebar .ego-side-lang-final{
+        width:100% !important;
+        margin:10px 0 0 !important;
+        padding:4px !important;
+        border-radius:18px !important;
+        background:rgba(15,23,42,.58) !important;
+        border:1px solid rgba(148,163,184,.20) !important;
+        box-shadow:none !important;
+        box-sizing:border-box !important;
+    }
+
+    html body #sidebar .ego-side-lang-final .ego-side-lang-switch{
+        display:grid !important;
+        grid-template-columns:repeat(3,1fr) !important;
+        gap:5px !important;
+        width:100% !important;
+    }
+
+    html body #sidebar .ego-side-lang-final .ego-side-lang-btn{
+        appearance:none !important;
+        border:0 !important;
+        outline:0 !important;
+        box-shadow:none !important;
+        width:100% !important;
+        height:30px !important;
+        border-radius:999px !important;
+        background:transparent !important;
+        color:#cbd5e1 !important;
+        font-size:11px !important;
+        font-weight:950 !important;
+        cursor:pointer !important;
+    }
+
+    html body #sidebar .ego-side-lang-final .ego-side-lang-btn.active{
+        background:linear-gradient(135deg,#2dd4bf,#22d3ee) !important;
+        color:#052f3a !important;
+        box-shadow:0 8px 18px rgba(45,212,191,.25) !important;
+    }
+
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed{
+        max-height:50px !important;
+        min-height:50px !important;
+    }
+
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed .ego-status-final-toggle i{
+        transform:rotate(-90deg) !important;
+    }
+
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed .ego-company-picker-final,
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed .ego-status-grid,
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed .ego-status-card__bottom,
+    html body #sidebar .ego-status-card-final-v4.ego-status-final-collapsed .ego-side-lang-final{
+        display:none !important;
+    }
+
+    html body #sidebar .ego-company-live-tiny,
+    html body #sidebar .ego-company-live-tab,
+    html body #sidebar .ego-company-live-btn,
+    html body #sidebar .ego-company-direct-row,
+    html body #sidebar .ego-company-switch-row,
+    html body #sidebar .ego-company-final-row,
+    html body #sidebar .ego-company-hard-row,
+    html body #sidebar .ego-company-real-row,
+    html body #sidebar .ego-company-clean-row,
+    html body #sidebar .ego-company-context-row,
+    html body #sidebar .ego-company-choice-row{
+        display:none !important;
+    }
+</style>
+
+<script>

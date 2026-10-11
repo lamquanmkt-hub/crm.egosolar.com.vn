@@ -114,6 +114,22 @@ class SolarMaintenanceSchedulePolicy
     }
 
     /**
+     * Kỹ thuật viên được phân công được phép hoàn tất trực tiếp; quản lý kỹ thuật hoàn tất được mọi đợt.
+     */
+    public function completeDirectly(User $user, SolarMaintenanceSchedule $schedule): bool
+    {
+        // Người được chỉ định (config technical.maintenance_complete_any_emails) hoàn tất được mọi đợt.
+        if (SolarMaintenanceAccess::canCompleteAnyRound($user)) {
+            return true;
+        }
+
+        // Kỹ thuật viên được phân công vào đợt thì hoàn tất được: không cần Admin duyệt phân công trước
+        // và không bị chặn theo nhãn công ty của đợt (đã được giao việc rõ ràng).
+        return SolarMaintenanceAccess::isTechnician($user) && $this->isAssigned($user, $schedule);
+    }
+
+
+    /**
      * Cho phép yêu cầu chỉnh sửa lại (cùng điều kiện với quyền duyệt).
      */
     public function requestRevision(User $user, SolarMaintenanceSchedule $schedule): bool
@@ -160,7 +176,8 @@ class SolarMaintenanceSchedulePolicy
      */
     private function sameCompany(User $user, SolarMaintenanceSchedule $schedule): bool
     {
-        if (SolarMaintenanceAccess::isAdmin($user)) {
+        // Admin và quản lý kỹ thuật (Trưởng phòng / Giám đốc) thao tác được mọi đợt, kể cả đợt gắn nhãn công ty khác.
+        if (SolarMaintenanceAccess::isAdmin($user) || SolarMaintenanceAccess::isTechnicalLead($user)) {
             return true;
         }
 

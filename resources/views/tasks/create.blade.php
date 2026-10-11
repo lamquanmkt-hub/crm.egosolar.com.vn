@@ -478,6 +478,8 @@
 
                         @include('tasks.partials.technical-context')
 
+                        @include('tasks.partials.hcns-context')
+
                         <div class="mb-3">
                             <label class="form-label">Người nhận việc <span class="text-danger">*</span></label>
 

@@ -63,7 +63,6 @@ class AssetController extends Controller
             'keyword' => trim((string) $request->input('keyword', '')),
             'status' => trim((string) $request->input('status', '')),
             'category_id' => (int) $request->input('category_id', 0),
-            'company_id' => (int) $request->input('company_id', 0),
             'condition' => trim((string) $request->input('condition', '')),
         ];
 
@@ -110,10 +109,6 @@ class AssetController extends Controller
 
         if ($filters['category_id'] > 0) {
             $query->where('a.category_id', $filters['category_id']);
-        }
-
-        if ($filters['company_id'] > 0) {
-            $query->where('a.company_id', $filters['company_id']);
         }
 
         $assets = $query->orderByRaw("FIELD(a.status, 'active', 'maintenance', 'repair', 'idle', 'liquidated', 'lost')")
@@ -444,7 +439,7 @@ class AssetController extends Controller
             'code' => ['nullable', 'string', 'max:60'],
             'name' => ['required', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer'],
-            'company_id' => ['nullable', 'integer'],
+
             'assigned_to' => ['nullable', 'integer'],
             'department' => ['nullable', 'string', 'max:120'],
             'serial_no' => ['nullable', 'string', 'max:120'],
@@ -484,7 +479,7 @@ class AssetController extends Controller
             'code' => $code,
             'name' => trim((string) $data['name']),
             'category_id' => ! empty($data['category_id']) ? (int) $data['category_id'] : null,
-            'company_id' => ! empty($data['company_id']) ? (int) $data['company_id'] : null,
+            'company_id' => \App\Support\EgoCompanyLock::id(),
             'assigned_to' => ! empty($data['assigned_to']) ? (int) $data['assigned_to'] : null,
             'department' => trim((string) ($data['department'] ?? '')) ?: null,
             'serial_no' => trim((string) ($data['serial_no'] ?? '')) ?: null,

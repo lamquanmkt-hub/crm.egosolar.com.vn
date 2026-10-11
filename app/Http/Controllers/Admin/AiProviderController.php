@@ -68,11 +68,12 @@ final class AiProviderController extends Controller
     {
         $validated = $this->validated($request, false);
 
-        if (trim((string) ($validated['api_key'] ?? '')) === '') {
-            unset($validated['api_key']);
-        }
+        // Key mới được ghi riêng (không qua update()) để không phải giải mã key cũ — key cũ có thể
+        // không đọc được nếu APP_KEY đã đổi, khi đó update() sẽ lỗi và Admin không nhập lại key được.
+        $newKey = trim((string) ($validated['api_key'] ?? ''));
+        unset($validated['api_key']);
 
-        DB::transaction(function () use ($validated, $request, $provider): void {
+        DB::transaction(function () use ($validated, $request, $provider, $newKey): void {
             if ($request->boolean('is_default')) {
                 AiProvider::query()->where('id', '!=', $provider->id)->update(['is_default' => false]);
                 $validated['is_default'] = true;
@@ -81,6 +82,10 @@ final class AiProviderController extends Controller
             }
 
             $provider->update($validated);
+
+            if ($newKey !== '') {
+                $provider->replaceApiKey($newKey);
+            }
         });
 
         return back()->with('success', 'Đã cập nhật kết nối AI.');
@@ -126,7 +131,9 @@ final class AiProviderController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'ok' => false,
-                'message' => $e->getMessage(),
+                'message' => $e instanceof \Illuminate\Contracts\Encryption\DecryptException
+                    ? 'Không đọc được API key đã lưu (khóa mã hoá của hệ thống đã thay đổi). Hãy nhập lại API key rồi kiểm tra lại.'
+                    : $e->getMessage(),
             ], 422);
         }
     }

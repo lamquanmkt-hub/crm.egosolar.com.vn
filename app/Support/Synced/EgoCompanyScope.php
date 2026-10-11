@@ -9,12 +9,12 @@ class EgoCompanyScope
 {
     public static function currentId(): int
     {
-        return (int) session('active_company_id', 0);
+        return \App\Support\EgoCompanyLock::id();
     }
 
     public static function currentName(): string
     {
-        return trim((string) session('active_company_name', ''));
+        return \App\Support\EgoCompanyLock::name();
     }
 
     public static function companyNames(?int $companyId = null): array

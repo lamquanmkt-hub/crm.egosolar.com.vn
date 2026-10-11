@@ -23,6 +23,8 @@
 
     @include('technical.workboard.partials.flash')
 
+    @include('technical.partials.kpi-work-rules')
+
     <div class="tp-weekbar">
         <div class="tp-weekbar__nav">
             <a class="btn btn-sm btn-outline-secondary" href="{{ route('technical.manager.detail', ['member' => $member->id, 'week' => $prevWeek]) }}">
@@ -190,6 +192,7 @@
                                                 <span class="tp-state tp-state--info">Nháp (quản lý lập)</span>
                                             @endif
                                         </span>
+                                        @include('technical.partials.kpi-work-status', ['kpiItem' => $item])
                                     </td>
                                     <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->site_name ?? '—') }}</td>
                                     <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->objective ?: '—') }}</td>

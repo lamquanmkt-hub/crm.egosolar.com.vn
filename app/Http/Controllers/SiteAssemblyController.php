@@ -60,7 +60,6 @@ class SiteAssemblyController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'company_id' => ['required', 'integer'],
             'site_id' => ['nullable', 'integer'],
             'material_warehouse_id' => ['required', 'integer'],
             'finished_warehouse_id' => ['required', 'integer'],
@@ -91,9 +90,11 @@ class SiteAssemblyController extends Controller
             return back()->withInput()->with('error', 'Vui lòng thêm ít nhất 1 vật tư lắp ráp.');
         }
 
+        $companyId = \App\Support\EgoCompanyLock::id();
+
         try {
             $this->guardCompanyWarehousesProducts(
-                (int) $request->input('company_id'),
+                $companyId,
                 [
                     (int) $request->input('material_warehouse_id'),
                     (int) $request->input('finished_warehouse_id'),
@@ -115,7 +116,7 @@ class SiteAssemblyController extends Controller
 
                 $id = DB::table('site_assemblies')->insertGetId([
                     'code' => $this->makeCode(),
-                    'company_id' => (int) $request->input('company_id'),
+                    'company_id' => $companyId,
                     'site_id' => $request->filled('site_id') ? (int) $request->input('site_id') : null,
                     'material_warehouse_id' => (int) $request->input('material_warehouse_id'),
                     'finished_warehouse_id' => (int) $request->input('finished_warehouse_id'),

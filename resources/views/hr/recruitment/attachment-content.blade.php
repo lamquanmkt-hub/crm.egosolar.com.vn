@@ -1,0 +1,2 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nội dung tệp</title>
+<style>body{font:15px/1.6 system-ui,sans-serif;color:#243447;margin:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.docx-img{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #d9e2ef;padding:8px;max-width:400px;overflow-wrap:anywhere}nav{display:flex;gap:12px;flex-wrap:wrap}.sheet{overflow:auto}p{overflow-wrap:anywhere}</style></head><body>{!! $body !!}</body></html>

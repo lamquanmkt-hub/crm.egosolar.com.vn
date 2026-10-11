@@ -3,6 +3,12 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Http\Controllers\Controller;
+use App\Services\Hr\Kpi\HcnsSourceFiles;
+use App\Services\Hr\Kpi\HcnsSourceReviews;
+use App\Services\Hr\Kpi\Sources\AssetsServiceSource;
+use App\Services\Hr\Kpi\VppAllocationKpi;
+use App\Services\Hr\Payroll\PayrollAccess;
+use App\Support\EgoCompanyLock;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +20,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class OfficeSupplyProcessController extends Controller
 {
+    private ?int $lastRequestId = null;
+
     /**
      * Hiển thị trang tổng quan VPP: vật phẩm, phiếu phân bổ gần nhất, lịch sử xuất nhập và thống kê kho.
      */
@@ -72,11 +80,19 @@ class OfficeSupplyProcessController extends Controller
             'low_stock' => DB::table('hr_vpp_products')->whereColumn('current_stock', '<=', 'min_stock')->count(),
         ];
 
+        $kpiReady = VppAllocationKpi::ready();
+        $kpiUsers = $kpiReady ? DB::table('users')->select('id', 'name', 'email')->orderBy('name')->get() : collect();
+        $kpiStatuses = $kpiReady ? DB::table('hr_kpi_source_reviews')->where('source_type', VppAllocationKpi::SOURCE_TYPE)
+            ->whereIn('source_id', $requests->pluck('id'))->pluck('status', 'source_id')->all() : [];
+
         return view('hr.office-supply-process.index', compact(
             'products',
             'requests',
             'movements',
-            'stats'
+            'stats',
+            'kpiReady',
+            'kpiUsers',
+            'kpiStatuses'
         ));
     }
 
@@ -214,6 +230,39 @@ class OfficeSupplyProcessController extends Controller
             return back()->withInput()->withErrors(['items' => 'Cần chọn ít nhất 1 vật phẩm để phân bổ.']);
         }
 
+        // KPI HC06 (cấp phát theo yêu cầu): người yêu cầu/xử lý/kiểm bằng ID, giờ nhận yêu cầu, hạn, giờ giao thực tế.
+        $kpi = [];
+        if ($request->boolean('kpi_tracked') && VppAllocationKpi::ready()) {
+            $k = $request->validate([
+                'requester_user_id' => ['required', 'integer', 'exists:users,id'],
+                'handler_id' => ['nullable', 'integer', 'exists:users,id'],
+                'reviewer_id' => ['required', 'integer', 'exists:users,id'],
+                'request_received_at' => ['required', 'date', 'before_or_equal:now'],
+                'due_at' => ['required', 'date', 'after_or_equal:request_received_at'],
+                'delivered_at' => ['nullable', 'date', 'after_or_equal:request_received_at', 'before_or_equal:now'],
+            ], [
+                'requester_user_id.required' => 'Chọn người yêu cầu (tài khoản).',
+                'reviewer_id.required' => 'Chọn người kiểm tra độc lập.',
+                'request_received_at.required' => 'Nhập giờ HCNS nhận yêu cầu.',
+                'request_received_at.before_or_equal' => 'Giờ nhận yêu cầu không được sau hiện tại.',
+                'due_at.required' => 'Nhập hạn cấp phát theo yêu cầu.',
+                'due_at.after_or_equal' => 'Hạn cấp phát phải sau giờ nhận yêu cầu.',
+                'delivered_at.before_or_equal' => 'Giờ giao thực tế không được sau hiện tại.',
+            ]);
+            $handler = (int) ($k['handler_id'] ?? Auth::id());
+            if ((int) $k['reviewer_id'] === $handler) {
+                return back()->withInput()->withErrors(['reviewer_id' => 'Người kiểm phải khác người xử lý.']);
+            }
+            if ($locked = \App\Services\Hr\Kpi\HcnsKpiRules::lockedMonth([\Illuminate\Support\Carbon::parse($k['due_at'])->format('Y-m')])) {
+                return back()->withInput()->withErrors(['due_at' => VppAllocationKpi::lockMessage($locked)]);
+            }
+            $kpi = [
+                'company_id' => EgoCompanyLock::id(), 'kpi_tracked' => true, 'handler_id' => $handler, 'reviewer_id' => (int) $k['reviewer_id'],
+                'requester_user_id' => (int) $k['requester_user_id'], 'request_received_at' => $k['request_received_at'],
+                'due_at' => $k['due_at'], 'delivered_at' => $k['delivered_at'] ?? now(),
+            ];
+        }
+
         $stockErrors = [];
 
         foreach ($items as $item) {
@@ -234,8 +283,8 @@ class OfficeSupplyProcessController extends Controller
             return back()->withInput()->withErrors(['stock' => implode(' | ', $stockErrors)]);
         }
 
-        DB::transaction(function () use ($data, $items) {
-            $requestId = DB::table('hr_vpp_requests')->insertGetId([
+        DB::transaction(function () use ($data, $items, $kpi) {
+            $requestId = DB::table('hr_vpp_requests')->insertGetId($kpi + [
                 'code' => $this->makeCode(),
                 'department_name' => $data['department_name'],
                 'requester_name' => $data['receiver_name'],
@@ -280,7 +329,16 @@ class OfficeSupplyProcessController extends Controller
             }
 
             $this->log($requestId, null, 'completed', 'Phân bổ VPP và trừ tồn kho', $data['note'] ?? null);
+            if ($kpi !== []) {
+                $this->log($requestId, 'completed', 'completed', 'KPI HC06: theo dõi cấp phát theo yêu cầu', 'Nhận yêu cầu '.$kpi['request_received_at'].' · hạn '.$kpi['due_at']);
+            }
+            $this->lastRequestId = $requestId;
         });
+
+        if ($kpi !== []) {
+            return redirect()->route('hr.office-supply-process.show', $this->lastRequestId)
+                ->with('success', 'Đã cấp phát và theo dõi KPI. Tải biên bản/ảnh ký nhận rồi bấm Gửi kiểm tra.');
+        }
 
         return back()->with('success', 'Đã phân bổ VPP. Tồn kho đã tự động trừ.');
     }
@@ -356,7 +414,7 @@ class OfficeSupplyProcessController extends Controller
             ->orderByDesc('m.id')
             ->get();
 
-        return view('hr.office-supply-process.show', compact('requestRow', 'items', 'movements'));
+        return view('hr.office-supply-process.show', compact('requestRow', 'items', 'movements') + $this->kpiViewData($requestRow));
     }
 
     /**
@@ -370,6 +428,9 @@ class OfficeSupplyProcessController extends Controller
 
         $requestRow = DB::table('hr_vpp_requests')->where('id', $id)->first();
         abort_unless($requestRow, 404);
+        if ($blocked = $this->kpiDeleteBlocked($requestRow)) {
+            return back()->with('error', $blocked);
+        }
 
         DB::transaction(function () use ($id) {
             $outs = DB::table('hr_vpp_movements')
@@ -395,6 +456,281 @@ class OfficeSupplyProcessController extends Controller
 
         return redirect()->route('hr.office-supply-process.index')
             ->with('success', 'Đã xoá phiếu và hoàn lại tồn kho.');
+    }
+
+    /**
+     * KPI HC06: sửa mốc/người của phiếu theo dõi KPI (người xử lý hoặc Ban Giám đốc/Admin).
+     * Nội dung khác bản đã gửi/xác nhận → xác nhận cũ hết hiệu lực, phải gửi lại.
+     */
+    public function kpiUpdate(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'editor');
+        $k = $request->validate([
+            'requester_user_id' => ['required', 'integer', 'exists:users,id'],
+            'handler_id' => ['required', 'integer', 'exists:users,id'],
+            'reviewer_id' => ['required', 'integer', 'exists:users,id', 'different:handler_id'],
+            'request_received_at' => ['required', 'date', 'before_or_equal:now'],
+            'due_at' => ['required', 'date', 'after_or_equal:request_received_at'],
+            'delivered_at' => ['required', 'date', 'after_or_equal:request_received_at', 'before_or_equal:now'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'reviewer_id.different' => 'Người kiểm phải khác người xử lý.',
+            'due_at.after_or_equal' => 'Hạn cấp phát phải sau giờ nhận yêu cầu.',
+            'delivered_at.after_or_equal' => 'Giờ giao thực tế phải sau giờ nhận yêu cầu.',
+            'delivered_at.before_or_equal' => 'Giờ giao thực tế không được sau hiện tại.',
+        ]);
+        if ($locked = \App\Services\Hr\Kpi\HcnsKpiRules::lockedMonth([\Illuminate\Support\Carbon::parse($k['due_at'])->format('Y-m')])) {
+            return back()->withInput()->withErrors(['due_at' => VppAllocationKpi::lockMessage($locked)]);
+        }
+
+        $values = collect($k)->except('note')->all();
+        $changes = [];
+        $labels = ['requester_user_id' => 'người yêu cầu', 'handler_id' => 'người xử lý', 'reviewer_id' => 'người kiểm',
+            'request_received_at' => 'giờ nhận yêu cầu', 'due_at' => 'hạn', 'delivered_at' => 'giờ giao'];
+        foreach ($values as $field => $value) {
+            $old = (string) ($row->{$field} ?? '');
+            $new = in_array($field, ['request_received_at', 'due_at', 'delivered_at'], true)
+                ? \Illuminate\Support\Carbon::parse($value)->format('Y-m-d H:i:s') : (string) $value;
+            if ($old !== $new) {
+                $changes[] = $labels[$field].': '.($old ?: '—').' → '.$new;
+            }
+            $values[$field] = $new;
+        }
+        if ($changes === []) {
+            return back()->with('success', 'Không có thay đổi.');
+        }
+
+        DB::table('hr_vpp_requests')->where('id', $row->id)->update($values + ['updated_at' => now()]);
+        $note = trim((string) ($k['note'] ?? ''));
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: sửa mốc/người', implode('; ', $changes).($note !== '' ? ' · '.$note : ''));
+        $this->invalidateKpiReview((int) $row->id, 'Sửa '.implode(', ', array_map(fn ($c) => strtok($c, ':'), $changes)));
+
+        return back()->with('success', 'Đã lưu thay đổi. Nếu phiếu đã gửi/kiểm tra, cần gửi kiểm lại.');
+    }
+
+    /** KPI HC06: tải biên bản/ảnh ký nhận (tệp riêng tư). */
+    public function kpiFileUpload(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'editor');
+        $request->validate([
+            'files' => ['required', 'array', 'max:10'],
+            'files.*' => ['file', 'mimes:'.HcnsSourceFiles::MIMES, 'max:'.HcnsSourceFiles::MAX_KB],
+        ], ['files.required' => 'Chọn ít nhất một tệp.']);
+        $count = app(HcnsSourceFiles::class)->store(VppAllocationKpi::SOURCE_TYPE, (int) $row->id, (array) $request->file('files', []), (int) $user->id);
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: thêm '.$count.' tệp minh chứng');
+        $this->invalidateKpiReview((int) $row->id, 'Thêm tệp minh chứng');
+
+        return back()->with('success', 'Đã tải '.$count.' tệp minh chứng.');
+    }
+
+    /** Xem (inline) hoặc tải tệp minh chứng — chỉ qua trang HCNS có quyền, không có URL public. */
+    public function kpiFile(Request $request, $id, $fileId)
+    {
+        $this->ensureTables();
+        abort_unless(VppAllocationKpi::ready(), 404);
+        $file = app(HcnsSourceFiles::class)->find(VppAllocationKpi::SOURCE_TYPE, (int) $id, (int) $fileId);
+        abort_unless($file, 404);
+
+        return app(HcnsSourceFiles::class)->respond($file, $request->boolean('download'));
+    }
+
+    public function kpiFileDelete(Request $request, $id, $fileId)
+    {
+        [$row] = $this->kpiActor((int) $id, 'editor');
+        $file = app(HcnsSourceFiles::class)->find(VppAllocationKpi::SOURCE_TYPE, (int) $row->id, (int) $fileId);
+        abort_unless($file, 404);
+        app(HcnsSourceFiles::class)->delete($file);
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: xóa tệp '.$file->original_name);
+        $this->invalidateKpiReview((int) $row->id, 'Xóa tệp minh chứng');
+
+        return back()->with('success', 'Đã xóa tệp minh chứng.');
+    }
+
+    /** Người xử lý lưu nháp (chưa gửi, chưa tính KPI). */
+    public function kpiDraft(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'handler');
+        $kpi = app(VppAllocationKpi::class);
+        app(HcnsSourceReviews::class)->saveDraft(VppAllocationKpi::SOURCE_TYPE, (int) $row->id, VppAllocationKpi::CRITERION,
+            (int) $row->handler_id, $row->reviewer_id ? (int) $row->reviewer_id : null, $kpi->declared($row), $kpi->fingerprint($row),
+            (int) $user->id, $this->kpiNote($request));
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: lưu nháp', $this->kpiNote($request));
+
+        return back()->with('success', 'Đã lưu nháp. Chưa gửi người kiểm, chưa tính KPI.');
+    }
+
+    /** Người xử lý gửi kiểm tra; thiếu mốc/người/tệp thì chặn. */
+    public function kpiSubmit(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'handler');
+        $kpi = app(VppAllocationKpi::class);
+        if (($missing = $kpi->missing($row)) !== []) {
+            return back()->with('error', 'Chưa gửi kiểm được — thiếu: '.implode(', ', $missing).'.');
+        }
+        app(HcnsSourceReviews::class)->submit(VppAllocationKpi::SOURCE_TYPE, (int) $row->id, VppAllocationKpi::CRITERION,
+            (int) $row->handler_id, (int) $row->reviewer_id, $kpi->declared($row), $kpi->fingerprint($row), (int) $user->id, $this->kpiNote($request));
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: gửi kiểm tra', $this->kpiNote($request));
+
+        return back()->with('success', 'Đã gửi kiểm tra. Chờ người kiểm xác nhận.');
+    }
+
+    /** Người kiểm (khác người xử lý) xác nhận từng mục đạt/không đạt. */
+    public function kpiConfirm(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'reviewer');
+        $checkKeys = array_keys((array) config('hcns_kpi.allocation_checks', []));
+        $data = $request->validate([
+            'checks' => ['required', 'array'],
+            'checks.*' => ['required', \Illuminate\Validation\Rule::in(['pass', 'fail'])],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ], ['checks.required' => 'Chọn Đạt/Không đạt cho từng mục kiểm tra.']);
+        $checks = array_intersect_key((array) $data['checks'], array_flip($checkKeys));
+        if (count($checks) !== count($checkKeys)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['checks' => 'Chọn Đạt/Không đạt cho đủ '.count($checkKeys).' mục kiểm tra.']);
+        }
+        if (collect($checks)->contains('fail') && trim((string) ($data['note'] ?? '')) === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['note' => 'Ghi rõ lỗi khi có mục không đạt.']);
+        }
+        $review = $this->kpiReview((int) $row->id);
+        abort_unless($review, 404);
+        app(HcnsSourceReviews::class)->confirm($review, $checks, app(VppAllocationKpi::class)->fingerprint($row), (int) $user->id, $data['note'] ?? null);
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: xác nhận kiểm tra', $data['note'] ?? null);
+
+        return back()->with('success', 'Đã xác nhận kết quả kiểm tra.');
+    }
+
+    public function kpiReturn(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'reviewer');
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:2000']], ['reason.required' => 'Ghi lý do trả bổ sung.']);
+        $review = $this->kpiReview((int) $row->id);
+        abort_unless($review, 404);
+        app(HcnsSourceReviews::class)->returnForFix($review, trim($data['reason']), (int) $user->id);
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: trả bổ sung', $data['reason']);
+
+        return back()->with('success', 'Đã trả bổ sung cho người xử lý.');
+    }
+
+    /** Người yêu cầu tự xác nhận đã nhận (nếu truy cập được trang); không thay ký nhận trên biên bản. */
+    public function kpiReceipt(Request $request, $id)
+    {
+        [$row, $user] = $this->kpiActor((int) $id, 'requester');
+        abort_if(! empty($row->receipt_confirmed_at), 422, 'Phiếu đã được xác nhận nhận hàng.');
+        DB::table('hr_vpp_requests')->where('id', $row->id)->update(['receipt_confirmed_by' => $user->id, 'receipt_confirmed_at' => now(), 'updated_at' => now()]);
+        $this->log((int) $row->id, $row->status, $row->status, 'KPI HC06: người yêu cầu xác nhận đã nhận');
+
+        return back()->with('success', 'Đã ghi nhận bạn đã nhận vật phẩm.');
+    }
+
+    /** Dữ liệu khối KPI HC06 trên trang chi tiết phiếu. */
+    private function kpiViewData(object $requestRow): array
+    {
+        $ready = VppAllocationKpi::ready();
+        $tracked = $ready && ! empty($requestRow->kpi_tracked);
+        if (! $tracked) {
+            return ['kpiReady' => $ready, 'kpiTracked' => false];
+        }
+        $user = Auth::user();
+        $review = $this->kpiReview((int) $requestRow->id);
+        $names = DB::table('users')->pluck('name', 'id')->map(fn ($n) => (string) $n)->all();
+        $row = app(AssetsServiceSource::class)->allocationRow((object) ((array) $requestRow + [
+            'review_status' => $review->status ?? null, 'result' => $review->result ?? null, 'checks' => $review->checks ?? null,
+            'confirmed_by' => $review->confirmed_by ?? null, 'confirmed_at' => $review->confirmed_at ?? null,
+            'return_reason' => $review->return_reason ?? null, 'first_submitted_at' => $review->first_submitted_at ?? null,
+        ]), $names, now());
+
+        return [
+            'kpiReady' => true,
+            'kpiTracked' => true,
+            'kpiReview' => $review,
+            'kpiEvents' => $review ? app(HcnsSourceReviews::class)->events((int) $review->id) : collect(),
+            'kpiFiles' => app(HcnsSourceFiles::class)->list(VppAllocationKpi::SOURCE_TYPE, (int) $requestRow->id),
+            'kpiMissing' => app(VppAllocationKpi::class)->missing($requestRow),
+            'kpiRow' => $row,
+            'kpiNames' => $names,
+            'kpiLocked' => VppAllocationKpi::lockedMonth($requestRow),
+            'kpiIsHandler' => $user && (int) $requestRow->handler_id === (int) $user->id,
+            'kpiCanEdit' => $user && $this->canEditKpi($requestRow, $user),
+            'kpiCanReview' => $user && $this->canReviewKpi($requestRow, $user),
+            'kpiIsRequester' => $user && (int) ($requestRow->requester_user_id ?? 0) === (int) $user->id && (int) $requestRow->handler_id !== (int) $user->id,
+            'kpiUsers' => DB::table('users')->select('id', 'name', 'email')->orderBy('name')->get(),
+            'allocationChecks' => (array) config('hcns_kpi.allocation_checks', []),
+        ];
+    }
+
+    /** Phiếu theo dõi KPI đã gửi kiểm hoặc thuộc kỳ đã chốt lương thì không xóa (xóa sẽ mất nguồn đã tính). */
+    private function kpiDeleteBlocked(object $row): ?string
+    {
+        if (! VppAllocationKpi::ready() || empty($row->kpi_tracked)) {
+            return null;
+        }
+        if ($locked = VppAllocationKpi::lockedMonth($row)) {
+            return VppAllocationKpi::lockMessage($locked);
+        }
+        $review = $this->kpiReview((int) $row->id);
+
+        return $review && $review->first_submitted_at
+            ? 'Phiếu đã gửi kiểm KPI HC06 — không xóa được. Sửa mốc/tệp rồi gửi lại nếu có sai.'
+            : null;
+    }
+
+    /** @return array{0: object, 1: \App\Models\User} */
+    private function kpiActor(int $id, string $role): array
+    {
+        $this->ensureTables();
+        abort_unless(VppAllocationKpi::ready(), 404);
+        $row = DB::table('hr_vpp_requests')->where('id', $id)->first();
+        abort_unless($row && ! empty($row->kpi_tracked), 404);
+        if ($locked = VppAllocationKpi::lockedMonth($row)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['kpi' => VppAllocationKpi::lockMessage($locked)]);
+        }
+        $user = Auth::user();
+        match ($role) {
+            'handler' => abort_unless((int) $row->handler_id === (int) $user->id, 403, 'Chỉ người xử lý của phiếu được lưu nháp/gửi kiểm.'),
+            'editor' => abort_unless($this->canEditKpi($row, $user), 403, 'Chỉ người xử lý hoặc Ban Giám đốc/Admin được sửa phiếu theo dõi KPI.'),
+            'reviewer' => abort_unless($this->canReviewKpi($row, $user), 403, 'Bạn không phải người kiểm của phiếu này.'),
+            'requester' => abort_unless((int) ($row->requester_user_id ?? 0) === (int) $user->id && (int) $row->handler_id !== (int) $user->id, 403, 'Chỉ người yêu cầu được xác nhận đã nhận.'),
+        };
+
+        return [$row, $user];
+    }
+
+    private function canEditKpi(object $row, $user): bool
+    {
+        return (int) $row->handler_id === (int) $user->id || PayrollAccess::canApprove($user);
+    }
+
+    /** Người kiểm được chỉ định, hoặc Ban Giám đốc/Admin; không bao giờ là người xử lý. */
+    private function canReviewKpi(object $row, $user): bool
+    {
+        if ((int) $row->handler_id === (int) $user->id) {
+            return false;
+        }
+
+        return (int) ($row->reviewer_id ?? 0) === (int) $user->id || PayrollAccess::canApprove($user);
+    }
+
+    private function kpiReview(int $id): ?object
+    {
+        return app(HcnsSourceReviews::class)->find(VppAllocationKpi::SOURCE_TYPE, $id, VppAllocationKpi::CRITERION);
+    }
+
+    private function kpiNote(Request $request): ?string
+    {
+        $note = trim((string) $request->input('note', ''));
+
+        return $note === '' ? null : mb_substr($note, 0, 2000);
+    }
+
+    private function invalidateKpiReview(int $id, string $what): void
+    {
+        $row = DB::table('hr_vpp_requests')->where('id', $id)->first();
+        $before = $this->kpiReview($id);
+        $after = app(HcnsSourceReviews::class)->invalidateIfChanged(VppAllocationKpi::SOURCE_TYPE, $id, VppAllocationKpi::CRITERION,
+            app(VppAllocationKpi::class)->fingerprint($row), (int) Auth::id(), $what);
+        if ($before && $after && $before->status !== $after->status) {
+            $this->log($id, $row->status, $row->status, 'KPI HC06: xác nhận cũ hết hiệu lực', $what.' sau khi đã gửi/kiểm tra — cần gửi lại.');
+        }
     }
 
     /**

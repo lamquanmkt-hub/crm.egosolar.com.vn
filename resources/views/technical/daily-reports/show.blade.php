@@ -36,6 +36,9 @@
 
     @include('technical.workboard.partials.flash')
 
+    @include('technical.partials.kpi-work-rules')
+    @include('technical.partials.kpi-work-status', ['kpiReport' => $report])
+
     @if($report->status === \App\Models\Technical\TechnicalDailyReport::STATUS_REVISION && $report->review_note)
         <div class="alert alert-warning d-flex align-items-start gap-2">
             <i class="bi bi-arrow-counterclockwise"></i>

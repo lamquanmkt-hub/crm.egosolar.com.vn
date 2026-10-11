@@ -1,0 +1,94 @@
+/* Sidebar chính */
+.sidebar {
+    width: 240px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    background-color: #1e1e1e;
+    transition: width 0.3s ease;
+    z-index: 1000;
+}
+
+.sidebar.collapsed {
+    width: 70px;
+}
+
+.sidebar .nav-link {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar .nav-link:hover {
+    background-color: #343a40;
+    color: #ffffff;
+    text-decoration: none;
+}
+
+/* Khi thu gọn */
+.sidebar.collapsed .nav-link span {
+    display: none;
+}
+
+.sidebar.collapsed .collapse.show {
+    display: none !important;
+}
+
+.sidebar.collapsed .sidebar-header h5 {
+    display: none;
+}
+
+/* Active link */
+.sidebar .nav-link.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+.main-content{
+    padding-left: 20px;
+}
+.search-btn button, .search-btn a{
+    height: 38px
+}
+/* Cho phép scroll ngang */
+.table-scroll-x {
+    overflow-x: auto;
+}
+
+/* Bảng không co ép cột */
+.table-fixed {
+    table-layout: fixed;
+    min-width: 1200px; /* điều chỉnh theo số cột */
+}
+
+/* Header không xuống dòng */
+.table-fixed th {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Ô select/input chiếm full cột */
+.table-fixed td select,
+.table-fixed td input {
+    width: 100%;
+}
+.col-warehouse { width: 160px; }
+.col-product   { width: 320px; }
+.col-tier      { width: 180px; }
+.col-price     { width: 140px; }
+.col-qty       { width: 120px; }
+.col-discount  { width: 120px; }
+.col-total     { width: 160px; }
+.col-action    { width: 60px; }
+.product-select {
+    min-width: 280px;
+}
+#productTable tfoot {
+    position: sticky;
+    bottom: 0;
+    background: #e9ecef;
+    z-index: 2;
+}

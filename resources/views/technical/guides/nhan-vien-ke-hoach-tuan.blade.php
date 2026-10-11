@@ -2,6 +2,8 @@
 
 @section('guide')
 
+    @include('technical.partials.kpi-work-rules')
+
     <section class="tg-section" id="muc-dich">
         <h2 class="tg-section__title"><span class="num">1</span> Mục đích</h2>
         <p>

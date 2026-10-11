@@ -196,7 +196,7 @@
                                         @php
                                             $paid = $order->payments->sum('amount');
                                             $total = (float)($order->total_amount ?? 0);
-                                            $remainingDebt = max(0, $total - $paid);
+                                            $remainingDebt = max(0, $total - (float) $order->return_credit_amount - $paid);
                                         @endphp
 
                                         <div class="alert {{ $remainingDebt > 0 ? 'alert-danger' : 'alert-success' }}">

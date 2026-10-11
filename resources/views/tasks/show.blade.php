@@ -165,9 +165,12 @@
     $isRevision = $status === 'revision';
     $isRejected = $status === 'rejected';
     $isApproved = $status === 'approved';
+    $isCancelled = $status === 'cancelled';
+    $isHcns = \App\Services\Hr\Kpi\HcnsAdminTasks::is($task) && \App\Services\Hr\Kpi\HcnsAdminTasks::ready();
+    $isSelfAssignee = (int) ($task->assignee_id ?? 0) === (int) auth()->id();
     $returnReason = $task->revision_reason ?? $task->rejection_reason ?? null;
     $canBossEdit = (bool)($canApprove ?? false);
-    $canEditResult = ($canUpdate && !$isApproved) || $canBossEdit;
+    $canEditResult = (($canUpdate && !$isApproved) || $canBossEdit) && !$isCancelled;
     $canDeleteTaskFiles = (bool)($canApprove ?? false);
 @endphp
 
@@ -250,13 +253,13 @@
 
                     <div class="d-flex gap-2 flex-wrap align-items-center">
                         <a class="btn btn-sm btn-outline-primary btn-pill"
-                           href="{{ asset('storage/' . $revisionFile->file_path) }}"
+                           href="{{ route('tasks.attachments.file', [$task, $revisionFile->id]) }}"
                            target="_blank">
                             <i class="bi bi-eye"></i> Xem
                         </a>
 
                         <a class="btn btn-sm btn-outline-secondary btn-pill"
-                           href="{{ asset('storage/' . $revisionFile->file_path) }}"
+                           href="{{ route('tasks.attachments.file', [$task, $revisionFile->id, 'download' => 1]) }}"
                            download>
                             <i class="bi bi-download"></i> Tải
                         </a>
@@ -363,6 +366,10 @@
             </div>
         @endif
 
+        @if($isHcns)
+            @include('tasks.partials.hcns-show')
+        @endif
+
         <div class="layout">
             <div>
                 <div class="soft-card">
@@ -429,12 +436,12 @@
                                     <div class="task-preview-btn-group">
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-primary btn-pill task-preview-btn"
-                                                data-file-url="{{ asset('storage/' . $file->file_path) }}"
+                                                data-file-url="{{ route('tasks.attachments.file', [$task, $file->id]) }}"
                                                 data-file-name="{{ $file->file_name }}"
                                                 data-file-mime="{{ $file->file_mime }}">
                                             Xem
                                         </button>
-                                        <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank" class="btn btn-sm btn-outline-secondary btn-pill">
+                                        <a href="{{ route('tasks.attachments.file', [$task, $file->id]) }}" target="_blank" class="btn btn-sm btn-outline-secondary btn-pill">
                                             Tải
                                         </a>
 
@@ -502,12 +509,12 @@
                                             <div class="task-preview-btn-group">
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-primary btn-pill task-preview-btn"
-                                                    data-file-url="{{ asset('storage/' . $file->file_path) }}"
+                                                    data-file-url="{{ route('tasks.attachments.file', [$task, $file->id]) }}"
                                                     data-file-name="{{ $file->file_name }}"
                                                     data-file-mime="{{ $file->file_mime }}">
                                                 Xem
                                             </button>
-                                            <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank" class="btn btn-sm btn-outline-secondary btn-pill">
+                                            <a href="{{ route('tasks.attachments.file', [$task, $file->id]) }}" target="_blank" class="btn btn-sm btn-outline-secondary btn-pill">
                                                 Tải
                                             </a>
                                         </div>
@@ -611,7 +618,12 @@
                                     <input type="file" name="result_attachments[]" class="form-control" multiple>
                                 </div>
 
-                                <button class="btn {{ ($isSubmitted || $isApproved) ? 'btn-warning' : 'btn-success' }} w-100 btn-pill">
+                                @if($isHcns && $isSelfAssignee && !$isSubmitted && !$isApproved)
+                                    <button class="btn btn-outline-secondary w-100 btn-pill mb-2" type="submit" name="intent" value="draft" formnovalidate data-hcns-draft>
+                                        <i class="bi bi-save"></i> Lưu nháp (chưa gửi người kiểm)
+                                    </button>
+                                @endif
+                                <button class="btn {{ ($isSubmitted || $isApproved) ? 'btn-warning' : 'btn-success' }} w-100 btn-pill" type="submit" name="intent" value="submit">
                                     <i class="bi bi-save2"></i>
                                     {{ $isApproved ? 'Cập nhật kết quả đã duyệt' : (($isRevision || $isRejected) ? 'Nộp lại kết quả' : ($isSubmitted ? 'Cập nhật lại bài nộp' : 'Nộp kết quả')) }}
                                 </button>
@@ -622,7 +634,7 @@
             </div>
 
             <div>
-                @if($canUpdate && !$isSubmitted && !$isApproved)
+                @if($canUpdate && !$isSubmitted && !$isApproved && !$isCancelled)
                     <div class="soft-card">
                         <div class="card-head dark">
                             <i class="bi bi-graph-up"></i> Cập nhật nhanh
@@ -696,6 +708,9 @@
                                             'resubmitted' => 'Đã nộp lại kết quả',
                                             'revision_requested' => 'Yêu cầu sửa đổi',
                                             'approved' => 'Đã duyệt hoàn thành',
+                                            'draft_saved' => 'Lưu nháp kết quả',
+                                            'due_changed' => 'Đổi hạn hoàn thành',
+                                            'cancelled' => 'Hủy thủ tục',
                                         ];
                                     @endphp
                                     <div class="task-activity__item">
@@ -726,6 +741,10 @@
                                 <div class="alert alert-success rounded-4 mb-0">
                                     Công việc này đã được duyệt hoàn thành.
                                 </div>
+                            @elseif($isCancelled)
+                                <div class="alert alert-secondary rounded-4 mb-0">Thủ tục đã hủy{{ $task->cancel_reason ? ': '.$task->cancel_reason : '' }}</div>
+                            @elseif($isSubmitted && $isHcns && $isSelfAssignee)
+                                <div class="alert alert-info rounded-4 mb-0">Bạn là người thực hiện — người kiểm khác sẽ xác nhận hoặc trả bổ sung.</div>
                             @elseif($isSubmitted)
                                 <form method="POST" action="{{ route('tasks.approve', $task) }}">
                                     @csrf
@@ -791,6 +810,16 @@
 
                             <hr>
 
+                            @if($isHcns)
+                                @if(!$isApproved && !$isCancelled && ((int) $task->requester_id === (int) auth()->id() || \App\Services\Tasks\TaskPermissions::canAssign(auth()->user())))
+                                    <form method="POST" action="{{ route('tasks.cancel', $task) }}" onsubmit="return confirm('Hủy thủ tục này? Hồ sơ và lý do vẫn được giữ.')" data-hcns-cancel>
+                                        @csrf
+                                        <label class="form-label">Lý do hủy thủ tục</label>
+                                        <textarea name="cancel_reason" rows="2" class="form-control mb-2" required minlength="5" placeholder="Ví dụ: Cơ quan dừng tiếp nhận, Ban giám đốc đổi kế hoạch…"></textarea>
+                                        <button class="btn btn-outline-danger w-100 btn-pill"><i class="bi bi-x-octagon"></i> Hủy thủ tục (giữ hồ sơ)</button>
+                                    </form>
+                                @endif
+                            @else
                             <form method="POST"
                                   action="{{ route('tasks.destroy', $task) }}"
                                   onsubmit="return confirm('Bạn chắc chắn muốn xóa công việc này?')">
@@ -800,6 +829,7 @@
                                     <i class="bi bi-trash"></i> Xóa công việc
                                 </button>
                             </form>
+                            @endif
                         </div>
                     </div>
                 @endif
@@ -842,7 +872,8 @@
             lower.includes('powerpoint');
 
         if(isOffice){
-            return 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(absoluteUrl);
+            // Tệp chỉ mở được khi đã đăng nhập (route kiểm quyền) — không gửi link sang trình xem bên ngoài; tải về để mở.
+            return null;
         }
 
         return absoluteUrl;
@@ -857,8 +888,13 @@
         const absoluteUrl = new URL(url, window.location.origin).href;
 
         title.textContent = name || 'Xem file';
-        download.href = absoluteUrl;
-        frame.src = buildPreviewUrl(absoluteUrl, mime);
+        download.href = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'download=1';
+        const previewUrl = buildPreviewUrl(absoluteUrl, mime);
+        if(!previewUrl){
+            window.location.href = download.href;
+            return;
+        }
+        frame.src = previewUrl;
         backdrop.classList.add('show');
     }
 

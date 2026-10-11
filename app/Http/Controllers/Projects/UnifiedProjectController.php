@@ -208,7 +208,7 @@ class UnifiedProjectController extends Controller
         $salesScope = app(UnifiedProjectAccess::class)->isSalesScoped($user);
 
         $data = $request->validate([
-            'company_id' => ['nullable', 'integer'],
+
             'name' => ['required', 'string', 'max:255'],
             'project_type' => ['required', Rule::in(['solar_farm', 'factory', 'industrial', 'large_residential', 'other'])],
             'address' => ['required', 'string', 'max:700'],
@@ -232,9 +232,11 @@ class UnifiedProjectController extends Controller
             $data['lead_engineer_id'] = null;
         }
 
+        $data['company_id'] = \App\Support\EgoCompanyLock::id();
+
         $site = DB::transaction(function () use ($data, $user, $salesScope): Site {
             $row = [
-                'company_id' => ($data['company_id'] ?? 0) > 0 ? (int) $data['company_id'] : null,
+                'company_id' => $data['company_id'],
                 'created_by' => (int) $user->id,
                 'request_source' => $salesScope ? 'sales' : 'technical',
                 'sales_user_id' => $salesScope ? (int) $user->id : null,
@@ -340,6 +342,50 @@ class UnifiedProjectController extends Controller
         })->values();
 
         return response()->json(['data' => $rows]);
+    }
+
+    /**
+     * Trang "Hướng dẫn sử dụng" Công trình → Nghiệm thu → KPI (chỉ đọc).
+     * Cùng quyền xem công trình với trang chi tiết; nút quay lại chỉ dẫn về đúng công trình này (bước/vị trí đã
+     * kiểm tra theo danh sách cho phép), không nhận URL tùy ý.
+     */
+    public function guide(Request $request, Site $site): View
+    {
+        $user = $request->user();
+        abort_unless($user, 403);
+        $this->abortIfCannotView($site, $user);
+
+        $step = (string) $request->query('step', 'overview');
+        $steps = ['overview', 'survey', 'contract', 'materials', 'construction', 'acceptance'];
+        if ($this->canViewFinance($user)) {
+            $steps[] = 'finance';
+        }
+        $step = in_array($step, $steps, true) ? $step : 'overview';
+        $anchor = (string) $request->query('anchor', '');
+        $anchor = preg_match('/^[a-z][a-z0-9\-]{0,39}$/', $anchor) === 1 ? $anchor : '';
+        $returnUrl = route('projects-unified.show', $step === 'overview' ? ['site' => $site->id] : ['site' => $site->id, 'step' => $step])
+            .($anchor !== '' ? '#'.$anchor : '');
+
+        $month = now()->format('Y-m');
+        $config = \App\Models\TechnicalKpiConfig::getActiveForDate($month.'-01');
+        $evaluator = app(\App\Services\TechnicalKpi\KpiStandardEvaluator::class)->useConfig($config, $month);
+        $roles = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->map(fn ($r) => strtolower((string) $r))->all() : [];
+        $viewerRole = app(ProjectWorkflowV2Service::class)->isAdmin($user) ? 'admin'
+            : (array_intersect($roles, ['technical_manager', 'technical_leader', 'truong_phong_ky_thuat']) !== [] ? 'manager' : 'staff');
+
+        return view('projects-unified.guide', [
+            'site' => $site,
+            'returnUrl' => $returnUrl,
+            'returnStep' => $step,
+            'viewerRole' => $viewerRole,
+            'kpiMonth' => $month,
+            'kpiCriteria' => $evaluator->criteria(),
+            'kpiRule' => $evaluator->rule(),
+            'kpiConfig' => $config,
+            // Link trang KPI chỉ hiện với vai trò được vào trang đó (khớp middleware route), tránh dẫn tới 403.
+            'canOpenKpi' => \Illuminate\Support\Facades\Route::has('ky-thuat.kpis.index')
+                && array_intersect($roles, ['ky_thuat', 'technical', 'technical_manager', 'accounting', 'admin', 'manager', 'management']) !== [],
+        ]);
     }
 
     public function show(Request $request, Site $site): View
@@ -1571,6 +1617,10 @@ class UnifiedProjectController extends Controller
 
         $oldId = (int) ($site->lead_engineer_id ?? 0);
         $newId = (int) $data['lead_engineer_id'];
+        // Kỹ sư chính là người chịu KPI công trình: không đổi khi kỳ KPI của công trình đã chốt (kể cả Admin).
+        if ($oldId !== $newId) {
+            app(\App\Services\Projects\AcceptanceKpiService::class)->assertSourceUnlocked((int) $site->id);
+        }
 
         DB::transaction(function () use ($site, $oldId, $newId, $data): void {
             $site->forceFill($this->filterColumns('sites', [
@@ -2045,10 +2095,7 @@ class UnifiedProjectController extends Controller
             return;
         }
 
-        $companyId = (int) $request->input('company_id', 0);
-        if ($companyId <= 0) {
-            $companyId = $this->activeCompanyId($request);
-        }
+        $companyId = \App\Support\EgoCompanyLock::id();
 
         if ($companyId > 0) {
             $query->where('company_id', $companyId);
@@ -2816,16 +2863,7 @@ class UnifiedProjectController extends Controller
 
     private function activeCompanyId(Request $request): int
     {
-        foreach (['company_id', 'ego_company_id', 'active_company_id', 'selected_company_id'] as $key) {
-            $value = $key === 'company_id'
-                ? (int) $request->input($key, 0)
-                : (int) session($key, 0);
-            if ($value > 0) {
-                return $value;
-            }
-        }
-
-        return 0;
+        return \App\Support\EgoCompanyLock::id();
     }
 
     private function roles($user): array

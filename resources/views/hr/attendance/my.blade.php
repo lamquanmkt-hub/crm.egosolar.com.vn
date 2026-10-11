@@ -7,6 +7,7 @@
     <style>
         #egoAttendancePromax .at-correction-btn{border:0;border-radius:10px;padding:7px 10px;background:#e7f8fb;color:#087e91;font-weight:800;font-size:12px;white-space:nowrap}
         #egoAttendancePromax .at-correction-btn:hover{background:#cceff4}
+        #egoAttendancePromax .at-ot-pill{display:inline-flex;align-items:center;gap:4px;margin-top:4px;border-radius:999px;padding:3px 8px;background:#efeafe;color:#5b3fb6;font-weight:800;font-size:10px;white-space:nowrap}
         #egoAttendancePromax .at-correction-pending{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:6px 9px;background:#fff4d6;color:#946200;font-weight:800;font-size:11px;white-space:nowrap;text-decoration:none}
         .at-correction-dialog{width:min(620px,calc(100vw - 28px));border:0;border-radius:22px;padding:0;box-shadow:0 28px 80px rgba(2,31,50,.3);color:#102a43}
         .at-correction-dialog::backdrop{background:rgba(2,24,38,.65);backdrop-filter:blur(3px)}
@@ -35,7 +36,11 @@
     $validDays = $records->filter(fn ($record) => filled($record->check_in_at))->count();
     $lateDays = $records->filter(fn ($record) => (int) $record->late_minutes > 0)->count();
     $completedDays = $records->where('status', 'completed')->count();
-    $totalHours = round($records->sum('work_minutes') / 60, 1);
+    $overtimeHours = (float) ($overtimeHours ?? 0);
+    $overtimeByDate = $overtimeByDate ?? collect();
+    // Tổng giờ công = giờ chấm công + giờ tăng ca đã duyệt trong tháng.
+    $totalHours = round($records->sum('work_minutes') / 60 + $overtimeHours, 1);
+    $fmtOtHours = static fn ($h) => rtrim(rtrim(number_format((float) $h, 2, ',', '.'), '0'), ',');
     $onTimeDays = $records->filter(fn ($record) => filled($record->check_in_at) && (int) $record->late_minutes === 0)->count();
     $onTimeRate = $validDays > 0 ? round(($onTimeDays / $validDays) * 100) : 0;
 
@@ -100,6 +105,13 @@
                     @endif
                 </a>
 
+                <a class="at-btn at-btn--glass" href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}" data-overtime-link>
+                    <i class="bi bi-moon-stars"></i>Tăng ca
+                    @if(($myPendingOvertimeCount ?? 0) > 0)
+                        <span class="at-badge-count">{{ $myPendingOvertimeCount }}</span>
+                    @endif
+                </a>
+
                 @if($canReviewLeave)
                     <a class="at-btn at-btn--glass" href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}">
                         <i class="bi bi-check2-square"></i>Duyệt đơn nhân sự
@@ -114,6 +126,15 @@
                         <i class="bi bi-person-check"></i>Duyệt sửa công
                         @if($pendingCorrectionApprovalCount > 0)
                             <span class="at-badge-count">{{ $pendingCorrectionApprovalCount }}</span>
+                        @endif
+                    </a>
+                @endif
+
+                @if($canReviewOvertime ?? false)
+                    <a class="at-btn at-btn--glass" href="{{ route('hr.overtime.index', ['tab' => 'approval', 'status' => 'pending']) }}" data-overtime-review-link>
+                        <i class="bi bi-moon-stars-fill"></i>Duyệt tăng ca
+                        @if(($pendingOvertimeApprovalCount ?? 0) > 0)
+                            <span class="at-badge-count">{{ $pendingOvertimeApprovalCount }}</span>
                         @endif
                     </a>
                 @endif
@@ -152,7 +173,16 @@
                 <div class="at-kpi__icon"><i class="bi bi-hourglass-split"></i></div>
                 <label>Tổng giờ công</label>
                 <strong>{{ number_format($totalHours, 1, ',', '.') }}</strong>
-                <small>Giờ đã ghi nhận</small>
+                <small data-overtime-kpi>
+                    @if($overtimeHours > 0)
+                        Gồm {{ $fmtOtHours($overtimeHours) }} giờ tăng ca đã duyệt
+                    @else
+                        Giờ đã ghi nhận
+                    @endif
+                    @if(($myPendingOvertimeCount ?? 0) > 0)
+                        · {{ $myPendingOvertimeCount }} đơn tăng ca chờ duyệt
+                    @endif
+                </small>
             </article>
         </section>
 
@@ -272,7 +302,13 @@
                                     <td><div class="at-address">{{ $record->check_out_address ?: '—' }}</div></td>
                                     <td>{{ (int) $record->late_minutes }} phút</td>
                                     <td>{{ (int) $record->early_leave_minutes }} phút</td>
-                                    <td>{{ number_format($record->work_minutes / 60, 2, ',', '.') }} giờ</td>
+                                    <td>
+                                        {{ number_format($record->work_minutes / 60, 2, ',', '.') }} giờ
+                                        @php $dayOvertime = $overtimeByDate->get($record->work_date->toDateString()); @endphp
+                                        @if($dayOvertime && $dayOvertime->isNotEmpty())
+                                            <div><span class="at-ot-pill" title="{{ $dayOvertime->map(fn ($ot) => $ot->start_at->format('H:i').' - '.$ot->end_at->format('H:i'))->implode(', ') }}"><i class="bi bi-moon-stars"></i>Tăng ca {{ $fmtOtHours($dayOvertime->sum('hours')) }}h</span></div>
+                                        @endif
+                                    </td>
                                     <td>
                                         <span class="at-status-pill at-status-pill--{{ $statusClass($record->status) }}">
                                             {{ $record->status_label }}

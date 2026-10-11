@@ -14,6 +14,12 @@
     @if(session('success'))
         <div class="alert alert-success" style="border-radius:16px;font-weight:800">{{ session('success') }}</div>
     @endif
+    @if(session('error'))
+        <div class="alert alert-danger" style="border-radius:16px;font-weight:800">{{ session('error') }}</div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger" style="border-radius:16px;font-weight:800">{{ $errors->first() }}</div>
+    @endif
 
     <div class="hs-hero">
         <div class="hs-hero-inner">
@@ -139,14 +145,22 @@
 
                 <div style="height:1px;background:#e2e8f0;margin:16px 0"></div>
 
+                @if(empty($kpiReview?->first_submitted_at))
                 <form method="POST" action="{{ route('hr.document-handovers.destroy', $item->id) }}" onsubmit="return confirm('Xóa hồ sơ này?')">
                     @csrf
                     @method('DELETE')
                     <button class="hs-btn danger" type="submit">Xóa hồ sơ</button>
                 </form>
+                @else
+                    <div class="hs-muted">Hồ sơ đã gửi kiểm tra KPI HC07 — không xóa được (giữ nguồn và lịch sử xác nhận).</div>
+                @endif
             </div>
         </div>
 
+
+        @if(($kpiReady ?? false) && ! empty($item->kpi_tracked) && $kpiRow)
+            @include('hr.document-handovers._kpi-review')
+        @endif
 
         <div class="hs-card" style="grid-column:1 / -1">
             <div class="hs-card-head">
@@ -238,6 +252,29 @@
             @method('PUT')
             @include('hr.document-handovers._form', ['item' => $item, 'users' => $users, 'priorities' => $priorities])
         </form>
+    </div>
+</div>
+
+{{-- Thêm file và xem trước: modal được gọi bởi nút “+ Thêm file” / “Xem trước” (trước đây thiếu nên hai nút không hoạt động). --}}
+<div class="hs-modal" id="uploadFileModal">
+    <div class="hs-modal-box" style="width:min(560px,96vw)">
+        <div class="hs-modal-head">
+            <h3 class="hs-modal-title">Thêm file cho {{ $item->code }}</h3>
+            <button class="hs-close" type="button" onclick="closeHsModal('uploadFileModal')">×</button>
+        </div>
+        <form class="hs-form" method="POST" action="{{ route('hr.document-handovers.files.upload', $item->id) }}" enctype="multipart/form-data">
+            @csrf
+            <input class="hs-input" type="file" name="attachments[]" multiple required>
+            <div class="hs-muted" style="margin-top:6px">Tệp mới lưu riêng tư, chỉ mở qua nút Xem trước / Tải xuống.@if(($kpiReview->status ?? null) && in_array($kpiReview->status, ['submitted', 'confirmed'], true)) Thêm tệp sau khi gửi kiểm KPI sẽ phải gửi và kiểm lại.@endif</div>
+            <div class="hs-form-actions"><button type="button" class="hs-btn soft" onclick="closeHsModal('uploadFileModal')">Đóng</button><button class="hs-btn dark" type="submit">Tải lên</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="hs-preview-modal" id="hsPreviewModal">
+    <div class="hs-preview-box">
+        <div class="hs-preview-head"><span class="hs-preview-title" id="hsPreviewTitle">Xem trước file</span><button class="hs-preview-close" type="button" onclick="closeHsPreview()">Đóng</button></div>
+        <iframe class="hs-preview-frame" id="hsPreviewFrame" src="about:blank" title="Xem trước file"></iframe>
     </div>
 </div>
 

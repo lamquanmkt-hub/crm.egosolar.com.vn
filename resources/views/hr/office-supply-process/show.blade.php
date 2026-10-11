@@ -8,6 +8,10 @@
         <div class="vpp-alert">{{ session('success') }}</div>
     @endif
 
+    @if(session('error'))
+        <div class="vpp-error">{{ session('error') }}</div>
+    @endif
+
     @if($errors->any())
         <div class="vpp-error">{{ $errors->first() }}</div>
     @endif
@@ -26,6 +30,85 @@
             <a class="vpp-btn-outline" href="{{ url('/nhan-su/quy-trinh-phan-bo-vpp') }}">← Quay lại</a>
         </div>
     </div>
+
+    @if(! empty($kpiTracked))
+        @php
+            $vf = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('H:i d/m/Y') : '—';
+            $vdt = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('Y-m-d\TH:i') : '';
+        @endphp
+        @include('hr.kpi._source-review-panel', ['p' => [
+            'id' => 'kpi-hc06',
+            'title' => 'Theo dõi KPI HC06 · Cấp phát VPP theo yêu cầu',
+            'row' => $kpiRow, 'review' => $kpiReview, 'events' => $kpiEvents, 'files' => $kpiFiles, 'missing' => $kpiMissing,
+            'locked' => $kpiLocked, 'isOwner' => $kpiIsHandler, 'canEdit' => $kpiCanEdit, 'canReview' => $kpiCanReview,
+            'checks' => $allocationChecks,
+            'facts' => [
+                ['Người yêu cầu', $kpiNames[(int) $requestRow->requester_user_id] ?? '—'],
+                ['Người xử lý (chịu KPI)', $kpiNames[(int) $requestRow->handler_id] ?? '—'],
+                ['Người kiểm', $kpiNames[(int) $requestRow->reviewer_id] ?? '—'],
+                ['HCNS nhận yêu cầu', $vf($requestRow->request_received_at)],
+                ['Hạn cấp phát', $vf($requestRow->due_at)],
+                ['Giao thực tế', $vf($requestRow->delivered_at)],
+                ['Người nhận tự xác nhận', $requestRow->receipt_confirmed_at ? ($kpiNames[(int) $requestRow->receipt_confirmed_by] ?? '—').' · '.$vf($requestRow->receipt_confirmed_at) : 'Chưa (dùng biên bản ký nhận)'],
+                ['Kỳ KPI', $requestRow->due_at ? 'Tháng '.\Carbon\Carbon::parse($requestRow->due_at)->format('m/Y').' (theo tháng của hạn)' : '—'],
+            ],
+            'routes' => [
+                'draft' => route('hr.office-supply-process.kpi.draft', $requestRow->id),
+                'submit' => route('hr.office-supply-process.kpi.submit', $requestRow->id),
+                'confirm' => route('hr.office-supply-process.kpi.confirm', $requestRow->id),
+                'return' => route('hr.office-supply-process.kpi.return', $requestRow->id),
+                'upload' => route('hr.office-supply-process.kpi.files.upload', $requestRow->id),
+            ],
+            'fileUrl' => fn ($f, $download) => route('hr.office-supply-process.kpi.files.show', [$requestRow->id, $f->id]).($download ? '?download=1' : ''),
+            'deleteUrl' => fn ($f) => route('hr.office-supply-process.kpi.files.delete', [$requestRow->id, $f->id]),
+            'how' => '<b>Ai làm gì:</b> người xử lý ghi giờ nhận yêu cầu, hạn, giờ giao thực tế, tải biên bản/ảnh ký nhận → <em>Gửi kiểm tra</em>; '
+                .'người kiểm (khác người xử lý) chấm <em>Mốc đúng thực tế · Đúng loại/đủ số lượng · Người nhận đã ký/xác nhận</em>. '
+                .'<b>Khi nào tính:</b> chỉ phiếu đã được kiểm và cả 3 mục đạt; giao ≤ hạn là đúng hạn. Chưa gửi/chờ kiểm chưa vào mẫu số. '
+                .'<b>Chưa tính điểm HC06</b> khi cách gộp ba nhóm (H-D04) chưa chốt — chỉ là số đo nhóm cấp phát.',
+        ]])
+
+        @if($kpiCanEdit && ! $kpiLocked)
+            <details class="vpp-card" style="padding:14px 16px" data-vpp-kpi-edit @if($errors->hasAny(['requester_user_id','handler_id','reviewer_id','request_received_at','due_at','delivered_at'])) open @endif>
+                <summary style="cursor:pointer;font-weight:900;color:#0f3b78">Sửa mốc / người của phiếu KPI</summary>
+                <form method="POST" action="{{ route('hr.office-supply-process.kpi.update', $requestRow->id) }}" style="margin-top:10px">
+                    @csrf
+                    @method('PUT')
+                    <div class="vpp-form-grid">
+                        <div><label class="vpp-label">Người yêu cầu *</label>
+                            <select class="vpp-select" name="requester_user_id" required>
+                                @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('requester_user_id', $requestRow->requester_user_id) === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                            </select></div>
+                        <div><label class="vpp-label">Người xử lý (chịu KPI) *</label>
+                            <select class="vpp-select" name="handler_id" required>
+                                @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('handler_id', $requestRow->handler_id) === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                            </select></div>
+                        <div><label class="vpp-label">Người kiểm (khác người xử lý) *</label>
+                            <select class="vpp-select" name="reviewer_id" required>
+                                @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('reviewer_id', $requestRow->reviewer_id) === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                            </select></div>
+                        <div><label class="vpp-label">HCNS nhận yêu cầu lúc *</label>
+                            <input class="vpp-input" type="datetime-local" name="request_received_at" value="{{ old('request_received_at', $vdt($requestRow->request_received_at)) }}" required></div>
+                        <div><label class="vpp-label">Hạn cấp phát *</label>
+                            <input class="vpp-input" type="datetime-local" name="due_at" value="{{ old('due_at', $vdt($requestRow->due_at)) }}" required></div>
+                        <div><label class="vpp-label">Giao thực tế lúc *</label>
+                            <input class="vpp-input" type="datetime-local" name="delivered_at" value="{{ old('delivered_at', $vdt($requestRow->delivered_at)) }}" required></div>
+                        <div class="vpp-field-full"><label class="vpp-label">Lý do sửa</label>
+                            <input class="vpp-input" name="note" maxlength="2000" placeholder="VD: ghi nhầm giờ giao"></div>
+                    </div>
+                    <div style="margin-top:10px"><button class="vpp-btn" type="submit">Lưu thay đổi</button>
+                        <span class="vpp-muted">Nếu phiếu đã gửi/kiểm tra, xác nhận cũ hết hiệu lực — cần gửi lại.</span></div>
+                </form>
+            </details>
+        @endif
+
+        @if($kpiIsRequester && empty($requestRow->receipt_confirmed_at) && ! $kpiLocked)
+            <form method="POST" action="{{ route('hr.office-supply-process.kpi.receipt', $requestRow->id) }}" class="vpp-card" style="padding:12px 16px">
+                @csrf
+                <b>Bạn là người yêu cầu phiếu này.</b> <span class="vpp-muted">Xác nhận đã nhận đủ vật phẩm.</span>
+                <button class="vpp-btn" type="submit" style="margin-left:8px">Tôi đã nhận</button>
+            </form>
+        @endif
+    @endif
 
     <div class="vpp-layout">
         <div>

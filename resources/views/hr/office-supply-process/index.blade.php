@@ -295,6 +295,10 @@
                                             <td>{{ number_format($r->total_issued ?? 0, 0) }}</td>
                                             <td>
                                                 <button class="vpp-btn-soft" type="button" data-vpp-view="{{ $r->id }}">Xem</button>
+                                                @if(! empty($r->kpi_tracked))
+                                                    <a class="vpp-kpi-chip" href="{{ route('hr.office-supply-process.show', $r->id) }}#kpi-hc06" data-vpp-kpi-link="{{ $r->id }}"
+                                                       title="Phiếu theo dõi KPI HC06">KPI · {{ \App\Services\Hr\Kpi\HcnsSourceReviews::STATUSES[$kpiStatuses[$r->id] ?? ''] ?? 'Chưa gửi' }}</a>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
@@ -480,6 +484,42 @@
 
                 <label class="vpp-label">Ghi chú</label>
                 <textarea class="vpp-textarea" name="note"></textarea>
+
+                @if(! empty($kpiReady))
+                    <div class="vpp-kpi-box" data-vpp-kpi-box>
+                        <label class="vpp-kpi-toggle">
+                            <input type="checkbox" name="kpi_tracked" value="1" data-vpp-kpi-toggle @checked(old('kpi_tracked'))>
+                            Theo dõi KPI HC06 (cấp phát theo yêu cầu có hạn)
+                        </label>
+                        <div class="vpp-kpi-fields" data-vpp-kpi-fields @if(! old('kpi_tracked')) hidden @endif>
+                            <p class="vpp-muted">Nhập giờ thật. Không dùng giờ lưu phiếu làm giờ nhận yêu cầu. Sau khi lưu, tải biên bản/ảnh ký nhận rồi gửi kiểm ở trang chi tiết.</p>
+                            <div class="vpp-form-grid">
+                                <div><label class="vpp-label">Người yêu cầu (tài khoản) *</label>
+                                    <select class="vpp-select" name="requester_user_id" data-vpp-kpi-required>
+                                        <option value="">-- Chọn --</option>
+                                        @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('requester_user_id') === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                                    </select></div>
+                                <div><label class="vpp-label">Người xử lý (chịu KPI)</label>
+                                    <select class="vpp-select" name="handler_id">
+                                        <option value="">Tôi ({{ auth()->user()->name ?? '' }})</option>
+                                        @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('handler_id') === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                                    </select></div>
+                                <div><label class="vpp-label">Người kiểm (khác người xử lý) *</label>
+                                    <select class="vpp-select" name="reviewer_id" data-vpp-kpi-required>
+                                        <option value="">-- Chọn --</option>
+                                        @foreach($kpiUsers as $u)<option value="{{ $u->id }}" @selected((int) old('reviewer_id') === (int) $u->id)>{{ $u->name }}</option>@endforeach
+                                    </select></div>
+                                <div><label class="vpp-label">HCNS nhận yêu cầu lúc *</label>
+                                    <input class="vpp-input" type="datetime-local" name="request_received_at" value="{{ old('request_received_at') }}" data-vpp-kpi-required></div>
+                                <div><label class="vpp-label">Hạn cấp phát *</label>
+                                    <input class="vpp-input" type="datetime-local" name="due_at" value="{{ old('due_at') }}" data-vpp-kpi-required></div>
+                                <div><label class="vpp-label">Giao thực tế lúc</label>
+                                    <input class="vpp-input" type="datetime-local" name="delivered_at" value="{{ old('delivered_at') }}">
+                                    <small class="vpp-muted">Để trống = lúc bấm lưu.</small></div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="vpp-modal-foot">
@@ -608,7 +648,53 @@ document.querySelectorAll('.vpp-modal form').forEach(function(form) {
 </script>
 
 
+<script>
+(function () {
+    var toggle = document.querySelector('[data-vpp-kpi-toggle]');
+    var fields = document.querySelector('[data-vpp-kpi-fields]');
+    if (!toggle || !fields) return;
+    function sync() {
+        fields.hidden = !toggle.checked;
+        fields.querySelectorAll('[data-vpp-kpi-required]').forEach(function (el) { el.required = toggle.checked; });
+    }
+    toggle.addEventListener('change', sync);
+    sync();
+    @if($errors->any() && old('kpi_tracked'))
+        var m = document.getElementById('modalAllocate');
+        if (m) m.classList.add('active');
+    @endif
+})();
+</script>
+
 <style>
+.vpp-kpi-box {
+    margin-top: 10px;
+    border: 1px dashed #c7d6ea;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: #f8fbff;
+}
+.vpp-kpi-toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-weight: 800;
+    color: #0f3b78;
+    font-size: 13px;
+}
+.vpp-kpi-fields { margin-top: 8px; }
+.vpp-kpi-chip {
+    display: inline-block;
+    margin-top: 4px;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 11.5px;
+    font-weight: 800;
+    background: #eef4fb;
+    color: #0f3b78;
+    text-decoration: none;
+    white-space: nowrap;
+}
 .vpp-link-btn {
     border: 0;
     background: transparent;

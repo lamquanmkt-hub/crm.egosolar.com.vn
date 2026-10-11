@@ -61,6 +61,11 @@
 
     @include('technical.workboard.partials.flash')
 
+    @include('technical.partials.kpi-work-rules')
+    @if($planItem || $isEdit)
+        @include('technical.partials.kpi-work-status', ['kpiItem' => $planItem, 'kpiReport' => $report])
+    @endif
+
     @if(! $isEdit && ! $hasAnySource)
         <div class="tw-note mb-3">
             <i class="bi bi-info-circle"></i>
@@ -121,6 +126,11 @@
                                         <div class="form-text">
                                             Chọn đúng dòng kế hoạch để hệ thống so sánh được kế hoạch với kết quả.
                                         </div>
+                                        @foreach($planItems as $option)
+                                            <div data-kpi-report-option="{{ $option->id }}" @if((int) old('plan_item_id') !== (int) $option->id) hidden @endif>
+                                                @include('technical.partials.kpi-work-status', ['kpiItem' => $option, 'kpiReport' => null])
+                                            </div>
+                                        @endforeach
                                     </div>
                                 @endif
 
@@ -316,6 +326,7 @@
                             <div class="form-text">
                                 "Hoàn tất báo cáo" là trạng thái đã nộp — hệ thống dùng ngay để so sánh
                                 kế hoạch với kết quả, không cần chờ Ban giám đốc duyệt.
+                                <strong>KPI:</strong> nút này ghi lần gửi đầu; Lưu nháp chưa tính là nộp. Báo cáo phải gắn đúng việc trưởng phòng giao và gửi trong hạn mới nhận phần điểm Tiến độ.
                             </div>
                         </div>
                     </div>
@@ -341,6 +352,16 @@
     document.addEventListener('DOMContentLoaded', function () {
         var select = document.getElementById('work-item');
         if (select && select.value) { egoSplitWorkItem(select); }
+        var planSelect = document.getElementById('plan-item');
+        var unplanned = document.getElementById('is_unplanned');
+        function showSelectedKpiHint() {
+            document.querySelectorAll('[data-kpi-report-option]').forEach(function (panel) {
+                panel.hidden = !planSelect || panel.dataset.kpiReportOption !== planSelect.value || (unplanned && unplanned.checked);
+            });
+        }
+        if (planSelect) { planSelect.addEventListener('change', showSelectedKpiHint); }
+        if (unplanned) { unplanned.addEventListener('change', showSelectedKpiHint); }
+        showSelectedKpiHint();
     });
 </script>
 @endpush

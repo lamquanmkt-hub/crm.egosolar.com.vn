@@ -1,16 +1,16 @@
 <style>
 /* EGO_HR_MENU_HIERARCHY_V4_CSS */
-#menuNhanSu.ego-hr-v4-root{gap:3px!important}
-#menuNhanSu .ego-hr-v4-group{list-style:none!important;margin:0!important;padding:0!important}
-#menuNhanSu .ego-hr-v4-details{margin:0!important;padding:0!important}
-#menuNhanSu .ego-hr-v4-summary{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;cursor:pointer!important;list-style:none!important}
-#menuNhanSu .ego-hr-v4-summary::-webkit-details-marker{display:none!important}
-#menuNhanSu .ego-hr-v4-summary::marker{display:none!important;content:""!important}
-#menuNhanSu .ego-hr-v4-chevron{font-size:11px!important;transition:transform .16s ease!important}
-#menuNhanSu details[open]>.ego-hr-v4-summary .ego-hr-v4-chevron{transform:rotate(180deg)!important}
-#menuNhanSu .ego-hr-v4-children{display:none!important;list-style:none!important;margin:3px 0 5px 10px!important;padding:2px 0 2px 8px!important;border-left:1px solid rgba(148,163,184,.20)!important}
-#menuNhanSu details[open]>.ego-hr-v4-children{display:flex!important;flex-direction:column!important;gap:2px!important}
-#menuNhanSu .ego-hr-v4-children .ego-sublink{font-size:12px!important;line-height:1.25!important;padding:7px 9px!important;min-height:30px!important}
+:is(#menuNhanSu,#menuBangLuong).ego-hr-v4-root{gap:3px!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-group{list-style:none!important;margin:0!important;padding:0!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-details{margin:0!important;padding:0!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-summary{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;cursor:pointer!important;list-style:none!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-summary::-webkit-details-marker{display:none!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-summary::marker{display:none!important;content:""!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-chevron{font-size:11px!important;transition:transform .16s ease!important}
+:is(#menuNhanSu,#menuBangLuong) details[open]>.ego-hr-v4-summary .ego-hr-v4-chevron{transform:rotate(180deg)!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-children{display:none!important;list-style:none!important;margin:3px 0 5px 10px!important;padding:2px 0 2px 8px!important;border-left:1px solid rgba(148,163,184,.20)!important}
+:is(#menuNhanSu,#menuBangLuong) details[open]>.ego-hr-v4-children{display:flex!important;flex-direction:column!important;gap:2px!important}
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-v4-children .ego-sublink{font-size:12px!important;line-height:1.25!important;padding:7px 9px!important;min-height:30px!important}
 /* Quan trọng: flyout/panel là DOM clone, details native vẫn tự đóng/mở, không phụ thuộc ID Bootstrap. */
 .ego-flyout .ego-hr-v4-children{display:none!important}
 .ego-flyout details[open]>.ego-hr-v4-children{display:flex!important;flex-direction:column!important;gap:2px!important}
@@ -1148,6 +1148,17 @@
                             </li>
                         @endif
                         {{-- EGO_WAREHOUSE_RECEIVABLE_CLASSIC_MENU_V2_END --}}
+
+                        {{-- Kho xem công nợ nhà cung cấp (chỉ xem) --}}
+                        @if(\Illuminate\Support\Facades\Route::has('finance.supplier-debts.index') && $u && $u->hasAnyRole(['admin','warehouse','kho']))
+                            <li>
+                                <a href="{{ route('finance.supplier-debts.index') }}"
+                                   class="ego-sublink {{ request()->routeIs('finance.supplier-debts.*') ? 'active' : '' }}"
+                                   data-ego-type="nav">
+                                    Công nợ nhà cung cấp
+                                </a>
+                            </li>
+                        @endif
 </ul>
                 </li>
             @endif
@@ -1344,10 +1355,10 @@
             @if(!$egoCanHrMenu && auth()->check())
                 <li class="ego-item ego-item--has-sub" data-title="Nhân sự cá nhân" data-ego-sub="true">
                     <a href="#menuNhanSuCaNhan"
-                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}"
+                       class="ego-link {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'active' : '' }}"
                        data-bs-toggle="collapse"
                        data-ego-type="toggle"
-                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'true' : 'false' }}"
+                       aria-expanded="{{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'true' : 'false' }}"
                        aria-controls="menuNhanSuCaNhan">
                         <span class="ego-ic"><i class="bi bi-person-workspace"></i></span>
                         <span class="ego-txt">Nhân sự</span>
@@ -1357,13 +1368,19 @@
                         <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
                     </a>
                     <ul id="menuNhanSuCaNhan"
-                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.gifts.requests.*') ? 'show' : '' }}"
+                        class="ego-sub collapse {{ request()->routeIs('hr.attendance.*') || request()->routeIs('hr.leave.*') || request()->routeIs('hr.gifts.requests.*') || request()->routeIs('hr.overtime.*') ? 'show' : '' }}"
                         data-ego-submenu>
                         <li><a href="{{ route('hr.attendance.my') }}" class="ego-sublink {{ active_route('hr.attendance.my') }}" data-ego-type="nav">Chấm công của tôi</a></li>
                         @if(\Illuminate\Support\Facades\Route::has('hr.gifts.requests.index'))
                             <li><a href="{{ route('hr.gifts.requests.index') }}" class="ego-sublink {{ request()->routeIs('hr.gifts.requests.*') ? 'active' : '' }}" data-ego-type="nav">Yêu cầu tặng quà</a></li>
                         @endif
                         <li><a href="{{ route('hr.leave.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav">Đơn nghỉ phép / làm online</a></li>
+                        @if(\Illuminate\Support\Facades\Route::has('hr.overtime.index'))
+                            <li><a href="{{ route('hr.overtime.index', ['tab' => 'mine']) }}" class="ego-sublink {{ request()->routeIs('hr.overtime.*') && request('tab', 'mine') === 'mine' ? 'active' : '' }}" data-ego-type="nav" data-overtime-menu>Tăng ca</a></li>
+                            @if(app(\App\Services\Hr\OvertimeAccessService::class)->canReview(auth()->user()))
+                                <li><a href="{{ route('hr.overtime.index', ['tab' => 'approval', 'status' => 'pending']) }}" class="ego-sublink {{ request()->routeIs('hr.overtime.*') && request('tab') === 'approval' ? 'active' : '' }}" data-ego-type="nav" data-overtime-review-menu>Duyệt tăng ca</a></li>
+                            @endif
+                        @endif
                         @if($egoCanReviewLeave)
                             <li>
                                 <a href="{{ route('hr.leave.index', ['tab' => 'approval', 'status' => 'pending']) }}" class="ego-sublink {{ request()->routeIs('hr.leave.*') && request('tab') === 'approval' ? 'active' : '' }}" data-ego-type="nav" style="display:flex;align-items:center;gap:8px">
@@ -1405,12 +1422,17 @@
             || request()->routeIs('hr.leave.*')
             || request()->routeIs('hr.overtime.*');
 
-        $egoHrAnyOpen = request()->routeIs('hr.*')
+        $egoHrKpiSettingsOpen = request()->routeIs('hr.kpi.settings*', 'ky-thuat.kpis.config*', 'sales.kpi.settings*', 'marketing.kpi-payroll.settings*');
+        $egoHrPayrollOpen = $egoHrKpiSettingsOpen || request()->routeIs('hr.payroll.*')
+            || request()->routeIs('hr.kpi.*');
+        $egoCanManagePayroll = \App\Services\Hr\Payroll\PayrollAccess::canManage(auth()->user());
+
+        $egoHrAnyOpen = (!$egoCanManagePayroll || !$egoHrPayrollOpen) && (request()->routeIs('hr.*')
             && !request()->routeIs('hr.document-handovers.*')
             && !request()->routeIs('hr.operations.*')
             && !request()->routeIs('hr.office-expenses.*')
             && !request()->routeIs('hr.office-supply-process.*')
-            && !request()->routeIs('hr.gifts.*');
+            && !request()->routeIs('hr.gifts.*'));
     @endphp
 
     <li class="ego-item ego-item--has-sub"
@@ -1504,6 +1526,15 @@
                 </details>
             </li>
 
+            @if(\Illuminate\Support\Facades\Route::has('hr.kpi-my'))
+                <li><a href="{{ route('hr.kpi-my') }}" class="ego-sublink {{ request()->routeIs('hr.kpi-my') ? 'active' : '' }}" data-ego-type="nav">KPI của tôi</a></li>
+            @endif
+            @if(\Illuminate\Support\Facades\Route::has('hr.incidents.index'))
+                <li><a href="{{ route('hr.incidents.index') }}" class="ego-sublink {{ request()->routeIs('hr.incidents.*') ? 'active' : '' }}" data-ego-type="nav">Sự cố văn phòng</a></li>
+            @endif
+            @if(!$egoCanManagePayroll && \Illuminate\Support\Facades\Route::has('hr.payroll.my'))
+                <li><a href="{{ route('hr.payroll.my') }}" class="ego-sublink {{ request()->routeIs('hr.payroll.my') ? 'active' : '' }}" data-ego-type="nav">Phiếu lương của tôi</a></li>
+            @endif
             @if(\Illuminate\Support\Facades\Route::has('hr.recruitment.index') || \Illuminate\Support\Facades\Route::has('hr.candidate-processes.index'))
                 <li class="ego-hr-v4-group">
                     <details class="ego-hr-v4-details" {{ $egoHrRecruitmentOpen ? 'open' : '' }}>
@@ -1542,6 +1573,22 @@
             @endif
         </ul>
     </li>
+    @if($egoCanManagePayroll && \Illuminate\Support\Facades\Route::has('hr.payroll.my'))
+        <li class="ego-item ego-item--has-sub" data-title="Bảng lương" data-ego-sub="true" data-ego-menu-permission="menu.hr">
+            <a href="#menuBangLuong"
+               class="ego-link {{ $egoHrPayrollOpen ? 'active' : '' }}"
+               data-bs-toggle="collapse" data-ego-type="toggle"
+               aria-expanded="{{ $egoHrPayrollOpen ? 'true' : 'false' }}"
+               aria-controls="menuBangLuong">
+                <span class="ego-ic"><i class="bi bi-cash-stack"></i></span>
+                <span class="ego-txt">Bảng lương</span>
+                <span class="ego-caret"><i class="bi bi-chevron-down"></i></span>
+            </a>
+            <ul id="menuBangLuong" class="ego-sub collapse {{ $egoHrPayrollOpen ? 'show' : '' }} ego-hr-v4-root" data-ego-submenu>
+                @include('partials.hr-payroll-menu-items', ['payrollMenuItems' => config('hr_payroll_menu.children', [])])
+            </ul>
+        </li>
+    @endif
 @endif
 {{-- EGO_HR_MENU_HIERARCHY_V4_20260907_END --}}
 
@@ -2885,15 +2932,15 @@
     gap:3px !important;
 }
 
-#menuNhanSu > li{
+:is(#menuNhanSu,#menuBangLuong) > li{
     list-style:none !important;
     margin:0 !important;
     padding:0 !important;
 }
 
-#menuNhanSu .ego-sublink,
-#menuNhanSu .ego-hr-clean-link,
-#menuNhanSu .ego-recruitment-sidebar-link{
+:is(#menuNhanSu,#menuBangLuong) .ego-sublink,
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link,
+:is(#menuNhanSu,#menuBangLuong) .ego-recruitment-sidebar-link{
     display:flex !important;
     align-items:center !important;
     justify-content:flex-start !important;
@@ -2914,30 +2961,30 @@
     box-shadow:none !important;
 }
 
-#menuNhanSu .ego-sublink:hover,
-#menuNhanSu .ego-hr-clean-link:hover,
-#menuNhanSu .ego-recruitment-sidebar-link:hover{
+:is(#menuNhanSu,#menuBangLuong) .ego-sublink:hover,
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link:hover,
+:is(#menuNhanSu,#menuBangLuong) .ego-recruitment-sidebar-link:hover{
     color:#e9fdff !important;
     background:rgba(34,211,238,.09) !important;
     border-color:rgba(34,211,238,.14) !important;
     box-shadow:0 10px 24px rgba(0,0,0,.12) !important;
 }
 
-#menuNhanSu .ego-sublink.active,
-#menuNhanSu .ego-hr-clean-link.active,
-#menuNhanSu .ego-recruitment-sidebar-link.active{
+:is(#menuNhanSu,#menuBangLuong) .ego-sublink.active,
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link.active,
+:is(#menuNhanSu,#menuBangLuong) .ego-recruitment-sidebar-link.active{
     color:#e9fdff !important;
     background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(14,165,233,.06)) !important;
     border-color:rgba(34,211,238,.20) !important;
 }
 
-#menuNhanSu .nav-item{
+:is(#menuNhanSu,#menuBangLuong) .nav-item{
     list-style:none !important;
     margin:0 !important;
     padding:0 !important;
 }
 
-#menuNhanSu .nav-link{
+:is(#menuNhanSu,#menuBangLuong) .nav-link{
     display:flex !important;
     align-items:center !important;
     width:100% !important;
@@ -2954,7 +3001,7 @@
     border:1px solid transparent !important;
 }
 
-#menuNhanSu .nav-link i{
+:is(#menuNhanSu,#menuBangLuong) .nav-link i{
     display:none !important;
 }
 /* EGO_HR_MENU_CLEAN_BALANCE_END */
@@ -2964,7 +3011,7 @@
 <style>
 
 /* EGO_HR_HANDOVER_MENU_POLISH_START */
-#menuNhanSu .ego-hr-clean-link{
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link{
     display:flex !important;
     align-items:center !important;
     width:100% !important;
@@ -2978,12 +3025,12 @@
     font-weight:650 !important;
     line-height:1.15 !important;
 }
-#menuNhanSu .ego-hr-clean-link:hover{
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link:hover{
     color:#e9fdff !important;
     background:rgba(34,211,238,.09) !important;
     border-color:rgba(34,211,238,.14) !important;
 }
-#menuNhanSu .ego-hr-clean-link.active{
+:is(#menuNhanSu,#menuBangLuong) .ego-hr-clean-link.active{
     color:#e9fdff !important;
     background:linear-gradient(135deg, rgba(34,211,238,.18), rgba(14,165,233,.06)) !important;
     border-color:rgba(34,211,238,.20) !important;

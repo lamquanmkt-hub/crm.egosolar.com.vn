@@ -63,6 +63,7 @@ class CustomerDebtController extends Controller
         }
 
         $orders = $query->get();
+        Order::preloadReturnCredits($orders);
 
         $grouped = $orders
             ->groupBy(function ($order) {
@@ -185,6 +186,7 @@ class CustomerDebtController extends Controller
         }
 
         $orders = $query->get();
+        Order::preloadReturnCredits($orders);
 
         $grouped = $orders
             ->groupBy(function ($order) {
@@ -287,6 +289,7 @@ class CustomerDebtController extends Controller
         }
 
         $orders = $query->paginate(20)->appends($request->query());
+        Order::preloadReturnCredits($orders->getCollection());
 
         $orders->getCollection()->transform(function ($order) {
             $money = $this->mapMoney($order);
@@ -328,7 +331,11 @@ class CustomerDebtController extends Controller
      */
     private function mapMoney($order): array
     {
+        // Tổng phải thu = tổng đơn − giá trị hàng khách đã trả lại (phiếu đã nhập kho).
         $total = (float) ($order->total_amount ?? 0);
+        if ($order instanceof Order) {
+            $total = max(0.0, $total - $order->return_credit_amount);
+        }
 
         if ($total <= 0) {
             return [

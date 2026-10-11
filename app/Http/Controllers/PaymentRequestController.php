@@ -698,7 +698,7 @@ class PaymentRequestController extends Controller
                 }
 
                 if (!$companyId) {
-                    $companyId = (int) $request->input('company_id', session('active_company_id', 0));
+                    $companyId = (int) $request->input('company_id', \App\Support\EgoCompanyLock::id());
                 }
 
                 if ($companyId > 0) {

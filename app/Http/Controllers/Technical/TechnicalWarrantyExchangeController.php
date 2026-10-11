@@ -146,7 +146,9 @@ class TechnicalWarrantyExchangeController extends Controller
         $company = EgoCompanyScope::currentId();
         $scope = function ($q) use ($company): void {
             if ($company > 0) {
-                $q->where(fn ($w) => $w->where('company_id', $company)->orWhereNull('company_id'));
+                $q->where('company_id', $company);
+            } else {
+                $q->whereRaw('1 = 0');
             }
         };
 
@@ -292,6 +294,8 @@ class TechnicalWarrantyExchangeController extends Controller
             'defer_return' => $isLead && $status === 'waiting_faulty_return' && $claim->faulty_return_status !== 'deferred' && $claim->faulty_return_status !== 'returned',
             'complete' => $isLead && in_array($status, ['faulty_returned', 'waiting_faulty_return'], true),
             'evidence' => (SolarMaintenanceAccess::isManager($user) || $isAssigned) && \App\Support\Warranty\WarrantyFlow::isOpen($status),
+            // Phân công / đổi người phụ trách: chỉ Trưởng phòng KT/Giám đốc/Admin, khi phiếu còn mở.
+            'assign' => $isLead && \App\Support\Warranty\WarrantyFlow::isOpen($status),
         ];
 
         return view('technical.warranty-exchange.show', [
@@ -313,6 +317,8 @@ class TechnicalWarrantyExchangeController extends Controller
             'priorClaims' => DB::table('crm_serial_warranty_claims')->where('serial_unit_id', $claim->serial_unit_id)->where('id', '<>', $claim->id)->whereNull('deleted_at')
                 ->orderByDesc('id')->limit(10)->get(['id', 'claim_code', 'claim_type', 'status', 'created_at']),
             'can' => $can,
+            // Danh sách để phân công (khi duyệt phiếu chưa có người phụ trách, hoặc đổi người phụ trách).
+            'technicians' => $can['assign'] ? app(SolarMaintenanceQueryService::class)->technicalUsers() : collect(),
             'canViewCosts' => SolarMaintenanceAccess::canViewMaintenanceCosts($user),
             'canViewInternal' => SolarMaintenanceAccess::canViewTechnicalInternal($user),
             'faultyConditions' => \App\Support\Warranty\WarrantyFlow::FAULTY_CONDITIONS,
@@ -482,7 +488,8 @@ class TechnicalWarrantyExchangeController extends Controller
         $this->assertCompany((int) ($claim->company_id ?: $claim->site?->company_id), $request);
 
         if (SolarMaintenanceAccess::isTechnicianOnly($request->user())) {
-            abort_unless((int) $claim->assigned_to === (int) $request->user()->id, 403);
+            // Kỹ thuật viên xem phiếu mình phụ trách hoặc phiếu mình tạo (kể cả khi đã được chuyển cho người khác).
+            abort_unless(in_array((int) $request->user()->id, [(int) $claim->assigned_to, (int) $claim->created_by], true), 403);
         }
     }
 
@@ -518,18 +525,14 @@ class TechnicalWarrantyExchangeController extends Controller
         $query = SolarWarrantyClaim::query()->where('claim_type', 'replacement');
         $companyId = EgoCompanyScope::currentId();
 
-        if ($companyId > 0 && ! SolarMaintenanceAccess::isAdmin($user)) {
-            $query->where(function (Builder $company) use ($companyId): void {
-                $company->where('company_id', $companyId)
-                    ->orWhere(function (Builder $fallback) use ($companyId): void {
-                        $fallback->whereNull('company_id')
-                            ->whereHas('site', fn (Builder $site) => $site->where('company_id', $companyId));
-                    });
-            });
+        if ($companyId > 0) {
+            $query->where('company_id', $companyId);
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         if (SolarMaintenanceAccess::isTechnicianOnly($user)) {
-            $query->where('assigned_to', $user->id);
+            $query->where(fn (Builder $mine) => $mine->where('assigned_to', $user->id)->orWhere('created_by', $user->id));
         }
 
         return $query;
@@ -856,8 +859,15 @@ class TechnicalWarrantyExchangeController extends Controller
 
     protected function assertSerialCompany(object $serial, int $companyId, Request $request): void
     {
+        $current = EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            throw ValidationException::withMessages(['serial_code' => 'Phiên làm việc không có công ty.']);
+        }
         if ($companyId <= 0) {
-            return;
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không xác định công ty.']);
+        }
+        if ($current !== $companyId) {
+            throw ValidationException::withMessages(['serial_code' => 'Yêu cầu không thuộc công ty đang làm việc.']);
         }
 
         $knownCompanyIds = collect([
@@ -865,6 +875,12 @@ class TechnicalWarrantyExchangeController extends Controller
             (int) ($serial->order_company_id ?? 0),
             (int) ($serial->customer_company_id ?? 0),
         ])->filter(fn (int $id): bool => $id > 0)->unique();
+
+        if ($knownCompanyIds->isEmpty()) {
+            throw ValidationException::withMessages([
+                'serial_code' => 'Serial này không xác định công ty.',
+            ]);
+        }
 
         if ($knownCompanyIds->contains(fn (int $id): bool => $id !== $companyId)) {
             throw ValidationException::withMessages([
@@ -876,7 +892,13 @@ class TechnicalWarrantyExchangeController extends Controller
     protected function assertCompany(int $companyId, Request $request): void
     {
         $current = EgoCompanyScope::currentId();
-        if ($current > 0 && $companyId > 0 && $current !== $companyId && ! SolarMaintenanceAccess::isAdmin($request->user())) {
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        if ($companyId <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        if ($current !== $companyId) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
     }

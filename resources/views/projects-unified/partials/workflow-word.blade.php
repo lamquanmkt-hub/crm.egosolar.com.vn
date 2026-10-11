@@ -171,6 +171,7 @@
             <form method="POST" action="{{ route('projects-unified.workflow.data.save', [$site,$wfStepCode]) }}" class="pword-form pword-update-form">
                 @csrf
                 @if($wfStepCode === 'construction')
+                    <input type="hidden" name="has_incident" value="0">
                     <label class="check"><input type="checkbox" name="has_incident" value="1" @checked(!empty($wfStepData['has_incident']))>Có phát sinh/sự cố cần biên bản giải trình</label>
                 @endif
                 @if($wfStepCode === 'acceptance')
@@ -179,6 +180,37 @@
                 <label>{{ $wfStepCode === 'construction' ? 'Ghi chú thi công' : 'Ghi chú' }}<textarea name="step_note" rows="3">{{ $wfStepData['step_note'] ?? '' }}</textarea></label>
                 <button class="pword-btn primary" type="submit">{{ $wfStepCode === 'construction' ? 'Lưu cập nhật' : 'Lưu' }}</button>
             </form>
+        @endif
+
+        @if($wfStepCode === 'contract')
+            @php
+                $wfLegalRow = \Illuminate\Support\Facades\DB::table('project_workflow_steps')->where('site_id', $site->id)->where('step_code', 'legal')->first();
+                $wfGrid = app(\App\Services\Projects\AcceptanceKpiService::class)->gridDecision((int) $site->id);
+                $wfLegalValue = $wfGrid['required'] === null ? '' : ($wfGrid['required'] ? '1' : '0');
+                $wfCanSetGrid = $wfLegalRow && ($wfIsAdmin || \Illuminate\Support\Facades\DB::table('project_workflow_assignments')->where('workflow_step_id', $wfLegalRow->id)->where('user_id', auth()->id())->where('is_active', 1)->exists());
+            @endphp
+            <section class="ewd-doc-section pword-grid-decision" id="grid-decision">
+                <header class="ewd-doc-section-head"><div><h3>ĐẤU NỐI ĐIỆN LỰC (HỒ SƠ PHÁP LÝ)</h3><small>Căn cứ để KPI EVN &amp; App biết có bắt buộc đóng điện thử. Chưa xác định thì KPI báo thiếu, không tự miễn.</small></div></header>
+                @if($wfCanSetGrid)
+                    <form method="POST" action="{{ route('projects-unified.workflow.data.save', [$site, 'legal']) }}" class="pword-form grid">
+                        @csrf
+                        <label>Công trình cần đấu nối điện lực
+                            <select name="requires_grid_connection">
+                                <option value="" @selected($wfLegalValue === '')>Chưa xác định</option>
+                                <option value="1" @selected($wfLegalValue === '1')>Có — cần hồ sơ đấu nối / đóng điện EVN</option>
+                                <option value="0" @selected($wfLegalValue === '0')>Không cần đấu nối</option>
+                            </select>
+                        </label>
+                        <button class="pword-btn primary" type="submit">Lưu quyết định</button>
+                    </form>
+                @endif
+                <p class="pword-note">Hiện tại: <strong>{{ $wfGrid['label'] }}</strong>@if($wfGrid['at']) · ghi nhận {{ $wfGrid['by'] ? (\App\Models\User::query()->whereKey($wfGrid['by'])->value('name') ?? '—') : '—' }} · {{ \Illuminate\Support\Carbon::parse($wfGrid['at'])->format('H:i d/m/Y') }}@endif</p>
+            </section>
+        @endif
+
+        @if($wfStepCode === 'acceptance' && $wfRow)
+            @include('projects-unified.partials.workflow-material-kpi')
+            @include('projects-unified.partials.workflow-kpi-review')
         @endif
 
         @if(!empty($wfStepData['step_note']))
@@ -207,6 +239,15 @@
                 <i class="bi bi-exclamation-triangle"></i>
                 <span><strong>File hồ sơ chưa đầy đủ.</strong> Còn thiếu: {{ implode('; ', $wfMissingFiles) }}. Admin vẫn có quyền duyệt ngoại lệ.</span>
             </div>
+        @endif
+        @if($wfStepCode === 'acceptance' && $wfRow && $wfStatus !== 'approved' && $wfIsAdmin)
+            @php($wfKpiConfirmed = collect(app(\App\Services\Projects\AcceptanceKpiService::class)->summary($wfRow))->where('status', 'confirmed')->count())
+            @if($wfKpiConfirmed < count(\App\Services\Projects\AcceptanceKpiService::GROUPS))
+                <div class="pword-approval-warning">
+                    <i class="bi bi-info-circle"></i>
+                    <span><strong>Kết quả KPI nghiệm thu: {{ $wfKpiConfirmed }}/{{ count(\App\Services\Projects\AcceptanceKpiService::GROUPS) }} nhóm đã được Trưởng phòng xác nhận.</strong> Vẫn duyệt nghiệm thu được; nhóm chưa xác nhận sẽ báo thiếu trên trang KPI và sau khi duyệt chỉ Admin sửa được.</span>
+                </div>
+            @endif
         @endif
         @if($wfMissingInformation !== [] && $wfStatus !== 'approved')
             <div class="pword-approval-warning">

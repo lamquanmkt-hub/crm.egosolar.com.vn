@@ -29,6 +29,8 @@
 
     @include('technical.workboard.partials.flash')
 
+    @include('technical.partials.kpi-work-rules')
+
     <div class="tp-weekbar">
         <div class="tp-weekbar__nav">
             <a class="btn btn-sm btn-outline-secondary" href="{{ route('technical.today', ['date' => $prevDate]) }}">
@@ -81,6 +83,7 @@
                                 <td>
                                     <span class="tp-table__title">{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->title) }}</span>
                                     <span class="tp-table__sub">{{ $item->sourceLabel() }} · {{ $item->priorityLabel() }}</span>
+                                    @include('technical.partials.kpi-work-status', ['kpiItem' => $item])
                                 </td>
                                 <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->site_name ?? '—') }}</td>
                                 <td>{{ \App\Services\Technical\TechnicalWeekPlanService::displayLabel($item->objective ?: '—') }}</td>

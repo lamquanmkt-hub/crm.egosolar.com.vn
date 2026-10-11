@@ -26,9 +26,30 @@ class WarrantyExchangeWorkflowController extends Controller
 
     public function approve(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
     {
-        $d = $r->validate(['approval_note' => ['nullable', 'string', 'max:5000'], 'override_reason' => ['nullable', 'string', 'max:2000']]);
+        $d = $r->validate([
+            'approval_note' => ['nullable', 'string', 'max:5000'],
+            'override_reason' => ['nullable', 'string', 'max:2000'],
+            'assigned_to' => ['nullable', 'integer'],
+        ]);
 
-        return $this->run($claim, 'Đã duyệt và chuyển Kho xử lý.', fn () => $this->service->approve($claim->id, $r->user(), $d['approval_note'] ?? null, $d['override_reason'] ?? null));
+        return $this->run($claim, 'Đã duyệt và chuyển Kho xử lý.', fn () => $this->service->approve(
+            $claim->id,
+            $r->user(),
+            $d['approval_note'] ?? null,
+            $d['override_reason'] ?? null,
+            isset($d['assigned_to']) ? (int) $d['assigned_to'] : null
+        ));
+    }
+
+    /** Phân công / đổi kỹ thuật viên phụ trách — chỉ Trưởng phòng Kỹ thuật/Giám đốc/Admin (kiểm tra lại trong service). */
+    public function assign(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
+    {
+        $d = $r->validate([
+            'assigned_to' => ['required', 'integer'],
+            'reason' => ['nullable', 'string', 'max:2000'],
+        ], ['assigned_to.required' => 'Vui lòng chọn kỹ thuật viên phụ trách.']);
+
+        return $this->run($claim, 'Đã cập nhật người phụ trách.', fn () => $this->service->assign($claim->id, $r->user(), (int) $d['assigned_to'], $d['reason'] ?? null));
     }
 
     public function requestInfo(Request $r, SolarWarrantyClaim $claim): RedirectResponse|JsonResponse
@@ -157,9 +178,18 @@ class WarrantyExchangeWorkflowController extends Controller
         abort_unless($claim->claim_type === WarrantyFlow::TYPE_EXCHANGE, 404);
         $user = request()->user();
         abort_unless(SolarMaintenanceAccess::canViewAny($user), 403);
+        
         $current = \App\Support\Synced\EgoCompanyScope::currentId();
+        if ($current <= 0) {
+            abort(403, 'Phiên làm việc không có công ty.');
+        }
+        
         $cc = (int) $claim->company_id;
-        if ($current > 0 && $cc > 0 && $current !== $cc && ! SolarMaintenanceAccess::isAdmin($user)) {
+        if ($cc <= 0) {
+            abort(403, 'Dữ liệu không xác định công ty.');
+        }
+        
+        if ($current !== $cc) {
             abort(403, 'Dữ liệu không thuộc công ty đang làm việc.');
         }
         try {
