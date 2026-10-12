@@ -205,6 +205,12 @@ class SolarMaintenanceAccess
             || self::hasPermission($user, 'maintenance.assign');
     }
 
+    public static function canApproveAssignment(?User $user): bool
+    {
+        return self::isAdmin($user)
+            || self::hasAny($user, ['technical_manager']);
+    }
+
     /** Tương thích code cũ: manage nay đồng nghĩa quản lý kế hoạch, không còn mặc định cho mọi kỹ thuật viên. */
     public static function canManage(?User $user): bool
     {

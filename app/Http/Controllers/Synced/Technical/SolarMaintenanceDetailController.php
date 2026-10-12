@@ -340,6 +340,7 @@ class SolarMaintenanceDetailController extends Controller
                 'stock' => $canManageStock,
                 'finance' => $canViewCosts,
                 'manager' => SolarMaintenanceAccess::isManager($request->user()),
+                'assignment_approve' => SolarMaintenanceAccess::canApproveAssignment($request->user()),
                 'assignment_admin' => SolarMaintenanceAccess::isAdmin($request->user()),
                 'assignment_manage' => SolarMaintenanceAccess::isManager($request->user()),
                 'assignment_accept' => (bool) $currentAssignment,
