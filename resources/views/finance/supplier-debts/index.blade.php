@@ -2,12 +2,9 @@
     // Admin/Giám đốc hoặc người được cấp permission `payment_requests.override_locked`.
     $financeCompletedEditor = auth()->check() && auth()->user()->canOverrideLockedFinanceRecords();
 
-    // Role Kho (không kèm admin/kế toán) chỉ được xem: ẩn toàn bộ form thêm/sửa/xóa.
-    $sdCanWrite = ! (
-        auth()->check()
-        && auth()->user()->hasAnyRole(['warehouse', 'kho'])
-        && ! auth()->user()->hasAnyRole(['admin', 'accounting'])
-    );
+    // Đồng bộ các thao tác trên giao diện với nhóm role được phép tại route.
+    $sdCanWrite = auth()->check()
+        && auth()->user()->hasAnyRole(['admin', 'accounting', 'warehouse', 'kho']);
 @endphp
 
 @extends('layouts.app')
@@ -1435,4 +1432,3 @@
 @endif
 
 @endsection
-
