@@ -57,7 +57,10 @@ final class SupplierDebtWarehouseAccessTest extends TestCase
     public function test_warehouse_roles_open_the_list(): void
     {
         foreach ([['warehouse'], ['kho'], ['warehouse', 'sales']] as $roles) {
-            $this->actingAs($this->userWithRoles($roles))->get(self::BASE)->assertOk();
+            $this->actingAs($this->userWithRoles($roles))->get(self::BASE)
+                ->assertOk()
+                ->assertSeeText('Thêm công nợ nhà cung cấp')
+                ->assertSee('action="'.route('finance.supplier-debts.store').'"', false);
         }
     }
 
@@ -70,6 +73,12 @@ final class SupplierDebtWarehouseAccessTest extends TestCase
         $this->actingAs($kho)->post(self::BASE, $data)->assertSessionHasNoErrors()->assertRedirect();
         $debt = DB::table('finance_supplier_debts')->where('supplier_name', $data['supplier_name'])->first();
         $this->assertNotNull($debt);
+
+        $this->actingAs($kho)->get(self::BASE)
+            ->assertOk()
+            ->assertSee('action="'.route('finance.supplier-debts.update', $debt->id).'"', false)
+            ->assertSee('action="'.route('finance.supplier-debts.files.store', $debt->id).'"', false)
+            ->assertSee('action="'.route('finance.supplier-debts.payment-rounds.store', $debt->id).'"', false);
 
         // Sửa
         $this->actingAs($kho)->put(self::BASE.'/'.$debt->id, array_merge($data, ['total_amount' => 12_000_000]))
