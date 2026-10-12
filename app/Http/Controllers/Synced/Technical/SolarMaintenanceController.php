@@ -257,12 +257,12 @@ class SolarMaintenanceController extends Controller
                 'submitted_by' => $request->user()->id,
                 'action' => 'assignment_submitted',
                 'status' => 'pending',
-                'comment' => 'Đã chọn nhóm kỹ thuật, chờ Admin duyệt phân công.',
+                'comment' => 'Đã chọn nhóm kỹ thuật, chờ Admin hoặc Trưởng phòng Kỹ thuật duyệt phân công.',
                 'submitted_at' => now(),
                 'metadata' => ['assignee_ids' => $updated->assignees->pluck('user_id')->all()],
             ]);
 
-            return back()->with('success', 'Đã chọn nhân sự. Chờ Admin duyệt phân công.');
+            return back()->with('success', 'Đã chọn nhân sự. Chờ Admin hoặc Trưởng phòng Kỹ thuật duyệt phân công.');
         }
 
         return back()->with('success', 'Đã cập nhật lịch và ghi nhận lịch sử thay đổi.');
@@ -271,7 +271,7 @@ class SolarMaintenanceController extends Controller
     public function approveAssignment(Request $request, SolarMaintenanceSchedule $schedule): RedirectResponse
     {
         $this->authorize('view', $schedule);
-        abort_unless(SolarMaintenanceAccess::isAdmin($request->user()), 403, 'Chỉ Admin được duyệt phân công.');
+        abort_unless(SolarMaintenanceAccess::canApproveAssignment($request->user()), 403, 'Chỉ Admin hoặc Trưởng phòng Kỹ thuật được duyệt phân công.');
 
         if (! $schedule->assignees()->exists()) {
             return back()->with('error', 'Cần chọn kỹ thuật viên trước khi duyệt.');
@@ -281,7 +281,7 @@ class SolarMaintenanceController extends Controller
             if (in_array($schedule->status, ['draft', 'scheduled', 'unassigned'], true)) {
                 $this->service->changeStatus($schedule, [
                     'status' => 'assigned',
-                    'reason' => 'Admin duyệt phân công nhóm kỹ thuật.',
+                    'reason' => 'Đã duyệt phân công nhóm kỹ thuật.',
                 ], $request->user());
                 $schedule->refresh();
             }
@@ -292,7 +292,7 @@ class SolarMaintenanceController extends Controller
                 'approver_id' => $request->user()->id,
                 'action' => 'assignment_approved',
                 'status' => 'approved',
-                'comment' => 'Admin đã duyệt danh sách kỹ thuật viên được phân công.',
+                'comment' => 'Đã duyệt danh sách kỹ thuật viên được phân công.',
                 'submitted_at' => now(),
                 'reviewed_at' => now(),
                 'metadata' => ['assignee_ids' => $schedule->assignees()->pluck('user_id')->all()],
@@ -310,7 +310,7 @@ class SolarMaintenanceController extends Controller
 
         $approval = $schedule->approvals()->where('approval_level', 'assignment')->latest('id')->first();
         if ($approval && $approval->status !== 'approved') {
-            return back()->with('error', 'Admin chưa duyệt phân công.');
+            return back()->with('error', 'Phân công chưa được duyệt.');
         }
 
         DB::transaction(function () use ($request, $schedule, $assignment): void {
